@@ -96,6 +96,29 @@ that order and now stubs the background reload it was racing.
 check now fails when they disagree about message types or keys. See
 [protocol-contract-check.md](../protocol-contract-check.md).
 
+### Mobile widget files
+
+`session_card.dart` (3,306 → 622 lines) and `new_session_sheet.dart`
+(4,941 → 1,758 lines) were split into one file per widget group under
+`lib/widgets/session_card/` and `lib/widgets/new_session_sheet/`. The classes
+were moved unchanged; the ones used across files became public. What is left
+in `new_session_sheet.dart` is the form state of the sheet (about 1,600
+lines). Moving that into a Cubit is a design change, not a move, and was not
+done.
+
+### `BridgeService` and `ChatSessionCubit`
+
+Only state-free helpers were moved out (`bridge_service_helpers.dart`,
+`chat_entry_helpers.dart`). A reference graph of `BridgeService` (160 fields,
+311 members) shows why nothing more can be moved mechanically: with the hub
+methods removed (`connect`, `dispose`, the two reset methods), 214 methods and
+93 fields still form one connected component of about 3,250 lines. The
+offline queue, the in-flight maps, the session list and the runtime store are
+each touched by 13 to 22 methods. Splitting it into connection lifecycle,
+offline outbox and history synchronization means designing the interfaces
+between them first; subclasses in tests override public members freely, so
+forwarding methods have to stay on the service.
+
 ## Fallback policy for follow-up work
 
 - Protocol input: reject malformed values; do not coerce them.
@@ -113,9 +136,10 @@ check now fails when they disagree about message types or keys. See
 
 1. Break up the largest handlers (`resume_session`, `set_permission_mode`,
    `set_sandbox_mode`, `start`, `input`), which were moved whole.
-2. Split `BridgeService` into connection lifecycle, offline outbox, and history
-   synchronization collaborators, preserving reconnect tests before moving
-   code.
+2. Design the collaborators of `BridgeService` (connection lifecycle, offline
+   outbox, history synchronization) and their interfaces, then move one at a
+   time behind forwarding methods, preserving reconnect tests. Start with
+   `connect`, whose 570-line message dispatch reaches every other part.
 3. Split `messages.dart` parsing by protocol domain and replace duplicated
    Claude/Codex screen helpers with shared session components.
 

@@ -11,11 +11,11 @@ import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
 import '../../../services/chat_message_handler.dart';
 import '../../../utils/skill_invocation.dart';
-import '../permission_transcript.dart';
 import '../question_answer_transcript.dart';
 import 'background_completion_gate.dart';
 import 'chat_session_state.dart';
 import 'streaming_state_cubit.dart';
+import 'chat_entry_helpers.dart';
 
 /// Manages the state of a single chat session.
 ///
@@ -67,19 +67,6 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     if (_respondedToolUseIds.length > _maxRespondedToolUseIds) {
       _respondedToolUseIds.remove(_respondedToolUseIds.first);
     }
-  }
-
-  ApprovalState _approvalStateForPermission(PermissionRequestMessage request) {
-    if (request.usesAskUserUi) {
-      return ApprovalState.askUser(
-        toolUseId: request.toolUseId,
-        input: request.input,
-      );
-    }
-    return ApprovalState.permission(
-      toolUseId: request.toolUseId,
-      request: request,
-    );
   }
 
   PermissionMode? _pendingPermissionRollback;
@@ -640,7 +627,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         .where((mode) => mode.value == context.effectivePermissionMode)
         .firstOrNull;
     final sandboxMode = isCodex
-        ? _sandboxModeFromContext(context.codexSandboxMode)
+        ? sandboxModeFromContext(context.codexSandboxMode)
         : switch (context.sandboxEnabled) {
             true => SandboxMode.on,
             false => SandboxMode.off,
@@ -666,7 +653,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     final approval =
         pendingPermission != null &&
             !_respondedToolUseIds.contains(pendingPermission.toolUseId)
-        ? _approvalStateForPermission(pendingPermission)
+        ? approvalStateForPermission(pendingPermission)
         : context.status == 'waiting_approval' || hasOptionalQuestion
         ? state.approval
         : const ApprovalState.none();
@@ -723,24 +710,18 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     );
   }
 
-  SandboxMode? _sandboxModeFromContext(String? raw) => switch (raw) {
-    'on' || 'workspace-write' => SandboxMode.on,
-    'off' || 'danger-full-access' => SandboxMode.off,
-    _ => null,
-  };
-
   void _applyUpdate(ChatStateUpdate update, ServerMessage originalMsg) {
     final current = state;
     var entriesToPrepend = update.entriesToPrepend;
     var entriesToAdd = update.entriesToAdd;
-    if (update.entriesToPrepend.any(_isAnsweredToolResult) ||
-        update.entriesToAdd.any(_isAnsweredToolResult)) {
+    if (update.entriesToPrepend.any(isAnsweredToolResult) ||
+        update.entriesToAdd.any(isAnsweredToolResult)) {
       final transcriptContextEntries = [
         ...current.entries,
         ...update.entriesToPrepend,
         ...update.entriesToAdd,
       ];
-      final questionInputs = _questionInputsByToolUseId(
+      final questionInputs = questionInputsByToolUseId(
         transcriptContextEntries,
       );
       final seenQuestionAnswers = update.replaceEntries
@@ -762,7 +743,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
               permissionOutcome: PermissionOutcome.answered,
             ),
           )) {
-            final clientMessageId = _questionAnswerClientMessageId(toolUseId);
+            final clientMessageId = questionAnswerClientMessageId(toolUseId);
             if (seenQuestionAnswers.contains(clientMessageId)) continue;
             final transcript = questionAnswerTranscript(
               input: questionInputs[toolUseId],
@@ -919,7 +900,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         :imageUrls,
         :timestamp,
       ) = update.userUuidUpdate!;
-      final matchIndex = _userEntryMatchIndex(
+      final matchIndex = userEntryMatchIndex(
         entries,
         text: text,
         imageCount: imageCount,
@@ -1053,7 +1034,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       if (toolUseId != null &&
           !_respondedToolUseIds.contains(toolUseId) &&
           (!preserveActiveRequest || activeToolUseId == toolUseId)) {
-        approval = _approvalStateForPermission(update.pendingPermission!);
+        approval = approvalStateForPermission(update.pendingPermission!);
       }
     }
     if (update.askToolUseId != null) {
@@ -1074,7 +1055,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       final tracked = _handler.pendingInputs.first;
       if (tracked != null &&
           !_respondedToolUseIds.contains(tracked.toolUseId)) {
-        approval = _approvalStateForPermission(tracked);
+        approval = approvalStateForPermission(tracked);
       }
     }
 
@@ -1087,7 +1068,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     // --- Update hidden tool use IDs (for subagent summary compression) ---
     var hiddenToolUseIds = current.hiddenToolUseIds;
     if (update.replaceEntries) {
-      hiddenToolUseIds = _hiddenToolUseIdsFromEntries(entries);
+      hiddenToolUseIds = hiddenToolUseIdsFromEntries(entries);
     } else if (update.toolUseIdsToHide.isNotEmpty) {
       hiddenToolUseIds = {...hiddenToolUseIds, ...update.toolUseIdsToHide};
     }
@@ -1206,7 +1187,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         itemId: current.queuedInput!.itemId,
       );
     }
-    final usage = _calculateUsageTotals(nextEntries);
+    final usage = calculateUsageTotals(nextEntries);
     // Antigravity sends its whole settings object; the Bridge's value wins
     // over any optimistic model or mode.
     final antigravity = isAntigravity ? update.antigravitySettings : null;
@@ -1329,53 +1310,6 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     return {...effects}..remove(ChatSideEffect.notifySessionComplete);
   }
 
-  bool _isAnsweredToolResult(ChatEntry entry) => switch (entry) {
-    ServerChatEntry(
-      message: ToolResultMessage(permissionOutcome: PermissionOutcome.answered),
-    ) =>
-      true,
-    _ => false,
-  };
-
-  _UsageTotals _calculateUsageTotals(List<ChatEntry> entries) {
-    double totalCost = 0;
-    double durationMs = 0;
-    var hasDuration = false;
-
-    for (final entry in entries) {
-      if (entry is! ServerChatEntry) continue;
-      final msg = entry.message;
-      if (msg is! ResultMessage) continue;
-
-      if (msg.cost != null) {
-        totalCost += msg.cost!;
-      }
-      if (msg.duration != null && msg.duration! >= 0) {
-        durationMs += msg.duration!;
-        hasDuration = true;
-      }
-    }
-
-    return _UsageTotals(
-      totalCost: totalCost,
-      totalDuration: hasDuration
-          ? Duration(milliseconds: durationMs.round())
-          : null,
-    );
-  }
-
-  Set<String> _hiddenToolUseIdsFromEntries(List<ChatEntry> entries) {
-    final hiddenIds = <String>{};
-    for (final entry in entries) {
-      if (entry case ServerChatEntry(
-        message: ToolUseSummaryMessage(:final precedingToolUseIds),
-      )) {
-        hiddenIds.addAll(precedingToolUseIds);
-      }
-    }
-    return hiddenIds;
-  }
-
   List<ChatEntry> _reconcileHistoryWithLiveEntries({
     required List<ChatEntry> existingNonPast,
     required List<ChatEntry> historyEntries,
@@ -1397,7 +1331,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     if (historyCurrentUserIndex == -1) {
       return [
         ...historyEntries,
-        ...candidates.where(_shouldPreserveEntryAcrossHistoryReplace),
+        ...candidates.where(shouldPreserveEntryAcrossHistoryReplace),
       ];
     }
 
@@ -1425,7 +1359,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         allowWeakMatch: true,
       );
       if (canonicalMatchIndex != -1) continue;
-      if (!_shouldPreserveEntryAcrossHistoryReplace(candidate)) continue;
+      if (!shouldPreserveEntryAcrossHistoryReplace(candidate)) continue;
       reconciled.add(candidate);
     }
     reconciled.addAll(historyEntries.skip(historyIndex));
@@ -1446,8 +1380,8 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       }
       return _entriesEquivalent(a, b, allowWeakMatch: true);
     }
-    final aKey = _entryStableKey(a);
-    final bKey = _entryStableKey(b);
+    final aKey = entryStableKey(a);
+    final bKey = entryStableKey(b);
     if (aKey != null && bKey != null) return aKey == bKey;
     return _entriesEquivalent(a, b, allowWeakMatch: true);
   }
@@ -1457,7 +1391,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     required List<ChatEntry> historyEntries,
   }) {
     return historyEntries.map((historyEntry) {
-      final historyAssistant = _assistantMessageFromEntry(historyEntry);
+      final historyAssistant = assistantMessageFromEntry(historyEntry);
       if (historyAssistant == null) return historyEntry;
 
       final existingIndex = _indexOfEquivalentEntry(
@@ -1466,33 +1400,14 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       );
       if (existingIndex == -1) return historyEntry;
       final existingEntry = existingEntries[existingIndex];
-      final existingAssistant = _assistantMessageFromEntry(existingEntry);
+      final existingAssistant = assistantMessageFromEntry(existingEntry);
       if (existingAssistant == null) return historyEntry;
 
-      return _hasRenderableAssistantContent(existingAssistant) &&
-              !_hasRenderableAssistantContent(historyAssistant)
+      return hasRenderableAssistantContent(existingAssistant) &&
+              !hasRenderableAssistantContent(historyAssistant)
           ? existingEntry
           : historyEntry;
     }).toList();
-  }
-
-  AssistantMessage? _assistantMessageFromEntry(ChatEntry entry) {
-    if (entry case ServerChatEntry(
-      message: AssistantServerMessage(:final message),
-    )) {
-      return message;
-    }
-    return null;
-  }
-
-  bool _hasRenderableAssistantContent(AssistantMessage message) {
-    return message.content.any(
-      (content) => switch (content) {
-        TextContent(:final text) => text.trim().isNotEmpty,
-        ThinkingContent(:final thinking) => thinking.trim().isNotEmpty,
-        ToolUseContent() => true,
-      },
-    );
   }
 
   ({List<ChatEntry> entries, bool didChange}) _appendEntriesDeduped(
@@ -1504,7 +1419,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
 
     for (final addition in additions) {
       var matchIndex = addition is UserChatEntry
-          ? _userEntryMatchIndex(
+          ? userEntryMatchIndex(
               next,
               text: addition.text,
               imageCount: addition.imageCount,
@@ -1512,7 +1427,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
               messageUuid: addition.messageUuid,
             )
           : _indexOfEquivalentEntry(next, addition);
-      if (matchIndex == -1 && _canWeakMatchAppendedEntry(addition)) {
+      if (matchIndex == -1 && canWeakMatchAppendedEntry(addition)) {
         final lastUserIndex = next.lastIndexWhere((e) => e is UserChatEntry);
         matchIndex = _indexOfEquivalentEntry(
           next,
@@ -1536,64 +1451,6 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     }
 
     return (entries: next, didChange: didChange);
-  }
-
-  int _userEntryMatchIndex(
-    List<ChatEntry> entries, {
-    required String text,
-    required int imageCount,
-    required String? clientMessageId,
-    required String? messageUuid,
-  }) {
-    final candidates = <int>[];
-    for (var i = 0; i < entries.length; i++) {
-      final entry = entries[i];
-      if (entry is! UserChatEntry) continue;
-
-      final hasClientMessageIds =
-          clientMessageId?.isNotEmpty == true &&
-          entry.clientMessageId?.isNotEmpty == true;
-      if (hasClientMessageIds) {
-        if (clientMessageId == entry.clientMessageId) return i;
-        continue;
-      }
-
-      final hasMessageUuids =
-          messageUuid?.isNotEmpty == true &&
-          entry.messageUuid?.isNotEmpty == true;
-      if (hasMessageUuids && messageUuid == entry.messageUuid) {
-        if (entry.status != MessageStatus.failed) return i;
-        continue;
-      }
-      // Claude may acknowledge delivery before echoing the provider UUID.
-      // Match that local entry once, but never collapse distinct known turns.
-      final awaitingProviderUuid =
-          entry.status == MessageStatus.sent &&
-          entry.clientMessageId?.isNotEmpty == true &&
-          entry.messageUuid?.isNotEmpty != true &&
-          messageUuid?.isNotEmpty == true;
-      if (clientMessageId?.isNotEmpty == true ||
-          entry.status == MessageStatus.failed ||
-          (entry.status != MessageStatus.sending &&
-              entry.status != MessageStatus.queued &&
-              !awaitingProviderUuid)) {
-        continue;
-      }
-      if (entry.text != text || entry.imageCount != imageCount) continue;
-      candidates.add(i);
-    }
-    return candidates.length == 1 ? candidates.single : -1;
-  }
-
-  bool _canWeakMatchAppendedEntry(ChatEntry entry) {
-    if (entry case ServerChatEntry(
-      message: AssistantServerMessage(:final messageUuid),
-    )) {
-      return messageUuid?.isNotEmpty == true;
-    }
-    return entry is ServerChatEntry &&
-        (entry.message is ResultMessage ||
-            entry.message is GuardianApprovalMessage);
   }
 
   int _indexOfEquivalentEntry(
@@ -1628,8 +1485,8 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       }
     }
 
-    final aKey = _entryStableKey(a);
-    final bKey = _entryStableKey(b);
+    final aKey = entryStableKey(a);
+    final bKey = entryStableKey(b);
     if (aKey != null && bKey != null && aKey == bKey) return true;
 
     if (allowWeakMatch) {
@@ -1651,25 +1508,6 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     return false;
   }
 
-  String? _entryStableKey(ChatEntry entry) {
-    if (entry is QuestionAnswerChatEntry) {
-      return 'question-answer:${entry.toolUseId}';
-    }
-    if (entry is UserChatEntry) {
-      final uuid = entry.messageUuid;
-      if (uuid != null && uuid.isNotEmpty) return 'user:uuid:$uuid';
-      final clientMessageId = entry.clientMessageId;
-      if (clientMessageId != null && clientMessageId.isNotEmpty) {
-        return 'user:client:$clientMessageId';
-      }
-      return null;
-    }
-    if (entry is ServerChatEntry) {
-      return _serverMessageStableKey(entry.message);
-    }
-    return null;
-  }
-
   String? _entryWeakKey(ChatEntry entry) {
     if (entry is UserChatEntry) {
       return ['user', entry.text, entry.imageCount].join('\u0001');
@@ -1678,28 +1516,6 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       return _serverMessageWeakKey(entry.message);
     }
     return null;
-  }
-
-  String? _serverMessageStableKey(ServerMessage message) {
-    switch (message) {
-      case AssistantServerMessage(:final messageUuid, :final message):
-        if (messageUuid != null && messageUuid.isNotEmpty) {
-          return 'assistant:uuid:$messageUuid';
-        }
-        if (message.id.isNotEmpty) return 'assistant:id:${message.id}';
-        return null;
-      case final ToolResultMessage result
-          when isSyntheticPermissionOutcome(result):
-        return 'permission_outcome:${result.toolUseId}:${result.content.trim()}';
-      case ToolResultMessage(:final toolUseId):
-        return 'tool_result:$toolUseId';
-      case PermissionRequestMessage(:final toolUseId):
-        return 'permission_request:$toolUseId';
-      case PermissionResolvedMessage(:final toolUseId):
-        return 'permission_resolved:$toolUseId';
-      default:
-        return null;
-    }
   }
 
   String? _serverMessageWeakKey(ServerMessage message) {
@@ -1740,7 +1556,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
           tipCode,
         ].join('\u0001');
       case AssistantServerMessage(:final message):
-        return 'assistant:content:${_assistantContentSignature(message)}';
+        return 'assistant:content:${assistantContentSignature(message)}';
       case ResultMessage(
         :final subtype,
         :final stopReason,
@@ -1770,33 +1586,6 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       default:
         return null;
     }
-  }
-
-  String _assistantContentSignature(AssistantMessage message) {
-    return message.content
-        .map((content) {
-          return switch (content) {
-            TextContent(:final text) => 'text:$text',
-            ThinkingContent(:final thinking) => 'thinking:$thinking',
-            ToolUseContent(:final id, :final name) => 'tool_use:$id:$name',
-          };
-        })
-        .join('\u0001');
-  }
-
-  bool _shouldPreserveEntryAcrossHistoryReplace(ChatEntry entry) {
-    if (entry is UserChatEntry || entry is QuestionAnswerChatEntry) {
-      return true;
-    }
-    if (entry is ServerChatEntry) {
-      return entry.message is! StatusMessage &&
-          entry.message is! InputAckMessage &&
-          entry.message is! InputRejectedMessage &&
-          entry.message is! ConversationQueueMessage &&
-          entry.message is! BackgroundTasksMessage &&
-          entry.message is! AgentActivityMessage;
-    }
-    return false;
   }
 
   ChatEntry _mergeEquivalentEntry(ChatEntry existing, ChatEntry incoming) {
@@ -2321,7 +2110,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     if (next != null) {
       emit(
         state.copyWith(
-          approval: _approvalStateForPermission(next),
+          approval: approvalStateForPermission(next),
           permissionMode: resolvedPermissionMode,
           planMode: next.toolName == 'ExitPlanMode' || keepPlanMode
               ? true
@@ -2656,37 +2445,6 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     );
   }
 
-  Map<String, Map<String, dynamic>> _questionInputsByToolUseId(
-    List<ChatEntry> entries,
-  ) {
-    final result = <String, Map<String, dynamic>>{};
-    for (final entry in entries) {
-      if (entry is! ServerChatEntry) continue;
-      switch (entry.message) {
-        case PermissionRequestMessage(
-              :final toolUseId,
-              :final toolName,
-              :final input,
-            )
-            when toolName == 'AskUserQuestion':
-          result[toolUseId] = input;
-        case AssistantServerMessage(:final message):
-          for (final content in message.content) {
-            if (content case ToolUseContent(
-              :final id,
-              name: 'AskUserQuestion',
-              :final input,
-            )) {
-              result[id] = input;
-            }
-          }
-        default:
-          break;
-      }
-    }
-    return result;
-  }
-
   Map<String, dynamic>? _questionInputForToolUseId(String toolUseId) {
     if (state.approval
         case ApprovalAskUser(
@@ -2696,11 +2454,11 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         when activeToolUseId == toolUseId) {
       return input;
     }
-    return _questionInputsByToolUseId(state.entries)[toolUseId];
+    return questionInputsByToolUseId(state.entries)[toolUseId];
   }
 
   void _appendQuestionAnswerToTranscript(String toolUseId, String result) {
-    final clientMessageId = _questionAnswerClientMessageId(toolUseId);
+    final clientMessageId = questionAnswerClientMessageId(toolUseId);
     if (state.entries.whereType<QuestionAnswerChatEntry>().any(
       (entry) => entry.clientMessageId == clientMessageId,
     )) {
@@ -2726,9 +2484,6 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       ),
     );
   }
-
-  String _questionAnswerClientMessageId(String toolUseId) =>
-      'question-answer:$toolUseId';
 
   void setCodexPermissionsMode(CodexPermissionsMode mode) {
     final policy =
@@ -2914,7 +2669,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   }
 
   void _rollbackFailedModeChange(ErrorMessage msg) {
-    if (_isAntigravityModelFailure(msg)) {
+    if (isAntigravityModelFailure(msg)) {
       final previous = _pendingAntigravityModelRollback;
       _pendingAntigravityModelRollback = null;
       final settings = state.antigravitySettings;
@@ -2926,7 +2681,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         );
       }
     }
-    if (_isPermissionModeFailure(msg)) {
+    if (isPermissionModeFailure(msg)) {
       final previous = _pendingPermissionRollback;
       _pendingPermissionRollback = null;
       if (previous != null) {
@@ -2982,7 +2737,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       _pendingPlanRollback = null;
     }
 
-    if (_isSandboxModeFailure(msg)) {
+    if (isSandboxModeFailure(msg)) {
       final previous = _pendingSandboxRollback;
       _pendingSandboxRollback = null;
       if (previous != null) {
@@ -3006,30 +2761,6 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     }
     // Compatibility with Bridges released before structured error codes.
     return msg.message == 'Session $sessionId not found';
-  }
-
-  bool _isPermissionModeFailure(ErrorMessage msg) {
-    return msg.errorCode == 'set_permission_mode_rejected' ||
-        msg.errorCode == 'auto_mode_unavailable' ||
-        msg.message.startsWith('Failed to set permission mode:') ||
-        msg.message.startsWith(
-          'Failed to restart session for permission mode change:',
-        );
-  }
-
-  bool _isAntigravityModelFailure(ErrorMessage msg) {
-    return msg.errorCode == 'set_antigravity_model_rejected' ||
-        msg.errorCode == 'set_antigravity_model_unsupported';
-    // A rejected `set_antigravity_settings` needs no rollback here: the
-    // Bridge sends the session's real settings right after the error.
-  }
-
-  bool _isSandboxModeFailure(ErrorMessage msg) {
-    return msg.errorCode == 'set_sandbox_mode_rejected' ||
-        msg.message.startsWith('Failed to set sandbox mode:') ||
-        msg.message.startsWith(
-          'Failed to restart session for sandbox mode change:',
-        );
   }
 
   /// Stop the session.
@@ -3216,7 +2947,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       final key = '${payload['name']}|${payload['path']}';
       if (seenMentions.add(key)) mentions.add(payload);
     }
-    final projectMentionPaths = _normalizeProjectMentionPaths(
+    final projectMentionPaths = normalizeProjectMentionPaths(
       mentionablePaths ?? const <String>[],
     );
     if (projectMentionPaths.isNotEmpty) {
@@ -3227,13 +2958,13 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         final token = '@$rawPath';
         if (entityByToken[token]?.pluginInfo != null) continue;
 
-        final mentionPath = _resolveProjectMentionPath(
+        final mentionPath = resolveProjectMentionPath(
           rawPath,
           projectMentionPaths,
         );
         if (mentionPath == null) continue;
 
-        final payloadPath = _resolveProjectMentionPayloadPath(
+        final payloadPath = resolveProjectMentionPayloadPath(
           mentionPath,
           state.projectPath,
         );
@@ -3243,40 +2974,6 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       }
     }
     return (skills: skills, mentions: mentions);
-  }
-
-  Set<String> _normalizeProjectMentionPaths(Iterable<String> paths) {
-    final normalized = <String>{};
-    for (final path in paths) {
-      final trimmed = path.trim();
-      if (trimmed.isEmpty) continue;
-      normalized.add(trimmed);
-    }
-    return normalized;
-  }
-
-  String? _resolveProjectMentionPath(String rawPath, Set<String> paths) {
-    if (paths.contains(rawPath)) return rawPath;
-
-    final stripped = rawPath.replaceFirst(RegExp(r'[,.;:!?]+$'), '');
-    if (stripped != rawPath && paths.contains(stripped)) return stripped;
-
-    if (!rawPath.endsWith('/') && paths.contains('$rawPath/')) {
-      return '$rawPath/';
-    }
-    return null;
-  }
-
-  String _resolveProjectMentionPayloadPath(
-    String mentionPath,
-    String? projectPath,
-  ) {
-    if (mentionPath.startsWith('/') || projectPath == null) {
-      return mentionPath;
-    }
-    final root = projectPath.trim();
-    if (root.isEmpty) return mentionPath;
-    return root.endsWith('/') ? '$root$mentionPath' : '$root/$mentionPath';
   }
 
   @override
@@ -3295,13 +2992,6 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     _retractedInputsController.close();
     return super.close();
   }
-}
-
-class _UsageTotals {
-  final double totalCost;
-  final Duration? totalDuration;
-
-  const _UsageTotals({required this.totalCost, required this.totalDuration});
 }
 
 List<String> updateRecentPeekedFiles(
