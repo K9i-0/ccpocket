@@ -34,6 +34,7 @@ import {
 import { projectRequestMetadata } from "../shared.js";
 import type { BridgeWebSocketServer } from "../../websocket.js";
 import { isPathAllowed, buildPathNotAllowedError } from "../file-access.js";
+import { collectImageChanges, loadDiffImageAsync } from "../git-diff.js";
 
 export async function handleGetDiff(
   server: BridgeWebSocketServer,
@@ -76,7 +77,7 @@ export async function handleGetDiff(
         }
         return;
       }
-      void server.collectImageChanges(msg.projectPath, diff).then(
+      void collectImageChanges(msg.projectPath, diff).then(
         (imageChanges) => {
           if (imageChanges.length > 0) {
             server.send(ws, {
@@ -129,8 +130,8 @@ export async function handleGetDiffImage(
     void (async () => {
       try {
         const [oldResult, newResult] = await Promise.all([
-          server.loadDiffImageAsync(msg.projectPath, msg.filePath, "old"),
-          server.loadDiffImageAsync(msg.projectPath, msg.filePath, "new"),
+          loadDiffImageAsync(server, msg.projectPath, msg.filePath, "old"),
+          loadDiffImageAsync(server, msg.projectPath, msg.filePath, "new"),
         ]);
         const errors = [oldResult.error, newResult.error].filter(Boolean);
         server.send(ws, {
@@ -151,7 +152,8 @@ export async function handleGetDiffImage(
     const version = msg.version as "old" | "new";
     void (async () => {
       try {
-        const result = await server.loadDiffImageAsync(
+        const result = await loadDiffImageAsync(
+          server,
           msg.projectPath,
           msg.filePath,
           version,
