@@ -13,13 +13,19 @@ import {
   isCanonicalPathAllowed,
   buildPathNotAllowedError,
 } from "../file-access.js";
+import {
+  legacyProjectHistoryProjects,
+  projectsMessage,
+  normalizeWorkspaceRoots,
+  sendWorkspaceMutationError,
+} from "../workspaces.js";
 
 export async function handleListProjectHistory(
   server: BridgeWebSocketServer,
   msg: Extract<ClientMessage, { type: "list_project_history" }>,
   ws: WebSocket,
 ): Promise<void> {
-  const projects = server.legacyProjectHistoryProjects();
+  const projects = legacyProjectHistoryProjects(server);
   server.send(ws, { type: "project_history", projects });
 }
 
@@ -29,7 +35,7 @@ export async function handleRemoveProjectHistory(
   ws: WebSocket,
 ): Promise<void> {
   server.projectHistory?.removeProject(msg.projectPath);
-  const projects = server.legacyProjectHistoryProjects();
+  const projects = legacyProjectHistoryProjects(server);
   server.send(ws, { type: "project_history", projects });
 }
 
@@ -38,7 +44,7 @@ export async function handleListProjects(
   msg: Extract<ClientMessage, { type: "list_projects" }>,
   ws: WebSocket,
 ): Promise<void> {
-  server.send(ws, server.projectsMessage(msg.requestId));
+  server.send(ws, projectsMessage(server, msg.requestId));
 }
 
 export async function handleBootstrapProject(
@@ -106,7 +112,7 @@ export async function handleCreateProject(
     });
     return;
   }
-  const normalized = server.normalizeWorkspaceRoots(msg.rootPaths);
+  const normalized = normalizeWorkspaceRoots(server, msg.rootPaths);
   if (normalized.deniedRoot || !normalized.roots) {
     server.send(
       ws,
@@ -118,9 +124,9 @@ export async function handleCreateProject(
   }
   try {
     await server.workspaceStore.createProject(msg.name, normalized.roots);
-    server.broadcast(server.projectsMessage(msg.requestId));
+    server.broadcast(projectsMessage(server, msg.requestId));
   } catch (error) {
-    server.sendWorkspaceMutationError(ws, msg.requestId, "create Project", error);
+    sendWorkspaceMutationError(server, ws, msg.requestId, "create Project", error);
   }
 }
 
@@ -138,7 +144,7 @@ export async function handleUpdateProject(
     });
     return;
   }
-  const normalized = server.normalizeWorkspaceRoots(msg.rootPaths);
+  const normalized = normalizeWorkspaceRoots(server, msg.rootPaths);
   if (normalized.deniedRoot || !normalized.roots) {
     server.send(
       ws,
@@ -156,7 +162,7 @@ export async function handleUpdateProject(
       normalized.roots,
     );
   } catch (error) {
-    server.sendWorkspaceMutationError(ws, msg.requestId, "update Project", error);
+    sendWorkspaceMutationError(server, ws, msg.requestId, "update Project", error);
     return;
   }
   if (!updated) {
@@ -168,7 +174,7 @@ export async function handleUpdateProject(
     });
     return;
   }
-  server.broadcast(server.projectsMessage(msg.requestId));
+  server.broadcast(projectsMessage(server, msg.requestId));
 }
 
 export async function handleRemoveProject(
@@ -177,7 +183,8 @@ export async function handleRemoveProject(
   ws: WebSocket,
 ): Promise<void> {
   if (!server.workspaceStore) {
-    server.sendWorkspaceMutationError(
+    sendWorkspaceMutationError(
+      server,
       ws,
       msg.requestId,
       "remove Project",
@@ -189,7 +196,7 @@ export async function handleRemoveProject(
   try {
     removed = await server.workspaceStore.removeProject(msg.projectId);
   } catch (error) {
-    server.sendWorkspaceMutationError(ws, msg.requestId, "remove Project", error);
+    sendWorkspaceMutationError(server, ws, msg.requestId, "remove Project", error);
     return;
   }
   if (!removed) {
@@ -201,7 +208,7 @@ export async function handleRemoveProject(
     });
     return;
   }
-  server.broadcast(server.projectsMessage(msg.requestId));
+  server.broadcast(projectsMessage(server, msg.requestId));
 }
 
 export async function handleListDirectory(

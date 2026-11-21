@@ -2,6 +2,7 @@ import { WebSocket } from "ws";
 import type { ClientMessage } from "../../parser.js";
 import type { BridgeWebSocketServer } from "../../websocket.js";
 import { broadcastPromptHistoryStatus } from "../session-state.js";
+import { workspaceForRuntimeSession } from "../workspaces.js";
 
 export async function handleBackupPromptHistory(
   server: BridgeWebSocketServer,
@@ -128,7 +129,7 @@ export async function handleRecordPromptHistory(
       ? server.resolveSession(msg.sessionId)
       : undefined;
     const workspace = runtimeSession
-      ? server.workspaceForRuntimeSession(runtimeSession)
+      ? workspaceForRuntimeSession(server, runtimeSession)
       : undefined;
     const entry = await server.promptHistoryStore.record({
       text: msg.text,

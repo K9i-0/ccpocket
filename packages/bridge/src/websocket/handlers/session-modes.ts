@@ -24,6 +24,10 @@ import type { BridgeWebSocketServer } from "../../websocket.js";
 import { recordDebugEvent } from "../debug-trace.js";
 import { getCodexThreadHistory } from "../session-history.js";
 import { loadAndSetSessionName } from "../session-state.js";
+import {
+  workspaceForRuntimeSession,
+  attachWorkspaceToRuntimeSession,
+} from "../workspaces.js";
 
 export async function handleSetPermissionMode(
   server: BridgeWebSocketServer,
@@ -207,7 +211,7 @@ export async function handleSetPermissionMode(
     const worktreePath = session.worktreePath;
     const worktreeBranch = session.worktreeBranch;
     const sessionName = session.name;
-    const workspace = server.workspaceForRuntimeSession(session);
+    const workspace = workspaceForRuntimeSession(server, session);
 
     server.destroySession(oldSessionId);
     console.log(
@@ -257,7 +261,7 @@ export async function handleSetPermissionMode(
           collaborationMode: newCollaboration,
         }),
       );
-      server.attachWorkspaceToRuntimeSession(newId, workspace);
+      attachWorkspaceToRuntimeSession(server, newId, workspace);
       const newSession = server.sessionManager.get(newId);
       if (newSession && sessionName) newSession.name = sessionName;
       server.broadcast(
@@ -350,7 +354,7 @@ export async function handleSetPermissionMode(
             collaborationMode: newCollaboration,
           }),
         );
-        server.attachWorkspaceToRuntimeSession(newId, workspace);
+        attachWorkspaceToRuntimeSession(server, newId, workspace);
 
         const newSession = server.sessionManager.get(newId);
         if (newSession && sessionName) {
@@ -504,7 +508,7 @@ export async function handleSetSandboxMode(
     // Use the user's selected settings (alias, effort, fast mode) rather
     // than the resolved runtime model id, matching fork behavior.
     const settings = (session.process as SdkProcess).settings ?? {};
-    const workspace = server.workspaceForRuntimeSession(session);
+    const workspace = workspaceForRuntimeSession(server, session);
 
     server.destroySession(oldSessionId);
     console.log(
@@ -529,7 +533,7 @@ export async function handleSetSandboxMode(
         : undefined,
       "claude",
     );
-    server.attachWorkspaceToRuntimeSession(newId, workspace);
+    attachWorkspaceToRuntimeSession(server, newId, workspace);
 
     const newSession = server.sessionManager.get(newId);
     if (newSession && sessionName) newSession.name = sessionName;
@@ -587,7 +591,7 @@ export async function handleSetSandboxMode(
   const sessionName = session.name;
   const collaborationMode = (session.process as CodexProcess)
     .collaborationMode;
-  const workspace = server.workspaceForRuntimeSession(session);
+  const workspace = workspaceForRuntimeSession(server, session);
   const executionMode =
     oldSettings.approvalPolicy === "never" ? "fullAccess" : "default";
   const planMode = collaborationMode === "plan";
@@ -658,7 +662,7 @@ export async function handleSetSandboxMode(
         collaborationMode,
       }),
     );
-    server.attachWorkspaceToRuntimeSession(newId, workspace);
+    attachWorkspaceToRuntimeSession(server, newId, workspace);
     const newSession = server.sessionManager.get(newId);
     if (newSession && sessionName) newSession.name = sessionName;
     server.broadcast(
@@ -749,7 +753,7 @@ export async function handleSetSandboxMode(
           collaborationMode,
         }),
       );
-      server.attachWorkspaceToRuntimeSession(newId, workspace);
+      attachWorkspaceToRuntimeSession(server, newId, workspace);
 
       // Restore session name
       const newSession = server.sessionManager.get(newId);

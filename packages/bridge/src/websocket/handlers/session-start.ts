@@ -27,6 +27,10 @@ import {
   sendTip,
   prepareInitialPrompt,
 } from "../session-state.js";
+import {
+  normalizeWorkspaceRoots,
+  persistPendingSessionWorkspace,
+} from "../workspaces.js";
 
 export async function handleStart(
   server: BridgeWebSocketServer,
@@ -46,7 +50,7 @@ export async function handleStart(
       });
       return;
     }
-    const normalized = server.normalizeWorkspaceRoots(project.rootPaths);
+    const normalized = normalizeWorkspaceRoots(server, project.rootPaths);
     if (normalized.deniedRoot || !normalized.roots) {
       server.send(
         ws,
@@ -297,7 +301,7 @@ export async function handleStart(
     const createdSession = server.sessionManager.get(sessionId);
     if (resolvedWorkspace) {
       server.pendingSessionWorkspaces.set(sessionId, resolvedWorkspace);
-      void server.persistPendingSessionWorkspace(sessionId);
+      void persistPendingSessionWorkspace(server, sessionId);
     }
     const cached = server.sessionManager.getCachedCommands(
       provider,

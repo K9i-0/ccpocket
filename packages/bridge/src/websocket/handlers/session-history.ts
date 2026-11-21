@@ -18,6 +18,7 @@ import {
   sendBackgroundTasksState,
   sendCodexGoalState,
 } from "../session-state.js";
+import { runtimeSessionWithWorkspace } from "../workspaces.js";
 
 export async function handleGetHistory(
   server: BridgeWebSocketServer,
@@ -148,7 +149,7 @@ export async function handleGetSessionContext(
     server.send(ws, {
       type: "session_context",
       sessionId: msg.sessionId,
-      context: { ...server.runtimeSessionWithWorkspace(context) },
+      context: { ...runtimeSessionWithWorkspace(server, context) },
     });
   } else {
     server.send(ws, {

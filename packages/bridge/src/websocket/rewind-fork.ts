@@ -19,6 +19,10 @@ import {
 } from "./shared.js";
 import type { BridgeWebSocketServer } from "../websocket.js";
 import { codexHistoryFromThreadOrFallback } from "./session-history.js";
+import {
+  workspaceForRuntimeSession,
+  attachWorkspaceToRuntimeSession,
+} from "./workspaces.js";
 
 /**
  * Interrupt the running turn and, when the agent has shown no output for
@@ -275,7 +279,7 @@ export async function rewindCodexConversation(
 
   const projectPath = session.projectPath;
   const codexSettings = session.codexSettings;
-  const workspace = server.workspaceForRuntimeSession(session);
+  const workspace = workspaceForRuntimeSession(server, session);
   const worktreeOpts: WorktreeOptions | undefined = session.worktreePath
     ? {
         existingWorktreePath: session.worktreePath,
@@ -328,7 +332,7 @@ export async function rewindCodexConversation(
       threadId: forked?.threadId,
     } as CodexStartOptions),
   );
-  server.attachWorkspaceToRuntimeSession(newSessionId, workspace);
+  attachWorkspaceToRuntimeSession(server, newSessionId, workspace);
   const newSession = server.sessionManager.get(newSessionId);
 
   onRewound?.();
@@ -401,7 +405,7 @@ export async function forkClaudeSession(
   }
   const pastMessages = history.slice(0, targetIndex + 1);
 
-  const workspace = server.workspaceForRuntimeSession(session);
+  const workspace = workspaceForRuntimeSession(server, session);
   const worktreeOpts: WorktreeOptions | undefined = session.worktreePath
     ? {
         existingWorktreePath: session.worktreePath,
@@ -429,7 +433,7 @@ export async function forkClaudeSession(
     worktreeOpts,
     "claude",
   );
-  server.attachWorkspaceToRuntimeSession(newSessionId, workspace);
+  attachWorkspaceToRuntimeSession(server, newSessionId, workspace);
   const newSession = server.sessionManager.get(newSessionId);
 
   server.send(
@@ -504,7 +508,7 @@ export async function forkCodexSession(
 
   const projectPath = session.projectPath;
   const codexSettings = session.codexSettings;
-  const workspace = server.workspaceForRuntimeSession(session);
+  const workspace = workspaceForRuntimeSession(server, session);
   const worktreeOpts: WorktreeOptions | undefined = session.worktreePath
     ? {
         existingWorktreePath: session.worktreePath,
@@ -553,7 +557,7 @@ export async function forkCodexSession(
       threadId: forkedThreadId,
     } as CodexStartOptions),
   );
-  server.attachWorkspaceToRuntimeSession(newSessionId, workspace);
+  attachWorkspaceToRuntimeSession(server, newSessionId, workspace);
   const newSession = server.sessionManager.get(newSessionId);
 
   server.send(

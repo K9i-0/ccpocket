@@ -5,6 +5,10 @@ import { AntigravityProcess } from "../../antigravity-process.js";
 import type { ClientMessage } from "../../parser.js";
 import type { BridgeWebSocketServer } from "../../websocket.js";
 import { sendToolActionError } from "../file-access.js";
+import {
+  workspaceForRuntimeSession,
+  attachWorkspaceToRuntimeSession,
+} from "../workspaces.js";
 
 export async function handleApprove(
   server: BridgeWebSocketServer,
@@ -51,7 +55,7 @@ export async function handleApprove(
     const sandboxEnabled = session.sandboxEnabled;
     const worktreePath = session.worktreePath;
     const worktreeBranch = session.worktreeBranch;
-    const workspace = server.workspaceForRuntimeSession(session);
+    const workspace = workspaceForRuntimeSession(server, session);
 
     server.destroySession(sessionId);
     console.log(`[ws] Clear context: destroyed session ${sessionId}`);
@@ -79,7 +83,7 @@ export async function handleApprove(
         ? { existingWorktreePath: worktreePath, worktreeBranch }
       : undefined,
     );
-    server.attachWorkspaceToRuntimeSession(newId, workspace);
+    attachWorkspaceToRuntimeSession(server, newId, workspace);
     console.log(
       `[ws] Clear context: created new session ${newId} (CLI session: ${claudeSessionId ?? "new"})`,
     );
