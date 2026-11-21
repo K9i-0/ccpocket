@@ -54,7 +54,6 @@ import '../chat_session/widgets/session_mode_bar.dart';
 import '../chat_session/widgets/status_line_flexible_space.dart';
 import '../explore/state/explore_state.dart';
 import '../git/state/git_status_cubit.dart';
-import '../git/state/git_view_cache_service.dart';
 import '../github/widgets/empty_chat_github_button.dart';
 import '../github/widgets/github_menu_item.dart';
 import '../../widgets/duo/duo_control_strip.dart';
@@ -63,6 +62,7 @@ import 'widgets/rewind_action_sheet.dart';
 import 'widgets/rewind_message_list_sheet.dart' show UserMessageHistorySheet;
 import 'widgets/usage_summary_bar.dart';
 import '../chat_session/session_screen_shared.dart';
+import '../chat_session/session_screen_hooks.dart';
 
 const _fileListRefreshToolNames = {
   'Edit',
@@ -637,31 +637,7 @@ class _ChatScreenBody extends HookWidget {
     final draftService = context.read<DraftService>();
 
     // --- Draft persistence: restore on mount, auto-save on change ---
-    useEffect(() {
-      final draft = draftService.getDraft(sessionId);
-      if (draft != null && draft.isNotEmpty) {
-        chatInputController.text = draft;
-        chatInputController.selection = TextSelection.collapsed(
-          offset: draft.length,
-        );
-      }
-
-      Timer? debounce;
-      void onChanged() {
-        debounce?.cancel();
-        debounce = Timer(const Duration(milliseconds: 500), () {
-          draftService.saveDraft(sessionId, chatInputController.text);
-        });
-      }
-
-      chatInputController.addListener(onChanged);
-      return () {
-        debounce?.cancel();
-        // Flush current text on dispose (navigating away)
-        draftService.saveDraft(sessionId, chatInputController.text);
-        chatInputController.removeListener(onChanged);
-      };
-    }, [sessionId]);
+    useComposerDraft(sessionId, draftService, chatInputController);
 
     // Collapse tool results notifier
     final collapseToolResults = useMemoized(() => ValueNotifier<int>(0));
@@ -765,72 +741,23 @@ class _ChatScreenBody extends HookWidget {
     }, [sessionId]);
 
     // --- Initial requests on mount ---
-    useEffect(
-      () {
-        final bridge = context.read<BridgeService>();
-        final path = gitProjectPath;
-        if (!isBackground && effectiveProjectPath != null) {
-          bridge.requestFileList(effectiveProjectPath);
-        }
-        if (!isBackground && path != null && path.isNotEmpty) {
-          try {
-            context.read<GitStatusCubit>().refresh(
-              sessionId: sessionId,
-              projectPath: path,
-              includeRemote: showRemoteGitStatusBadge,
-            );
-          } catch (_) {}
-        }
-        if (!isBackground) {
-          bridge.requestSessionList();
-          bridge.refreshBranch(sessionId);
-        }
-        return null;
-      },
-      [
-        sessionId,
-        effectiveProjectPath,
-        gitProjectPath,
-        showRemoteGitStatusBadge,
-      ],
+    useInitialSessionRequests(
+      context,
+      sessionId: sessionId,
+      isBackground: isBackground,
+      effectiveProjectPath: effectiveProjectPath,
+      gitProjectPath: gitProjectPath,
+      showRemoteGitStatusBadge: showRemoteGitStatusBadge,
     );
 
-    useEffect(
-      () {
-        if (effectiveProjectPath == null) return null;
-
-        final bridge = context.read<BridgeService>();
-        GitStatusCubit? gitStatusCubit;
-        GitViewCacheService? gitViewCache;
-        try {
-          gitStatusCubit = context.read<GitStatusCubit>();
-          gitViewCache = context.read<GitViewCacheService>();
-        } catch (_) {}
-        final sub = bridge.messagesForSession(sessionId).listen((msg) {
-          if (isBackgroundRef.value) return;
-          if (msg case ToolResultMessage(:final toolName)
-              when _fileListRefreshToolNames.contains(toolName)) {
-            bridge.requestFileList(effectiveProjectPath);
-          } else if (msg case ResultMessage(:final fileEdits)) {
-            if ((fileEdits ?? 0) > 0) {
-              bridge.requestFileList(effectiveProjectPath);
-            }
-            gitStatusCubit?.refresh(
-              sessionId: sessionId,
-              projectPath: gitProjectPath!,
-              includeRemote: showRemoteGitStatusBadge,
-            );
-            gitViewCache?.refreshIfPresent(sessionId);
-          }
-        });
-        return sub.cancel;
-      },
-      [
-        sessionId,
-        effectiveProjectPath,
-        gitProjectPath,
-        showRemoteGitStatusBadge,
-      ],
+    useSessionFileRefresh(
+      context,
+      sessionId: sessionId,
+      isBackgroundRef: isBackgroundRef,
+      effectiveProjectPath: effectiveProjectPath,
+      gitProjectPath: gitProjectPath,
+      showRemoteGitStatusBadge: showRemoteGitStatusBadge,
+      refreshToolNames: _fileListRefreshToolNames,
     );
 
     // --- Listen for branch updates ---

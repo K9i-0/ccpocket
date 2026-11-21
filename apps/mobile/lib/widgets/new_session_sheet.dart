@@ -29,8 +29,6 @@ import 'new_session_sheet/options_section.dart';
 import 'new_session_sheet/sheet_chrome.dart';
 export 'new_session_sheet/new_session_params.dart';
 
-// ---- Serialization helpers for SharedPreferences ----
-
 /// Shows a modal bottom sheet for creating a new Claude Code session.
 ///
 /// Returns [NewSessionParams] if the user starts a session, or null on cancel.
@@ -1752,7 +1750,3 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     );
   }
 }
-
-// ---------------------------------------------------------------------------
-// Extracted StatelessWidget classes
-// ---------------------------------------------------------------------------
