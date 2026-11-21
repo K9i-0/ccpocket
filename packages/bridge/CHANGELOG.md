@@ -2,6 +2,13 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.115.1] - 2026-11-22
+
+### Changed
+
+- Internal restructuring with no intended change in behaviour: `websocket.ts` (12,700 lines) is split into one handler per client message under `src/websocket/handlers/` and helper modules under `src/websocket/`.
+- Ten server messages that were sent as untyped records (`session_list`, `recent_sessions`, `input_ack` and others) are now declared in the protocol types, and a type-level check fails the build when the app and the Bridge disagree about message types or keys. Nothing on the wire changes.
+
 ## [1.115.0] - 2026-11-21
 
 ### Added
