@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
 import '../state/project_setup_cubit.dart';
 
@@ -83,11 +84,19 @@ class _ProjectSetupActionBody extends StatelessWidget {
                       }
                       final result = await context
                           .read<ProjectSetupCubit>()
-                          .request({
-                            'type': trust ? 'trust_project' : 'initialize_git',
-                            'projectPath': projectPath,
-                            if (sessionId != null) 'sessionId': sessionId,
-                          }, updateHint: l.projectSetupUpdateHint);
+                          .request(
+                            (requestId) => trust
+                                ? ClientMessage.trustProject(
+                                    projectPath: projectPath,
+                                    sessionId: sessionId,
+                                    requestId: requestId,
+                                  )
+                                : ClientMessage.initializeGit(
+                                    projectPath: projectPath,
+                                    requestId: requestId,
+                                  ),
+                            updateHint: l.projectSetupUpdateHint,
+                          );
                       if (result != null && context.mounted) onDone?.call();
                     },
             ),

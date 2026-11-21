@@ -19,8 +19,11 @@ abstract class ProjectSetupState with _$ProjectSetupState {
 class ProjectSetupCubit extends Cubit<ProjectSetupState> {
   ProjectSetupCubit(this.bridge) : super(const ProjectSetupState());
   final BridgeService bridge;
+
+  /// Sends the message [build] makes for a new request id and waits for its
+  /// result. An old Bridge answers with `unsupported_message` instead.
   Future<ProjectSetupResultMessage?> request(
-    Map<String, dynamic> payload, {
+    ClientMessage Function(String requestId) build, {
     required String updateHint,
   }) async {
     if (state.busy) return null;
@@ -30,6 +33,7 @@ class ProjectSetupCubit extends Cubit<ProjectSetupState> {
     }
     emit(const ProjectSetupState(busy: true));
     final requestId = bridge.createProjectRequestId('project-setup');
+    final request = build(requestId);
     final response = Completer<ProjectSetupResultMessage>();
     final subscription = bridge.messages.listen((message) {
       if (message is ProjectSetupResultMessage &&
@@ -38,7 +42,7 @@ class ProjectSetupCubit extends Cubit<ProjectSetupState> {
       } else if (message is ErrorMessage &&
           (message.requestId == requestId ||
               (message.errorCode == 'unsupported_message' &&
-                  message.message.contains(payload['type'] as String)))) {
+                  message.message.contains(request.type)))) {
         if (!response.isCompleted) {
           response.completeError(
             message.errorCode == 'unsupported_message'
@@ -49,7 +53,7 @@ class ProjectSetupCubit extends Cubit<ProjectSetupState> {
       }
     });
     try {
-      bridge.send(ClientMessage.raw({...payload, 'requestId': requestId}));
+      bridge.send(request);
       final result = await response.future.timeout(const Duration(seconds: 30));
       if (!isClosed) {
         emit(ProjectSetupState(result: result, error: result.error));

@@ -6572,6 +6572,41 @@ class ClientMessage {
   factory ClientMessage.listProjects({String? requestId}) =>
       ClientMessage._({'type': 'list_projects', 'requestId': ?requestId});
 
+  factory ClientMessage.bootstrapProject({
+    required String parentPath,
+    required String name,
+    required bool initializeGit,
+    required String requestId,
+    String? sourcePath,
+  }) => ClientMessage._({
+    'type': 'bootstrap_project',
+    'parentPath': parentPath,
+    'name': name,
+    'initializeGit': initializeGit,
+    'sourcePath': ?sourcePath,
+    'requestId': requestId,
+  });
+
+  factory ClientMessage.trustProject({
+    required String projectPath,
+    required String requestId,
+    String? sessionId,
+  }) => ClientMessage._({
+    'type': 'trust_project',
+    'projectPath': projectPath,
+    'sessionId': ?sessionId,
+    'requestId': requestId,
+  });
+
+  factory ClientMessage.initializeGit({
+    required String projectPath,
+    required String requestId,
+  }) => ClientMessage._({
+    'type': 'initialize_git',
+    'projectPath': projectPath,
+    'requestId': requestId,
+  });
+
   factory ClientMessage.createProject({
     required String name,
     required List<String> rootPaths,

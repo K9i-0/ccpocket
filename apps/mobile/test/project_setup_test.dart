@@ -32,6 +32,13 @@ class SetupBridge extends BridgeService {
   }
 }
 
+ClientMessage bootstrap(String requestId) => ClientMessage.bootstrapProject(
+  parentPath: '/workspace',
+  name: 'app',
+  initializeGit: false,
+  requestId: requestId,
+);
+
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
   testWidgets('resume settings cannot create a different project', (
@@ -210,9 +217,7 @@ void main() {
     () async {
       final bridge = SetupBridge();
       final cubit = ProjectSetupCubit(bridge);
-      final future = cubit.request({
-        'type': 'bootstrap_project',
-      }, updateHint: 'Update Bridge');
+      final future = cubit.request(bootstrap, updateHint: 'Update Bridge');
       bridge.events.add(
         ProjectSetupResultMessage(requestId: 'other', projectPath: '/wrong'),
       );
@@ -233,12 +238,7 @@ void main() {
   test('does not queue folder creation while disconnected', () async {
     final bridge = SetupBridge()..connected = false;
     final cubit = ProjectSetupCubit(bridge);
-    expect(
-      await cubit.request({
-        'type': 'bootstrap_project',
-      }, updateHint: 'Update Bridge'),
-      isNull,
-    );
+    expect(await cubit.request(bootstrap, updateHint: 'Update Bridge'), isNull);
     expect(bridge.sent, isEmpty);
     await cubit.close();
     bridge.dispose();
@@ -246,15 +246,8 @@ void main() {
   test('serializes setup requests and correlates successful replies', () async {
     final bridge = SetupBridge();
     final cubit = ProjectSetupCubit(bridge);
-    final future = cubit.request({
-      'type': 'bootstrap_project',
-    }, updateHint: 'Update Bridge');
-    expect(
-      await cubit.request({
-        'type': 'bootstrap_project',
-      }, updateHint: 'Update Bridge'),
-      isNull,
-    );
+    final future = cubit.request(bootstrap, updateHint: 'Update Bridge');
+    expect(await cubit.request(bootstrap, updateHint: 'Update Bridge'), isNull);
     expect(bridge.sent, hasLength(1));
     bridge.events.add(
       ProjectSetupResultMessage(

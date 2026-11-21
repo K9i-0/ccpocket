@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
 import '../../../widgets/directory_browser_sheet.dart';
 import '../../../widgets/project_sheet_layout.dart';
@@ -101,13 +102,17 @@ class _NewProjectSheetState extends State<NewProjectSheet> {
     final parentPath = _parent.text.trim();
     final l = AppLocalizations.of(context);
     if (_createdPath == null) {
-      final result = await cubit.request({
-        'type': 'bootstrap_project',
-        'parentPath': parentPath,
-        'name': _name.text.trim(),
-        'initializeGit': _git,
-        if (_source != null) 'sourcePath': _source,
-      }, updateHint: l.projectSetupUpdateHint);
+      final name = _name.text.trim();
+      final result = await cubit.request(
+        (requestId) => ClientMessage.bootstrapProject(
+          parentPath: parentPath,
+          name: name,
+          initializeGit: _git,
+          sourcePath: _source,
+          requestId: requestId,
+        ),
+        updateHint: l.projectSetupUpdateHint,
+      );
       if (result == null || !mounted) return;
       setState(() {
         _createdPath = result.projectPath;
@@ -118,10 +123,14 @@ class _NewProjectSheetState extends State<NewProjectSheet> {
     }
     if (!mounted) return;
     if (_trust) {
-      final result = await cubit.request({
-        'type': 'trust_project',
-        'projectPath': _createdPath,
-      }, updateHint: l.projectSetupUpdateHint);
+      final createdPath = _createdPath!;
+      final result = await cubit.request(
+        (requestId) => ClientMessage.trustProject(
+          projectPath: createdPath,
+          requestId: requestId,
+        ),
+        updateHint: l.projectSetupUpdateHint,
+      );
       if (result == null || !mounted) return;
     }
     if (!mounted) return;
