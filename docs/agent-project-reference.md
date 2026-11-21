@@ -146,8 +146,8 @@ GitHub系はBridgeホストの `gh` CLI を読み取り専用で使う（`github
 アプリが新しいメッセージタイプを送り、古い Bridge が認識できない場合の処理基盤。
 
 - **Bridge 側**: `errorCode: "unsupported_message"` + 元のタイプ名を返す (`websocket.ts`)
-- **型とキーのずれ**: `parser.ts` と `messages.dart` の食い違いは型チェックで検出する。`messages.dart` を変えたら `apps/mobile` で `dart run tool/protocol_surface.dart` を実行する（[protocol-contract-check.md](protocol-contract-check.md)）
 - **App 側**: `chat_message_handler.dart` の `_unsupportedActions` マップでタイプ別に振る舞いを制御
+- **型とキーのずれ**: `parser.ts` と `messages.dart` の食い違いは型チェックで検出する。`messages.dart` を変えたら `apps/mobile` で `dart run tool/protocol_surface.dart` を実行する（[protocol-contract-check.md](protocol-contract-check.md)）
   - `suppress` (デフォルト) — ログのみ、UIに表示しない (バックグラウンド機能向け)
   - `showUpdateHint` — amber warning バブルで Bridge 更新を案内 (ユーザー操作向け)
 - 通常のチャット操作は、新機能追加時に `_unsupportedActions` へ1行追加する
