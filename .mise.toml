@@ -1,4 +1,4 @@
 [tools]
 node = "22"
-flutter = "3.50.0"
+flutter = "3.50.1"
 "npm:agent-device" = "0.21.35"
