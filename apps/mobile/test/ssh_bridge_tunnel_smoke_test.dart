@@ -125,6 +125,7 @@ void main() {
         manager.configureBridgeTunnelResolvers(
           wsUrlResolver: tunnelService.buildWsUrl,
           httpBaseUrlResolver: tunnelService.buildHttpBaseUrl,
+          machineIdForLocalPort: tunnelService.machineIdForLocalPort,
         );
 
         await manager.addMachine(
@@ -144,6 +145,8 @@ void main() {
 
         final wsUrl = await manager.buildWsUrl('m1');
         expect(wsUrl, startsWith('ws://127.0.0.1:'));
+        final localPort = Uri.parse(wsUrl).port;
+        expect(manager.findByBridgeEndpoint('127.0.0.1', localPort)?.id, 'm1');
         final httpBaseUrl = wsUrl.replaceFirst('ws://', 'http://');
 
         final health = await _getWithRetry(Uri.parse('$httpBaseUrl/health'));

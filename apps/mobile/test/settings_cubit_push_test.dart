@@ -224,8 +224,7 @@ void main() {
       final manager = await _createMachineManager(prefs);
       await manager.init();
       manager.configureBridgeTunnelResolvers(
-        machineIdForLocalPort: (port) =>
-            port == 54321 ? _testMachineId : null,
+        machineIdForLocalPort: (port) => port == 54321 ? _testMachineId : null,
       );
       final bridge = FakeBridgeService()
         ..emitConnection(
@@ -256,8 +255,7 @@ void main() {
       final manager = await _createMachineManager(prefs);
       await manager.init();
       manager.configureBridgeTunnelResolvers(
-        machineIdForLocalPort: (port) =>
-            port == 54321 ? _testMachineId : null,
+        machineIdForLocalPort: (port) => port == 54321 ? _testMachineId : null,
       );
       final bridge = FakeBridgeService()
         ..emitConnection(
@@ -289,8 +287,7 @@ void main() {
       final manager = await _createMachineManager(prefs);
       await manager.init();
       manager.configureBridgeTunnelResolvers(
-        machineIdForLocalPort: (port) =>
-            port == 54321 ? _testMachineId : null,
+        machineIdForLocalPort: (port) => port == 54321 ? _testMachineId : null,
       );
       final bridge = FakeBridgeService()
         ..emitConnection(
