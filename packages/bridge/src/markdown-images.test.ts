@@ -2,12 +2,13 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ImageStore } from "./image-store.js";
+import { ImageStore, type ImageRef } from "./image-store.js";
 import {
   MAX_ASSISTANT_IMAGES_PER_MESSAGE,
   assistantTextBlocks,
   createAssistantImageResolver,
   extractMarkdownImages,
+  hasMarkdownImages,
 } from "./markdown-images.js";
 import { isPathWithinAllowedDirectory } from "./path-utils.js";
 
@@ -134,6 +135,162 @@ describe("extractMarkdownImages", () => {
       ),
     ).toEqual([]);
   });
+  it("accepts every supported image extension regardless of case", () => {
+    expect(
+      extractMarkdownImages(
+        [
+          "![a](/work/a.png)",
+          "![b](/work/b.jpg)",
+          "![c](/work/c.jpeg)",
+          "![d](/work/d.gif)",
+          "![e](/work/e.webp)",
+          "![f](/work/f.PNG)",
+          "![g](/work/g.svg)",
+          "![h](/work/h)",
+        ].join("\n"),
+      ).map((image) => image.path),
+    ).toEqual([
+      "/work/a.png",
+      "/work/b.jpg",
+      "/work/c.jpeg",
+      "/work/d.gif",
+      "/work/e.webp",
+      "/work/f.PNG",
+    ]);
+  });
+
+  it("does not join the text on either side of removed code into an image", () => {
+    expect(extractMarkdownImages("![a]`code`(/work/x.png)")).toEqual([]);
+    expect(
+      extractMarkdownImages("![a]\n```\ncode\n```\n(/work/x.png)"),
+    ).toEqual([]);
+    // Code inside the alt text still leaves a usable image.
+    expect(extractMarkdownImages("![the `main` view](/work/x.png)")).toEqual([
+      expect.objectContaining({ path: "/work/x.png" }),
+    ]);
+  });
+
+  it("only treats fence markers at the start of a line as code fences", () => {
+    // A marker in the middle of a line does not open a fence.
+    expect(
+      extractMarkdownImages("use ~~~ for fences\n![a](/work/a.png)"),
+    ).toEqual([{ alt: "a", path: "/work/a.png" }]);
+    // A marker in the middle of a line does not close a fence.
+    expect(
+      extractMarkdownImages(
+        "~~~\ncode ~~~ still code\n![in](/work/in.png)\n~~~\n![out](/work/out.png)",
+      ),
+    ).toEqual([{ alt: "out", path: "/work/out.png" }]);
+    // A closing fence may be longer than the opening one.
+    expect(
+      extractMarkdownImages(
+        "```\n![in](/work/in.png)\n````\n![out](/work/out.png)",
+      ),
+    ).toEqual([{ alt: "out", path: "/work/out.png" }]);
+  });
+
+  it("keeps local paths that merely contain a colon or a stray percent sign", () => {
+    expect(
+      extractMarkdownImages(
+        [
+          "![time](/work/shot-at-10:30.png)",
+          "![profile](/work/profile:1.png)",
+          "![percent](/work/100%.png)",
+        ].join("\n"),
+      ),
+    ).toEqual([
+      { alt: "time", path: "/work/shot-at-10:30.png" },
+      { alt: "profile", path: "/work/profile:1.png" },
+      { alt: "percent", path: "/work/100%.png" },
+    ]);
+  });
+
+  it("trims whitespace around the alt text and the destination", () => {
+    expect(
+      extractMarkdownImages(
+        [
+          "![  padded  ](/work/a.png)",
+          "![space]( /work/b.png)",
+          "![tab](\t/work/c.png)",
+          "![angled](< /work/d.png >)",
+          "![close](/work/e.png\t)",
+        ].join("\n"),
+      ),
+    ).toEqual([
+      { alt: "padded", path: "/work/a.png" },
+      { alt: "space", path: "/work/b.png" },
+      { alt: "tab", path: "/work/c.png" },
+      { alt: "angled", path: "/work/d.png" },
+      { alt: "close", path: "/work/e.png" },
+    ]);
+  });
+
+  it("resolves escaped delimiters in destinations", () => {
+    expect(
+      extractMarkdownImages(
+        [
+          String.raw`![paren](/work/a\).png)`,
+          String.raw`![angle](</work/a\>b.png>)`,
+        ].join("\n"),
+      ),
+    ).toEqual([
+      { alt: "paren", path: "/work/a).png" },
+      { alt: "angle", path: "/work/a>b.png" },
+    ]);
+  });
+
+  it("accepts every title form and whitespace around the title", () => {
+    expect(
+      extractMarkdownImages(
+        [
+          `![single](/work/a.png 'title')`,
+          `![paren](/work/b.png (title))`,
+          String.raw`![escaped](/work/c.png "say \"hi\" (1)")`,
+          `![tabbed](/work/d.png\t"title")`,
+          `![trailing-space](/work/e.png "title" )`,
+          `![trailing-tab](/work/f.png "title"\t)`,
+        ].join("\n"),
+      ).map((image) => image.path),
+    ).toEqual([
+      "/work/a.png",
+      "/work/b.png",
+      "/work/c.png",
+      "/work/d.png",
+      "/work/e.png",
+      "/work/f.png",
+    ]);
+  });
+
+  it.each([
+    ["text between the alt and the destination", "![a]x/work/a.png)"],
+    ["a nested angle bracket", "![a](</work/a<b.png>)"],
+    ["a line break in an angled destination", "![a](</work/a\nb.png>)"],
+    ["an escaped space in a bare destination", String.raw`![a](/work/a\ b.png)`],
+    ["an escaped tab in a bare destination", "![a](/work/a\\\tb.png)"],
+    ["an escaped line break in a bare destination", "![a](/work/a\\\nb.png)"],
+    ["a line break in a bare destination", "![a](/work/a\nb.png)"],
+    ["a tab in a bare destination", "![a](/work/a\tb.png)"],
+    ["an unbalanced parenthesis before whitespace", "![a](/work/a(b.png )"],
+    ["a line break in the title", '![a](/work/a.png "title\nmore")'],
+    ["an unterminated title", '![a](/work/a.png "title'],
+    ["text after the title", '![a](/work/a.png "title" extra)'],
+  ])("ignores %s", (_label, markdown) => {
+    expect(extractMarkdownImages(markdown)).toEqual([]);
+  });
+
+  it("keeps scanning after a malformed image", () => {
+    expect(
+      extractMarkdownImages("![unclosed alt\n![ok](/work/ok.png)"),
+    ).toEqual([{ alt: "ok", path: "/work/ok.png" }]);
+  });
+});
+
+describe("hasMarkdownImages", () => {
+  it("is true when any text embeds a local image", () => {
+    expect(hasMarkdownImages([])).toBe(false);
+    expect(hasMarkdownImages(["plain", "[link](/work/a.png)"])).toBe(false);
+    expect(hasMarkdownImages(["plain", "![a](/work/a.png)"])).toBe(true);
+  });
 });
 
 describe("assistantTextBlocks", () => {
@@ -147,6 +304,20 @@ describe("assistantTextBlocks", () => {
     ).toEqual(["hello"]);
     expect(assistantTextBlocks("plain")).toEqual(["plain"]);
     expect(assistantTextBlocks(undefined)).toEqual([]);
+  });
+
+  it("ignores empty strings and malformed blocks", () => {
+    expect(assistantTextBlocks("")).toEqual([]);
+    expect(
+      assistantTextBlocks([
+        null,
+        "bare string",
+        { type: "text" },
+        { type: "text", text: 1 },
+        { type: "other", text: "not a text block" },
+        { type: "text", text: "kept" },
+      ]),
+    ).toEqual(["kept"]);
   });
 });
 
@@ -222,5 +393,87 @@ describe.skipIf(process.platform === "win32")("createAssistantImageResolver", ()
     expect(await resolver()([text], project)).toHaveLength(
       MAX_ASSISTANT_IMAGES_PER_MESSAGE,
     );
+  });
+
+  it("registers an image once even when it is referenced in several ways", async () => {
+    writeFileSync(resolve(project, "a.png"), PNG);
+    const refs = await resolver()(
+      [
+        "![first](a.png) ![dot](./a.png)",
+        `![absolute](${resolve(project, "a.png")}) ![again](a.png)`,
+      ],
+      project,
+    );
+    expect(refs).toHaveLength(1);
+    expect(refs[0]).toMatchObject({ path: resolve(project, "a.png"), alt: "first" });
+  });
+
+  it("omits the label when the alt text is empty", async () => {
+    writeFileSync(resolve(project, "a.png"), PNG);
+    const refs = await resolver()(["![](a.png)"], project);
+    expect(refs).toHaveLength(1);
+    expect(refs[0]).not.toHaveProperty("alt");
+  });
+
+  it("skips a symlink outside the readable roots even when it points inside them", async () => {
+    writeFileSync(resolve(project, "a.png"), PNG);
+    symlinkSync(resolve(project, "a.png"), resolve(outside, "link.png"));
+    const refs = await resolver()(
+      [`![link](${resolve(outside, "link.png")})`],
+      project,
+    );
+    expect(refs).toEqual([]);
+  });
+
+  describe("with a stubbed image store", () => {
+    function resolverWithStore(
+      registerImages: (paths: string[]) => Promise<ImageRef[]>,
+    ) {
+      return createAssistantImageResolver({
+        imageStore: { registerImages } as unknown as ImageStore,
+        isPathReadable: () => true,
+        isCanonicalPathReadable: async () => true,
+      });
+    }
+    const ref: ImageRef = {
+      id: "id",
+      url: "/images/id",
+      thumbnailUrl: "/images/id?variant=thumbnail",
+      mimeType: "image/png",
+    };
+
+    it("registers the canonical path of a readable file", async () => {
+      writeFileSync(resolve(project, "a.png"), PNG);
+      symlinkSync(resolve(project, "a.png"), resolve(project, "link.png"));
+      const registered: string[][] = [];
+      const refs = await resolverWithStore(async (paths) => {
+        registered.push(paths);
+        return [ref];
+      })(["![link](link.png)"], project);
+      expect(registered).toEqual([[resolve(project, "a.png")]]);
+      expect(refs).toEqual([
+        { ...ref, path: resolve(project, "link.png"), alt: "link" },
+      ]);
+    });
+
+    it("never hands a directory to the image store", async () => {
+      mkdirSync(resolve(project, "dir.png"));
+      const registered: string[][] = [];
+      const refs = await resolverWithStore(async (paths) => {
+        registered.push(paths);
+        return [ref];
+      })(["![dir](dir.png)"], project);
+      expect(registered).toEqual([]);
+      expect(refs).toEqual([]);
+    });
+
+    it("skips an image the store declines to register", async () => {
+      writeFileSync(resolve(project, "a.png"), PNG);
+      const refs = await resolverWithStore(async () => [])(
+        ["![a](a.png)"],
+        project,
+      );
+      expect(refs).toEqual([]);
+    });
   });
 });

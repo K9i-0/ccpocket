@@ -39,7 +39,9 @@ const WINDOWS_DRIVE_RE = /^[A-Za-z]:[\\/]/;
 /** Extracts local image destinations from markdown, ignoring code and URLs. */
 export function extractMarkdownImages(text: string): MarkdownImage[] {
   if (!text.includes("![")) return [];
-  const prose = text.replace(FENCED_CODE_RE, "").replace(INLINE_CODE_RE, "");
+  // Code is replaced by whitespace, not removed: removing it would join the
+  // text on both sides, turning "![a]`code`(x.png)" into an image.
+  const prose = text.replace(FENCED_CODE_RE, "\n").replace(INLINE_CODE_RE, " ");
   const images: MarkdownImage[] = [];
   const seen = new Set<string>();
   let index = 0;
