@@ -619,8 +619,16 @@ export class SessionManager {
         const previousProviderSessionId = session.claudeSessionId;
 
         if (msg.type === "background_tasks") {
+          const prevCounts = backgroundTaskCounts(session.backgroundTasks);
           session.backgroundTasks = msg.tasks;
+          const nextCounts = backgroundTaskCounts(msg.tasks);
           deliverProcessMessage({ ...msg, sessionId: session.id });
+          if (
+            prevCounts.backgroundTaskCount !== nextCounts.backgroundTaskCount ||
+            prevCounts.backgroundAgentCount !== nextCounts.backgroundAgentCount
+          ) {
+            this.onSessionUpdated?.(session.id);
+          }
           return;
         }
 

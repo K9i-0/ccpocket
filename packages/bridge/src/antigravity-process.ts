@@ -68,6 +68,8 @@ const FOLLOW_UP_WAIT_MS = 5 * 60_000;
 const WAKE_WAIT_MS = 30_000;
 /** How often a swarm's roster and board are looked at. */
 const SWARM_POLL_MS = 2_000;
+/** Keep a worker marked busy briefly after live ACP updates in case members.json lags. */
+const SWARM_LIVE_GRACE_MS = 10_000;
 /** Attempts to open a swarm worker's conversation before giving up on it. */
 const SWARM_ATTACH_ATTEMPTS = 3;
 /** Updates only a running turn sends. */
@@ -354,6 +356,8 @@ interface SwarmWorker {
   attachAttempts: number;
   /** When it last did something, to tell a live worker from a stale roster. */
   lastActivityAt: number;
+  /** When this worker last sent a live ACP turn update on this connection. */
+  lastLiveActivityAt?: number;
   lastTool?: string;
 }
 
@@ -2245,14 +2249,15 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
         ...(call.description ? { description: call.description } : {}),
       });
     }
-    for (const worker of this.activeSwarmWorkers()) {
+    for (const worker of this.visibleSwarmWorkers()) {
+      const summary = worker.working ? worker.lastTool : "Waiting";
       tasks.push({
         taskId: `swarm:${worker.name}`,
         taskType: "antigravity_agent",
         subagentType: "swarm",
         description: `Swarm: ${worker.name}`,
         // What it is doing now; clients show it after the description.
-        ...(worker.lastTool ? { summary: worker.lastTool } : {}),
+        ...(summary ? { summary } : {}),
       });
     }
     const key = JSON.stringify(tasks);
@@ -2615,6 +2620,24 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     );
   }
 
+  /**
+   * Live swarm workers to show in background tasks and session card badges.
+   * While the swarm is active (the coordinator or at least one worker is in a
+   * turn), include waiting workers that are still alive so the agent count does
+   * not flicker down to 0 between turns. Once both coordinator and all workers
+   * are idle, return none so completion notifications are never held back.
+   */
+  private visibleSwarmWorkers(): SwarmWorker[] {
+    const active = this.activeSwarmWorkers();
+    if (active.length === 0 && !this.isTurnActive) return [];
+    const since = Date.now() - FOLLOW_UP_WAIT_MS;
+    const workers = [...this.swarmWorkers.values()].filter(
+      (worker) => !worker.killed && worker.lastActivityAt > since,
+    );
+    // Working workers first so the compact bar shows whoever is busy right now.
+    return workers.sort((a, b) => Number(b.working) - Number(a.working));
+  }
+
   private syncSwarm(stale = false): void {
     if (!this.swarmDir || this.stopped) return;
     const signature = swarmFilesSignature(this.swarmDir);
@@ -2666,13 +2689,18 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
         this.swarmWorkers.set(member.conversationId, worker);
         continue;
       }
+      const now = Date.now();
       if (member.working && !worker.working && !stale) {
-        worker.lastActivityAt = Date.now();
+        worker.lastActivityAt = now;
       }
       worker.name = member.name;
       worker.killed = member.killed;
-      worker.working = member.working;
-      if (!member.working) worker.lastTool = undefined;
+      const recentlyLive =
+        !member.killed &&
+        worker.lastLiveActivityAt !== undefined &&
+        now - worker.lastLiveActivityAt < SWARM_LIVE_GRACE_MS;
+      worker.working = member.killed ? false : member.working || recentlyLive;
+      if (!worker.working) worker.lastTool = undefined;
     }
     const listed = new Set(members.map((member) => member.conversationId));
     for (const worker of this.swarmWorkers.values()) {
@@ -2749,7 +2777,11 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     // Opening a conversation makes it report its commands and usage; only
     // what a turn produces says the worker is alive.
     if (!SWARM_TURN_UPDATES.has(stringOr(update.sessionUpdate))) return;
-    worker.lastActivityAt = Date.now();
+    const now = Date.now();
+    const wasWorking = worker.working;
+    worker.lastActivityAt = now;
+    worker.lastLiveActivityAt = now;
+    if (!worker.killed) worker.working = true;
     // Antigravity gives a worker's request 60 seconds, then fails the call
     // and lets the worker carry on. Answering after that reaches nobody.
     const expired = this.pendingPermissions.get(stringOr(update.toolCallId));
@@ -2762,13 +2794,15 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       this.emitToolResult(expired.toolUseId, "Timed out waiting for approval", "rejected");
       this.resumeRunningIfSettled();
     }
-    if (update.sessionUpdate !== "tool_call") return;
-    const title = stringOr(update.title);
-    if (!title || title === worker.lastTool) return;
-    worker.lastTool = title;
-    // The roster is only read every few seconds; the worker is plainly busy.
-    worker.working = true;
-    this.emitBackgroundTasks();
+    let changed = !wasWorking && worker.working;
+    if (update.sessionUpdate === "tool_call") {
+      const title = stringOr(update.title);
+      if (title && title !== worker.lastTool) {
+        worker.lastTool = title;
+        changed = true;
+      }
+    }
+    if (changed) this.emitBackgroundTasks();
   }
 
   /** A board post, as a tool card every client can already show. */
@@ -2850,7 +2884,13 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     if (method === "session/request_permission") {
       if (foreign) {
         const worker = this.swarmWorkers.get(from);
-        if (worker) worker.lastActivityAt = Date.now();
+        if (worker) {
+          const now = Date.now();
+          worker.lastActivityAt = now;
+          worker.lastLiveActivityAt = now;
+          if (!worker.killed) worker.working = true;
+          this.emitBackgroundTasks();
+        }
         this.handlePermissionRequest(id, params, worker?.name ?? "worker");
       } else {
         this.noteAgentActivity();
@@ -3820,6 +3860,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     this._status = status;
     this.emit("status", status);
     this.emitMessage({ type: "status", status });
+    if (this.swarmWorkers.size > 0) this.emitBackgroundTasks();
   }
 
   private emitMessage(message: ServerMessage): void {

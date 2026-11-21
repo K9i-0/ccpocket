@@ -482,6 +482,67 @@ describe("AntigravityProcess with a swarm", () => {
     proc.stop();
   });
 
+  it("keeps waiting swarm workers in background_tasks while another worker or coordinator runs", async () => {
+    const appData = appDataDir();
+    const { proc, messages, send, endTurn, sync } = await startSwarm(appData);
+    // writer_a finishes its turn and waits while writer_b keeps working.
+    writeSwarm(appData, {
+      writer_a: worker(WRITER_A, "mentions"),
+      writer_b: worker(WRITER_B, "working"),
+    });
+    sync();
+    endTurn();
+    await until(() => proc.status === "idle", "coordinator turn done");
+    expect(proc.expectsFollowUp).toBe(true);
+    expect(ofType(messages, "background_tasks").at(-1)?.tasks).toEqual([
+      {
+        taskId: "swarm:writer_b",
+        taskType: "antigravity_agent",
+        subagentType: "swarm",
+        description: "Swarm: writer_b",
+      },
+      {
+        taskId: "swarm:writer_a",
+        taskType: "antigravity_agent",
+        subagentType: "swarm",
+        description: "Swarm: writer_a",
+        summary: "Waiting",
+      },
+    ]);
+
+    // Both workers idle while coordinator is idle -> cleared so completion fires.
+    writeSwarm(appData, {
+      writer_a: worker(WRITER_A, "mentions"),
+      writer_b: worker(WRITER_B, "mentions"),
+    });
+    sync();
+    expect(proc.expectsFollowUp).toBe(false);
+    expect(ofType(messages, "background_tasks").at(-1)?.tasks).toEqual([]);
+
+    // A worker starts thinking (before any tool_call) -> immediately reported.
+    send(WRITER_A, {
+      sessionUpdate: "agent_thought_chunk",
+      content: { text: "planning next step" },
+    });
+    expect(proc.expectsFollowUp).toBe(true);
+    expect(ofType(messages, "background_tasks").at(-1)?.tasks).toEqual([
+      {
+        taskId: "swarm:writer_a",
+        taskType: "antigravity_agent",
+        subagentType: "swarm",
+        description: "Swarm: writer_a",
+      },
+      {
+        taskId: "swarm:writer_b",
+        taskType: "antigravity_agent",
+        subagentType: "swarm",
+        description: "Swarm: writer_b",
+        summary: "Waiting",
+      },
+    ]);
+    proc.stop();
+  });
+
   it("shows board posts in order and the coordinator's own posts once", async () => {
     const appData = appDataDir();
     const { proc, messages, tool, sync } = await startSwarm(appData);
