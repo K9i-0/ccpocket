@@ -71,6 +71,7 @@ Important files:
 - `src/index.ts`: server entry point
 - `src/cli.ts`: `ccpocket-bridge` CLI
 - `src/websocket.ts`: WebSocket server and message routing
+- `src/websocket/handlers/`: one function per client message type, grouped by domain
 - `src/session.ts`: session lifecycle and multi-session coordination
 - `src/parser.ts`: protocol types and message parsing
 - `src/sdk-process.ts`: shared SDK process primitives
@@ -188,7 +189,7 @@ Good places to fork or customize:
 Recommended implementation pattern:
 
 1. Add Bridge-side data access or operation in `packages/bridge/src/`.
-2. Add protocol types in `parser.ts` and routing in `websocket.ts`.
+2. Add protocol types in `parser.ts`, a handler in `src/websocket/handlers/`, and its `case` in `websocket.ts`.
 3. Add a Flutter service stream or request method in `apps/mobile/lib/services/`.
 4. Add feature UI under `apps/mobile/lib/features/<feature>/`.
 5. Add focused tests for protocol parsing, Bridge behavior, and Flutter state.

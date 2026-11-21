@@ -9,7 +9,8 @@ ccpocket/
 ├── packages/bridge/    # Bridge Server (TypeScript, WebSocket)
 │   └── src/
 │       ├── index.ts           # エントリーポイント
-│       ├── websocket.ts       # WebSocket接続管理・マルチセッション
+│       ├── websocket.ts       # WebSocket接続管理・メッセージの振り分け
+│       ├── websocket/         # 振り分け先の処理（handlers/ がメッセージ種別ごとの入口）
 │       ├── session.ts         # セッション管理 (SessionManager)
 │       ├── claude-process.ts  # Claude CLIプロセス管理 (SDK経由)
 │       ├── codex-process.ts   # Codex CLIプロセス管理 (SDK経由)
@@ -81,7 +82,7 @@ Flutter App ←WebSocket→ websocket.ts ←→ session.ts ─┤
 - `claude-process.ts` - Claude Code CLIプロセス管理 (Claude Agent SDK経由)
 - `codex-process.ts` - Codex CLIプロセス管理 (Codex SDK経由)
 - `session.ts` - マルチセッション管理 (SessionManager)
-- `websocket.ts` - WebSocket接続管理・認証・メッセージルーティング
+- `websocket.ts` - WebSocket接続管理・認証・メッセージルーティング（各メッセージの処理は `websocket/handlers/`）
 - `index.ts` - エントリーポイント
 
 ## 環境変数

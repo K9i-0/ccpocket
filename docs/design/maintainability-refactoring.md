@@ -68,6 +68,28 @@ profile names. Corrupt storage is treated as empty and is replaced only by a
 subsequent explicit save; arbitrary JSON values are no longer coerced with
 `toString()`.
 
+### WebSocket message handlers
+
+`websocket.ts` went from 12,707 to about 3,300 lines. The code was moved
+verbatim; no behaviour was changed on purpose.
+
+- `handleClientMessage` keeps the `switch`, and each `case` calls one function
+  in `src/websocket/handlers/`, grouped by domain (Git, files, projects,
+  prompt history, session start/resume/input/modes, and so on).
+- Helpers that were methods of `BridgeWebSocketServer` are plain functions in
+  `src/websocket/*.ts` that take the server as their first argument.
+- Still on the class: connection handling, sending and broadcasting, delta
+  batching, resume-operation bookkeeping, and every method the tests reach by
+  name (they stub or call these through the instance, so extracted code must
+  keep calling them as `server.method()`).
+- Members used by extracted code are no longer `private`. The class is not
+  part of the package's public API, so this only affects the type check.
+
+One consequence to know about: a handler is one more `async` call deep than
+the old inline `case`, so work started in the background by a handler can
+finish a few microtasks earlier relative to the caller. One test depended on
+that order and now stubs the background reload it was racing.
+
 ## Fallback policy for follow-up work
 
 - Protocol input: reject malformed values; do not coerce them.
@@ -83,8 +105,8 @@ subsequent explicit save; arbitrary JSON values are no longer coerced with
 
 ## Recommended next slices
 
-1. Characterize and extract Git, prompt-history, and file commands from
-   `BridgeWebSocketServer.handleClientMessage` into domain handlers.
+1. Break up the largest handlers (`resume_session`, `set_permission_mode`,
+   `set_sandbox_mode`, `start`, `input`), which were moved whole.
 2. Split `BridgeService` into connection lifecycle, offline outbox, and history
    synchronization collaborators, preserving reconnect tests before moving
    code.
