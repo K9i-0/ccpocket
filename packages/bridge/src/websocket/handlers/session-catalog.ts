@@ -223,7 +223,7 @@ export async function handleArchiveSession(
       sessionId,
       success: false,
       error: pathError.message,
-    } as Record<string, unknown>);
+    });
     return;
   }
   void (async () => {
@@ -256,7 +256,7 @@ export async function handleArchiveSession(
         type: "archive_result",
         sessionId,
         success: true,
-      } as Record<string, unknown>);
+      });
     })
     .catch((err) => {
       server.send(ws, {
@@ -264,7 +264,7 @@ export async function handleArchiveSession(
         sessionId,
         success: false,
         error: codexErrorMessage(err),
-      } as Record<string, unknown>);
+      });
     });
 }
 

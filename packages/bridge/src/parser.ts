@@ -866,8 +866,14 @@ export type ServerMessage =
       additionalWritableRoots?: string[];
       clearContext?: boolean;
       sourceSessionId?: string;
+      /** The source session keeps running (fork), unlike restarts/rewinds. */
+      forked?: boolean;
       resumeRequestId?: string;
       requestId?: string;
+      /** Claude settings, sent with subtype `claude_settings`. */
+      effort?: string;
+      fastMode?: boolean;
+      ultracode?: boolean;
       tipCode?: string;
       codexCliJoin?: CodexCliJoinTarget;
       /** Antigravity session settings: current and selectable models/modes. */
@@ -968,6 +974,69 @@ export type ServerMessage =
     }
   | { type: "session_activity"; sessionId?: string; at: string; historySeq?: number }
   | { type: "performance_mode_state"; deliveryRevision: number }
+  | { type: "archive_result"; sessionId: string; success: boolean; error?: string }
+  | { type: "branch_update"; sessionId: string; branch: string }
+  | {
+      type: "input_ack";
+      sessionId: string;
+      clientMessageId?: string;
+      acceptedSeq: number;
+      queued: boolean;
+    }
+  | {
+      type: "input_rejected";
+      sessionId: string;
+      clientMessageId?: string;
+      reason: string;
+    }
+  | {
+      type: "past_history";
+      claudeSessionId: string;
+      sessionId: string;
+      messages: unknown[];
+    }
+  | {
+      type: "project_setup_result";
+      requestId: string;
+      projectPath?: string;
+      copiedFiles?: string[];
+      error?: string;
+    }
+  | {
+      type: "recent_sessions";
+      sessions: unknown[];
+      hasMore: boolean;
+      pinnedSessions?: unknown[];
+      limit?: number;
+      offset?: number;
+      projectPath?: string;
+      projectId?: string;
+      workspaceKind?: "project" | "unassigned";
+      requestScope?: "list" | "project";
+      requestId?: string;
+    }
+  | { type: "recording_list"; recordings: unknown[] }
+  | { type: "recording_content"; sessionId: string; content: string }
+  | {
+      type: "session_list";
+      sessions: unknown[];
+      allowedDirs: string[];
+      claudeModels: string[];
+      claudeModelOptions: unknown[];
+      claudeModelEfforts: Record<string, string[]>;
+      codexModels: string[];
+      codexModelReasoningEfforts: Record<string, string[]>;
+      codexModelServiceTiers: Record<string, string[]>;
+      codexModelServiceTierMetadata: Record<string, unknown>;
+      codexProfiles: string[];
+      defaultCodexProfile?: string;
+      codexAutoReviewDisabled: boolean;
+      bridgeVersion: string;
+      bridgeInstanceId?: string;
+      protocolVersion: number;
+      minimumProtocolVersion: number;
+      protocolCapabilities: string[];
+    }
   | { type: "status"; status: ProcessStatus }
   | {
       type: "history";
