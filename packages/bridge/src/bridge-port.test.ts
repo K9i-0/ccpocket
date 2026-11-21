@@ -33,7 +33,19 @@ describe("parseBridgePort", () => {
     expect(parseBridgePort(rawPort)).toBe(expected);
   });
 
-  it.each(["", "0", "-1", "65536", "123abc", "8.5", "NaN"])(
+  it.each([
+    "",
+    "0",
+    "-1",
+    "65536",
+    "123abc",
+    "8.5",
+    "NaN",
+    // Number() accepts these spellings, so only the digit check rejects them.
+    "1e3",
+    "0x50",
+    "+80",
+  ])(
     "rejects %s",
     (rawPort) => {
       expect(() => parseBridgePort(rawPort)).toThrow(
