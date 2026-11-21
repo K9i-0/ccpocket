@@ -104,6 +104,8 @@ after writing the local copy.
   again. So for each key the first device to bring a value wins; a value that
   only a later device had, for a key the Bridge already has, is replaced by
   the Bridge's.
+  A Bridge store the device has not met adopts the copies the device last
+  saw, including ones that came from another Bridge.
 - **After that the Bridge is the truth.** For a seeded store, a local entry
   the snapshot lacks was removed elsewhere and is removed locally.
 - **Read marks (`seen_at`).** Session IDs do not outlive a Bridge run, so
@@ -111,10 +113,18 @@ after writing the local copy.
   are applied only when later than the local one, so a replayed older mark
   cannot make a session unseen. Dropping records of ended sessions stays
   local (the Bridge's per-name limit bounds the store).
+- **Session settings.** `ClaudeSessionSettingsStore.save` writes and shares
+  only when the merged settings differ from the stored ones, because every
+  device saves what a running session reports.
 - **Auto-rename.** Only a switch the user has changed is offered as a seed,
   so a device on the default does not override another device's choice.
 - **Codex profile.** Clearing a profile stores `""` instead of deleting the
   key, so an older copy on another device is not offered again.
+
+Known limit: a device with more than 500 stored
+`claude_session_settings_*` entries offers them all, the Bridge adopts 500,
+and the rest are removed locally at the next snapshot. Only the saved resume
+settings of those sessions are lost.
 
 ## Compatibility
 

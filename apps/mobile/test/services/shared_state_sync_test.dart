@@ -366,6 +366,17 @@ void main() {
         ),
       ]);
 
+      // Saving what is already stored shares nothing.
+      bridge.sent.clear();
+      await const ClaudeSessionSettingsStore().save('s-remote', {
+        'effort': 'high',
+      });
+      expect(bridge.sent, isEmpty);
+      await const ClaudeSessionSettingsStore().save('s-remote', {
+        'effort': 'low',
+      });
+      await const CodexProjectProfileStore().save('/p', null, projectId: 'p1');
+
       // A cleared profile from another device clears the local one.
       for (final set in bridge.ofType('set_shared_state')) {
         bridge.echo(set);

@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../models/messages.dart';
 import '../../../models/offline_pending_action.dart';
 import '../../../services/bridge_service.dart';
+import '../../../services/bridge_service_helpers.dart';
 import '../../../services/shared_state_adapters.dart';
 import '../../../services/shared_state_sync.dart';
 import 'codex_project_profile_store.dart';
@@ -33,6 +34,11 @@ class ClaudeSessionSettingsStore {
     final prefs = await SharedPreferences.getInstance();
     final existing = await load(sessionId);
     final merged = <String, dynamic>{...?existing, ...settings};
+    // Running sessions report their settings to every device; only a real
+    // change is written and shared.
+    if (existing != null && canonicalJson(existing) == canonicalJson(merged)) {
+      return;
+    }
     await prefs.setString(
       '$_claudeSessionSettingsPrefix$sessionId',
       jsonEncode(merged),

@@ -75,7 +75,14 @@ class UnseenSessionsCubit extends Cubit<Set<String>> {
     }
   }
 
+  bool _saveScheduled = false;
+
+  /// Writes once per burst: a snapshot from the Bridge applies many marks.
   Future<void> _saveSeenAt() async {
+    if (_saveScheduled) return;
+    _saveScheduled = true;
+    await Future<void>.microtask(() {});
+    _saveScheduled = false;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefsKey, json.encode(_seenAt));
   }
