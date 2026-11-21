@@ -2,6 +2,7 @@ import '../core/logger.dart';
 import '../models/messages.dart';
 import '../utils/codex_plan_update.dart';
 import '../utils/request_user_input.dart';
+import '../widgets/bubbles/swarm_post_card.dart';
 import 'session_pending_input_state.dart';
 import '../widgets/slash_command_sheet.dart'
     show
@@ -603,11 +604,18 @@ class ChatMessageHandler {
       inPlanMode = true;
     }
 
+    final isSwarmPostOnly =
+        message.content.isNotEmpty &&
+        message.content.every(
+          (content) =>
+              content is ToolUseContent && content.name == swarmPostToolName,
+        );
+
     return ChatStateUpdate(
       entriesToAdd: [entry],
       resetStreaming:
           replaceStreaming != null || accumulatedThinking.isNotEmpty,
-      markUserMessagesSent: true,
+      markUserMessagesSent: !isSwarmPostOnly,
       askToolUseId: askToolUseId,
       askInput: askInput,
       pendingToolUseId: pendingToolUseId,

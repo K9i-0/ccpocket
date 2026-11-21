@@ -53,6 +53,12 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   final Map<String, Timer> _deliveryPendingTimers = {};
   final Map<String, QueuedInputItem> _deliveryPendingInputs = {};
 
+  /// Online Antigravity user messages added optimistically before `input_ack`.
+  /// Server messages that arrive before the ack belong to earlier Bridge turns
+  /// (e.g. flushed output, self-started turns, or swarm board posts) and must
+  /// stay above these entries.
+  final Set<String> _unackedLocalUserMessageIds = {};
+
   /// Number of entries prepended from past_history, so that [replaceEntries]
   /// can preserve them while replacing in-memory history entries.
   int _pastEntryCount = 0;
@@ -829,7 +835,10 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         );
       } else if (update.markUserMessagesQueued) {
         targetIndex = entries.indexWhere(
-          (e) => e is UserChatEntry && e.status == MessageStatus.sending,
+          (e) =>
+              e is UserChatEntry &&
+              e.status == MessageStatus.sending &&
+              !_unackedLocalUserMessageIds.contains(e.clientMessageId),
         );
       } else {
         targetIndex = entries.indexWhere(
@@ -837,7 +846,10 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         );
         if (targetIndex == -1) {
           targetIndex = entries.indexWhere(
-            (e) => e is UserChatEntry && e.status == MessageStatus.sending,
+            (e) =>
+                e is UserChatEntry &&
+                e.status == MessageStatus.sending &&
+                !_unackedLocalUserMessageIds.contains(e.clientMessageId),
           );
         }
       }
@@ -1075,6 +1087,31 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
 
     var nextEntries = didModifyEntries ? entries : current.entries;
 
+    if (originalMsg
+        case InputAckMessage(:final clientMessageId) ||
+            InputRejectedMessage(:final clientMessageId) ||
+            UserInputMessage(:final clientMessageId)
+        when clientMessageId != null) {
+      _unackedLocalUserMessageIds.remove(clientMessageId);
+    }
+    if (originalMsg is HistoryMessage) {
+      for (final entry in nextEntries) {
+        if (entry is UserChatEntry &&
+            entry.clientMessageId != null &&
+            entry.status == MessageStatus.sent) {
+          _unackedLocalUserMessageIds.remove(entry.clientMessageId);
+        }
+      }
+    }
+    if (originalMsg is InputAckMessage &&
+        originalMsg.queued == false &&
+        originalMsg.clientMessageId != null) {
+      nextEntries = _placeAckedUserEntryAfterConfirmed(
+        nextEntries,
+        originalMsg.clientMessageId!,
+      );
+    }
+
     // --- Apply state update ---
     final newClaudeSessionId =
         update.claudeSessionId ?? current.claudeSessionId;
@@ -1153,7 +1190,10 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         _deliveryPendingInputs.remove(originalMsg.clientMessageId);
       }
     }
-    if (originalMsg is! InputAckMessage &&
+    final allowAcklessDeliveryFallback =
+        !isAntigravity && current.status == ProcessStatus.idle;
+    if (allowAcklessDeliveryFallback &&
+        originalMsg is! InputAckMessage &&
         update.markUserMessagesSent &&
         isDeliveryPendingQueuedInput(nextQueuedInput)) {
       deliveredPendingInput = nextQueuedInput;
@@ -1164,7 +1204,8 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       if (deliveredPendingClientMessageId != null) {
         _deliveryPendingInputs.remove(deliveredPendingClientMessageId);
       }
-    } else if (originalMsg is! InputAckMessage &&
+    } else if (allowAcklessDeliveryFallback &&
+        originalMsg is! InputAckMessage &&
         update.markUserMessagesSent &&
         _deliveryPendingInputs.isNotEmpty) {
       final entry = _deliveryPendingInputs.entries.first;
@@ -1378,6 +1419,15 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       if (aClientId?.isNotEmpty == true && bClientId?.isNotEmpty == true) {
         return aClientId == bClientId;
       }
+      // A replayed Antigravity user turn carries a synthetic replay UUID while
+      // a newly sent message carries a clientMessageId; identical text must not
+      // conflate the new prompt with an earlier replayed turn.
+      final aIsReplay = aUuid?.startsWith('antigravity:replay:') == true;
+      final bIsReplay = bUuid?.startsWith('antigravity:replay:') == true;
+      if ((aIsReplay && bClientId?.isNotEmpty == true) ||
+          (bIsReplay && aClientId?.isNotEmpty == true)) {
+        return false;
+      }
       return _entriesEquivalent(a, b, allowWeakMatch: true);
     }
     final aKey = entryStableKey(a);
@@ -1446,11 +1496,59 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         continue;
       }
       if (!didChange) next = [...next];
-      next.add(addition);
+      final insertBefore = addition is! UserChatEntry
+          ? _firstTrailingUnackedUserIndex(next)
+          : -1;
+      if (insertBefore != -1) {
+        next.insert(insertBefore, addition);
+      } else {
+        next.add(addition);
+      }
       didChange = true;
     }
 
     return (entries: next, didChange: didChange);
+  }
+
+  /// Index of the first trailing local unacked user entry, or `-1` when none
+  /// sit at the tail of [entries].
+  int _firstTrailingUnackedUserIndex(List<ChatEntry> entries) {
+    if (_unackedLocalUserMessageIds.isEmpty) return -1;
+    var index = entries.length;
+    while (index > 0) {
+      final candidate = entries[index - 1];
+      if (candidate is UserChatEntry &&
+          candidate.clientMessageId != null &&
+          _unackedLocalUserMessageIds.contains(candidate.clientMessageId)) {
+        index--;
+      } else {
+        break;
+      }
+    }
+    return index < entries.length ? index : -1;
+  }
+
+  /// Ensures an acknowledged user message sits after all confirmed server
+  /// entries that arrived before its `input_ack`, ahead of any still-unacked
+  /// local user entries.
+  List<ChatEntry> _placeAckedUserEntryAfterConfirmed(
+    List<ChatEntry> entries,
+    String clientMessageId,
+  ) {
+    final currentIndex = entries.indexWhere(
+      (entry) =>
+          entry is UserChatEntry && entry.clientMessageId == clientMessageId,
+    );
+    if (currentIndex == -1) return entries;
+    final trailingUnackedStart = _firstTrailingUnackedUserIndex(entries);
+    final targetIndex = trailingUnackedStart == -1
+        ? entries.length - 1
+        : trailingUnackedStart - 1;
+    if (currentIndex >= targetIndex) return entries;
+    final next = [...entries];
+    final moved = next.removeAt(currentIndex);
+    next.insert(targetIndex, moved);
+    return next;
   }
 
   int _indexOfEquivalentEntry(
@@ -1788,6 +1886,9 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         status: isOffline ? MessageStatus.queued : MessageStatus.sending,
         messageUuid: isCodex ? _nextOptimisticCodexUserTurnUuid() : null,
       );
+      if (!isOffline && isAntigravity) {
+        _unackedLocalUserMessageIds.add(clientMessageId);
+      }
       emit(state.copyWith(entries: [...state.entries, entry]));
     } else if (shouldUseOfflineQueuePanel) {
       emit(
@@ -1854,6 +1955,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         stackTrace,
       );
       _deliveryPendingInputs.remove(clientMessageId);
+      _unackedLocalUserMessageIds.remove(clientMessageId);
       if (deliveryPendingItem != null) {
         _bridge.clearDeliveryPendingInput(
           sessionId,
@@ -2015,6 +2117,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       final clientMessageId = deliveryPendingClientMessageId(item);
       if (clientMessageId != null) {
         _deliveryPendingInputs.remove(clientMessageId);
+        _unackedLocalUserMessageIds.remove(clientMessageId);
       }
       _bridge.clearDeliveryPendingInput(sessionId, itemId: item.itemId);
       if (state.queuedInput?.itemId == item.itemId) {

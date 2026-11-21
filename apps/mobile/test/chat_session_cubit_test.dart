@@ -4841,6 +4841,262 @@ void main() {
       expect(streamingCubit.state.text, isEmpty);
       expect(streamingCubit.state.thinking, isEmpty);
     });
+
+    test('keeps Antigravity user prompt below prior agent/swarm output arriving before input_ack', () async {
+      final cubit = ChatSessionCubit(
+        sessionId: 'agy-order-before-ack',
+        provider: Provider.antigravity,
+        bridge: mockBridge,
+        streamingCubit: streamingCubit,
+      );
+      addTearDown(cubit.close);
+      await Future.microtask(() {});
+
+      mockBridge.emitMessage(
+        const StatusMessage(status: ProcessStatus.idle),
+        sessionId: 'agy-order-before-ack',
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final accepted = await cubit.sendMessage('次の指示');
+      expect(accepted, isTrue);
+      final payload = jsonDecode(
+        mockBridge.sentMessages.last.toJson(),
+      ) as Map<String, dynamic>;
+      final clientMessageId = payload['clientMessageId'] as String;
+
+      // Prior flushed assistant output and a swarm board post arrive before
+      // the Bridge acknowledges the newly sent user input.
+      mockBridge.emitMessage(
+        AssistantServerMessage(
+          message: AssistantMessage(
+            id: 'prior-reply',
+            role: 'assistant',
+            content: const [TextContent(text: '直前のエージェント出力')],
+            model: 'antigravity',
+          ),
+        ),
+        sessionId: 'agy-order-before-ack',
+      );
+      mockBridge.emitMessage(
+        AssistantServerMessage(
+          message: AssistantMessage(
+            id: 'swarm-post:agy:5',
+            role: 'assistant',
+            content: const [
+              ToolUseContent(
+                id: 'swarm-post:agy:5',
+                name: 'SwarmPost',
+                input: {
+                  'seq': 5,
+                  'agent': 'ocean-river',
+                  'text': '@architect done',
+                },
+              ),
+            ],
+            model: 'antigravity',
+          ),
+        ),
+        sessionId: 'agy-order-before-ack',
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      // User message stays below the earlier agent output even before ack.
+      expect(cubit.state.entries, hasLength(3));
+      expect(
+        cubit.state.entries[0],
+        isA<ServerChatEntry>().having(
+          (e) => (e.message as AssistantServerMessage).message.id,
+          'id',
+          'prior-reply',
+        ),
+      );
+      expect(
+        cubit.state.entries[1],
+        isA<ServerChatEntry>().having(
+          (e) => (e.message as AssistantServerMessage).message.id,
+          'id',
+          'swarm-post:agy:5',
+        ),
+      );
+      expect(
+        cubit.state.entries[2],
+        isA<UserChatEntry>()
+            .having((e) => e.text, 'text', '次の指示')
+            .having((e) => e.status, 'status', MessageStatus.sending),
+      );
+
+      // Ack promotes the user prompt to sent, still at the bottom; later
+      // replies then render below it.
+      mockBridge.emitMessage(
+        InputAckMessage(
+          sessionId: 'agy-order-before-ack',
+          clientMessageId: clientMessageId,
+          acceptedSeq: 12,
+          queued: false,
+        ),
+        sessionId: 'agy-order-before-ack',
+      );
+      mockBridge.emitMessage(
+        AssistantServerMessage(
+          message: AssistantMessage(
+            id: 'next-reply',
+            role: 'assistant',
+            content: const [TextContent(text: '新しい返答')],
+            model: 'antigravity',
+          ),
+        ),
+        sessionId: 'agy-order-before-ack',
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(cubit.state.entries, hasLength(4));
+      expect(
+        cubit.state.entries[2],
+        isA<UserChatEntry>()
+            .having((e) => e.text, 'text', '次の指示')
+            .having((e) => e.status, 'status', MessageStatus.sent),
+      );
+      expect(
+        cubit.state.entries[3],
+        isA<ServerChatEntry>().having(
+          (e) => (e.message as AssistantServerMessage).message.id,
+          'id',
+          'next-reply',
+        ),
+      );
+    });
+
+    test('does not insert pending Antigravity prompt above in-flight assistant output while running', () async {
+      mockBridge.antigravityQueues = true;
+      mockBridge.inputDelivery = true;
+      final cubit = ChatSessionCubit(
+        sessionId: 'agy-running-order',
+        provider: Provider.antigravity,
+        bridge: mockBridge,
+        streamingCubit: streamingCubit,
+      );
+      addTearDown(cubit.close);
+      await Future.microtask(() {});
+
+      mockBridge.emitMessage(
+        const StatusMessage(status: ProcessStatus.running),
+        sessionId: 'agy-running-order',
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final accepted = await cubit.sendMessage(
+        '割り込みメッセージ',
+        delivery: InputDelivery.steer,
+      );
+      expect(accepted, isTrue);
+      final payload = jsonDecode(
+        mockBridge.sentMessages.last.toJson(),
+      ) as Map<String, dynamic>;
+      final clientMessageId = payload['clientMessageId'] as String;
+
+      // In-flight assistant message arrives before input_ack.
+      mockBridge.emitMessage(
+        AssistantServerMessage(
+          message: AssistantMessage(
+            id: 'in-flight-assistant',
+            role: 'assistant',
+            content: const [TextContent(text: '進行中の出力')],
+            model: 'antigravity',
+          ),
+        ),
+        sessionId: 'agy-running-order',
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      // Must NOT have inserted the user message above the in-flight assistant.
+      expect(cubit.state.entries, hasLength(1));
+      expect(
+        (cubit.state.entries.single as ServerChatEntry).message,
+        isA<AssistantServerMessage>(),
+      );
+
+      // When ack arrives, the steered message appends below the prior output.
+      mockBridge.emitMessage(
+        InputAckMessage(
+          sessionId: 'agy-running-order',
+          clientMessageId: clientMessageId,
+          acceptedSeq: 20,
+          queued: false,
+        ),
+        sessionId: 'agy-running-order',
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(cubit.state.entries, hasLength(2));
+      expect(
+        (cubit.state.entries[0] as ServerChatEntry).message,
+        isA<AssistantServerMessage>(),
+      );
+      expect(
+        cubit.state.entries[1],
+        isA<UserChatEntry>().having((e) => e.text, 'text', '割り込みメッセージ'),
+      );
+    });
+
+    test('keeps repeated identical prompt at the bottom when history reconciles against replayed UUID', () async {
+      final cubit = ChatSessionCubit(
+        sessionId: 'agy-repeat-text',
+        provider: Provider.antigravity,
+        bridge: mockBridge,
+        streamingCubit: streamingCubit,
+      );
+      addTearDown(cubit.close);
+      await Future.microtask(() {});
+
+      final historyMessages = <ServerMessage>[
+        const UserInputMessage(
+          text: '続けて',
+          userMessageUuid: 'antigravity:replay:1',
+        ),
+        AssistantServerMessage(
+          message: AssistantMessage(
+            id: 'a1',
+            role: 'assistant',
+            content: const [TextContent(text: '了解しました')],
+            model: 'antigravity',
+          ),
+        ),
+        const StatusMessage(status: ProcessStatus.idle),
+      ];
+      mockBridge.emitMessage(
+        HistoryMessage(messages: historyMessages),
+        sessionId: 'agy-repeat-text',
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final accepted = await cubit.sendMessage('続けて');
+      expect(accepted, isTrue);
+
+      // Stale history snapshot without the new turn arrives.
+      mockBridge.emitMessage(
+        HistoryMessage(messages: historyMessages),
+        sessionId: 'agy-repeat-text',
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(cubit.state.entries, hasLength(3));
+      expect(
+        cubit.state.entries[0],
+        isA<UserChatEntry>().having(
+          (e) => e.messageUuid,
+          'messageUuid',
+          'antigravity:replay:1',
+        ),
+      );
+      expect(cubit.state.entries[1], isA<ServerChatEntry>());
+      expect(
+        cubit.state.entries[2],
+        isA<UserChatEntry>()
+            .having((e) => e.text, 'text', '続けて')
+            .having((e) => e.messageUuid, 'messageUuid', isNull),
+      );
+    });
   });
 
   group('updateRecentPeekedFiles', () {

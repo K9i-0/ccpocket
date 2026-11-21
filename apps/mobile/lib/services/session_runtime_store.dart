@@ -164,7 +164,13 @@ class SessionRuntimeStore {
     }
 
     final messageSeq = _representsHistoryEntry(message) ? historySeq : null;
+    final previousMaxSeq = _lastSequencedEntrySeq(state);
     _upsertMessage(state, message, messageSeq);
+    if (messageSeq != null &&
+        previousMaxSeq != null &&
+        messageSeq < previousMaxSeq) {
+      _sortSequencedMessages(state);
+    }
     _recordLatestSeq(state, historySeq);
     if (messageSeq != null && messageSeq <= state.cachedHistorySeq + 1) {
       if (messageSeq > state.cachedHistorySeq) {
@@ -339,6 +345,14 @@ class SessionRuntimeStore {
     }
     state._messages.add(message);
     state._messageSeqs.add(historySeq);
+  }
+
+  int? _lastSequencedEntrySeq(SessionRuntimeState state) {
+    for (var i = state._messageSeqs.length - 1; i >= 0; i--) {
+      final seq = state._messageSeqs[i];
+      if (seq != null) return seq;
+    }
+    return null;
   }
 
   void _sortSequencedMessages(SessionRuntimeState state) {

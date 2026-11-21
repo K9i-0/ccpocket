@@ -2363,7 +2363,14 @@ class BridgeService implements BridgeServiceBase {
           sessionId,
           itemId: 'pending:$clientMessageId',
         );
-      case AssistantServerMessage():
+      case AssistantServerMessage(:final message):
+        final isSwarmPostOnly =
+            message.content.isNotEmpty &&
+            message.content.every(
+              (content) =>
+                  content is ToolUseContent && content.name == 'SwarmPost',
+            );
+        if (isSwarmPostOnly) return;
         clearDeliveryPendingInput(sessionId);
       default:
         return;
