@@ -165,6 +165,134 @@ void main() {
 
       expect(result.text, '1) A\n2) B');
     });
+
+    test('renumbers a block when the range touches the middle of a line', () {
+      const input = '8. A\n9. B\n\nplain text\n\n5. C\n6. D';
+
+      final result = renumber(input, startOffset: 1, endOffset: 2);
+
+      expect(result.text, '1. A\n2. B\n\nplain text\n\n5. C\n6. D');
+    });
+
+    test('renumbers a block when the range sits at the end of its line', () {
+      const input = '8. A\n9. B\n\n5. C\n6. D';
+      final endOfFirstBlock = input.indexOf('\n\n');
+
+      final result = renumber(
+        input,
+        startOffset: endOfFirstBlock,
+        endOffset: endOfFirstBlock,
+      );
+
+      expect(result.text, '1. A\n2. B\n\n5. C\n6. D');
+    });
+
+    test('renumbers a list that follows a closed code fence', () {
+      const input = '```text\n9. example\n```\n\n8. A\n9. B';
+
+      final result = renumber(input);
+
+      expect(result.text, '```text\n9. example\n```\n\n1. A\n2. B');
+    });
+
+    test('a closing fence may be followed by trailing whitespace', () {
+      const input = '~~~\n9. example\n~~~ \t\n\n8. A\n9. B';
+
+      final result = renumber(input);
+
+      expect(result.text, '~~~\n9. example\n~~~ \t\n\n1. A\n2. B');
+    });
+
+    test('does not renumber fenced code indented under a list item', () {
+      const input = '8. A\n   ```\n   9. example\n   ```';
+
+      final result = renumber(input);
+
+      expect(result.text, '1. A\n   ```\n   9. example\n   ```');
+    });
+
+    test('keeps a cursor that sits before the renumbered markers', () {
+      const input = '9. A\n10. B\n11. C';
+
+      final result = renumber(
+        input,
+        selection: const TextSelection.collapsed(offset: 2),
+      );
+
+      expect(result.text, '1. A\n2. B\n3. C');
+      expect(result.selection, const TextSelection.collapsed(offset: 2));
+    });
+
+    test('keeps the cursor after a marker that gains a digit', () {
+      final input = List.filled(10, '1. item').join('\n');
+      final afterLastNumber = input.lastIndexOf('1.') + 1;
+
+      final result = renumber(
+        input,
+        selection: TextSelection.collapsed(offset: afterLastNumber),
+      );
+
+      expect(result.text, endsWith('\n9. item\n10. item'));
+      expect(
+        result.selection,
+        TextSelection.collapsed(offset: result.text.lastIndexOf('10.') + 2),
+      );
+    });
+
+    test('keeps the cursor at the same position inside a changed marker', () {
+      final input = [for (var n = 11; n <= 20; n++) '$n. item'].join('\n');
+      final insideLastNumber = input.lastIndexOf('20.') + 1;
+
+      final result = renumber(
+        input,
+        selection: TextSelection.collapsed(offset: insideLastNumber),
+      );
+
+      expect(result.text, endsWith('\n9. item\n10. item'));
+      expect(
+        result.selection,
+        TextSelection.collapsed(offset: result.text.lastIndexOf('10.') + 1),
+      );
+    });
+
+    test('clamps a cursor inside a marker that loses digits', () {
+      const input = '1. A\n100. B';
+      final beforeLastDigit = input.indexOf('100.') + 2;
+
+      final result = renumber(
+        input,
+        selection: TextSelection.collapsed(offset: beforeLastDigit),
+      );
+
+      expect(result.text, '1. A\n2. B');
+      expect(
+        result.selection,
+        TextSelection.collapsed(offset: result.text.indexOf('2.') + 1),
+      );
+    });
+
+    test('keeps a range selection around the same text', () {
+      const input = '9. A\n10. B\n11. C';
+      final selection = TextSelection(
+        baseOffset: input.indexOf('C'),
+        extentOffset: input.indexOf('A'),
+        affinity: TextAffinity.upstream,
+        isDirectional: true,
+      );
+
+      final result = renumber(input, selection: selection);
+
+      expect(result.text, '1. A\n2. B\n3. C');
+      expect(
+        result.selection,
+        TextSelection(
+          baseOffset: result.text.indexOf('C'),
+          extentOffset: result.text.indexOf('A'),
+          affinity: TextAffinity.upstream,
+          isDirectional: true,
+        ),
+      );
+    });
   });
 
   group('completeListAfterNewline', () {
@@ -219,6 +347,87 @@ void main() {
       final result = complete('- parent\n  1. child\n  2. \n');
 
       expect(result.text, '- parent\n  1. child\n- ');
+    });
+
+    test('places the cursor after the inserted marker', () {
+      final result = complete('1. A\n');
+
+      expect(result.text, '1. A\n2. ');
+      expect(
+        result.selection,
+        TextSelection.collapsed(offset: result.text.length),
+      );
+    });
+
+    for (final bullet in ['-', '*', '+']) {
+      test('continues a "$bullet" bullet item with the same marker', () {
+        final result = complete('$bullet item\n');
+
+        expect(result.text, '$bullet item\n$bullet ');
+      });
+    }
+
+    test('continues a list item directly above a fenced code block', () {
+      const text = '1. A\n\n```\ncode\n```';
+      final cursor = text.indexOf('\n') + 1;
+
+      final result = completeListAfterNewline(
+        TextEditingValue(
+          text: text,
+          selection: TextSelection.collapsed(offset: cursor),
+        ),
+      )!;
+
+      expect(result.text, '1. A\n2. \n```\ncode\n```');
+      expect(
+        result.selection,
+        TextSelection.collapsed(offset: result.text.indexOf('2. ') + 3),
+      );
+    });
+
+    test('continues a list that follows a closed code fence', () {
+      final result = complete('```\ncode\n```\n1. A\n');
+
+      expect(result.text, '```\ncode\n```\n1. A\n2. ');
+    });
+
+    test('renumbers the parent list when outdenting under a zero marker', () {
+      final result = complete('0. A\n  1. \n');
+
+      expect(result.text, '1. A\n2. ');
+      expect(result.selection.baseOffset, result.text.length);
+    });
+
+    test('exits the list when a blank line precedes an empty nested item', () {
+      final result = complete('1. A\n\n  1. \n');
+
+      expect(result.text, '1. A\n\n');
+      expect(result.selection.baseOffset, result.text.length);
+    });
+
+    test('a whitespace-only line also stops the parent search', () {
+      final result = complete('1. A\n   \n  1. \n');
+
+      expect(result.text, '1. A\n   \n');
+    });
+
+    test('ignores a range selection', () {
+      const text = '1. A\n';
+      const value = TextEditingValue(
+        text: text,
+        selection: TextSelection(baseOffset: text.length, extentOffset: 0),
+      );
+
+      expect(completeListAfterNewline(value), isNull);
+    });
+
+    test('ignores a cursor at the start of the text', () {
+      const value = TextEditingValue(
+        text: '1. A\n',
+        selection: TextSelection.collapsed(offset: 0),
+      );
+
+      expect(completeListAfterNewline(value), isNull);
     });
 
     test('does not complete list-looking lines inside fenced code', () {
