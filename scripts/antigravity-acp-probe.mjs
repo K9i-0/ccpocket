@@ -4,6 +4,7 @@
 // 使い方: node scripts/antigravity-acp-probe.mjs --cwd <作業ディレクトリ> [--trace <出力.ndjson>]
 //           [--model <modelId>（既定 gemini-3.8-flash-high）] [--mode <modeId>] [--allow] [--caps <clientCapabilities に足す JSON>]
 //           [--attach-swarm（プロンプト後に swarm の worker の会話を開く。--attach-method session/load も可）]
+//           [--permission-delay <承認への応答を遅らせるミリ秒>]
 //           [--load <sessionId> | --resume <sessionId>] [--wait <プロンプト完了後に待つミリ秒>] --prompt "..." [--prompt "..."]
 // APIキー用プロファイルで起動し、authenticate(gemini-api-key) のあとモデル一覧が
 // Gemini のみであることを確認できなければ、プロンプトを送らずに終了する。
@@ -61,7 +62,8 @@ createInterface({ input: child.stdout }).on("line", (line) => {
     const want = argv.includes("--allow") ? "allow_once" : "reject_once";
     const pick = (m.params?.options ?? []).find((o) => o.kind === want);
     console.log(`  [承認リクエスト] (${String(m.params?.sessionId).slice(0, 8)}) ${m.params?.toolCall?.title ?? ""} -> ${want}`);
-    send({ jsonrpc: "2.0", id: m.id, result: pick ? { outcome: { outcome: "selected", optionId: pick.optionId } } : { outcome: { outcome: "cancelled" } } });
+    // --permission-delay: 応答を遅らせて、agy 側の承認待ちの期限を見る
+    setTimeout(() => send({ jsonrpc: "2.0", id: m.id, result: pick ? { outcome: { outcome: "selected", optionId: pick.optionId } } : { outcome: { outcome: "cancelled" } } }), Number(opt("--permission-delay") ?? 0));
   } else if (m.id !== undefined) {
     console.log(`  [未対応のリクエスト] ${JSON.stringify(m).slice(0, 600)}`);
     send({ jsonrpc: "2.0", id: m.id, error: { code: -32601, message: "Method not found" } });

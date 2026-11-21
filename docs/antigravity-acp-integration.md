@@ -216,6 +216,7 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
 - **worker は coordinator のモードを引き継がない。** coordinator を `accept-edits` にしても、worker は `default` のまま承認を求めて止まる。
 - worker の会話は `session/list` に出ない。
 - **同じ接続で worker の会話を `session/resume` すると、その worker の更新と承認要求が worker の `sessionId` 付きで届く。** 承認に応答すると worker は先へ進み、swarm が完走する。`session/set_mode` も worker の会話に効く（`accept-edits` にすると承認なしで書き込む）。
+- **承認の期限は 60 秒で、クライアントが要求を受け取っていても変わらない。** 60 秒たつと worker のそのツール呼び出しに `tool_call_update`（`failed`）が届き、worker は「タイムアウトした」とボードに書く。そのあとで許可を返しても何も起きない。coordinator が促すと worker はやり直し、新しい承認要求が届く（応答を 90 秒遅らせたプローブ `--permission-delay 90000` で確認）。
 - coordinator の返答の末尾に `Run /swarm board (default shortcut alt+s) to open the live board.` が付く。CLI の画面用の案内で、ACP クライアントには対応する操作がない。
 
 ### 判断: swarm の名簿とボードのファイルを読む（2026-11-21、所有者の決定）
@@ -238,9 +239,13 @@ Bridge はこの **2ファイルだけ** を読み取り専用で読む。各メ
 - **worker への接続**: 名簿にいて `killed` でないメンバーの会話を `session/resume` する（1人3回まで試す）。接続後、coordinator が `acceptEdits` / `auto` なら worker にも同じモードを `session/set_mode` する。モードを変えたときも揃え直す。`plan` と `bypassPermissions` のとき worker は `default`（`plan` は coordinator の計画用、bypass は Bridge が応答する）。
 - **振り分け**: `params.sessionId` が自分の会話でない `session/update` は、coordinator の会話には流さない（worker の本文・思考・モード変更・コマンド一覧・タイトルで coordinator の状態が書き換わらないようにする）。worker の「いま使っているツール」だけを稼働状況として使う。
 - **承認の中継**: worker の `session/request_permission` は coordinator のセッションの承認として出す。worker のツール呼び出しは表示していないので、承認の前に `tool_use` を1つ出し、`input.swarmWorker` に worker 名を入れる。セッション内の「常に許可」と bypass は worker の要求にも効く。worker の承認待ちは coordinator のターン終了や中断では消さない（worker のターンは別に続いている）。coordinator がアイドルのときに届くとセッションは `waiting_approval` になり、応答すると `idle` に戻る。
+- **承認の後始末**: `agy` が 60 秒で打ち切ったとき（worker のその呼び出しに `failed` / `completed` が届く）と、worker が `killed` になったか名簿から消えたときは、承認待ちを取り下げて結果（`Timed out waiting for approval` / `Cancelled`）を出す。worker の承認待ちがある間は、coordinator がターンを始めても終えても、セッションの状態は `waiting_approval` のままにする（`idle` / `running` を受けたクライアントは承認を画面から消すため）。
+- **理由つきの却下**: ACP の拒否には理由を載せられないので、理由は `I denied a request from swarm worker "<名前>": <理由>` として coordinator に送る（worker に伝えられるのは coordinator だけ）。
+- **「常に許可」**は coordinator のセッションの許可として保存され、coordinator と全 worker に効く。
+- **表示の順序**: coordinator が返答を書いている最中に届いた worker の承認とボード投稿は、その返答が終わるまで（最長 5 秒）出すのを待つ。すぐ出すと返答が途中で切れて複数の吹き出しになる。
 - **worker からの質問**（`elicitation/create`）は `decline` を返す。ユーザーに聞くのは coordinator の役目。
 - **稼働状況**: 名簿の `wake_mode` が `working` で、直近 5 分以内に動きのあった worker を `background_tasks` に `taskType: "antigravity_agent"`、`subagentType: "swarm"`、`description: "Swarm: <名前>"`（`summary` に実行中のツール）で出す。その間 `expectsFollowUp` が真になり、完了通知を保留する。再開直後の名簿は前回の `working` が残っていることがあるので、接続後に動きが届くまでは数えない。
-- **ボード**: 新しい投稿を `tool_use`（`name: "SwarmPost"`、`input: {seq, agent, text, time}`）と、本文を入れた `tool_result` の組で出す。`kind: "brief"`（`swarm add` の brief の写し）は `swarm add` のカードと重なるので出さない。coordinator 自身の `post_message` は、ボードを見ている間はカードを出さず、ボードの投稿として1回だけ出す。再開時は過去の投稿を出し直さない。
+- **ボード**（ボードから1件でも読めたあと）: 新しい投稿を `tool_use`（`name: "SwarmPost"`、`input: {seq, agent, text, time}`）と、本文を入れた `tool_result` の組で出す。`kind: "brief"`（`swarm add` の brief の写し）は `swarm add` のカードと重なるので出さない。coordinator 自身の `post_message` は、ボードを見ている間はカードを出さず、ボードの投稿として1回だけ出す。再開時は過去の投稿を出し直さない。
 - **CLI 用の案内文**は確定した返答から取り除く（ストリーミング中の一時表示には残る）。
 
 ### アプリ
@@ -258,6 +263,8 @@ Bridge はこの **2ファイルだけ** を読み取り専用で読む。各メ
 
 - 既定モードで worker 2人: 承認が worker 名つきで届き、許可すると完走（APIキー、テスト用 Bridge に WebSocket で接続）。ボードの投稿が順に届き、案内文が消えることも同時に確認。
 - `accept-edits` を worker に揃えると承認なしで完走（プローブ `--attach-swarm --mode accept-edits`）。
+- シミュレーターのアプリから同じ swarm を実行し、承認バーの `Swarm worker: …`、ボード投稿のカード、バックグラウンドタスクのバーの `Swarm: …`、開き直し後の `/swarm` 補完を確認。
+- 既定モードで使うときの注意: 承認は 60 秒以内に返す必要がある。スマホで離席しがちなら `acceptEdits` / `auto` / `bypassPermissions` で始めるか、最初の承認で「常に許可」を選ぶ。
 - 未確認: Google ログインの `auto` で worker がどう動くか（`auto` は APIキーで選べない）。narrator / monitor 付きの swarm、チャンネル分割、`workspace: "share"`（worker ごとの作業コピー）、worker が 10 人を超える規模。
 
 ### 他の組み込みスキル（`<プロファイル>/builtin/skills/`、agy 1.5.13）

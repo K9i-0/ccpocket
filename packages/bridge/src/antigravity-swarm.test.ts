@@ -325,7 +325,7 @@ describe("AntigravityProcess with a swarm", () => {
     proc.stop();
   });
 
-  it("answers a worker's request itself in bypass and under a session grant", async () => {
+  it("answers a worker's request itself in bypass", async () => {
     const { proc, transport } = await startSwarm(appDataDir());
     await proc.setPermissionMode("bypassPermissions");
     transport.emit("message", {
@@ -485,6 +485,15 @@ describe("AntigravityProcess with a swarm", () => {
   it("shows board posts in order and the coordinator's own posts once", async () => {
     const appData = appDataDir();
     const { proc, messages, tool, sync } = await startSwarm(appData);
+    const members = {
+      writer_a: worker(WRITER_A, "mentions"),
+      writer_b: worker(WRITER_B, "working"),
+    };
+    // `swarm add` put the brief on the board, which is how it is known readable.
+    writeSwarm(appData, members, [
+      { seq: 1, agent: "coordinator", text: "@writer_a write a", kind: "brief" },
+    ]);
+    sync();
     const before = toolUses(messages).length;
     writeSwarm(
       appData,
@@ -526,6 +535,136 @@ describe("AntigravityProcess with a swarm", () => {
     proc.stop();
   });
 
+  it("shows the coordinator's post as a tool card while the board cannot be read", async () => {
+    const { proc, messages, tool } = await startSwarm(appDataDir());
+    tool("call_3", "post_message", { text: "@writer_b status?" });
+    expect(toolUses(messages).at(-1)).toMatchObject({
+      name: "post_message",
+      input: { text: "@writer_b status?" },
+    });
+    proc.stop();
+  });
+
+  it("keeps saying an approval waits while the coordinator starts and ends turns", async () => {
+    const { proc, transport, update, endTurn } = await startSwarm(appDataDir());
+    endTurn();
+    await until(() => proc.status === "idle", "coordinator turn done");
+    transport.emit("message", {
+      jsonrpc: "2.0",
+      id: 83,
+      method: "session/request_permission",
+      params: {
+        sessionId: WRITER_A,
+        toolCall: { toolCallId: "worker_call_8", kind: "edit", title: "File a.txt" },
+        options: [
+          { optionId: "allow", kind: "allow_once" },
+          { optionId: "reject", kind: "reject_once" },
+        ],
+      },
+    });
+    // Another worker's post wakes the coordinator, and the user types.
+    update({ sessionUpdate: "tool_call", toolCallId: "call_4", name: "read_board", kind: "other", title: "Run read_board", status: "in_progress" });
+    expect(proc.isTurnActive).toBe(true);
+    expect(proc.status).toBe("waiting_approval");
+    proc.sendInput("how is it going?");
+    expect(proc.status).toBe("waiting_approval");
+    // Denied with a reason: the coordinator is told, by name.
+    expect(proc.reject("worker_call_8", "not that file")).toBe(true);
+    expect(proc.status).toBe("running");
+    const prompts = transport.written.filter((m) => m.method === "session/prompt");
+    expect(JSON.stringify(prompts.at(-1)?.params)).toContain(
+      'I denied a request from swarm worker \\"writer_a\\": not that file',
+    );
+    expect((prompts.at(-1)?.params as Json).sessionId).toBe(COORDINATOR);
+    proc.stop();
+  });
+
+  it("stops waiting for a worker that was killed, and forgets workers on exit", async () => {
+    const appData = appDataDir();
+    const { proc, transport, messages, endTurn, sync } = await startSwarm(appData);
+    endTurn();
+    await until(() => proc.status === "idle", "coordinator turn done");
+    transport.emit("message", {
+      jsonrpc: "2.0",
+      id: 84,
+      method: "session/request_permission",
+      params: {
+        sessionId: WRITER_A,
+        toolCall: { toolCallId: "worker_call_9", kind: "edit", title: "File a.txt" },
+        options: [{ optionId: "allow", kind: "allow_once" }],
+      },
+    });
+    expect(proc.status).toBe("waiting_approval");
+    writeSwarm(appData, {
+      writer_a: worker(WRITER_A, "working", true),
+      writer_b: worker(WRITER_B, "working"),
+    });
+    sync();
+    expect(proc.getPendingPermissions()).toEqual([]);
+    expect(proc.status).toBe("idle");
+    expect(ofType(messages, "tool_result").at(-1)).toMatchObject({
+      toolUseId: "worker_call_9",
+      content: "Cancelled",
+    });
+    expect(proc.expectsFollowUp).toBe(true);
+    transport.emit("exit", 1);
+    expect(proc.expectsFollowUp).toBe(false);
+    expect(ofType(messages, "background_tasks").at(-1)?.tasks).toEqual([]);
+  });
+
+  it("drops a worker's request once Antigravity has timed it out", async () => {
+    const { proc, transport, messages, send, endTurn } = await startSwarm(appDataDir());
+    endTurn();
+    await until(() => proc.status === "idle", "coordinator turn done");
+    const call = { toolCallId: "worker_call_12", kind: "edit", title: "File g.txt" };
+    transport.emit("message", {
+      jsonrpc: "2.0",
+      id: 87,
+      method: "session/request_permission",
+      params: {
+        sessionId: WRITER_A,
+        toolCall: call,
+        options: [{ optionId: "allow", kind: "allow_once" }],
+      },
+    });
+    expect(proc.status).toBe("waiting_approval");
+    // As recorded from agy 1.5.13, 60 seconds after the request.
+    send(WRITER_A, { sessionUpdate: "tool_call_update", status: "failed", ...call });
+    expect(proc.getPendingPermissions()).toEqual([]);
+    expect(proc.status).toBe("idle");
+    expect(ofType(messages, "tool_result").at(-1)).toMatchObject({
+      toolUseId: "worker_call_12",
+      content: "Timed out waiting for approval",
+      permissionOutcome: "rejected",
+    });
+    expect(proc.approve("worker_call_12")).toBe(false);
+    proc.stop();
+  });
+
+  it("allows a worker's request under a grant given for the session", async () => {
+    const { proc, transport } = await startSwarm(appDataDir());
+    const ask = (id: number, toolCallId: string) =>
+      transport.emit("message", {
+        jsonrpc: "2.0",
+        id,
+        method: "session/request_permission",
+        params: {
+          sessionId: WRITER_A,
+          toolCall: { toolCallId, kind: "edit", title: "File a.txt" },
+          options: [{ optionId: "allow", kind: "allow_once" }],
+        },
+      });
+    ask(85, "worker_call_10");
+    expect(proc.approveAlways("worker_call_10")).toBe(true);
+    ask(86, "worker_call_11");
+    expect(transport.written.at(-1)).toMatchObject({
+      id: 86,
+      result: { outcome: { outcome: "selected", optionId: "allow" } },
+    });
+    expect(proc.getPendingPermissions()).toEqual([]);
+    proc.stop();
+  });
+
   it("drops the terminal-only board hint from the reply", async () => {
     const { proc, messages, update, endTurn } = await startSwarm(appDataDir());
     update({
@@ -557,6 +696,9 @@ describe("AntigravityProcess with a swarm", () => {
     await until(() => requests("session/resume").length === 1, "live worker opened");
     expect(requests("session/resume")[0]).toMatchObject({ sessionId: WRITER_A });
     expect(toolUses(messages)).toEqual([]);
+    // Opening the conversation makes it report its commands and usage.
+    send(WRITER_A, { sessionUpdate: "available_commands_update", availableCommands: [] });
+    send(WRITER_A, { sessionUpdate: "usage_update", used: 1, size: 2 });
     // The roster still says "working" from the run that ended.
     expect(proc.expectsFollowUp).toBe(false);
     // Revived by a post, it is heard from again.
