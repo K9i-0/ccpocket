@@ -2,6 +2,13 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.114.0] - 2026-11-21
+
+### Changed
+
+- Performance mode now keeps thinking for clients that enable it: `thinking` blocks stay in assistant messages and history, and `thinking_delta` streams are delivered through the normal batched delta queue instead of being dropped.
+- Performance mode now keeps assistant images: `ImageGeneration` tool calls are preserved alongside their results, and assistant messages that carry only markdown-embedded `images` are delivered with empty content instead of being removed. Other tool inputs, tool output bodies, incidental tool images and tool summaries are still stripped.
+
 ## [1.113.2] - 2026-11-21
 
 ### Fixed
