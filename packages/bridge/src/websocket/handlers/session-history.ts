@@ -4,6 +4,13 @@ import type { ClientMessage, ServerMessage } from "../../parser.js";
 import { extractMessageImages } from "../../sessions-index.js";
 import { TRANSCRIPT_PAGE_DEFAULT, TRANSCRIPT_PAGE_MAX } from "../shared.js";
 import type { BridgeWebSocketServer } from "../../websocket.js";
+import {
+  sendCodexCanonicalLegacyHistory,
+  splitPastHistoryMessages,
+  sessionTranscriptMessages,
+  shouldResetCodexHistoryDelta,
+  sendCodexCanonicalHistorySnapshot,
+} from "../session-history.js";
 
 export async function handleGetHistory(
   server: BridgeWebSocketServer,
@@ -13,7 +20,8 @@ export async function handleGetHistory(
   const session = server.sessionManager.get(msg.sessionId);
   if (session) {
     if (session.provider === "codex") {
-      const handled = await server.sendCodexCanonicalLegacyHistory(
+      const handled = await sendCodexCanonicalLegacyHistory(
+        server,
         ws,
         msg.sessionId,
         session,
@@ -25,7 +33,7 @@ export async function handleGetHistory(
 
     const splitPastHistory =
       session.pastMessages && session.pastMessages.length > 0
-        ? await server.splitPastHistoryMessages(session)
+        ? await splitPastHistoryMessages(server, session)
         : { pastMessages: [], historyMessages: [] };
     // Send past conversation from disk (resume) before in-memory history
     if (splitPastHistory.pastMessages.length > 0) {
@@ -89,7 +97,7 @@ export async function handleGetSessionTranscript(
     return;
   }
   try {
-    const transcript = await server.sessionTranscriptMessages(session);
+    const transcript = await sessionTranscriptMessages(server, session);
     const { start, end } = transcriptPageRange(
       transcript.map((message) => message.role),
       msg,
@@ -166,13 +174,15 @@ export async function handleGetHistoryDelta(
     }
 
     if (
-      server.shouldResetCodexHistoryDelta(
+      shouldResetCodexHistoryDelta(
+        server,
         session,
         msg.sinceSeq,
         result.kind,
       )
     ) {
-      await server.sendCodexCanonicalHistorySnapshot(
+      await sendCodexCanonicalHistorySnapshot(
+        server,
         ws,
         msg.sessionId,
         session,
@@ -213,7 +223,7 @@ export async function handleGetHistoryDelta(
     }
     if (session.pastMessages && session.pastMessages.length > 0) {
       const splitPastHistory =
-        await server.splitPastHistoryMessages(session);
+        await splitPastHistoryMessages(server, session);
       if (splitPastHistory.pastMessages.length > 0) {
         server.send(ws, {
           type: "past_history",

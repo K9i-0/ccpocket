@@ -41,6 +41,7 @@ import {
   buildPathNotAllowedError,
   normalizeAdditionalWritableRoots,
 } from "../file-access.js";
+import { getCodexThreadHistory } from "../session-history.js";
 
 export async function handleResumeSession(
   server: BridgeWebSocketServer,
@@ -414,7 +415,8 @@ export async function handleResumeSession(
     let nameLoadMs = 0;
     const historyStartedAt = Date.now();
     try {
-      const pastMessages = await server.getCodexThreadHistory(
+      const pastMessages = await getCodexThreadHistory(
+        server,
         sessionRefId,
         effectiveProjectPath,
       );

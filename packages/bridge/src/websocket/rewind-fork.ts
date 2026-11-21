@@ -18,6 +18,7 @@ import {
   buildCodexHistoryPrefix,
 } from "./shared.js";
 import type { BridgeWebSocketServer } from "../websocket.js";
+import { codexHistoryFromThreadOrFallback } from "./session-history.js";
 
 /**
  * Interrupt the running turn and, when the agent has shown no output for
@@ -286,7 +287,7 @@ export async function rewindCodexConversation(
     ? await codexProcess.forkThreadAtUserTurn(targetOrdinal - 1)
     : undefined;
 
-  const pastMessages = server.codexHistoryFromThreadOrFallback({
+  const pastMessages = codexHistoryFromThreadOrFallback({
     thread: forked?.thread,
     expectedUserTurns: targetOrdinal - 1,
     fallback: buildCodexHistoryPrefix(session, targetOrdinal - 1),
@@ -536,7 +537,7 @@ export async function forkCodexSession(
   const forkedThreadId = forked.threadId;
   const forkedThread = forked.thread;
 
-  const pastMessages = server.codexHistoryFromThreadOrFallback({
+  const pastMessages = codexHistoryFromThreadOrFallback({
     thread: forkedThread,
     expectedUserTurns: targetOrdinal,
     fallback: buildCodexHistoryPrefix(session, targetOrdinal),

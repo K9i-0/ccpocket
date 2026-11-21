@@ -22,6 +22,7 @@ import {
 } from "../shared.js";
 import type { BridgeWebSocketServer } from "../../websocket.js";
 import { recordDebugEvent } from "../debug-trace.js";
+import { getCodexThreadHistory } from "../session-history.js";
 
 export async function handleSetPermissionMode(
   server: BridgeWebSocketServer,
@@ -311,7 +312,7 @@ export async function handleSetPermissionMode(
       };
     }
 
-    server.getCodexThreadHistory(threadId, effectiveProjectPath)
+    getCodexThreadHistory(server, threadId, effectiveProjectPath)
       .then((pastMessages) => {
         const newId = server.sessionManager.create(
           effectiveProjectPath,
@@ -705,7 +706,7 @@ export async function handleSetSandboxMode(
     worktreeOpts = { existingWorktreePath: worktreePath, worktreeBranch };
   }
 
-  server.getCodexThreadHistory(threadId, effectiveProjectPath)
+  getCodexThreadHistory(server, threadId, effectiveProjectPath)
     .then((pastMessages) => {
       const newId = server.sessionManager.create(
         effectiveProjectPath,
