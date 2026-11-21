@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { normalizeToolResultContent, parseClientMessage } from "./parser.js";
+import {
+  isAgentBackgroundTask,
+  normalizeToolResultContent,
+  parseClientMessage,
+} from "./parser.js";
 
 // ---- normalizeToolResultContent ----
 
@@ -1821,5 +1825,1305 @@ describe("new project protocol", () => {
     expect(parseClientMessage(JSON.stringify({ type: "bootstrap_project", parentPath: "/work", name: "app", initializeGit: "yes", requestId: "r" }))).toBeNull();
     expect(parseClientMessage(JSON.stringify({ type: "trust_project", projectPath: "/work/app", requestId: "r", sessionId: 42 }))).toBeNull();
     expect(parseClientMessage(JSON.stringify({ type: "start", projectPath: "/work/app", initialPrompt: 42 }))).toBeNull();
+  });
+});
+
+
+// ---- isAgentBackgroundTask ----
+
+describe("isAgentBackgroundTask", () => {
+  it.each([
+    "local_agent",
+    "remote_agent",
+    "local_workflow",
+    "codex_agent",
+    "antigravity_agent",
+  ])("treats %s as an agent task", (taskType) => {
+    expect(isAgentBackgroundTask({ taskId: "t1", taskType })).toBe(true);
+  });
+
+  it.each(["local_bash", "monitor", ""])(
+    "treats %j as a non-agent task",
+    (taskType) => {
+      expect(isAgentBackgroundTask({ taskId: "t1", taskType })).toBe(false);
+    },
+  );
+});
+
+// ---- parseClientMessage field contracts ----
+
+type Patch = Record<string, unknown>;
+
+/** Serialises like a real client would; `undefined` values drop the key. */
+function parse(message: Patch) {
+  return parseClientMessage(JSON.stringify(message));
+}
+
+function label(patch: Patch): string {
+  const text = JSON.stringify(patch, (_key, value) =>
+    value === undefined ? "<missing>" : value,
+  );
+  return text.length > 120 ? `${text.slice(0, 120)}... (${text.length} chars)` : text;
+}
+
+/**
+ * Checks one message type: the base message and every `accept` variant parse
+ * to the same object that was sent, and every `reject` variant is refused.
+ */
+function expectContract(
+  base: Patch,
+  variants: { accept?: Patch[]; reject?: Patch[] },
+) {
+  for (const patch of [{}, ...(variants.accept ?? [])]) {
+    const message = { ...base, ...patch };
+    expect(parse(message), `should accept ${label(patch)}`).toEqual(
+      JSON.parse(JSON.stringify(message)),
+    );
+  }
+  for (const patch of variants.reject ?? []) {
+    expect(
+      parse({ ...base, ...patch }),
+      `should reject ${label(patch)}`,
+    ).toBeNull();
+  }
+}
+
+const ITEM_REFS_REJECTED = (field: string): Patch[] => [
+  { [field]: "not-an-array" },
+  { [field]: [{ name: "a" }] },
+  { [field]: [{ path: "/a" }] },
+  { [field]: [{ name: "a", path: "/a" }, { name: 1, path: "/b" }] },
+  { [field]: [{ name: "a", path: "/a" }, null] },
+];
+
+const HUNKS_REJECTED: Patch[] = [
+  { hunks: [{ file: "a.ts" }] },
+  { hunks: [{ hunkIndex: 0 }] },
+  { hunks: [{ file: "a.ts", hunkIndex: "0" }] },
+  { hunks: [{ file: "a.ts", hunkIndex: 0 }, { file: 1, hunkIndex: 1 }] },
+  { hunks: [null] },
+];
+
+const VALID_HISTORY_ENTRY = {
+  text: "run tests",
+  projectPath: "/p",
+  projectId: "proj-1",
+  projectName: "App",
+  id: "e1",
+  useCount: 0,
+  totalUseCount: 0,
+  isFavorite: false,
+};
+
+const INVALID_HISTORY_ENTRIES: unknown[] = [
+  null,
+  "run tests",
+  { ...VALID_HISTORY_ENTRY, text: 5 },
+  { ...VALID_HISTORY_ENTRY, projectPath: 5 },
+  { ...VALID_HISTORY_ENTRY, projectId: 5 },
+  { ...VALID_HISTORY_ENTRY, projectName: 5 },
+  { ...VALID_HISTORY_ENTRY, id: 5 },
+  { ...VALID_HISTORY_ENTRY, useCount: -1 },
+  { ...VALID_HISTORY_ENTRY, useCount: 1.5 },
+  { ...VALID_HISTORY_ENTRY, totalUseCount: -1 },
+  { ...VALID_HISTORY_ENTRY, totalUseCount: 1.5 },
+  { ...VALID_HISTORY_ENTRY, isFavorite: "yes" },
+];
+
+describe("parseClientMessage envelope", () => {
+  it.each(["null", "5", '"start"', "[]", "{}"])(
+    "rejects JSON that is not a typed message: %s",
+    (raw) => {
+      expect(parseClientMessage(raw)).toBeNull();
+    },
+  );
+
+  it("limits requestId on every message type to a non-blank string of at most 128 chars", () => {
+    expectContract(
+      { type: "list_sessions" },
+      {
+        accept: [{ requestId: "r1" }, { requestId: "r".repeat(128) }],
+        reject: [
+          { requestId: 5 },
+          { requestId: null },
+          { requestId: "" },
+          { requestId: "   " },
+          { requestId: "r".repeat(129) },
+        ],
+      },
+    );
+  });
+});
+
+describe("parseClientMessage field contracts", () => {
+  it("client_capabilities", () => {
+    expectContract(
+      { type: "client_capabilities" },
+      {
+        accept: [
+          { deliveryRevision: 0 },
+          { performanceMode: false },
+          { sessionPerformanceModes: {} },
+          { sessionPerformanceModes: { s1: true, s2: false } },
+          { appVersion: "1.2.3" },
+          { protocolVersion: 1 },
+          { protocolVersion: 2, minimumProtocolVersion: 2 },
+          { supportedServerMessages: [] },
+          { supportedServerMessages: ["agent_activity"] },
+        ],
+        reject: [
+          { deliveryRevision: -1 },
+          { deliveryRevision: 1.5 },
+          { deliveryRevision: "1" },
+          { performanceMode: "true" },
+          { sessionPerformanceModes: null },
+          { sessionPerformanceModes: 5 },
+          { sessionPerformanceModes: [true] },
+          { sessionPerformanceModes: { s1: true, s2: "false" } },
+          { appVersion: 5 },
+          { protocolVersion: 0 },
+          { protocolVersion: 1.5 },
+          { protocolVersion: "1" },
+          { protocolVersion: 2, minimumProtocolVersion: 0 },
+          { protocolVersion: 2, minimumProtocolVersion: 1.5 },
+          { protocolVersion: 2, minimumProtocolVersion: 3 },
+          { minimumProtocolVersion: 1 },
+          { supportedServerMessages: "agent_activity" },
+          { supportedServerMessages: ["agent_activity", 1] },
+        ],
+      },
+    );
+  });
+
+  it("start and resume_session shared options at their boundaries", () => {
+    const variants = {
+      accept: [
+        { maxTurns: 1 },
+        { maxBudgetUsd: 0 },
+        { maxBudgetUsd: 0.5 },
+        { additionalWritableRoots: ["/a", "/b"] },
+        { workspaceKind: "project", projectId: "proj-1", projectName: "App" },
+      ],
+      reject: [
+        { projectPath: 5 },
+        { maxTurns: 1.5 },
+        { maxTurns: "3" },
+        { maxBudgetUsd: "5" },
+        { additionalWritableRoots: "/a" },
+        { additionalWritableRoots: ["/a", 1] },
+        { modelReasoningEffort: "   " },
+        { serviceTier: "   " },
+        { serviceTier: 1 },
+        { projectId: "   " },
+        { projectName: "" },
+        { workspaceKind: "unassigned" },
+      ],
+    };
+    expectContract({ type: "start", projectPath: "/p" }, variants);
+    expectContract(
+      { type: "resume_session", sessionId: "s1", projectPath: "/p" },
+      variants,
+    );
+  });
+
+  it("rejects a non-finite budget", () => {
+    // JSON.parse turns an overflowing literal into Infinity.
+    expect(
+      parseClientMessage('{"type":"start","projectPath":"/p","maxBudgetUsd":1e999}'),
+    ).toBeNull();
+  });
+
+  it("start initialPrompt is limited to 16000 characters", () => {
+    expectContract(
+      { type: "start", projectPath: "/p" },
+      {
+        accept: [{ initialPrompt: "" }, { initialPrompt: "a".repeat(16000) }],
+        reject: [{ initialPrompt: "a".repeat(16001) }, { initialPrompt: 5 }],
+      },
+    );
+  });
+
+  it("input", () => {
+    expectContract(
+      { type: "input", text: "hello" },
+      {
+        accept: [
+          { text: "" },
+          { delivery: "steer" },
+          { delivery: "queue" },
+          { clientMessageId: "c1", baseSeq: 0 },
+          { images: [] },
+          { images: [{ base64: "AAAA", mimeType: "image/png" }] },
+          { skills: [{ name: "review", path: "/skills/review" }] },
+          { mentions: [{ name: "app", path: "/apps/app" }] },
+          { imageBase64: "AAAA", mimeType: "image/png" },
+        ],
+        reject: [
+          { text: 5 },
+          { text: undefined },
+          { delivery: "later" },
+          { clientMessageId: 5 },
+          { baseSeq: -1 },
+          { baseSeq: 1.5 },
+          { baseSeq: "1" },
+          { images: "AAAA" },
+          { images: [{ base64: "AAAA" }] },
+          { images: [{ mimeType: "image/png" }] },
+          { images: [{ base64: "AAAA", mimeType: "image/png" }, null] },
+          ...ITEM_REFS_REJECTED("skills"),
+          ...ITEM_REFS_REJECTED("mentions"),
+          { imageBase64: "AAAA" },
+          { imageBase64: "AAAA", mimeType: 5 },
+        ],
+      },
+    );
+  });
+
+  it("update_queued_input", () => {
+    expectContract(
+      { type: "update_queued_input", sessionId: "s1", itemId: "q1", text: "new" },
+      {
+        accept: [
+          { text: "" },
+          { skills: [{ name: "review", path: "/skills/review" }] },
+          { mentions: [{ name: "app", path: "/apps/app" }] },
+        ],
+        reject: [
+          { sessionId: undefined },
+          { sessionId: 5 },
+          { itemId: undefined },
+          { itemId: 5 },
+          { text: undefined },
+          { text: 5 },
+          ...ITEM_REFS_REJECTED("skills"),
+          ...ITEM_REFS_REJECTED("mentions"),
+        ],
+      },
+    );
+  });
+
+  it.each(["steer_queued_input", "cancel_queued_input"])(
+    "%s needs a session and an item",
+    (type) => {
+      expectContract(
+        { type, sessionId: "s1", itemId: "q1" },
+        {
+          reject: [
+            { sessionId: undefined },
+            { sessionId: 5 },
+            { itemId: undefined },
+            { itemId: 5 },
+          ],
+        },
+      );
+    },
+  );
+
+  it("push_register", () => {
+    expectContract(
+      { type: "push_register", token: "tok", platform: "ios" },
+      {
+        accept: [{ platform: "android" }, { platform: "web" }],
+        reject: [
+          { token: 5 },
+          { token: undefined },
+          { platform: "windows" },
+          { platform: undefined },
+        ],
+      },
+    );
+  });
+
+  it("set_permission_mode", () => {
+    expectContract(
+      { type: "set_permission_mode", mode: "default" },
+      {
+        accept: [
+          {
+            mode: "plan",
+            executionMode: "fullAccess",
+            approvalPolicy: "on-request",
+            approvalsReviewer: "auto_review",
+            codexPermissionsMode: "autoReview",
+            planMode: true,
+          },
+        ],
+        reject: [
+          { mode: undefined },
+          { mode: 5 },
+          { executionMode: "unrestricted" },
+          { approvalPolicy: "always" },
+          { approvalsReviewer: "bot" },
+          { codexPermissionsMode: "reviewEverything" },
+          { planMode: "true" },
+        ],
+      },
+    );
+  });
+
+  it("set_codex_model", () => {
+    expectContract(
+      { type: "set_codex_model", model: "gpt-5" },
+      {
+        accept: [{ modelReasoningEffort: "high" }, { sessionId: "s1" }],
+        reject: [
+          { model: undefined },
+          { model: 5 },
+          { model: "" },
+          { model: "   " },
+          { modelReasoningEffort: 5 },
+          { modelReasoningEffort: "   " },
+          { sessionId: 5 },
+        ],
+      },
+    );
+  });
+
+  it("set_codex_speed", () => {
+    expectContract(
+      { type: "set_codex_speed", serviceTier: "fast" },
+      {
+        accept: [{ sessionId: "s1" }],
+        reject: [
+          { serviceTier: undefined },
+          { serviceTier: 5 },
+          { serviceTier: "" },
+          { serviceTier: "   " },
+          { sessionId: 5 },
+        ],
+      },
+    );
+  });
+
+  it("set_antigravity_model", () => {
+    expectContract(
+      { type: "set_antigravity_model", sessionId: "s1", model: "gemini" },
+      {
+        reject: [
+          { sessionId: undefined },
+          { sessionId: 5 },
+          { sessionId: "" },
+          { model: undefined },
+          { model: 5 },
+          { model: "   " },
+        ],
+      },
+    );
+  });
+
+  it("set_antigravity_settings needs a session and at least one setting", () => {
+    expectContract(
+      { type: "set_antigravity_settings", sessionId: "s1", model: "gemini" },
+      {
+        accept: [
+          { thoughtLevel: "high" },
+          { model: undefined, thoughtLevel: "high" },
+        ],
+        reject: [
+          { sessionId: undefined },
+          { sessionId: 5 },
+          { sessionId: "" },
+          { model: "" },
+          { model: 5 },
+          { thoughtLevel: "   " },
+          { thoughtLevel: 5 },
+          { model: undefined },
+        ],
+      },
+    );
+  });
+
+  it("set_claude_settings needs a session and at least one setting", () => {
+    expectContract(
+      { type: "set_claude_settings", sessionId: "s1", model: "opus" },
+      {
+        accept: [
+          { model: undefined, effort: "max" },
+          { model: undefined, fastMode: false },
+          { model: undefined, ultracode: false },
+        ],
+        reject: [
+          { sessionId: undefined },
+          { sessionId: 5 },
+          { sessionId: "" },
+          { model: "" },
+          { model: 5 },
+          { effort: "turbo" },
+          { fastMode: "yes" },
+          { ultracode: 1 },
+          { model: undefined },
+        ],
+      },
+    );
+  });
+
+  it("codex recovery commands need a real session id", () => {
+    expectContract(
+      { type: "set_codex_recovery", sessionId: "s1", enabled: true },
+      { reject: [{ sessionId: undefined }, { sessionId: 5 }, { sessionId: "" }] },
+    );
+    expectContract(
+      { type: "cancel_codex_recovery", sessionId: "s1" },
+      { reject: [{ sessionId: undefined }, { sessionId: 5 }] },
+    );
+  });
+
+  it("goal messages", () => {
+    expectContract(
+      { type: "get_goal", sessionId: "s1" },
+      {
+        accept: [{ background: true }],
+        reject: [{ sessionId: undefined }, { background: "yes" }],
+      },
+    );
+    expectContract(
+      { type: "clear_goal", sessionId: "s1" },
+      { reject: [{ sessionId: undefined }, { sessionId: 5 }] },
+    );
+    expectContract(
+      { type: "set_goal", sessionId: "s1", objective: "ship it" },
+      {
+        accept: [
+          { objective: "a".repeat(4000) },
+          { status: "paused" },
+          ...[
+            "active",
+            "paused",
+            "blocked",
+            "usageLimited",
+            "budgetLimited",
+            "complete",
+          ].map((status) => ({ objective: undefined, status })),
+        ],
+        reject: [
+          { sessionId: undefined },
+          { sessionId: 5 },
+          { objective: undefined },
+          { objective: 5 },
+          { objective: "   " },
+          { objective: "a".repeat(4001) },
+          { status: "done" },
+          { objective: undefined, status: "done" },
+          { objective: "", status: "active" },
+        ],
+      },
+    );
+  });
+
+  it.each([
+    ["set_sandbox_mode", { sandboxMode: "workspace-write" }, "sandboxMode"],
+    ["rename_session", { sessionId: "s1", name: "New name" }, "sessionId"],
+    ["refresh_branch", { sessionId: "s1" }, "sessionId"],
+    ["get_recording", { sessionId: "s1" }, "sessionId"],
+    ["get_diff", { projectPath: "/p" }, "projectPath"],
+    ["list_worktrees", { projectPath: "/p" }, "projectPath"],
+    ["git_fetch", { projectPath: "/p" }, "projectPath"],
+    ["git_pull", { projectPath: "/p" }, "projectPath"],
+    ["git_remote_status", { projectPath: "/p" }, "projectPath"],
+    ["git_unstage", { projectPath: "/p", files: ["a.ts"] }, "projectPath"],
+    ["git_revert_file", { projectPath: "/p", files: ["a.ts"] }, "projectPath"],
+  ])("%s requires a string %s", (type, fields, required) => {
+    expectContract(
+      { type, ...fields },
+      { reject: [{ [required]: undefined }, { [required]: 5 }] },
+    );
+  });
+
+  it.each([
+    "list_windows",
+    "list_recordings",
+    "restore_prompt_history",
+    "get_prompt_history_backup_info",
+    "list_projects",
+    "get_antigravity_catalog",
+  ])("%s needs no fields", (type) => {
+    expectContract({ type }, { accept: [{ requestId: "r1" }] });
+  });
+
+  it("get_history_delta", () => {
+    expectContract(
+      { type: "get_history_delta", sessionId: "s1", sinceSeq: 0 },
+      {
+        accept: [{ sinceSeq: 12 }],
+        reject: [
+          { sessionId: 5 },
+          { sinceSeq: -1 },
+          { sinceSeq: 1.5 },
+          { sinceSeq: "0" },
+        ],
+      },
+    );
+  });
+
+  it("resolve_session_link", () => {
+    expectContract(
+      { type: "resolve_session_link", requestId: "r1", sessionId: "s1" },
+      {
+        accept: [
+          { provider: "claude" },
+          { provider: "codex" },
+          { provider: "antigravity" },
+        ],
+        reject: [
+          { sessionId: undefined },
+          { sessionId: 5 },
+          { provider: "other" },
+          { provider: 5 },
+        ],
+      },
+    );
+  });
+
+  it("list_recent_sessions paging, scope and filter boundaries", () => {
+    const pin = { provider: "claude", sessionId: "s1" };
+    expectContract(
+      { type: "list_recent_sessions" },
+      {
+        accept: [
+          { limit: 1 },
+          { limit: 500 },
+          { offset: 0 },
+          { offset: 100_000 },
+          { projectPath: "/p", projectId: "proj-1" },
+          { workspaceKind: "project" },
+          { workspaceKind: "unassigned" },
+          { requestScope: "list" },
+          { requestScope: "project" },
+          { provider: "claude" },
+          { provider: "codex" },
+          { provider: "antigravity" },
+          { pinnedSessions: Array.from({ length: 1000 }, () => pin) },
+          { projectFilters: [{ projectId: "proj-1", workspaceKind: "project" }] },
+          { pinnedProjects: [{ projectPath: "/p", workspaceKind: "unassigned" }] },
+        ],
+        reject: [
+          { limit: 0 },
+          { limit: 501 },
+          { limit: 1.5 },
+          { limit: "5" },
+          { offset: -1 },
+          { offset: 100_001 },
+          { offset: 1.5 },
+          { offset: "0" },
+          { projectPath: 5 },
+          { projectId: 5 },
+          { projectId: "   " },
+          { workspaceKind: "other" },
+          { requestScope: "other" },
+          { provider: "other" },
+          { namedOnly: "yes" },
+          { searchQuery: 5 },
+          { pinnedSessions: Array.from({ length: 1001 }, () => pin) },
+          { pinnedSessions: [pin, null] },
+          { pinnedSessions: [pin, { provider: "other", sessionId: "s2" }] },
+          { pinnedSessions: [pin, { provider: "codex", sessionId: " " }] },
+          { projectFilters: [{ projectPath: "/p" }, {}] },
+          { projectFilters: [{ projectPath: "/p" }, null] },
+          { projectFilters: [{ projectPath: 5, projectId: "proj-1" }] },
+          { projectFilters: [{ projectPath: "/p", projectId: 5 }] },
+          { projectFilters: [{ projectPath: "/p", workspaceKind: "other" }] },
+          { pinnedProjects: [{ projectPath: "/p" }, { projectPath: " " }] },
+          { modifiedAfter: "   " },
+          { modifiedBefore: "not a date" },
+        ],
+      },
+    );
+  });
+
+  it("list_gallery scope limits", () => {
+    expectContract(
+      { type: "list_gallery" },
+      {
+        accept: [
+          { project: "/p" },
+          { projectPath: "/p" },
+          { project: "/p", projectPath: "/p" },
+          { project: "p".repeat(4096) },
+          { projectPath: "p".repeat(4096) },
+          { sessionId: "s".repeat(512) },
+        ],
+        reject: [
+          { project: 5 },
+          { project: "   " },
+          { project: "p".repeat(4097) },
+          { projectPath: 5 },
+          { projectPath: "   " },
+          { projectPath: "p".repeat(4097) },
+          { project: "/p", projectPath: "/other" },
+          { sessionId: 5 },
+          { sessionId: "   " },
+          { sessionId: "s".repeat(513) },
+          { limit: 10 },
+        ],
+      },
+    );
+  });
+
+  it("reveal_file_local path, port and token limits", () => {
+    expectContract(
+      {
+        type: "reveal_file_local",
+        projectPath: "/p",
+        filePath: "movie.mp4",
+        requestId: "r1",
+        proofPort: 54321,
+        proofToken: "a".repeat(64),
+      },
+      {
+        accept: [
+          { proofPort: 1024 },
+          { proofPort: 65535 },
+          { filePath: "f".repeat(4096) },
+          { proofToken: "0123456789abcdef".repeat(4) },
+        ],
+        reject: [
+          { proofPort: 1023 },
+          { proofPort: 65536 },
+          { projectPath: undefined },
+          { projectPath: 5 },
+          { projectPath: "   " },
+          { projectPath: "/p\0" },
+          { filePath: undefined },
+          { filePath: "f".repeat(4097) },
+          { requestId: undefined },
+          { proofToken: undefined },
+          { proofToken: "a".repeat(63) },
+          { proofToken: "a".repeat(65) },
+          { proofToken: `x${"a".repeat(64)}` },
+          { proofToken: `${"a".repeat(64)}x` },
+          { proofToken: "A".repeat(64) },
+        ],
+      },
+    );
+  });
+
+  it("reveal_file path and token limits", () => {
+    expectContract(
+      {
+        type: "reveal_file",
+        projectPath: "/p",
+        filePath: "video.mp4",
+        requestId: "r1",
+        proofPath: "/tmp/proof",
+        proofToken: "a".repeat(64),
+      },
+      {
+        accept: [
+          { filePath: "f".repeat(4096) },
+          { proofPath: "p".repeat(4096) },
+        ],
+        reject: [
+          { projectPath: undefined },
+          { projectPath: "   " },
+          { filePath: 5 },
+          { filePath: "f".repeat(4097) },
+          { requestId: undefined },
+          { proofPath: undefined },
+          { proofPath: "   " },
+          { proofPath: "p".repeat(4097) },
+          { proofPath: "/tmp/\0proof" },
+          { proofToken: undefined },
+          { proofToken: "a".repeat(65) },
+          { proofToken: `x${"a".repeat(64)}` },
+          { proofToken: `${"a".repeat(64)}x` },
+          { proofToken: "A".repeat(64) },
+          { proofPort: 54321 },
+        ],
+      },
+    );
+  });
+
+  it.each(["read_file", "read_media_file", "read_model_file"])(
+    "%s needs a project and a file path",
+    (type) => {
+      expectContract(
+        { type, projectPath: "/p", filePath: "a.txt" },
+        {
+          reject: [
+            { projectPath: undefined },
+            { projectPath: 5 },
+            { filePath: undefined },
+            { filePath: 5 },
+          ],
+        },
+      );
+    },
+  );
+
+  it("prepare_file_download", () => {
+    expectContract(
+      {
+        type: "prepare_file_download",
+        projectPath: "/p",
+        filePath: "a.txt",
+        requestId: "r1",
+      },
+      {
+        reject: [
+          { projectPath: undefined },
+          { projectPath: 5 },
+          { projectPath: "   " },
+          { filePath: undefined },
+          { filePath: 5 },
+          { filePath: "   " },
+          { requestId: undefined },
+          { inline: true },
+        ],
+      },
+    );
+  });
+
+  it("prepare_file_upload", () => {
+    expectContract(
+      {
+        type: "prepare_file_upload",
+        projectPath: "/p",
+        directoryPath: "docs",
+        fileName: "report.pdf",
+        sizeBytes: 10,
+        conflictPolicy: "rename",
+        requestId: "r1",
+      },
+      {
+        accept: [
+          { directoryPath: "" },
+          { fileName: "f".repeat(255) },
+          { sizeBytes: 0 },
+          { conflictPolicy: "overwrite" },
+          { conflictPolicy: "skip" },
+        ],
+        reject: [
+          { projectPath: undefined },
+          { projectPath: 5 },
+          { projectPath: "   " },
+          { directoryPath: undefined },
+          { directoryPath: 5 },
+          { fileName: undefined },
+          { fileName: 5 },
+          { fileName: "" },
+          { fileName: "f".repeat(256) },
+          { sizeBytes: undefined },
+          { sizeBytes: "10" },
+          { sizeBytes: 1.5 },
+          { sizeBytes: -1 },
+          { sizeBytes: 2 ** 53 },
+          { conflictPolicy: undefined },
+          { conflictPolicy: "" },
+          { requestId: undefined },
+          { mimeType: "application/pdf" },
+        ],
+      },
+    );
+  });
+
+  it("finalize_file_upload", () => {
+    expectContract(
+      {
+        type: "finalize_file_upload",
+        uploadToken: "a".repeat(48),
+        sha256: "b".repeat(64),
+        requestId: "r1",
+      },
+      {
+        accept: [{ sha256: "ABCDEF0123456789".repeat(4) }],
+        reject: [
+          { uploadToken: undefined },
+          { uploadToken: 5 },
+          { uploadToken: "a".repeat(47) },
+          { uploadToken: `x${"a".repeat(48)}` },
+          { uploadToken: `${"a".repeat(48)}x` },
+          { uploadToken: "A".repeat(48) },
+          { sha256: undefined },
+          { sha256: 5 },
+          { sha256: "b".repeat(63) },
+          { sha256: `x${"b".repeat(64)}` },
+          { sha256: `${"b".repeat(64)}x` },
+          { sha256: "g".repeat(64) },
+          { requestId: undefined },
+          { projectPath: "/p" },
+        ],
+      },
+    );
+  });
+
+  it("cancel_file_upload", () => {
+    expectContract(
+      { type: "cancel_file_upload", uploadToken: "a".repeat(48) },
+      {
+        reject: [
+          { uploadToken: undefined },
+          { uploadToken: 5 },
+          { uploadToken: "a".repeat(47) },
+          { uploadToken: `x${"a".repeat(48)}` },
+          { uploadToken: `${"a".repeat(48)}x` },
+          { requestId: "r1" },
+        ],
+      },
+    );
+  });
+
+  it("list_directory", () => {
+    expectContract(
+      { type: "list_directory", path: "/p" },
+      {
+        accept: [{ includeHidden: true, includeFiles: false, requestId: "r1" }],
+        reject: [{ path: 5 }, { path: "   " }, { includeHidden: "yes" }],
+      },
+    );
+  });
+
+  it("get_diff_image", () => {
+    expectContract(
+      { type: "get_diff_image", projectPath: "/p", filePath: "a.png", version: "old" },
+      {
+        accept: [{ version: "new" }, { version: "both" }],
+        reject: [
+          { projectPath: undefined },
+          { projectPath: 5 },
+          { filePath: undefined },
+          { filePath: 5 },
+          { version: undefined },
+          { version: "latest" },
+        ],
+      },
+    );
+  });
+
+  it("interrupt", () => {
+    expectContract(
+      { type: "interrupt" },
+      {
+        accept: [{ retract: true }, { sessionId: "s1" }],
+        reject: [{ retract: "yes" }],
+      },
+    );
+  });
+
+  it("edit_message", () => {
+    expectContract(
+      { type: "edit_message", sessionId: "s1", targetUuid: "u1", text: "fixed" },
+      {
+        accept: [{ clientMessageId: "c1" }],
+        reject: [
+          { sessionId: undefined },
+          { sessionId: 5 },
+          { targetUuid: undefined },
+          { targetUuid: 5 },
+          { targetUuid: "" },
+          { text: undefined },
+          { text: 5 },
+          { text: "   " },
+          { clientMessageId: 5 },
+        ],
+      },
+    );
+  });
+
+  it("bootstrap_project", () => {
+    expectContract(
+      {
+        type: "bootstrap_project",
+        parentPath: "/work",
+        name: "app",
+        initializeGit: false,
+        requestId: "r1",
+      },
+      {
+        accept: [{ sourcePath: "/templates/app" }],
+        reject: [
+          { parentPath: undefined },
+          { parentPath: 5 },
+          { name: undefined },
+          { name: "   " },
+          { initializeGit: undefined },
+          { requestId: undefined },
+          { sourcePath: "   " },
+          { sourcePath: 5 },
+        ],
+      },
+    );
+  });
+
+  it("trust_project and initialize_git need a project path and a request id", () => {
+    expectContract(
+      { type: "trust_project", projectPath: "/p", requestId: "r1" },
+      {
+        accept: [{ sessionId: "s1" }],
+        reject: [
+          { sessionId: "   " },
+          { projectPath: undefined },
+          { projectPath: "   " },
+          { requestId: undefined },
+        ],
+      },
+    );
+    expectContract(
+      { type: "initialize_git", projectPath: "/p", requestId: "r1" },
+      {
+        reject: [
+          { projectPath: undefined },
+          { projectPath: "   " },
+          { projectPath: 5 },
+          { requestId: undefined },
+        ],
+      },
+    );
+  });
+
+  it("create_project, update_project and remove_project", () => {
+    const rootPathsRejected: Patch[] = [
+      { rootPaths: undefined },
+      { rootPaths: "/a" },
+      { rootPaths: [] },
+      { rootPaths: ["/a", "   "] },
+      { rootPaths: ["/a", 5] },
+    ];
+    expectContract(
+      { type: "create_project", name: "App", rootPaths: ["/a"] },
+      {
+        accept: [{ rootPaths: ["/a", "/b"], requestId: "r1" }],
+        reject: [
+          { name: undefined },
+          { name: "   " },
+          { name: 5 },
+          ...rootPathsRejected,
+        ],
+      },
+    );
+    expectContract(
+      { type: "update_project", projectId: "proj-1", name: "App", rootPaths: ["/a"] },
+      {
+        accept: [{ rootPaths: ["/a", "/b"], requestId: "r1" }],
+        reject: [
+          { projectId: undefined },
+          { projectId: "   " },
+          { projectId: 5 },
+          { name: undefined },
+          { name: "   " },
+          ...rootPathsRejected,
+        ],
+      },
+    );
+    expectContract(
+      { type: "remove_project", projectId: "proj-1" },
+      {
+        accept: [{ requestId: "r1" }],
+        reject: [{ projectId: undefined }, { projectId: "   " }, { projectId: 5 }],
+      },
+    );
+  });
+
+  it("remove_worktree", () => {
+    expectContract(
+      { type: "remove_worktree", projectPath: "/p", worktreePath: "/p-wt" },
+      {
+        reject: [
+          { projectPath: undefined },
+          { projectPath: 5 },
+          { worktreePath: undefined },
+          { worktreePath: 5 },
+        ],
+      },
+    );
+  });
+
+  it.each(["fork", "rewind_dry_run"])(
+    "%s needs a session and a target message",
+    (type) => {
+      expectContract(
+        { type, sessionId: "s1", targetUuid: "u1" },
+        {
+          reject: [
+            { sessionId: undefined },
+            { sessionId: 5 },
+            { targetUuid: undefined },
+            { targetUuid: 5 },
+          ],
+        },
+      );
+    },
+  );
+
+  it("take_screenshot", () => {
+    expectContract(
+      { type: "take_screenshot", mode: "fullscreen", projectPath: "/p" },
+      {
+        accept: [{ mode: "window", windowId: 42 }],
+        reject: [
+          { mode: undefined },
+          { mode: "region" },
+          { mode: "window" },
+          { mode: "window", windowId: "42" },
+          { projectPath: undefined },
+          { projectPath: 5 },
+        ],
+      },
+    );
+  });
+
+  it("get_debug_bundle and get_usage options", () => {
+    expectContract(
+      { type: "get_debug_bundle", sessionId: "s1" },
+      {
+        accept: [{ traceLimit: 50 }, { includeDiff: false }],
+        reject: [{ sessionId: 5 }, { traceLimit: "50" }, { includeDiff: "yes" }],
+      },
+    );
+    expectContract(
+      { type: "get_usage" },
+      {
+        accept: [{ refreshAntigravity: true }],
+        reject: [{ refreshAntigravity: "yes" }],
+      },
+    );
+  });
+
+  it("get_session_transcript paging", () => {
+    expectContract(
+      { type: "get_session_transcript", sessionId: "s1", requestId: "r1" },
+      {
+        accept: [
+          { beforeIndex: 0 },
+          { limit: 1 },
+          { beforeIndex: 40, limit: 20, untilLatestCompaction: true },
+        ],
+        reject: [
+          { sessionId: undefined },
+          { sessionId: 5 },
+          { requestId: undefined },
+          { beforeIndex: -1 },
+          { beforeIndex: 1.5 },
+          { beforeIndex: "0" },
+          { limit: 0 },
+          { limit: 1.5 },
+          { limit: "1" },
+          { untilLatestCompaction: "yes" },
+        ],
+      },
+    );
+  });
+
+  it("get_message_images", () => {
+    expectContract(
+      { type: "get_message_images", claudeSessionId: "c1", messageUuid: "u1" },
+      {
+        reject: [
+          { claudeSessionId: undefined },
+          { claudeSessionId: 5 },
+          { messageUuid: undefined },
+          { messageUuid: 5 },
+        ],
+      },
+    );
+  });
+
+  it("backup_prompt_history", () => {
+    expectContract(
+      { type: "backup_prompt_history", data: "AAAA", appVersion: "1.0.0", dbVersion: 3 },
+      {
+        reject: [
+          { data: undefined },
+          { data: 5 },
+          { appVersion: undefined },
+          { appVersion: 5 },
+          { dbVersion: undefined },
+          { dbVersion: "3" },
+          { dbVersion: 1.5 },
+        ],
+      },
+    );
+  });
+
+  it("record_prompt_history", () => {
+    const optional = [
+      "projectPath",
+      "projectId",
+      "projectName",
+      "clientName",
+      "sessionId",
+      "usedAt",
+    ];
+    expectContract(
+      { type: "record_prompt_history", text: "run tests", clientId: "phone" },
+      {
+        accept: [Object.fromEntries(optional.map((field) => [field, "x"]))],
+        reject: [
+          { text: undefined },
+          { text: 5 },
+          { clientId: undefined },
+          { clientId: 5 },
+          ...optional.map((field) => ({ [field]: 5 })),
+        ],
+      },
+    );
+  });
+
+  it("sync_prompt_history", () => {
+    expectContract(
+      { type: "sync_prompt_history", clientId: "phone" },
+      {
+        accept: [
+          { clientName: "Phone" },
+          { sinceRevision: 0 },
+          { entries: [] },
+          { entries: [VALID_HISTORY_ENTRY, { text: "minimal" }] },
+          { includeDeleted: true },
+        ],
+        reject: [
+          { clientId: undefined },
+          { clientId: 5 },
+          { clientName: 5 },
+          { sinceRevision: -1 },
+          { sinceRevision: 1.5 },
+          { sinceRevision: "0" },
+          { entries: "run tests" },
+          { includeDeleted: "yes" },
+          ...INVALID_HISTORY_ENTRIES.map((entry) => ({
+            entries: [VALID_HISTORY_ENTRY, entry],
+          })),
+        ],
+      },
+    );
+  });
+
+  it("mutate_prompt_history", () => {
+    expectContract(
+      { type: "mutate_prompt_history", action: "favorite" },
+      {
+        accept: [
+          { action: "delete" },
+          { action: "restore" },
+          {
+            id: "e1",
+            text: "run tests",
+            projectPath: "/p",
+            projectId: "proj-1",
+            isFavorite: true,
+            updatedAt: "2026-01-01T00:00:00Z",
+          },
+        ],
+        reject: [
+          { action: undefined },
+          { action: "archive" },
+          { id: 5 },
+          { text: 5 },
+          { projectPath: 5 },
+          { projectId: 5 },
+          { isFavorite: "yes" },
+          { updatedAt: 5 },
+        ],
+      },
+    );
+  });
+
+  it("import_prompt_history_v1", () => {
+    expectContract(
+      { type: "import_prompt_history_v1", clientId: "phone", entries: [] },
+      {
+        accept: [
+          { clientName: "Phone" },
+          { entries: [VALID_HISTORY_ENTRY, { text: "minimal" }] },
+        ],
+        reject: [
+          { clientId: undefined },
+          { clientId: 5 },
+          { clientName: 5 },
+          { entries: undefined },
+          { mode: "replace" },
+          ...INVALID_HISTORY_ENTRIES.map((entry) => ({
+            entries: [VALID_HISTORY_ENTRY, entry],
+          })),
+        ],
+      },
+    );
+  });
+
+  it("git_stage", () => {
+    expectContract(
+      { type: "git_stage", projectPath: "/p", files: ["a.ts"] },
+      {
+        accept: [
+          { hunks: [] },
+          { files: undefined, hunks: [{ file: "a.ts", hunkIndex: 0 }] },
+        ],
+        reject: [{ projectPath: 5 }, { hunks: "a.ts" }, ...HUNKS_REJECTED],
+      },
+    );
+  });
+
+  it.each(["git_unstage_hunks", "git_revert_hunks"])(
+    "%s needs at least one well-formed hunk",
+    (type) => {
+      expectContract(
+        { type, projectPath: "/p", hunks: [{ file: "a.ts", hunkIndex: 0 }] },
+        {
+          reject: [
+            { projectPath: undefined },
+            { projectPath: 5 },
+            { hunks: undefined },
+            { hunks: "a.ts" },
+            { hunks: [] },
+            ...HUNKS_REJECTED,
+          ],
+        },
+      );
+    },
+  );
+
+  it("git_commit, git_create_branch and git_status options", () => {
+    expectContract(
+      { type: "git_commit", projectPath: "/p" },
+      {
+        reject: [
+          { projectPath: 5 },
+          { sessionId: 5 },
+          { message: 5 },
+          { autoGenerate: "yes" },
+        ],
+      },
+    );
+    expectContract(
+      { type: "git_create_branch", projectPath: "/p", name: "feature" },
+      { accept: [{ checkout: true }], reject: [{ checkout: "yes" }] },
+    );
+    expectContract(
+      { type: "git_status", projectPath: "/p" },
+      {
+        accept: [{ sessionId: "s1", includeRemote: true }],
+        reject: [
+          { projectPath: undefined },
+          { projectPath: 5 },
+          { sessionId: 5 },
+          { includeRemote: "yes" },
+        ],
+      },
+    );
+  });
+
+  it.each(["git_push", "git_branches"])(
+    "%s accepts request correlation but no other extra field",
+    (type) => {
+      expectContract(
+        { type, projectPath: "/p" },
+        { accept: [{ requestId: "r1" }], reject: [{ sessionId: "s1" }] },
+      );
+    },
+  );
+
+  it("archive_session", () => {
+    expectContract(
+      { type: "archive_session", sessionId: "s1", provider: "claude", projectPath: "/p" },
+      {
+        accept: [{ provider: "codex" }],
+        reject: [
+          { sessionId: undefined },
+          { sessionId: 5 },
+          { provider: undefined },
+          { provider: "other" },
+          { projectPath: undefined },
+          { projectPath: 5 },
+        ],
+      },
+    );
   });
 });
