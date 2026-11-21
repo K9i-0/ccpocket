@@ -9326,6 +9326,9 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     } as any;
     (bridge as any).codexAutoReviewDisabled = true;
     (bridge as any).codexAutoReviewPolicyLoaded = true;
+    // The policy is set by hand above. Starting a session reloads it in the
+    // background, and the mock would report it as not disabled.
+    vi.spyOn(bridge as any, "refreshCodexMetadata").mockResolvedValue(undefined);
 
     await (bridge as any).handleClientMessage(
       {

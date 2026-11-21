@@ -1,6 +1,5 @@
-import { currentGitBranch, hasGitHead } from "./git-project-state.js";
+import { hasGitHead } from "./git-project-state.js";
 import { performanceMessage } from "./performance-mode.js";
-import { transcriptPageRange } from "./context-compaction.js";
 import type { Server as HttpServer } from "node:http";
 import { createHash, randomUUID } from "node:crypto";
 import { execFile, execFileSync } from "node:child_process";
@@ -13,7 +12,6 @@ import {
   SessionManager,
   MAX_HISTORY_PER_SESSION,
   type HistoryEntry,
-  type QueuedSessionInput,
   type SessionInfo,
   type SessionSummary,
   type WorktreeOptions,
@@ -27,9 +25,6 @@ import {
 import type { StartOptions } from "./sdk-process.js";
 import {
   codexErrorMessage,
-  isCodexThreadWriterConflict,
-  normalizeCodexReasoningEffortForModel,
-  CodexRpcError,
   CodexProcess,
   type CodexModelMetadata,
   type CodexStartOptions,
@@ -37,7 +32,6 @@ import {
 } from "./codex-process.js";
 import {
   AntigravityProcess,
-  AntigravityStartError,
   getAntigravityConfig,
   type AntigravityCatalog,
   type AntigravityConfig,
@@ -95,7 +89,6 @@ import {
   renameClaudeSession,
   renameCodexSession,
   saveCodexSessionProfile,
-  normalizeWorktreePath,
 } from "./sessions-index.js";
 import type { ImageRef, ImageStore } from "./image-store.js";
 import {
@@ -111,10 +104,6 @@ import {
   UploadStoreError,
   type UploadStore,
 } from "./upload-store.js";
-import {
-  formatResumePerformanceLog,
-  summarizeResumeHistory,
-} from "./resume-metrics.js";
 import type { GalleryStore } from "./gallery-store.js";
 import type { ProjectHistory } from "./project-history.js";
 import {
@@ -123,9 +112,6 @@ import {
 } from "./workspace-store.js";
 import { ArchiveStore } from "./archive-store.js";
 import { WorktreeStore } from "./worktree-store.js";
-import {
-  worktreeExists,
-} from "./worktree.js";
 import { DebugTraceStore } from "./debug-trace-store.js";
 import { RecordingStore } from "./recording-store.js";
 import { PushRelayClient } from "./push-relay.js";
@@ -151,8 +137,6 @@ import {
   resolvePlatformPathFrom,
 } from "./path-utils.js";
 import {
-  deriveCodexPermissionsMode,
-  normalizeCodexPermissionsMode,
   withDerivedCodexPermissionsMode,
 } from "./codex-permissions.js";
 import {
@@ -181,26 +165,16 @@ import {
   BRIDGE_PROTOCOL_CAPABILITIES,
   ANTIGRAVITY_PROTOCOL_CAPABILITIES,
   ANTIGRAVITY_CATALOG_TTL_MS,
-  TRANSCRIPT_PAGE_DEFAULT,
-  TRANSCRIPT_PAGE_MAX,
   OPT_IN_SERVER_MESSAGES,
   isRecord,
   parseCodexUserTurnOrdinal,
   countCodexUserTurnsInSession,
-  nextCodexUserTurnUuid,
   buildCodexHistoryPrefix,
   countCodexHistoryUserTurns,
-  normalizeCodexApprovalPolicy,
-  isCodexAutoReviewApprovalsReviewer,
-  sanitizeCodexModel,
-  codexSettingsFromPermissionsMode,
   errorMessageOf,
   isClaudeAutoModeUnavailableError,
   deriveExecutionMode,
   derivePlanMode,
-  modesToLegacyPermissionMode,
-  sandboxModeToInternal,
-  sandboxModeToExternal,
   envFlagEnabled,
   positiveEnvInt,
   nonNegativeEnvInt,
@@ -298,6 +272,63 @@ import {
   handleListWindows,
   handleTakeScreenshot,
 } from "./websocket/handlers/diagnostics.js";
+import {
+  handleApprove,
+  handleApproveAlways,
+  handleReject,
+  handleAnswer,
+  handleInstallToolSuggestion,
+} from "./websocket/handlers/approvals.js";
+import {
+  handleSetCodexRecovery,
+  handleGetGoal,
+  handleSetGoal,
+  handleClearGoal,
+} from "./websocket/handlers/codex-control.js";
+import {
+  handleSetAntigravityModel,
+  handleSetAntigravitySettings,
+  handleGetAntigravityCatalog,
+  handleSetCodexModel,
+  handleSetCodexSpeed,
+  handleSetClaudeSettings,
+} from "./websocket/handlers/session-settings.js";
+import {
+  handleListSessions,
+  handleStopSession,
+  handleResolveSessionLink,
+  handleRefreshBranch,
+  handleListRecentSessions,
+  handleArchiveSession,
+  handleRenameSession,
+} from "./websocket/handlers/session-catalog.js";
+import {
+  handleGetHistory,
+  handleGetSessionTranscript,
+  handleGetSessionContext,
+  handleGetHistoryDelta,
+  handleListGallery,
+  handleGetMessageImages,
+} from "./websocket/handlers/session-history.js";
+import {
+  handleRewindDryRun,
+  handleRewind,
+  handleFork,
+} from "./websocket/handlers/rewind-fork.js";
+import {
+  handleInput,
+  handleUpdateQueuedInput,
+  handleCancelQueuedInput,
+  handleSteerQueuedInput,
+  handleInterrupt,
+  handleEditMessage,
+} from "./websocket/handlers/session-input.js";
+import {
+  handleSetPermissionMode,
+  handleSetSandboxMode,
+} from "./websocket/handlers/session-modes.js";
+import { handleStart } from "./websocket/handlers/session-start.js";
+import { handleResumeSession } from "./websocket/handlers/session-resume.js";
 export {
   pinnedSessionKeysForRecentRequest,
   pinnedOnlySessionKeys,
@@ -374,13 +405,13 @@ export class BridgeWebSocketServer {
   private readOnlyDirs: string[];
   private assistantImageResolver: AssistantImageResolver | null = null;
   private fileDownloadAllowAllPaths: boolean;
-  private imageStore: ImageStore | null;
+  imageStore: ImageStore | null;
   mediaStore: MediaStore | null;
   uploadStore: UploadStore | null;
   galleryStore: GalleryStore | null;
   projectHistory: ProjectHistory | null;
   workspaceStore: WorkspaceStore | null;
-  private pendingSessionWorkspaces = new Map<string, ResolvedWorkspace>();
+  pendingSessionWorkspaces = new Map<string, ResolvedWorkspace>();
   debugTraceStore: DebugTraceStore;
   recordingStore: RecordingStore | null;
   worktreeStore: WorktreeStore;
@@ -389,7 +420,7 @@ export class BridgeWebSocketServer {
   promptHistoryBackup: PromptHistoryBackupStore | null;
   promptHistoryStore: PromptHistoryStore | null;
 
-  private recentSessionsRequestIds = new WeakMap<WebSocket, number>();
+  recentSessionsRequestIds = new WeakMap<WebSocket, number>();
   private recentSessionsInFlight = new Map<
     string,
     Promise<RecentSessionsListing>
@@ -402,13 +433,13 @@ export class BridgeWebSocketServer {
    */
   private contentSearchDepth = new Map<string, { files: number; at: number }>();
   /** Every Codex thread, for threads only kept as compressed rollouts. */
-  private codexThreadSnapshot = new CodexThreadSnapshot((onPage) =>
+  codexThreadSnapshot = new CodexThreadSnapshot((onPage) =>
     this.loadAllCodexThreads(onPage),
   );
-  private debugEvents = new Map<string, DebugTraceEvent[]>();
-  private notifiedPermissionToolUses = new Map<string, Set<string>>();
-  private archiveStore: ArchiveStore;
-  private readonly antigravityStore: AntigravityStore;
+  debugEvents = new Map<string, DebugTraceEvent[]>();
+  notifiedPermissionToolUses = new Map<string, Set<string>>();
+  archiveStore: ArchiveStore;
+  readonly antigravityStore: AntigravityStore;
   antigravityUsageCache: { at: number; usage: UsageInfo[] } | undefined;
   private antigravityUsageRead: Promise<UsageInfo[]> | undefined;
   private readonly loadAntigravityUsage: (bin: string) => Promise<UsageInfo[]>;
@@ -417,7 +448,7 @@ export class BridgeWebSocketServer {
   private readonly loadAntigravityCatalog: () => Promise<AntigravityCatalog>;
   private codexProfiles: string[] = [];
   private defaultCodexProfile: string | undefined;
-  private codexAutoReviewDisabled = false;
+  codexAutoReviewDisabled = false;
   /** `agy acp` is installed; gates the `antigravity_v1` capability. */
   private antigravityAvailable = false;
   private readonly detectAntigravity: (() => Promise<boolean>) | undefined;
@@ -425,7 +456,7 @@ export class BridgeWebSocketServer {
   private antigravitySessionsCache:
     | { at: number; entries: Promise<AntigravitySessionEntry[]> }
     | undefined;
-  private codexAutoReviewPolicyLoaded = false;
+  codexAutoReviewPolicyLoaded = false;
   private codexMetadataRequest: Promise<void> | null = null;
   private lastConnectMetadataRefreshAt: number | null = null;
   private claudeModels: string[] = FALLBACK_CLAUDE_MODELS;
@@ -458,10 +489,10 @@ export class BridgeWebSocketServer {
   private pushTokenGeneration = new Map<string, number>();
   private pushTokenOperations = new Map<string, Promise<void>>();
   private nextPushTokenGeneration = 0;
-  private failSetPermissionMode = envFlagEnabled(
+  failSetPermissionMode = envFlagEnabled(
     "BRIDGE_FAIL_SET_PERMISSION_MODE",
   );
-  private failSetSandboxMode = envFlagEnabled("BRIDGE_FAIL_SET_SANDBOX_MODE");
+  failSetSandboxMode = envFlagEnabled("BRIDGE_FAIL_SET_SANDBOX_MODE");
   readonly fileListMaxEntries: number;
   readonly fileListMaxBytes: number;
   private readonly fileDownloadMaxBytes: number;
@@ -487,7 +518,7 @@ export class BridgeWebSocketServer {
   clientSupportedServerMessages = new WeakMap<WebSocket, Set<string>>();
   private clientProtocolVersions = new WeakMap<WebSocket, number>();
   private rejectedProtocolClients = new WeakSet<WebSocket>();
-  private pendingClaudeResumeInputs = new WeakMap<
+  pendingClaudeResumeInputs = new WeakMap<
     WebSocket,
     Map<string, InputClientMessage[]>
   >();
@@ -1034,7 +1065,7 @@ export class BridgeWebSocketServer {
     };
   }
 
-  private sendToolActionError(
+  sendToolActionError(
     ws: WebSocket,
     message: { sessionId?: string; id?: string; toolUseId?: string },
     error: string,
@@ -1047,7 +1078,7 @@ export class BridgeWebSocketServer {
     });
   }
 
-  private normalizeAdditionalWritableRoots(
+  normalizeAdditionalWritableRoots(
     roots: string[] | undefined,
     projectPath: string,
   ): { roots?: string[]; deniedRoot?: string } {
@@ -1072,7 +1103,7 @@ export class BridgeWebSocketServer {
     return { roots: [...normalized.values()] };
   }
 
-  private buildSessionCreatedMessage(params: {
+  buildSessionCreatedMessage(params: {
     sessionId: string;
     provider: Provider;
     projectPath: string;
@@ -1296,7 +1327,7 @@ export class BridgeWebSocketServer {
    * text back to the client (Claude Code's Esc-to-edit). See
    * docs/interrupt-retract.md.
    */
-  private async interruptAndRetract(
+  async interruptAndRetract(
     ws: WebSocket,
     session: SessionInfo,
   ): Promise<void> {
@@ -1346,7 +1377,7 @@ export class BridgeWebSocketServer {
    * before [targetUuid], then send [text] as a new prompt through the normal
    * input path. Only allowed between turns.
    */
-  private async editUserMessage(
+  async editUserMessage(
     ws: WebSocket,
     msg: Extract<ClientMessage, { type: "edit_message" }>,
   ): Promise<void> {
@@ -1439,7 +1470,7 @@ export class BridgeWebSocketServer {
     });
   }
 
-  private async rewindCodexConversation(
+  async rewindCodexConversation(
     ws: WebSocket,
     sessionId: string,
     targetUuid: string,
@@ -1624,7 +1655,7 @@ export class BridgeWebSocketServer {
    * Branch a Claude conversation into a new session that ends at the given
    * assistant message. The source session keeps running unchanged.
    */
-  private async forkClaudeSession(
+  async forkClaudeSession(
     ws: WebSocket,
     sessionId: string,
     targetUuid: string,
@@ -1713,7 +1744,7 @@ export class BridgeWebSocketServer {
     this.sendSessionList(ws);
   }
 
-  private async forkCodexSession(
+  async forkCodexSession(
     ws: WebSocket,
     sessionId: string,
     targetUuid: string,
@@ -1837,7 +1868,7 @@ export class BridgeWebSocketServer {
     this.sendSessionList(ws);
   }
 
-  private sendTip(
+  sendTip(
     ws: WebSocket,
     sessionId: string,
     tipCode: string,
@@ -1855,14 +1886,14 @@ export class BridgeWebSocketServer {
     this.send(ws, tipMsg);
   }
 
-  private async splitPastHistoryMessages(
+  async splitPastHistoryMessages(
     session: SessionInfo,
   ): Promise<{ pastMessages: unknown[]; historyMessages: ServerMessage[] }> {
     return this.preparePastHistoryMessages(session, session.pastMessages ?? []);
   }
 
   /** Registers past-history images so clients can fetch them by URL. */
-  private async preparePastHistoryMessages(
+  async preparePastHistoryMessages(
     session: SessionInfo,
     messages: readonly unknown[],
   ): Promise<{ pastMessages: unknown[]; historyMessages: ServerMessage[] }> {
@@ -1921,7 +1952,7 @@ export class BridgeWebSocketServer {
    * Full provider transcript for the read-only transcript screen. Unlike the
    * live history window it is not trimmed, and it keeps compaction markers.
    */
-  private async sessionTranscriptMessages(
+  async sessionTranscriptMessages(
     session: SessionInfo,
   ): Promise<SessionHistoryMessage[]> {
     if (session.provider === "codex") {
@@ -2251,7 +2282,7 @@ export class BridgeWebSocketServer {
     }
   }
 
-  private claudeSettingsMessage(
+  claudeSettingsMessage(
     sessionId: string,
     session: SessionInfo,
   ): ServerMessage {
@@ -2272,7 +2303,7 @@ export class BridgeWebSocketServer {
     } as ServerMessage;
   }
 
-  private sendClaudeCurrentSettings(
+  sendClaudeCurrentSettings(
     ws: WebSocket,
     sessionId: string,
     session: SessionInfo,
@@ -2281,7 +2312,7 @@ export class BridgeWebSocketServer {
     this.send(ws, this.claudeSettingsMessage(sessionId, session));
   }
 
-  private sendAntigravityCurrentSettings(
+  sendAntigravityCurrentSettings(
     ws: WebSocket,
     sessionId: string,
     session: SessionInfo,
@@ -2301,7 +2332,7 @@ export class BridgeWebSocketServer {
     });
   }
 
-  private sendCodexCurrentSettings(
+  sendCodexCurrentSettings(
     ws: WebSocket,
     sessionId: string,
     session: SessionInfo,
@@ -2328,7 +2359,7 @@ export class BridgeWebSocketServer {
     });
   }
 
-  private async sendCodexCanonicalHistorySnapshot(
+  async sendCodexCanonicalHistorySnapshot(
     ws: WebSocket,
     sessionId: string,
     session: SessionInfo,
@@ -2362,7 +2393,7 @@ export class BridgeWebSocketServer {
     }
   }
 
-  private async sendCodexCanonicalLegacyHistory(
+  async sendCodexCanonicalLegacyHistory(
     ws: WebSocket,
     sessionId: string,
     session: SessionInfo,
@@ -2397,7 +2428,7 @@ export class BridgeWebSocketServer {
     }
   }
 
-  private shouldResetCodexHistoryDelta(
+  shouldResetCodexHistoryDelta(
     session: SessionInfo,
     sinceSeq: number,
     resultKind: "delta" | "snapshot",
@@ -2720,7 +2751,7 @@ export class BridgeWebSocketServer {
     );
   }
 
-  private async getCodexThreadHistory(
+  async getCodexThreadHistory(
     threadId: string,
     projectPath?: string,
   ): Promise<SessionHistoryMessage[]> {
@@ -2742,7 +2773,7 @@ export class BridgeWebSocketServer {
     return params.fallback;
   }
 
-  private createClaudeSessionWithFallback(params: {
+  createClaudeSessionWithFallback(params: {
     projectPath: string;
     options?: StartOptions & { permissionMode?: ClaudePermissionMode };
     pastMessages?: unknown[];
@@ -2940,7 +2971,7 @@ export class BridgeWebSocketServer {
     }
   }
 
-  private async handleClientMessage(
+  async handleClientMessage(
     msg: ClientMessage,
     ws: WebSocket,
     echoInput = false,
@@ -2995,941 +3026,25 @@ export class BridgeWebSocketServer {
     }
 
     switch (msg.type) {
-      case "start": {
-        let projectPath = resolvePlatformPath(msg.projectPath, this.platform);
-        let resolvedWorkspace: ResolvedWorkspace | undefined;
-        if (msg.projectId) {
-          const project = this.workspaceStore?.getProject(msg.projectId);
-          if (!project) {
-            this.send(ws, {
-              type: "error",
-              requestId: msg.requestId,
-              errorCode: "project_not_found",
-              message: `Project not found: ${msg.projectId}`,
-            });
-            break;
-          }
-          const normalized = this.normalizeWorkspaceRoots(project.rootPaths);
-          if (normalized.deniedRoot || !normalized.roots) {
-            this.send(
-              ws,
-              this.buildPathNotAllowedError(
-                normalized.deniedRoot ?? project.rootPaths[0],
-                msg.requestId,
-              ),
-            );
-            break;
-          }
-          projectPath = normalized.roots[0];
-          resolvedWorkspace = {
-            kind: "project",
-            projectId: project.id,
-            projectName: project.name,
-            rootPaths: normalized.roots,
-          };
-        }
-        if (!this.isPathAllowed(projectPath)) {
-          this.send(ws, {
-            ...this.buildPathNotAllowedError(msg.projectPath),
-            requestId: msg.requestId,
-            path: msg.projectPath,
-          });
-          break;
-        }
-        try {
-          const provider = msg.provider ?? "claude";
-          const tierError = provider === "codex"
-            ? this.codexServiceTierError(msg.model, msg.serviceTier) : undefined;
-          if (tierError) {
-            this.send(ws, { type: "error", requestId: msg.requestId,
-              errorCode: "codex_service_tier_unavailable", message: tierError });
-            break;
-          }
-          const normalizedCodexPermissionsMode =
-            provider === "codex"
-              ? normalizeCodexPermissionsMode(msg.codexPermissionsMode)
-              : undefined;
-          const requestedCodexPermissionsMode =
-            this.codexAutoReviewDisabled &&
-            normalizedCodexPermissionsMode === "autoReview"
-              ? "default"
-              : normalizedCodexPermissionsMode;
-          const codexPermissionSettings = requestedCodexPermissionsMode
-            ? codexSettingsFromPermissionsMode(requestedCodexPermissionsMode)
-            : undefined;
-          const codexApprovalPolicy =
-            provider === "codex"
-              ? requestedCodexPermissionsMode
-                ? codexPermissionSettings?.approvalPolicy
-                : normalizeCodexApprovalPolicy(
-                    msg.approvalPolicy ??
-                      (msg.executionMode == null
-                        ? undefined
-                        : msg.executionMode === "fullAccess"
-                          ? "never"
-                          : "on-request"),
-                  )
-              : undefined;
-          const executionMode = deriveExecutionMode({
-            provider,
-            permissionMode: msg.permissionMode,
-            executionMode: msg.executionMode,
-            approvalPolicy: codexApprovalPolicy,
-          });
-          const planMode = derivePlanMode({
-            permissionMode: msg.permissionMode,
-            planMode: msg.planMode,
-          });
-          const legacyPermissionMode = modesToLegacyPermissionMode(
-            provider,
-            executionMode,
-            planMode,
-          );
-          const claudePermissionMode =
-            provider !== "codex"
-              ? ((msg.permissionMode as
-                  | "default"
-                  | "auto"
-                  | "acceptEdits"
-                  | "bypassPermissions"
-                  | "plan"
-                  | undefined) ?? legacyPermissionMode)
-              : legacyPermissionMode;
-          const antigravityPermissionMode =
-            provider === "antigravity" &&
-            msg.permissionMode === undefined &&
-            msg.executionMode === undefined &&
-            msg.planMode === undefined
-              ? undefined
-              : claudePermissionMode;
-          if (provider === "codex") {
-            console.log(
-              `[ws] start(codex): execution=${executionMode} plan=${planMode}`,
-            );
-            if (
-              msg.profile &&
-              !(await this.validateCodexProfile(msg.profile, projectPath))
-            ) {
-              this.send(ws, {
-                type: "error",
-                requestId: msg.requestId,
-                path: projectPath,
-                message: `Codex profile not found: ${msg.profile}`,
-              });
-              break;
-            }
-          }
-          const requestedAdditionalRoots =
-            resolvedWorkspace?.rootPaths.slice(1) ??
-            msg.additionalWritableRoots;
-          const additionalWritableRoots = this.normalizeAdditionalWritableRoots(
-            requestedAdditionalRoots,
-            projectPath,
-          );
-          if (additionalWritableRoots.deniedRoot) {
-            this.send(
-              ws,
-              {
-                ...this.buildPathNotAllowedError(
-                  additionalWritableRoots.deniedRoot,
-                ),
-                requestId: msg.requestId,
-                path: projectPath,
-              },
-            );
-            break;
-          }
-          const {
-            sessionId,
-            permissionMode: effectivePermissionMode,
-            executionMode: effectiveExecutionMode,
-            planMode: effectivePlanMode,
-            usedFallback: autoFallbackUsed,
-          } =
-            provider === "claude"
-              ? this.createClaudeSessionWithFallback({
-                  projectPath,
-                  options: {
-                    sessionId: msg.sessionId,
-                    continueMode: msg.continue,
-                    permissionMode: claudePermissionMode,
-                    model: msg.model,
-                    effort: msg.effort,
-                    fastMode: msg.claudeFastMode,
-                    ultracode: msg.claudeUltracode,
-                    maxTurns: msg.maxTurns,
-                    maxBudgetUsd: msg.maxBudgetUsd,
-                    fallbackModel: msg.fallbackModel,
-                    forkSession: msg.forkSession,
-                    persistSession: msg.persistSession,
-                    autoRename: msg.autoRename,
-                    ...(msg.sandboxMode
-                      ? { sandboxEnabled: msg.sandboxMode === "on" }
-                      : {}),
-                    additionalDirectories: additionalWritableRoots.roots,
-                  },
-                  worktreeOptions: {
-                    useWorktree: msg.useWorktree,
-                    worktreeBranch: msg.worktreeBranch,
-                    existingWorktreePath: msg.existingWorktreePath,
-                  },
-                })
-              : provider === "antigravity"
-                ? {
-                    sessionId: this.sessionManager.create(
-                      projectPath,
-                      {},
-                      undefined,
-                      {
-                        useWorktree: msg.useWorktree,
-                        worktreeBranch: msg.worktreeBranch,
-                        existingWorktreePath: msg.existingWorktreePath,
-                      },
-                      provider,
-                      undefined,
-                      undefined,
-                      {
-                        sessionId: msg.sessionId,
-                        model: msg.model,
-                        thoughtLevel: msg.effort,
-                        permissionMode: antigravityPermissionMode,
-                        additionalDirectories: additionalWritableRoots.roots,
-                      },
-                    ),
-                    permissionMode: antigravityPermissionMode,
-                    executionMode:
-                      antigravityPermissionMode === "bypassPermissions"
-                        ? "fullAccess"
-                        : executionMode === "fullAccess"
-                          ? "default"
-                          : executionMode,
-                    planMode,
-                    usedFallback: false,
-                  }
-              : {
-                  sessionId: this.sessionManager.create(
-                    projectPath,
-                    { autoRename: msg.autoRename },
-                    undefined,
-                    {
-                      useWorktree: msg.useWorktree,
-                      worktreeBranch: msg.worktreeBranch,
-                      existingWorktreePath: msg.existingWorktreePath,
-                    },
-                    provider,
-                    this.withCodexAutoReviewPolicy({
-                      profile: msg.profile,
-                      approvalPolicy: codexPermissionSettings
-                        ? codexPermissionSettings.approvalPolicy
-                        : (codexApprovalPolicy ??
-                          normalizeCodexApprovalPolicy(
-                            executionMode === "fullAccess"
-                              ? "never"
-                              : "on-request",
-                          )),
-                      approvalsReviewer:
-                        codexPermissionSettings?.approvalsReviewer ??
-                        msg.approvalsReviewer,
-                      codexPermissionsMode:
-                        codexPermissionSettings?.codexPermissionsMode,
-                      sandboxMode: codexPermissionSettings
-                        ? codexPermissionSettings.sandboxMode
-                        : sandboxModeToInternal(msg.sandboxMode),
-                      model: msg.model,
-                      modelReasoningEffort:
-                        (msg.modelReasoningEffort as CodexStartOptions["modelReasoningEffort"]) ??
-                        undefined,
-                      serviceTier: msg.serviceTier,
-                      networkAccessEnabled: msg.networkAccessEnabled,
-                      webSearchMode:
-                        (msg.webSearchMode as "disabled" | "cached" | "live") ??
-                        undefined,
-                      additionalWritableRoots: additionalWritableRoots.roots,
-                      threadId: msg.sessionId,
-                      collaborationMode: planMode
-                        ? ("plan" as const)
-                        : ("default" as const),
-                    }),
-                  ),
-                  permissionMode: claudePermissionMode,
-                  executionMode,
-                  planMode,
-                  usedFallback: false,
-                };
-          const createdSession = this.sessionManager.get(sessionId);
-          if (resolvedWorkspace) {
-            this.pendingSessionWorkspaces.set(sessionId, resolvedWorkspace);
-            void this.persistPendingSessionWorkspace(sessionId);
-          }
-          const cached = this.sessionManager.getCachedCommands(
-            provider,
-            createdSession?.worktreePath ?? projectPath,
-          );
-
-          // Load saved session name from CLI storage (for resumed sessions)
-          void this.loadAndSetSessionName(
-            createdSession,
-            provider,
-            projectPath,
-            msg.sessionId,
-          ).then(() => {
-            this.send(
-              ws,
-              this.buildSessionCreatedMessage({
-                sessionId,
-                provider,
-                projectPath,
-                session: createdSession,
-                permissionMode:
-                  provider !== "codex"
-                    ? effectivePermissionMode
-                    : claudePermissionMode,
-                executionMode:
-                  provider !== "codex"
-                    ? effectiveExecutionMode
-                    : executionMode,
-                planMode: provider !== "codex" ? effectivePlanMode : planMode,
-                sandboxMode: createdSession?.codexSettings?.sandboxMode
-                  ? sandboxModeToExternal(createdSession.codexSettings.sandboxMode)
-                  : msg.sandboxMode,
-                codexPermissionsMode:
-                  createdSession?.codexSettings?.codexPermissionsMode,
-                approvalsReviewer:
-                  createdSession?.codexSettings?.approvalsReviewer,
-                requestId: msg.requestId,
-                ...(cached
-                  ? {
-                      slashCommands: cached.slashCommands,
-                      ...(cached.slashCommandDescriptions
-                        ? {
-                            slashCommandDescriptions:
-                              cached.slashCommandDescriptions,
-                          }
-                        : {}),
-                      skills: cached.skills,
-                      ...(cached.skillMetadata
-                        ? { skillMetadata: cached.skillMetadata }
-                        : {}),
-                      apps: cached.apps,
-                      ...(cached.appMetadata
-                        ? { appMetadata: cached.appMetadata }
-                        : {}),
-                      plugins: cached.plugins,
-                      ...(cached.pluginMetadata
-                        ? { pluginMetadata: cached.pluginMetadata }
-                        : {}),
-                    }
-                  : {}),
-              }),
-            );
-            this.broadcastSessionList();
-            if (provider === "codex") {
-              void this.refreshCodexMetadata(projectPath);
-            } else if (provider === "claude") {
-              void this.refreshClaudeModels(projectPath);
-            }
-            if (autoFallbackUsed) {
-              this.sendTip(
-                ws,
-                sessionId,
-                "auto_mode_fallback_default",
-                createdSession,
-              );
-            }
-            if (msg.initialPrompt?.trim()) {
-              void this.prepareInitialPrompt(
-                provider,
-                createdSession?.worktreePath ?? projectPath,
-                sessionId,
-                msg.initialPrompt,
-              )
-                .then((prepared) =>
-                  this.handleClientMessage(
-                    {
-                      type: "input",
-                      sessionId,
-                      text: prepared.text,
-                      clientMessageId: randomUUID(),
-                      ...(prepared.skills.length > 0
-                        ? { skills: prepared.skills }
-                        : {}),
-                    },
-                    ws,
-                    true,
-                  ),
-                )
-                .catch((error) => {
-                  this.send(ws, { type: "error", sessionId, message: `Failed to send initial project request: ${(error as Error).message}` });
-                });
-            }
-            // Send a gentle tip when the project is not a git repository
-            if (createdSession && !createdSession.gitBranch) {
-              this.sendTip(ws, sessionId, "git_not_available", createdSession);
-            }
-          });
-          this.debugEvents.set(sessionId, []);
-          this.recordDebugEvent(sessionId, {
-            direction: "internal",
-            channel: "bridge",
-            type: "session_created",
-            detail: `provider=${provider} projectPath=${projectPath}`,
-          });
-          this.recordingStore?.saveMeta(sessionId, {
-            bridgeSessionId: sessionId,
-            projectPath,
-            ...(resolvedWorkspace?.projectId
-              ? { projectId: resolvedWorkspace.projectId }
-              : {}),
-            ...(resolvedWorkspace?.projectName
-              ? { projectName: resolvedWorkspace.projectName }
-              : {}),
-            createdAt: new Date().toISOString(),
-          });
-          if (!resolvedWorkspace) {
-            this.projectHistory?.addProject(projectPath);
-          }
-        } catch (err) {
-          console.error(`[ws] Failed to start session:`, err);
-          this.send(ws, {
-            type: "error",
-            requestId: msg.requestId,
-            path: msg.projectPath,
-            message: `Failed to start session: ${(err as Error).message}`,
-          });
-        }
+      case "start":
+        await handleStart(this, msg, ws);
         break;
-      }
 
-      case "input": {
-        const session = this.resolveSession(msg.sessionId);
-        if (!session) {
-          const pendingInputs = msg.sessionId
-            ? this.pendingClaudeResumeInputs.get(ws)?.get(msg.sessionId)
-            : undefined;
-          if (pendingInputs) {
-            pendingInputs.push(msg);
-            return;
-          }
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: "No active session. Send 'start' first.",
-          });
-          return;
-        }
-        const text = msg.text;
-        const clientMessageId = msg.clientMessageId;
-        const baseSeq = msg.baseSeq;
-        const codexSkills = msg.skills ?? (msg.skill ? [msg.skill] : []);
-        const codexMentions = msg.mentions ?? [];
-
-        // Snapshot busy state before dispatch. We prefer the actual enqueue
-        // result returned by SdkProcess sendInput* below, but keep this as a
-        // fallback for test doubles and async paths.
-        const isAgentBusySnapshot =
-          session.provider === "claude" && !session.process.isWaitingForInput;
-
-        // Normalize images: support new `images` array and legacy single-image fields
-        let images: Array<{ base64: string; mimeType: string }> = [];
-        if (msg.images && msg.images.length > 0) {
-          images = msg.images;
-        } else if (msg.imageBase64 && msg.mimeType) {
-          // Legacy single-image fallback
-          images = [{ base64: msg.imageBase64, mimeType: msg.mimeType }];
-        }
-
-        // Add user_input to in-memory history.
-        // The SDK stream does NOT emit user messages, so session.history would
-        // otherwise lack them.  This ensures get_history responses include user
-        // messages and replaceEntries on the client side preserves them.
-        // Flutter already shows the user bubble optimistically. For Codex we
-        // echo the accepted user_input back with its synthetic UUID so the live
-        // bubble becomes rewindable/forkable without requiring a stop+resume.
-        //
-        // Register images in the image store so they can be served via HTTP
-        // when the client re-enters the session and loads history.
-        let imageRefs:
-          | Array<{ id: string; url: string; mimeType: string }>
-          | undefined;
-        if (images.length > 0 && this.imageStore) {
-          imageRefs = [];
-          for (const img of images) {
-            const ref = this.imageStore.registerFromBase64(
-              img.base64,
-              img.mimeType,
-            );
-            if (ref) imageRefs.push(ref);
-          }
-          if (imageRefs.length === 0) imageRefs = undefined;
-        }
-
-        if (
-          clientMessageId &&
-          baseSeq !== undefined &&
-          this.hasInputConflictSince(session, baseSeq)
-        ) {
-          this.send(ws, {
-            type: "input_rejected",
-            sessionId: session.id,
-            clientMessageId,
-            reason: "conflict",
-          });
-          break;
-        }
-
-        const delivery = msg.delivery;
-        const sdkTurnActive =
-          session.provider === "claude"
-            ? (session.process as Partial<Pick<SdkProcess, "isTurnActive">>)
-                .isTurnActive
-            : undefined;
-        // Antigravity steers the running turn when it gets a prompt, so a
-        // message is held back only when the client asks for a delivery.
-        const turnActive =
-          session.process instanceof AntigravityProcess
-            ? session.process.isTurnActive
-            : session.provider === "codex"
-            ? !session.process.isWaitingForInput
-            : typeof sdkTurnActive === "boolean"
-              ? sdkTurnActive
-              : isAgentBusySnapshot;
-        // Older clients omit `delivery`: Codex queues and Claude keeps the
-        // legacy interrupt-and-send path below.
-        const usageLimited = this.sessionManager.isUsageLimited(session.id);
-        const holdForDelivery =
-          usageLimited || (turnActive &&
-          (delivery !== undefined || session.provider === "codex"));
-
-        if (holdForDelivery) {
-          const pendingInput: QueuedSessionInput = {
-            itemId: randomUUID(),
-            ...(clientMessageId ? { clientMessageId } : {}),
-            text,
-            createdAt: new Date().toISOString(),
-            ...(session.provider === "codex"
-              ? { userMessageUuid: nextCodexUserTurnUuid(session) }
-              : {}),
-            ...(images.length > 0 ? { imageCount: images.length, images } : {}),
-            ...(imageRefs ? { imageRefs } : {}),
-            ...(codexSkills.length > 0 ? { skills: codexSkills } : {}),
-            ...(codexMentions.length > 0 ? { mentions: codexMentions } : {}),
-          };
-
-          let outcome: "steered" | "queued" | "rejected";
-          if (delivery === "steer" && !usageLimited) {
-            outcome = await this.sessionManager.steerInput(
-              session.id,
-              pendingInput,
-            );
-          } else if (session.queuedInput) {
-            outcome = "rejected";
-          } else {
-            outcome = this.sessionManager.queueInput(session.id, pendingInput)
-              ? "queued"
-              : "rejected";
-          }
-
-          if (outcome === "rejected") {
-            this.send(ws, {
-              type: "input_rejected",
-              sessionId: session.id,
-              ...(clientMessageId ? { clientMessageId } : {}),
-              reason: "Queue is full",
-            });
-            break;
-          }
-          if (images.length > 0 && this.galleryStore && session.projectPath) {
-            for (const img of images) {
-              this.galleryStore
-                .addImageFromBase64(
-                  img.base64,
-                  img.mimeType,
-                  session.projectPath,
-                  msg.sessionId,
-                )
-                .catch((err) => {
-                  console.warn(
-                    `[ws] Failed to persist queued image to gallery: ${err}`,
-                  );
-                });
-            }
-          }
-          this.send(ws, {
-            type: "input_ack",
-            sessionId: session.id,
-            ...(clientMessageId ? { clientMessageId } : {}),
-            acceptedSeq: session.historyRevision,
-            queued: outcome === "queued",
-          });
-          this.broadcastSessionList();
-          break;
-        }
-
-        if (session.process instanceof AntigravityProcess) {
-          if (!session.process.isRunning) {
-            // Rejected before it reaches history, so no ghost turn is left.
-            this.send(ws, {
-              type: "error",
-              sessionId: session.id,
-              message: "Antigravity session is not running. Start it again.",
-            });
-            break;
-          }
-          if (session.process.isReplaying) {
-            await session.process.waitUntilReady().catch(() => {});
-            if (!session.process.isRunning) {
-              this.send(ws, {
-                type: "error",
-                sessionId: session.id,
-                message: "Antigravity session is not running. Start it again.",
-              });
-              break;
-            }
-          }
-          // Commit any buffered assistant text/thinking before recording the new
-          // user message so prior agent output never lands below it.
-          session.process.flushPendingOutput();
-        }
-        if (this.sessionManager.hasPendingMessages(session.id)) {
-          await this.sessionManager.waitForPendingMessages(session.id);
-        }
-
-        const userEntry = this.sessionManager.appendHistory(session.id, {
-          type: "user_input",
-          text,
-          ...(session.provider === "codex"
-            ? { userMessageUuid: nextCodexUserTurnUuid(session) }
-            : {}),
-          ...(clientMessageId ? { clientMessageId } : {}),
-          timestamp: new Date().toISOString(),
-          ...(images.length > 0 ? { imageCount: images.length } : {}),
-          ...(imageRefs ? { images: imageRefs } : {}),
-        } as ServerMessage);
-        const acceptedSeq = userEntry?.seq ?? session.historyRevision;
-
-        if ((session.provider === "codex" || echoInput) && userEntry) {
-          this.send(ws, {
-            ...userEntry.message,
-            sessionId: session.id,
-            historySeq: acceptedSeq,
-          } as ServerMessage & { sessionId: string; historySeq: number });
-        }
-        if (userEntry) {
-          this.broadcastSessionMessage(
-            session.id,
-            {
-              ...userEntry.message,
-              historySeq: acceptedSeq,
-            } as ServerMessage & { historySeq: number },
-            ws,
-          );
-        }
-
-        // Persist images to Gallery Store asynchronously (fire-and-forget)
-        if (images.length > 0 && this.galleryStore && session.projectPath) {
-          for (const img of images) {
-            this.galleryStore
-              .addImageFromBase64(
-                img.base64,
-                img.mimeType,
-                session.projectPath,
-                msg.sessionId,
-              )
-              .catch((err) => {
-                console.warn(`[ws] Failed to persist image to gallery: ${err}`);
-              });
-          }
-        }
-
-        if (session.process instanceof AntigravityProcess) {
-          // Legacy clients name a gallery image instead of sending its bytes.
-          const galleryImage =
-            images.length === 0 && msg.imageId && this.galleryStore
-              ? await this.galleryStore
-                  .getImageAsBase64(msg.imageId)
-                  .catch(() => null)
-              : null;
-          const inputImages = galleryImage ? [galleryImage] : images;
-          const accepted = session.process.sendInput(
-            text,
-            inputImages.length > 0 ? inputImages : undefined,
-          );
-          if (!accepted) {
-            this.send(ws, {
-              type: "error",
-              sessionId: session.id,
-              message: "Antigravity session is not running. Start it again.",
-            });
-            break;
-          }
-          this.send(ws, {
-            type: "input_ack",
-            sessionId: session.id,
-            ...(clientMessageId ? { clientMessageId } : {}),
-            acceptedSeq,
-            queued: false,
-          });
-          break;
-        }
-
-        // Codex input path
-        if (session.provider === "codex") {
-          this.send(ws, {
-            type: "input_ack",
-            sessionId: session.id,
-            ...(clientMessageId ? { clientMessageId } : {}),
-            acceptedSeq,
-            queued: false,
-          });
-          const codexProc = session.process as CodexProcess;
-          if (images.length > 0) {
-            codexProc.sendInputStructured(text, {
-              images,
-              skills: codexSkills,
-              mentions: codexMentions,
-            });
-          } else if (msg.imageId && this.galleryStore) {
-            this.galleryStore
-              .getImageAsBase64(msg.imageId)
-              .then((imageData) => {
-                if (imageData) {
-                  codexProc.sendInputStructured(text, {
-                    images: [imageData],
-                    skills: codexSkills,
-                    mentions: codexMentions,
-                  });
-                } else {
-                  console.warn(`[ws] Image not found: ${msg.imageId}`);
-                  codexProc.sendInputStructured(text, {
-                    skills: codexSkills,
-                    mentions: codexMentions,
-                  });
-                }
-              })
-              .catch((err) => {
-                console.error(`[ws] Failed to load image: ${err}`);
-                codexProc.sendInputStructured(text, {
-                  skills: codexSkills,
-                  mentions: codexMentions,
-                });
-              });
-          } else if (codexSkills.length > 0 || codexMentions.length > 0) {
-            codexProc.sendInputStructured(text, {
-              skills: codexSkills,
-              mentions: codexMentions,
-            });
-          } else {
-            codexProc.sendInput(text);
-          }
-          break;
-        }
-
-        // Claude Code input path — enqueue first, then interrupt if busy
-        const claudeProc = session.process as SdkProcess;
-        let wasQueued = false;
-        let shouldInterrupt = false;
-        if (images.length > 0) {
-          console.log(
-            `[ws] Sending message with ${images.length} inline Base64 image(s)`,
-          );
-          if (typeof claudeProc.dispatchInputWithImages === "function") {
-            const result = claudeProc.dispatchInputWithImages(text, images);
-            wasQueued = result.queued;
-            shouldInterrupt = result.shouldInterrupt;
-          } else {
-            const result = claudeProc.sendInputWithImages(text, images);
-            wasQueued =
-              typeof result === "boolean" ? result : isAgentBusySnapshot;
-            shouldInterrupt = wasQueued;
-          }
-        }
-        // Legacy imageId mode (backward compatibility)
-        else if (msg.imageId && this.galleryStore) {
-          this.send(ws, {
-            type: "input_ack",
-            sessionId: session.id,
-            ...(clientMessageId ? { clientMessageId } : {}),
-            acceptedSeq,
-            queued: isAgentBusySnapshot,
-          });
-          this.galleryStore
-            .getImageAsBase64(msg.imageId)
-            .then((imageData) => {
-              let queuedAfterResolve = false;
-              if (imageData) {
-                if (typeof claudeProc.dispatchInputWithImages === "function") {
-                  const result = claudeProc.dispatchInputWithImages(text, [
-                    imageData,
-                  ]);
-                  queuedAfterResolve = result.queued;
-                  if (result.shouldInterrupt) claudeProc.interrupt();
-                } else {
-                  const result = claudeProc.sendInputWithImages(text, [
-                    imageData,
-                  ]);
-                  queuedAfterResolve =
-                    typeof result === "boolean"
-                      ? result
-                      : isAgentBusySnapshot;
-                  if (queuedAfterResolve) claudeProc.interrupt();
-                }
-              } else {
-                console.warn(`[ws] Image not found: ${msg.imageId}`);
-                if (typeof claudeProc.dispatchInput === "function") {
-                  const result = claudeProc.dispatchInput(text);
-                  queuedAfterResolve = result.queued;
-                  if (result.shouldInterrupt) claudeProc.interrupt();
-                } else {
-                  const result = session.process.sendInput(text);
-                  queuedAfterResolve =
-                    typeof result === "boolean"
-                      ? result
-                      : isAgentBusySnapshot;
-                  if (queuedAfterResolve) claudeProc.interrupt();
-                }
-              }
-            })
-            .catch((err) => {
-              console.error(`[ws] Failed to load image: ${err}`);
-              if (typeof claudeProc.dispatchInput === "function") {
-                const result = claudeProc.dispatchInput(text);
-                if (result.shouldInterrupt) claudeProc.interrupt();
-              } else {
-                const result = session.process.sendInput(text);
-                const queuedAfterResolve =
-                  typeof result === "boolean" ? result : isAgentBusySnapshot;
-                if (queuedAfterResolve) claudeProc.interrupt();
-              }
-            });
-          break;
-        }
-        // Text-only message
-        else {
-          if (typeof claudeProc.dispatchInput === "function") {
-            const result = claudeProc.dispatchInput(text);
-            wasQueued = result.queued;
-            shouldInterrupt = result.shouldInterrupt;
-          } else {
-            const result = session.process.sendInput(text);
-            wasQueued =
-              typeof result === "boolean" ? result : isAgentBusySnapshot;
-            shouldInterrupt = wasQueued;
-          }
-        }
-
-        // Acknowledge receipt so the client can mark the message state.
-        // queued=true means the input was enqueued instead of being consumed
-        // immediately by the SDK stream.
-        this.send(ws, {
-          type: "input_ack",
-          sessionId: session.id,
-          ...(clientMessageId ? { clientMessageId } : {}),
-          acceptedSeq,
-          queued: wasQueued,
-        });
-
-        if (shouldInterrupt) {
-          console.log(
-            `[ws] Agent is busy — will queue input and interrupt current turn`,
-          );
-          claudeProc.interrupt();
-        }
+      case "input":
+        await handleInput(this, msg, ws, echoInput);
         break;
-      }
 
-      case "update_queued_input": {
-        const session = this.resolveSession(msg.sessionId);
-        if (!session) {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: "No active session.",
-          });
-          return;
-        }
-        if (!msg.text.trim()) {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: "Queued message cannot be empty.",
-          });
-          return;
-        }
-        const success = this.sessionManager.updateQueuedInput(
-          session.id,
-          msg.itemId,
-          msg.text,
-          { skills: msg.skills ?? [], mentions: msg.mentions ?? [] },
-        );
-        if (!success) {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: "Queued message not found.",
-            errorCode: "queued_input_not_found",
-          });
-          return;
-        }
-        this.broadcastSessionList();
+      case "update_queued_input":
+        await handleUpdateQueuedInput(this, msg, ws);
         break;
-      }
 
-      case "cancel_queued_input": {
-        const session = this.resolveSession(msg.sessionId);
-        if (!session) {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: "No active session.",
-          });
-          return;
-        }
-        const success = this.sessionManager.cancelQueuedInput(
-          session.id,
-          msg.itemId,
-        );
-        if (!success) {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: "Queued message not found.",
-            errorCode: "queued_input_not_found",
-          });
-          return;
-        }
-        this.broadcastSessionList();
+      case "cancel_queued_input":
+        await handleCancelQueuedInput(this, msg, ws);
         break;
-      }
 
-      case "steer_queued_input": {
-        const session = this.resolveSession(msg.sessionId);
-        if (!session) {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: "No active session.",
-          });
-          return;
-        }
-        const result = await this.sessionManager.steerQueuedInput(
-          session.id,
-          msg.itemId,
-        );
-        if (!result.ok) {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: result.error,
-            errorCode:
-              result.error === "Queued message not found."
-                ? "queued_input_not_found"
-                : "queued_input_steer_failed",
-          });
-          return;
-        }
-        this.broadcastSessionList();
+      case "steer_queued_input":
+        await handleSteerQueuedInput(this, msg, ws);
         break;
-      }
 
       case "push_register":
         await handlePushRegister(this, msg, ws);
@@ -3939,1721 +3054,106 @@ export class BridgeWebSocketServer {
         await handlePushUnregister(this, msg, ws);
         break;
 
-      case "set_permission_mode": {
-        if (this.failSetPermissionMode) {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: "Failed to set permission mode: forced test failure",
-            errorCode: "set_permission_mode_rejected",
-          });
-          break;
-        }
-        const session = this.resolveSession(msg.sessionId);
-        if (!session) {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: "No active session.",
-          });
-          return;
-        }
-        if (session.provider === "codex") {
-          // Permission mode for Codex requires a session restart (like sandbox mode).
-          // approvalPolicy and collaborationMode are thread-level settings that
-          // only take effect reliably at thread/start or thread/resume time.
-          const normalizedCodexPermissionsMode =
-            normalizeCodexPermissionsMode(msg.codexPermissionsMode);
-          const requestedCodexPermissionsMode =
-            this.codexAutoReviewDisabled &&
-            normalizedCodexPermissionsMode === "autoReview"
-              ? "default"
-              : normalizedCodexPermissionsMode;
-          const requestedApprovalsReviewer =
-            this.codexAutoReviewDisabled &&
-            isCodexAutoReviewApprovalsReviewer(msg.approvalsReviewer)
-              ? "user"
-              : msg.approvalsReviewer;
-          const codexPermissionSettings = requestedCodexPermissionsMode
-            ? codexSettingsFromPermissionsMode(requestedCodexPermissionsMode)
-            : undefined;
-          const process = session.process as CodexProcess;
-          const currentApproval = normalizeCodexApprovalPolicy(
-            process.approvalPolicy,
-          );
-          const currentReviewer = process.approvalsReviewer;
-          const currentSandboxMode = session.codexSettings?.sandboxMode;
-          const currentPermissionsMode = normalizeCodexPermissionsMode(
-            session.codexSettings?.codexPermissionsMode,
-          );
-          const collaborationOnlyChange =
-            requestedCodexPermissionsMode === undefined &&
-            msg.approvalPolicy === undefined &&
-            msg.approvalsReviewer === undefined &&
-            (msg.planMode !== undefined || msg.mode === "plan");
-          const explicitApproval = requestedCodexPermissionsMode
-            ? codexPermissionSettings?.approvalPolicy
-            : collaborationOnlyChange
-              ? currentApproval
-            : normalizeCodexApprovalPolicy(
-                msg.approvalPolicy ??
-                  (msg.executionMode == null
-                    ? undefined
-                    : msg.executionMode === "fullAccess"
-                      ? "never"
-                      : "on-request"),
-              );
-          const executionMode = deriveExecutionMode({
-            provider: "codex",
-            permissionMode: msg.mode,
-            executionMode: msg.executionMode,
-            approvalPolicy: explicitApproval,
-          });
-          const planMode = derivePlanMode({
-            permissionMode: msg.mode,
-            planMode: msg.planMode,
-          });
-          const legacyPermissionMode = modesToLegacyPermissionMode(
-            "codex",
-            executionMode,
-            planMode,
-          );
-          const newApproval = explicitApproval;
-          const newSandboxMode = codexPermissionSettings
-            ? codexPermissionSettings.sandboxMode
-            : currentSandboxMode;
-          const configuredReviewer =
-            requestedCodexPermissionsMode === "custom"
-              ? undefined
-              : (codexPermissionSettings?.approvalsReviewer ??
-                requestedApprovalsReviewer ??
-                currentReviewer);
-          const newReviewer = this.codexAutoReviewDisabled
-            ? "user"
-            : configuredReviewer;
-          const derivedPermissionsMode =
-            codexPermissionSettings?.codexPermissionsMode ??
-            (collaborationOnlyChange ? currentPermissionsMode : undefined) ??
-            deriveCodexPermissionsMode({
-              approvalPolicy: newApproval,
-              approvalsReviewer: newReviewer,
-              sandboxMode: newSandboxMode,
-            });
-          const newPermissionsMode =
-            this.codexAutoReviewDisabled &&
-            derivedPermissionsMode === "autoReview"
-              ? "default"
-              : derivedPermissionsMode;
-          const newCollaboration: "plan" | "default" = planMode
-            ? "plan"
-            : "default";
-          const currentCollaboration = process.collaborationMode;
-          if (
-            newApproval === currentApproval &&
-            newReviewer === currentReviewer &&
-            newSandboxMode === currentSandboxMode &&
-            newPermissionsMode === currentPermissionsMode &&
-            newCollaboration === currentCollaboration
-          ) {
-            break; // No change needed
-          }
-          const canApplyModeInPlace =
-            session.status === "idle" &&
-            requestedCodexPermissionsMode !== "custom" &&
-            newSandboxMode === currentSandboxMode &&
-            (this.codexAutoReviewPolicyLoaded ||
-              !isCodexAutoReviewApprovalsReviewer(newReviewer));
-
-          if (canApplyModeInPlace) {
-            const process = session.process as CodexProcess;
-            if (newApproval && newApproval !== currentApproval) {
-              process.setApprovalPolicy(newApproval);
-            }
-            if (newReviewer && newReviewer !== currentReviewer) {
-              process.setApprovalsReviewer(newReviewer);
-            }
-            if (newCollaboration !== currentCollaboration) {
-              process.setCollaborationMode(newCollaboration);
-            }
-            session.codexSettings = {
-              ...(session.codexSettings ?? {}),
-              approvalPolicy: newApproval,
-              approvalsReviewer: newReviewer,
-              codexPermissionsMode: newPermissionsMode,
-              sandboxMode: newSandboxMode,
-            };
-            session.lastActivityAt = new Date();
-            this.broadcast({
-              type: "system",
-              subtype: "set_permission_mode",
-              sessionId: session.id,
-              permissionMode: legacyPermissionMode,
-              executionMode,
-              approvalPolicy: newApproval,
-              approvalsReviewer: newReviewer,
-              codexPermissionsMode: newPermissionsMode,
-              planMode,
-            });
-            this.broadcastSessionList();
-            this.recordDebugEvent(session.id, {
-              direction: "internal" as const,
-              channel: "bridge" as const,
-              type: "permission_mode_changed",
-              detail: `mode=${msg.mode} approval=${newApproval} reviewer=${newReviewer} collaboration=${newCollaboration} applied=in-place`,
-            });
-            console.log(
-              `[ws] set_permission_mode(codex): execution=${executionMode} plan=${planMode} → approval=${newApproval}, reviewer=${newReviewer}, collaboration=${newCollaboration} (in-place)`,
-            );
-            break;
-          }
-          console.log(
-            `[ws] set_permission_mode(codex): execution=${executionMode} plan=${planMode} → approval=${newApproval}, reviewer=${newReviewer}, collaboration=${newCollaboration} (restart)`,
-          );
-
-          const oldSessionId = session.id;
-          const threadId = session.claudeSessionId;
-          const projectPath = session.projectPath;
-          const oldSettings = session.codexSettings ?? {};
-          const worktreePath = session.worktreePath;
-          const worktreeBranch = session.worktreeBranch;
-          const sessionName = session.name;
-          const workspace = this.workspaceForRuntimeSession(session);
-
-          this.destroySession(oldSessionId);
-          console.log(
-            `[ws] Permission mode change: destroyed session ${oldSessionId}`,
-          );
-
-          const hasUserMessages =
-            session.history?.some(
-              (m: Record<string, unknown>) =>
-                m.type === "user_input" || m.type === "assistant",
-            ) ||
-            (session.pastMessages && session.pastMessages.length > 0);
-          if (!threadId || !hasUserMessages) {
-            const newId = this.sessionManager.create(
-              projectPath,
-              undefined,
-              undefined,
-              worktreePath
-                ? { existingWorktreePath: worktreePath, worktreeBranch }
-                : undefined,
-              "codex",
-              this.withCodexAutoReviewPolicy({
-                approvalPolicy: newApproval,
-                approvalsReviewer: newReviewer as
-                  | "user"
-                  | "auto_review"
-                  | "guardian_subagent",
-                codexPermissionsMode: newPermissionsMode,
-                sandboxMode: newSandboxMode as
-                  | "read-only"
-                  | "workspace-write"
-                  | "danger-full-access"
-                  | undefined,
-                model: oldSettings.model,
-                modelReasoningEffort:
-                  oldSettings.modelReasoningEffort as CodexStartOptions["modelReasoningEffort"],
-                serviceTier: oldSettings.serviceTier,
-                networkAccessEnabled: oldSettings.networkAccessEnabled as
-                  | boolean
-                  | undefined,
-                webSearchMode: oldSettings.webSearchMode as
-                  | "disabled"
-                  | "cached"
-                  | "live"
-                  | undefined,
-                additionalWritableRoots: oldSettings.additionalWritableRoots,
-                collaborationMode: newCollaboration,
-              }),
-            );
-            this.attachWorkspaceToRuntimeSession(newId, workspace);
-            const newSession = this.sessionManager.get(newId);
-            if (newSession && sessionName) newSession.name = sessionName;
-            this.broadcast(
-              this.buildSessionCreatedMessage({
-                sessionId: newId,
-                provider: "codex",
-                projectPath,
-                session: newSession,
-                permissionMode: legacyPermissionMode,
-                executionMode,
-                planMode,
-                sandboxMode: newSandboxMode
-                  ? sandboxModeToExternal(newSandboxMode)
-                  : undefined,
-                approvalsReviewer: newReviewer,
-                codexPermissionsMode: newPermissionsMode,
-                sourceSessionId: oldSessionId,
-              }),
-            );
-            this.broadcastSessionList();
-            console.log(
-              `[ws] Permission mode change (no thread): created new session ${newId} (mode=${msg.mode})`,
-            );
-            break;
-          }
-
-          // Worktree resolution
-          const wtMapping = this.worktreeStore.get(threadId);
-          const effectiveProjectPath = wtMapping?.projectPath ?? projectPath;
-          let worktreeOpts:
-            | {
-                useWorktree?: boolean;
-                worktreeBranch?: string;
-                existingWorktreePath?: string;
-              }
-            | undefined;
-          if (wtMapping) {
-            if (worktreeExists(wtMapping.worktreePath)) {
-              worktreeOpts = {
-                existingWorktreePath: wtMapping.worktreePath,
-                worktreeBranch: wtMapping.worktreeBranch,
-              };
-            } else {
-              worktreeOpts = {
-                useWorktree: true,
-                worktreeBranch: wtMapping.worktreeBranch,
-              };
-            }
-          } else if (worktreePath) {
-            worktreeOpts = {
-              existingWorktreePath: worktreePath,
-              worktreeBranch,
-            };
-          }
-
-          this.getCodexThreadHistory(threadId, effectiveProjectPath)
-            .then((pastMessages) => {
-              const newId = this.sessionManager.create(
-                effectiveProjectPath,
-                undefined,
-                pastMessages,
-                worktreeOpts,
-                "codex",
-                this.withCodexAutoReviewPolicy({
-                  threadId,
-                  approvalPolicy: newApproval,
-                  approvalsReviewer: newReviewer as
-                    | "user"
-                    | "auto_review"
-                    | "guardian_subagent",
-                  codexPermissionsMode: newPermissionsMode,
-                  sandboxMode: newSandboxMode as
-                    | "read-only"
-                    | "workspace-write"
-                    | "danger-full-access"
-                    | undefined,
-                  model: oldSettings.model,
-                  modelReasoningEffort:
-                    oldSettings.modelReasoningEffort as CodexStartOptions["modelReasoningEffort"],
-                  serviceTier: oldSettings.serviceTier,
-                  networkAccessEnabled: oldSettings.networkAccessEnabled as
-                    | boolean
-                    | undefined,
-                  webSearchMode: oldSettings.webSearchMode as
-                    | "disabled"
-                    | "cached"
-                    | "live"
-                    | undefined,
-                  additionalWritableRoots: oldSettings.additionalWritableRoots,
-                  collaborationMode: newCollaboration,
-                }),
-              );
-              this.attachWorkspaceToRuntimeSession(newId, workspace);
-
-              const newSession = this.sessionManager.get(newId);
-              if (newSession && sessionName) {
-                newSession.name = sessionName;
-              }
-
-              void this.loadAndSetSessionName(
-                newSession,
-                "codex",
-                effectiveProjectPath,
-                threadId,
-              ).then(() => {
-                this.broadcast(
-                  this.buildSessionCreatedMessage({
-                    sessionId: newId,
-                    provider: "codex",
-                    projectPath: effectiveProjectPath,
-                    session: newSession,
-                    permissionMode: legacyPermissionMode,
-                    executionMode,
-                    planMode,
-                    sandboxMode: newSandboxMode
-                      ? sandboxModeToExternal(newSandboxMode)
-                      : undefined,
-                    approvalsReviewer: newReviewer,
-                    codexPermissionsMode: newPermissionsMode,
-                    sourceSessionId: oldSessionId,
-                  }),
-                );
-                this.broadcastSessionList();
-              });
-
-              this.debugEvents.set(newId, []);
-              this.recordDebugEvent(newId, {
-                direction: "internal" as const,
-                channel: "bridge" as const,
-                type: "permission_mode_changed",
-                detail: `mode=${msg.mode} approval=${newApproval} reviewer=${newReviewer} collaboration=${newCollaboration} thread=${threadId} oldSession=${oldSessionId}`,
-              });
-              console.log(
-                `[ws] Permission mode change: created new session ${newId} (thread=${threadId}, mode=${msg.mode})`,
-              );
-            })
-            .catch((err) => {
-              this.send(ws, {
-                type: "error",
-                sessionId: msg.sessionId,
-                message: `Failed to restart session for permission mode change: ${err}`,
-              });
-            });
-          break;
-        }
-        if (session.process instanceof AntigravityProcess) {
-          session.process.setPermissionMode(msg.mode).catch((err) => {
-            // Modes differ per account: auto needs the OS terminal sandbox.
-            this.send(ws, {
-              type: "error",
-              sessionId: msg.sessionId,
-              message:
-                msg.mode === "auto"
-                  ? "Auto mode is unavailable in this environment. Keeping the current permission mode."
-                  : `Failed to set permission mode: ${errorMessageOf(err)}`,
-              errorCode:
-                msg.mode === "auto"
-                  ? "auto_mode_unavailable"
-                  : "set_permission_mode_rejected",
-            });
-          });
-          break;
-        }
-        (session.process as SdkProcess)
-          .setPermissionMode(msg.mode)
-          .catch((err) => {
-            if (
-              msg.mode === "auto" &&
-              isClaudeAutoModeUnavailableError(err)
-            ) {
-              this.send(ws, {
-                type: "error",
-                sessionId: msg.sessionId,
-                message:
-                  "Auto mode is unavailable in this environment. Keeping the current permission mode.",
-                errorCode: "auto_mode_unavailable",
-              });
-              return;
-            }
-            this.send(ws, {
-              type: "error",
-              sessionId: msg.sessionId,
-              message: `Failed to set permission mode: ${errorMessageOf(err)}`,
-            });
-          });
+      case "set_permission_mode":
+        await handleSetPermissionMode(this, msg, ws);
         break;
-      }
 
-      case "set_antigravity_model": {
-        const session = this.resolveSession(msg.sessionId);
-        if (!(session?.process instanceof AntigravityProcess)) {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: "Model switching here is only supported for Antigravity sessions.",
-            errorCode: "set_antigravity_model_unsupported",
-          });
-          break;
-        }
-        session.process
-          .setModel(msg.model.trim())
-          .then(() => this.broadcastSessionList())
-          .catch((err) => {
-            this.send(ws, {
-              type: "error",
-              sessionId: session.id,
-              message: `Failed to switch model: ${errorMessageOf(err)}`,
-              errorCode: "set_antigravity_model_rejected",
-            });
-            this.sendAntigravityCurrentSettings(ws, session.id, session);
-          });
+      case "set_antigravity_model":
+        await handleSetAntigravityModel(this, msg, ws);
         break;
-      }
 
-      case "set_antigravity_settings": {
-        const session = this.resolveSession(msg.sessionId);
-        const proc = session?.process;
-        if (!session || !(proc instanceof AntigravityProcess)) {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: "These settings are only supported for Antigravity sessions.",
-            errorCode: "set_antigravity_settings_unsupported",
-          });
-          break;
-        }
-        void (async () => {
-          if (msg.model) await proc.setModel(msg.model.trim());
-          if (msg.thoughtLevel) await proc.setThoughtLevel(msg.thoughtLevel.trim());
-        })()
-          .then(() => this.broadcastSessionList())
-          .catch((err) => {
-            this.send(ws, {
-              type: "error",
-              sessionId: session.id,
-              message: `Failed to change Antigravity settings: ${errorMessageOf(err)}`,
-              errorCode: "set_antigravity_settings_rejected",
-            });
-            this.sendAntigravityCurrentSettings(ws, session.id, session);
-          });
+      case "set_antigravity_settings":
+        await handleSetAntigravitySettings(this, msg, ws);
         break;
-      }
 
-      case "get_antigravity_catalog": {
-        this.antigravityCatalog()
-          .then((catalog) =>
-            this.send(ws, {
-              type: "antigravity_catalog",
-              requestId: msg.requestId,
-              catalog,
-            }),
-          )
-          .catch((err) =>
-            this.send(ws, {
-              type: "antigravity_catalog",
-              requestId: msg.requestId,
-              error: errorMessageOf(err),
-            }),
-          );
+      case "get_antigravity_catalog":
+        await handleGetAntigravityCatalog(this, msg, ws);
         break;
-      }
 
-      case "set_codex_model": {
-        const session = this.resolveSession(msg.sessionId);
-        if (!session) {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: "No active session.",
-          });
-          return;
-        }
-        if (session.provider !== "codex") {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: "Model switching is only supported for Codex sessions.",
-            errorCode: "set_codex_model_unsupported",
-          });
-          break;
-        }
-
-        const model = sanitizeCodexModel(msg.model);
-        if (!model) {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: `Invalid Codex model: ${msg.model}`,
-            errorCode: "set_codex_model_rejected",
-          });
-          break;
-        }
-
-        // Older clients send model first, then normalize Fast to Standard.
-        // Keep that sequence compatible; extended tiers must never downgrade.
-        const currentTier = normalizeCodexServiceTierForClient(session.codexSettings?.serviceTier);
-        const tierError = currentTier !== "standard" && currentTier !== "fast"
-          ? this.codexServiceTierError(model, currentTier) : undefined;
-        if (tierError) {
-          this.send(ws, { type: "error", sessionId: msg.sessionId,
-            errorCode: "set_codex_model_rejected", message: tierError });
-          break;
-        }
-        const currentModel = sanitizeCodexModel(session.codexSettings?.model);
-        const currentEffort = session.codexSettings?.modelReasoningEffort;
-        const modelReasoningEffort = normalizeCodexReasoningEffortForModel(
-          model,
-          (msg.modelReasoningEffort ??
-            currentEffort) as CodexStartOptions["modelReasoningEffort"],
-        );
-        if (model === currentModel && modelReasoningEffort === currentEffort) {
-          break;
-        }
-
-        const process = session.process as CodexProcess;
-        process.setModel(model, modelReasoningEffort);
-        session.codexSettings = {
-          ...(session.codexSettings ?? {}),
-          model,
-          ...(modelReasoningEffort !== undefined
-            ? { modelReasoningEffort }
-            : {}),
-        };
-        session.lastActivityAt = new Date();
-        this.broadcast({
-          type: "system",
-          subtype: "set_codex_model",
-          sessionId: session.id,
-          provider: "codex",
-          model,
-          ...(modelReasoningEffort !== undefined
-            ? { modelReasoningEffort }
-            : {}),
-        });
-        this.broadcastSessionList();
-        this.recordDebugEvent(session.id, {
-          direction: "internal" as const,
-          channel: "bridge",
-          type: "codex_model_changed",
-          detail: `model=${model} effort=${modelReasoningEffort ?? ""}`,
-        });
-        console.log(
-          `[ws] set_codex_model(codex): model=${model} effort=${modelReasoningEffort ?? ""}`,
-        );
+      case "set_codex_model":
+        await handleSetCodexModel(this, msg, ws);
         break;
-      }
 
-      case "set_codex_speed": {
-        const session = this.resolveSession(msg.sessionId);
-        if (!session || session.provider !== "codex") {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: "No active Codex session.",
-            errorCode: "set_codex_speed_unsupported",
-          });
-          return;
-        }
-
-        const process = session.process as CodexProcess;
-        const model = session.codexSettings?.model ?? process.model;
-        const tierError = this.codexServiceTierError(model, msg.serviceTier);
-        if (tierError) {
-          this.send(ws, { type: "error", sessionId: msg.sessionId,
-            errorCode: "set_codex_speed_rejected", message: tierError });
-          break;
-        }
-        const serviceTier = normalizeCodexServiceTierForClient(msg.serviceTier);
-        if (session.codexSettings?.serviceTier === serviceTier) break;
-
-        process.setServiceTier(serviceTier);
-        session.codexSettings = {
-          ...(session.codexSettings ?? {}),
-          serviceTier,
-        };
-        session.lastActivityAt = new Date();
-        this.broadcastSessionMessage(session.id, {
-          type: "system",
-          subtype: "set_codex_speed",
-          sessionId: session.id,
-          provider: "codex",
-          serviceTier,
-        });
-        this.broadcastSessionList();
-        console.log(
-          `[ws] set_codex_speed(codex): serviceTier=${serviceTier}`,
-        );
+      case "set_codex_speed":
+        await handleSetCodexSpeed(this, msg, ws);
         break;
-      }
 
-      case "set_claude_settings": {
-        const session = this.resolveSession(msg.sessionId);
-        if (!session || session.provider !== "claude") {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: "No active Claude session.",
-            errorCode: "set_claude_settings_unsupported",
-          });
-          break;
-        }
-        const claudeProcess = session.process as SdkProcess;
-        try {
-          await claudeProcess.updateSettings({
-            ...(msg.model !== undefined ? { model: msg.model.trim() } : {}),
-            ...(msg.effort !== undefined ? { effort: msg.effort } : {}),
-            ...(msg.fastMode !== undefined ? { fastMode: msg.fastMode } : {}),
-            ...(msg.ultracode !== undefined
-              ? { ultracode: msg.ultracode }
-              : {}),
-          });
-        } catch (err) {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: `Failed to change Claude settings: ${err instanceof Error ? err.message : String(err)}`,
-            errorCode: "set_claude_settings_rejected",
-          });
-          // Re-sync the requester with the settings still in effect.
-          this.sendClaudeCurrentSettings(ws, session.id, session);
-          break;
-        }
-        session.lastActivityAt = new Date();
-        this.broadcastSessionMessage(
-          session.id,
-          this.claudeSettingsMessage(session.id, session),
-        );
-        this.broadcastSessionList();
-        const settings = claudeProcess.settings;
-        console.log(
-          `[ws] set_claude_settings: model=${settings.model ?? "default"} effort=${settings.effort ?? ""} fast=${settings.fastMode === true} ultracode=${settings.ultracode === true}`,
-        );
+      case "set_claude_settings":
+        await handleSetClaudeSettings(this, msg, ws);
         break;
-      }
 
       case "set_codex_recovery":
-      case "cancel_codex_recovery": {
-        const session = this.resolveSession(msg.sessionId);
-        if (!session || session.provider !== "codex") {
-          this.send(ws, { type: "error", sessionId: msg.sessionId, errorCode: "codex_recovery_unsupported", message: "Automatic recovery requires an active Codex session." });
-          break;
-        }
-        const process = session.process as CodexProcess;
-        if (msg.type === "set_codex_recovery") process.setRecoveryEnabled(msg.enabled);
-        else process.cancelRecovery();
-        this.send(ws, { type: "codex_recovery_state", sessionId: session.id, recovery: process.getRecoveryState() });
+      case "cancel_codex_recovery":
+        await handleSetCodexRecovery(this, msg, ws);
         break;
-      }
 
-      case "get_goal": {
-        const session = this.resolveSession(msg.sessionId);
-        if (!session || session.provider !== "codex") {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: "Goal lookup is only supported for active Codex sessions.",
-            errorCode: "goal_get_unsupported",
-          });
-          break;
-        }
-        try {
-          const goal = await (session.process as CodexProcess).getGoal();
-          session.codexGoal = goal;
-          this.send(ws, { type: "goal_state", sessionId: session.id, goal });
-        } catch (err) {
-          // An optional background refresh must not pollute the conversation or
-          // replace a known goal with null when its current state is unknown.
-          if (msg.background) {
-            console.warn(`[ws] Background goal lookup failed: ${errorMessageOf(err)}`);
-            break;
-          }
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: `Failed to get goal: ${errorMessageOf(err)}`,
-            errorCode: "goal_get_failed",
-          });
-        }
+      case "get_goal":
+        await handleGetGoal(this, msg, ws);
         break;
-      }
 
-      case "set_goal": {
-        const session = this.resolveSession(msg.sessionId);
-        if (!session || session.provider !== "codex") {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: "Goal updates are only supported for active Codex sessions.",
-            errorCode: "goal_set_unsupported",
-          });
-          break;
-        }
-        try {
-          const goal = await (session.process as CodexProcess).setGoal({
-            ...(msg.objective !== undefined
-              ? { objective: msg.objective }
-              : {}),
-            ...(msg.status !== undefined ? { status: msg.status } : {}),
-          });
-          session.codexGoal = goal;
-          this.broadcastSessionMessage(session.id, {
-            type: "goal_state",
-            goal,
-          });
-        } catch (err) {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: `Failed to set goal: ${errorMessageOf(err)}`,
-            errorCode: "goal_set_failed",
-          });
-        }
+      case "set_goal":
+        await handleSetGoal(this, msg, ws);
         break;
-      }
 
-      case "clear_goal": {
-        const session = this.resolveSession(msg.sessionId);
-        if (!session || session.provider !== "codex") {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: "Goal clearing is only supported for active Codex sessions.",
-            errorCode: "goal_clear_unsupported",
-          });
-          break;
-        }
-        try {
-          await (session.process as CodexProcess).clearGoal();
-          session.codexGoal = null;
-          this.broadcastSessionMessage(session.id, {
-            type: "goal_state",
-            goal: null,
-          });
-        } catch (err) {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: `Failed to clear goal: ${errorMessageOf(err)}`,
-            errorCode: "goal_clear_failed",
-          });
-        }
+      case "clear_goal":
+        await handleClearGoal(this, msg, ws);
         break;
-      }
 
-      case "set_sandbox_mode": {
-        if (this.failSetSandboxMode) {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: "Failed to set sandbox mode: forced test failure",
-            errorCode: "set_sandbox_mode_rejected",
-          });
-          break;
-        }
-        const session = this.resolveSession(msg.sessionId);
-        if (!session) {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: "No active session.",
-          });
-          return;
-        }
-        if (msg.sandboxMode !== "on" && msg.sandboxMode !== "off") {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: `Invalid sandbox mode: ${msg.sandboxMode}`,
-          });
-          return;
-        }
-        if (session.provider === "antigravity") {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: "Sandbox mode cannot be changed for Antigravity sessions.",
-            errorCode: "set_sandbox_mode_rejected",
-          });
-          break;
-        }
-
-        // ---- Claude sandbox toggle ----
-        if (session.provider === "claude") {
-          const newEnabled = msg.sandboxMode === "on";
-          if (session.sandboxEnabled === newEnabled) {
-            break; // No change needed
-          }
-
-          // Sandbox is a query-level setting — requires session restart.
-          const oldSessionId = session.id;
-          const claudeSessionId = session.claudeSessionId;
-          const projectPath = session.projectPath;
-          const worktreePath = session.worktreePath;
-          const worktreeBranch = session.worktreeBranch;
-          const sessionName = session.name;
-          const permissionMode = (session.process as SdkProcess).permissionMode;
-          // Use the user's selected settings (alias, effort, fast mode) rather
-          // than the resolved runtime model id, matching fork behavior.
-          const settings = (session.process as SdkProcess).settings ?? {};
-          const workspace = this.workspaceForRuntimeSession(session);
-
-          this.destroySession(oldSessionId);
-          console.log(
-            `[ws] Claude sandbox change: destroyed session ${oldSessionId}`,
-          );
-
-          const newId = this.sessionManager.create(
-            projectPath,
-            {
-              sessionId: claudeSessionId,
-              permissionMode,
-              ...(settings.model ? { model: settings.model } : {}),
-              ...(settings.effort ? { effort: settings.effort } : {}),
-              ...(settings.fastMode ? { fastMode: true } : {}),
-              ...(settings.ultracode ? { ultracode: true } : {}),
-              sandboxEnabled: newEnabled,
-              additionalDirectories: workspace?.rootPaths.slice(1),
-            },
-            undefined,
-            worktreePath
-              ? { existingWorktreePath: worktreePath, worktreeBranch }
-              : undefined,
-            "claude",
-          );
-          this.attachWorkspaceToRuntimeSession(newId, workspace);
-
-          const newSession = this.sessionManager.get(newId);
-          if (newSession && sessionName) newSession.name = sessionName;
-
-          void this.loadAndSetSessionName(
-            newSession,
-            "claude",
-            projectPath,
-            claudeSessionId,
-          ).then(() => {
-            this.broadcast(
-              this.buildSessionCreatedMessage({
-                sessionId: newId,
-                provider: "claude",
-                projectPath,
-                session: newSession,
-                sandboxMode: msg.sandboxMode,
-                sourceSessionId: oldSessionId,
-              }),
-            );
-            this.broadcastSessionList();
-          });
-
-          this.debugEvents.set(newId, []);
-          this.recordDebugEvent(newId, {
-            direction: "internal" as const,
-            channel: "bridge" as const,
-            type: "sandbox_mode_changed",
-            detail: `sandbox=${newEnabled} claude=${claudeSessionId} oldSession=${oldSessionId}`,
-          });
-          console.log(
-            `[ws] Claude sandbox change: created new session ${newId} (sandbox=${newEnabled})`,
-          );
-          break;
-        }
-
-        // ---- Codex sandbox toggle ----
-        const newSandboxMode = sandboxModeToInternal(msg.sandboxMode);
-        const currentSandboxMode =
-          session.codexSettings?.sandboxMode ?? "workspace-write";
-        if (newSandboxMode === currentSandboxMode) {
-          break; // No change needed
-        }
-
-        // Sandbox mode is a thread-level setting — it can only be applied at
-        // thread/start or thread/resume time, not per-turn. To apply the new
-        // mode we destroy the current session and resume the same Codex thread
-        // with the updated sandbox parameter (same pattern as clearContext).
-        const oldSessionId = session.id;
-        const threadId = session.claudeSessionId;
-        const projectPath = session.projectPath;
-        const oldSettings = session.codexSettings ?? {};
-        const worktreePath = session.worktreePath;
-        const worktreeBranch = session.worktreeBranch;
-        const sessionName = session.name;
-        const collaborationMode = (session.process as CodexProcess)
-          .collaborationMode;
-        const workspace = this.workspaceForRuntimeSession(session);
-        const executionMode =
-          oldSettings.approvalPolicy === "never" ? "fullAccess" : "default";
-        const planMode = collaborationMode === "plan";
-        const legacyPermissionMode = modesToLegacyPermissionMode(
-          "codex",
-          executionMode,
-          planMode,
-        );
-
-        this.destroySession(oldSessionId);
-        console.log(
-          `[ws] Sandbox mode change: destroyed session ${oldSessionId}`,
-        );
-
-        // Check if the user actually exchanged messages in this session.
-        // session.history always contains system events (init, status, etc.)
-        // even before the first user turn, so we check for user_input/assistant
-        // messages specifically.
-        const hasUserMessages =
-          session.history?.some(
-            (m: Record<string, unknown>) =>
-              m.type === "user_input" || m.type === "assistant",
-          ) ||
-          (session.pastMessages && session.pastMessages.length > 0);
-        if (!threadId || !hasUserMessages) {
-          // Session has no thread yet, or has a thread but no messages exchanged.
-          // Create a fresh session with the new sandbox — no resume needed.
-          // (A thread with no messages cannot be resumed — Codex returns
-          // "no rollout found for thread id".)
-          const newId = this.sessionManager.create(
-            projectPath,
-            undefined,
-            undefined,
-            worktreePath
-              ? { existingWorktreePath: worktreePath, worktreeBranch }
-              : undefined,
-            "codex",
-            this.withCodexAutoReviewPolicy({
-              approvalPolicy: oldSettings.approvalPolicy as
-                | "never"
-                | "on-request"
-                | undefined,
-              approvalsReviewer: oldSettings.approvalsReviewer as
-                | "user"
-                | "auto_review"
-                | "guardian_subagent"
-                | undefined,
-              codexPermissionsMode: oldSettings.codexPermissionsMode as
-                | "default"
-                | "autoReview"
-                | "fullAccess"
-                | "custom"
-                | undefined,
-              sandboxMode: newSandboxMode,
-              model: oldSettings.model,
-              modelReasoningEffort:
-                oldSettings.modelReasoningEffort as CodexStartOptions["modelReasoningEffort"],
-              serviceTier: oldSettings.serviceTier,
-              networkAccessEnabled: oldSettings.networkAccessEnabled as
-                | boolean
-                | undefined,
-              webSearchMode: oldSettings.webSearchMode as
-                | "disabled"
-                | "cached"
-                | "live"
-                | undefined,
-              additionalWritableRoots: oldSettings.additionalWritableRoots,
-              collaborationMode,
-            }),
-          );
-          this.attachWorkspaceToRuntimeSession(newId, workspace);
-          const newSession = this.sessionManager.get(newId);
-          if (newSession && sessionName) newSession.name = sessionName;
-          this.broadcast(
-            this.buildSessionCreatedMessage({
-              sessionId: newId,
-              provider: "codex",
-              projectPath,
-              session: newSession,
-              permissionMode: legacyPermissionMode,
-              executionMode,
-              planMode,
-              sandboxMode: sandboxModeToExternal(newSandboxMode),
-              sourceSessionId: oldSessionId,
-            }),
-          );
-          this.broadcastSessionList();
-          console.log(
-            `[ws] Sandbox mode change (no thread): created new session ${newId} (sandbox=${newSandboxMode})`,
-          );
-          break;
-        }
-
-        // Worktree resolution (same as resume_session)
-        const wtMapping = this.worktreeStore.get(threadId);
-        const effectiveProjectPath = wtMapping?.projectPath ?? projectPath;
-        let worktreeOpts:
-          | {
-              useWorktree?: boolean;
-              worktreeBranch?: string;
-              existingWorktreePath?: string;
-            }
-          | undefined;
-        if (wtMapping) {
-          if (worktreeExists(wtMapping.worktreePath)) {
-            worktreeOpts = {
-              existingWorktreePath: wtMapping.worktreePath,
-              worktreeBranch: wtMapping.worktreeBranch,
-            };
-          } else {
-            worktreeOpts = {
-              useWorktree: true,
-              worktreeBranch: wtMapping.worktreeBranch,
-            };
-          }
-        } else if (worktreePath) {
-          worktreeOpts = { existingWorktreePath: worktreePath, worktreeBranch };
-        }
-
-        this.getCodexThreadHistory(threadId, effectiveProjectPath)
-          .then((pastMessages) => {
-            const newId = this.sessionManager.create(
-              effectiveProjectPath,
-              undefined,
-              pastMessages,
-              worktreeOpts,
-              "codex",
-              this.withCodexAutoReviewPolicy({
-                threadId,
-                approvalPolicy: oldSettings.approvalPolicy as
-                  | "never"
-                  | "on-request"
-                  | undefined,
-                approvalsReviewer: oldSettings.approvalsReviewer as
-                  | "user"
-                  | "auto_review"
-                  | "guardian_subagent"
-                  | undefined,
-                codexPermissionsMode: oldSettings.codexPermissionsMode as
-                  | "default"
-                  | "autoReview"
-                  | "fullAccess"
-                  | "custom"
-                  | undefined,
-                sandboxMode: newSandboxMode,
-                model: oldSettings.model,
-                modelReasoningEffort:
-                  oldSettings.modelReasoningEffort as CodexStartOptions["modelReasoningEffort"],
-                serviceTier: oldSettings.serviceTier,
-                networkAccessEnabled: oldSettings.networkAccessEnabled as
-                  | boolean
-                  | undefined,
-                webSearchMode: oldSettings.webSearchMode as
-                  | "disabled"
-                  | "cached"
-                  | "live"
-                  | undefined,
-                additionalWritableRoots: oldSettings.additionalWritableRoots,
-                collaborationMode,
-              }),
-            );
-            this.attachWorkspaceToRuntimeSession(newId, workspace);
-
-            // Restore session name
-            const newSession = this.sessionManager.get(newId);
-            if (newSession && sessionName) {
-              newSession.name = sessionName;
-            }
-
-            void this.loadAndSetSessionName(
-              newSession,
-              "codex",
-              effectiveProjectPath,
-              threadId,
-            ).then(() => {
-              this.broadcast(
-                this.buildSessionCreatedMessage({
-                  sessionId: newId,
-                  provider: "codex",
-                  projectPath: effectiveProjectPath,
-                  session: newSession,
-                  permissionMode: legacyPermissionMode,
-                  executionMode,
-                  planMode,
-                  sandboxMode: sandboxModeToExternal(newSandboxMode),
-                  sourceSessionId: oldSessionId,
-                }),
-              );
-              this.broadcastSessionList();
-            });
-
-            this.debugEvents.set(newId, []);
-            this.recordDebugEvent(newId, {
-              direction: "internal" as const,
-              channel: "bridge" as const,
-              type: "sandbox_mode_changed",
-              detail: `sandbox=${newSandboxMode} thread=${threadId} oldSession=${oldSessionId}`,
-            });
-            console.log(
-              `[ws] Sandbox mode change: created new session ${newId} (thread=${threadId}, sandbox=${newSandboxMode})`,
-            );
-          })
-          .catch((err) => {
-            this.send(ws, {
-              type: "error",
-              sessionId: msg.sessionId,
-              message: `Failed to restart session for sandbox mode change: ${err}`,
-            });
-          });
+      case "set_sandbox_mode":
+        await handleSetSandboxMode(this, msg, ws);
         break;
-      }
 
-      case "approve": {
-        const session = this.resolveSession(msg.sessionId);
-        if (!session) {
-          this.sendToolActionError(ws, msg, "No active session.");
-          return;
-        }
-        if (session.provider !== "claude") {
-          const handled = (
-            session.process as CodexProcess | AntigravityProcess
-          ).approve(msg.id);
-          if (handled === false) {
-            this.sendToolActionError(
-              ws,
-              msg,
-              "No matching pending tool action.",
-            );
-          }
-          break;
-        }
-        const sdkProc = session.process as SdkProcess;
-        if (msg.clearContext) {
-          // Clear & Accept: immediately destroy this runtime session and
-          // create a fresh one that continues the same Claude conversation.
-          // This guarantees chat history is cleared in the mobile UI without
-          // waiting for additional in-turn tool approvals.
-          const pending = sdkProc.getPendingPermission(msg.id);
-          const planText =
-            typeof pending?.input.plan === "string" ? pending.input.plan : "";
-
-          // Use session.id (always present) instead of msg.sessionId.
-          const sessionId = session.id;
-
-          // Capture session properties before destroy.
-          const claudeSessionId = session.claudeSessionId;
-          const projectPath = session.projectPath;
-          const permissionMode = sdkProc.permissionMode;
-          const settings = sdkProc.settings ?? {};
-          const sandboxEnabled = session.sandboxEnabled;
-          const worktreePath = session.worktreePath;
-          const worktreeBranch = session.worktreeBranch;
-          const workspace = this.workspaceForRuntimeSession(session);
-
-          this.destroySession(sessionId);
-          console.log(`[ws] Clear context: destroyed session ${sessionId}`);
-
-          const newId = this.sessionManager.create(
-            projectPath,
-            {
-              ...(claudeSessionId
-                ? {
-                    sessionId: claudeSessionId,
-                    continueMode: true,
-                  }
-                : {}),
-              permissionMode,
-              ...(settings.model ? { model: settings.model } : {}),
-              ...(settings.effort ? { effort: settings.effort } : {}),
-              ...(settings.fastMode ? { fastMode: true } : {}),
-              ...(settings.ultracode ? { ultracode: true } : {}),
-              ...(sandboxEnabled !== undefined ? { sandboxEnabled } : {}),
-              initialInput: planText || undefined,
-              additionalDirectories: workspace?.rootPaths.slice(1),
-            },
-            undefined,
-            worktreePath
-              ? { existingWorktreePath: worktreePath, worktreeBranch }
-            : undefined,
-          );
-          this.attachWorkspaceToRuntimeSession(newId, workspace);
-          console.log(
-            `[ws] Clear context: created new session ${newId} (CLI session: ${claudeSessionId ?? "new"})`,
-          );
-
-          // Notify all clients. Broadcast is used so reconnecting clients also receive it.
-          const newSession = this.sessionManager.get(newId);
-          const createdMsg = this.buildSessionCreatedMessage({
-            sessionId: newId,
-            provider: newSession?.provider ?? "claude",
-            projectPath,
-            session: newSession,
-            permissionMode,
-            sourceSessionId: sessionId,
-          });
-          this.broadcast({ ...createdMsg, clearContext: true });
-          this.broadcastSessionList();
-        } else {
-          const handled = sdkProc.approve(msg.id);
-          if (handled === false) {
-            this.sendToolActionError(
-              ws,
-              msg,
-              "No matching pending tool action.",
-            );
-          }
-        }
+      case "approve":
+        await handleApprove(this, msg, ws);
         break;
-      }
 
-      case "approve_always": {
-        const session = this.resolveSession(msg.sessionId);
-        if (!session) {
-          this.sendToolActionError(ws, msg, "No active session.");
-          return;
-        }
-        if (session.provider !== "claude") {
-          const handled = (
-            session.process as CodexProcess | AntigravityProcess
-          ).approveAlways(
-            msg.id,
-          );
-          if (handled === false) {
-            this.sendToolActionError(
-              ws,
-              msg,
-              "No matching pending tool action.",
-            );
-          }
-          break;
-        }
-        const handled = (session.process as SdkProcess).approveAlways(msg.id);
-        if (handled === false) {
-          this.sendToolActionError(
-            ws,
-            msg,
-            "No matching pending tool action.",
-          );
-        }
+      case "approve_always":
+        await handleApproveAlways(this, msg, ws);
         break;
-      }
 
-      case "reject": {
-        const session = this.resolveSession(msg.sessionId);
-        if (!session) {
-          this.sendToolActionError(ws, msg, "No active session.");
-          return;
-        }
-        if (session.provider !== "claude") {
-          const handled = (
-            session.process as CodexProcess | AntigravityProcess
-          ).reject(
-            msg.id,
-            msg.message,
-          );
-          if (handled === false) {
-            this.sendToolActionError(
-              ws,
-              msg,
-              "No matching pending tool action.",
-            );
-          }
-          break;
-        }
-        const handled = (session.process as SdkProcess).reject(
-          msg.id,
-          msg.message,
-        );
-        if (handled === false) {
-          this.sendToolActionError(
-            ws,
-            msg,
-            "No matching pending tool action.",
-          );
-        }
+      case "reject":
+        await handleReject(this, msg, ws);
         break;
-      }
 
-      case "answer": {
-        const session = this.resolveSession(msg.sessionId);
-        if (!session) {
-          this.sendToolActionError(ws, msg, "No active session.");
-          return;
-        }
-        if (session.provider !== "claude") {
-          const handled = (
-            session.process as CodexProcess | AntigravityProcess
-          ).answer(
-            msg.toolUseId,
-            msg.result,
-          );
-          if (handled === false) {
-            this.sendToolActionError(
-              ws,
-              msg,
-              "No matching pending tool action.",
-            );
-          }
-          break;
-        }
-        const handled = (session.process as SdkProcess).answer(
-          msg.toolUseId,
-          msg.result,
-        );
-        if (handled === false) {
-          this.sendToolActionError(
-            ws,
-            msg,
-            "No matching pending tool action.",
-          );
-        }
+      case "answer":
+        await handleAnswer(this, msg, ws);
         break;
-      }
 
-      case "install_tool_suggestion": {
-        const session = this.resolveSession(msg.sessionId);
-        if (!session) {
-          this.sendToolActionError(ws, msg, "No active session.");
-          return;
-        }
-        if (session.provider !== "codex") {
-          this.sendToolActionError(
-            ws,
-            msg,
-            "Tool suggestions are only supported for Codex sessions.",
-          );
-          return;
-        }
-        try {
-          await (session.process as CodexProcess).installToolSuggestion(
-            msg.toolUseId,
-          );
-        } catch (err) {
-          this.sendToolActionError(
-            ws,
-            msg,
-            err instanceof Error ? err.message : String(err),
-          );
-        }
+      case "install_tool_suggestion":
+        await handleInstallToolSuggestion(this, msg, ws);
         break;
-      }
 
-      case "list_sessions": {
-        this.sendSessionList(ws);
+      case "list_sessions":
+        await handleListSessions(this, msg, ws);
         break;
-      }
 
-      case "stop_session": {
-        const session = this.sessionManager.get(msg.sessionId);
-        if (session) {
-          // Notify clients before destroying (destroy removes listeners)
-          this.broadcastSessionMessage(msg.sessionId, {
-            type: "result",
-            subtype: "stopped",
-            sessionId: session.claudeSessionId,
-          });
-          this.destroySession(msg.sessionId);
-          this.recordDebugEvent(msg.sessionId, {
-            direction: "internal",
-            channel: "bridge",
-            type: "session_stopped",
-          });
-          this.debugEvents.delete(msg.sessionId);
-          this.notifiedPermissionToolUses.delete(msg.sessionId);
-          this.broadcastSessionList();
-        } else {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: `Session ${msg.sessionId} not found`,
-          });
-        }
+      case "stop_session":
+        await handleStopSession(this, msg, ws);
         break;
-      }
 
-      case "get_history": {
-        const session = this.sessionManager.get(msg.sessionId);
-        if (session) {
-          if (session.provider === "codex") {
-            const handled = await this.sendCodexCanonicalLegacyHistory(
-              ws,
-              msg.sessionId,
-              session,
-            );
-            if (handled) {
-              break;
-            }
-          }
-
-          const splitPastHistory =
-            session.pastMessages && session.pastMessages.length > 0
-              ? await this.splitPastHistoryMessages(session)
-              : { pastMessages: [], historyMessages: [] };
-          // Send past conversation from disk (resume) before in-memory history
-          if (splitPastHistory.pastMessages.length > 0) {
-            this.send(ws, {
-              type: "past_history",
-              claudeSessionId: session.claudeSessionId ?? msg.sessionId,
-              sessionId: msg.sessionId,
-              messages: splitPastHistory.pastMessages,
-            } as Record<string, unknown>);
-          }
-          this.send(ws, {
-            type: "history",
-            messages: [...splitPastHistory.historyMessages, ...session.history],
-            sessionId: msg.sessionId,
-            ...(session.olderHistoryDropped
-              ? { olderHistoryAvailable: true }
-              : {}),
-          } as Record<string, unknown>);
-          if (session.provider === "codex") {
-            this.sendCodexCurrentSettings(ws, msg.sessionId, session);
-          } else {
-            this.sendClaudeCurrentSettings(ws, msg.sessionId, session);
-            this.sendAntigravityCurrentSettings(ws, msg.sessionId, session);
-          }
-          this.send(ws, {
-            type: "status",
-            status: session.status,
-            sessionId: msg.sessionId,
-          } as Record<string, unknown>);
-          this.sendQueueState(ws, msg.sessionId, session);
-          this.sendBackgroundTasksState(ws, msg.sessionId, session);
-          if (session.provider === "codex") {
-            this.sendCodexGoalState(ws, msg.sessionId, session);
-          }
-
-          this.sendCachedCommands(ws, msg.sessionId, session);
-        } else {
-          this.send(ws, {
-            type: "error",
-            message: `Session ${msg.sessionId} not found`,
-            errorCode: "session_not_found",
-            sessionId: msg.sessionId,
-          });
-        }
+      case "get_history":
+        await handleGetHistory(this, msg, ws);
         break;
-      }
 
-      case "get_session_transcript": {
-        const session = this.sessionManager.get(msg.sessionId);
-        if (!session) {
-          this.send(ws, {
-            type: "error",
-            message: `Session ${msg.sessionId} not found`,
-            errorCode: "session_not_found",
-            sessionId: msg.sessionId,
-            requestId: msg.requestId,
-          });
-          break;
-        }
-        try {
-          const transcript = await this.sessionTranscriptMessages(session);
-          const { start, end } = transcriptPageRange(
-            transcript.map((message) => message.role),
-            msg,
-            TRANSCRIPT_PAGE_DEFAULT,
-            TRANSCRIPT_PAGE_MAX,
-          );
-          const { pastMessages } = await this.preparePastHistoryMessages(
-            session,
-            transcript.slice(start, end),
-          );
-          this.send(ws, {
-            type: "session_transcript",
-            sessionId: msg.sessionId,
-            requestId: msg.requestId,
-            provider: session.provider,
-            startIndex: start,
-            endIndex: end,
-            total: transcript.length,
-            messages: pastMessages,
-          });
-        } catch (err) {
-          this.send(ws, {
-            type: "error",
-            message: `Failed to read session transcript: ${
-              err instanceof Error ? err.message : String(err)
-            }`,
-            errorCode: "session_transcript_failed",
-            sessionId: msg.sessionId,
-            requestId: msg.requestId,
-          });
-        }
+      case "get_session_transcript":
+        await handleGetSessionTranscript(this, msg, ws);
         break;
-      }
 
-      case "get_session_context": {
-        const context = this.sessionManager.summary(msg.sessionId);
-        if (context) {
-          this.send(ws, {
-            type: "session_context",
-            sessionId: msg.sessionId,
-            context: { ...this.runtimeSessionWithWorkspace(context) },
-          });
-        } else {
-          this.send(ws, {
-            type: "error",
-            message: `Session ${msg.sessionId} not found`,
-            errorCode: "session_not_found",
-            sessionId: msg.sessionId,
-          });
-        }
+      case "get_session_context":
+        await handleGetSessionContext(this, msg, ws);
         break;
-      }
 
-      case "resolve_session_link": {
-        const provider = msg.provider ?? "claude";
-        const activeSession = this.sessionManager
-          .list()
-          .find(
-            (session) =>
-              session.provider === provider &&
-              (session.id === msg.sessionId ||
-                session.claudeSessionId === msg.sessionId),
-          );
-        if (activeSession) {
-          this.send(ws, {
-            type: "session_link_resolution",
-            requestId: msg.requestId,
-            sourceSessionId: msg.sessionId,
-            status: "live",
-            bridgeSessionId: activeSession.id,
-            provider,
-          });
-          break;
-        }
-
-        try {
-          let recentSession: Record<string, unknown> | undefined;
-          if (provider === "antigravity") {
-            const antigravitySessions =
-              await this.listRecentAntigravitySessions({
-                type: "list_recent_sessions",
-              });
-            const found = antigravitySessions.find(
-              (session) => session.sessionId === msg.sessionId,
-            );
-            recentSession = found
-              ? (this.enrichRecentSessionWorkspace(found) as Record<
-                  string,
-                  unknown
-                >)
-              : undefined;
-          } else {
-            const { sessions } = await getAllRecentSessions({
-              limit: 1,
-              provider,
-              sessionId: msg.sessionId,
-              archivedSessionIds: this.archiveStore.archivedIds(),
-            });
-            recentSession = sessions[0] as unknown as
-              | Record<string, unknown>
-              | undefined;
-          }
-          this.send(ws, {
-            type: "session_link_resolution",
-            requestId: msg.requestId,
-            sourceSessionId: msg.sessionId,
-            status: recentSession ? "recent" : "unavailable",
-            provider,
-            ...(recentSession ? { recentSession } : {}),
-          } as Record<string, unknown>);
-        } catch (err) {
-          console.error("[ws] Failed to resolve session link:", err);
-          this.send(ws, {
-            type: "session_link_resolution",
-            requestId: msg.requestId,
-            sourceSessionId: msg.sessionId,
-            status: "unavailable",
-            provider,
-          });
-        }
+      case "resolve_session_link":
+        await handleResolveSessionLink(this, msg, ws);
         break;
-      }
 
-      case "get_history_delta": {
-        const session = this.sessionManager.get(msg.sessionId);
-        if (session?.provider === "codex") {
-          const result = this.sessionManager.getHistorySince(
-            msg.sessionId,
-            msg.sinceSeq,
-          );
-          if (!result) {
-            this.send(ws, {
-              type: "error",
-              sessionId: msg.sessionId,
-              message: `Session ${msg.sessionId} not found`,
-            });
-            break;
-          }
-
-          if (
-            this.shouldResetCodexHistoryDelta(
-              session,
-              msg.sinceSeq,
-              result.kind,
-            )
-          ) {
-            await this.sendCodexCanonicalHistorySnapshot(
-              ws,
-              msg.sessionId,
-              session,
-            );
-            break;
-          }
-
-          this.send(ws, {
-            type:
-              result.kind === "snapshot" ? "history_snapshot" : "history_delta",
-            sessionId: msg.sessionId,
-            fromSeq: result.fromSeq,
-            toSeq: result.toSeq,
-            messages: result.entries,
-            status: session.status,
-            ...(result.kind === "snapshot" ? { reason: result.reason } : {}),
-          } as ServerMessage);
-          this.sendCodexCurrentSettings(ws, msg.sessionId, session);
-          this.sendQueueState(ws, msg.sessionId, session);
-          this.sendBackgroundTasksState(ws, msg.sessionId, session);
-          this.sendCodexGoalState(ws, msg.sessionId, session);
-          this.sendCachedCommands(ws, msg.sessionId, session);
-          break;
-        }
-
-        if (session) {
-          const result = this.sessionManager.getHistorySince(
-            msg.sessionId,
-            msg.sinceSeq,
-          );
-          if (!result) {
-            this.send(ws, {
-              type: "error",
-              sessionId: msg.sessionId,
-              message: `Session ${msg.sessionId} not found`,
-            });
-            break;
-          }
-          if (session.pastMessages && session.pastMessages.length > 0) {
-            const splitPastHistory =
-              await this.splitPastHistoryMessages(session);
-            if (splitPastHistory.pastMessages.length > 0) {
-              this.send(ws, {
-                type: "past_history",
-                claudeSessionId: session.claudeSessionId ?? msg.sessionId,
-                sessionId: msg.sessionId,
-                messages: splitPastHistory.pastMessages,
-              } as Record<string, unknown>);
-            }
-          }
-          this.send(ws, {
-            type:
-              result.kind === "snapshot"
-                ? "history_snapshot"
-                : "history_delta",
-            sessionId: msg.sessionId,
-            fromSeq: result.fromSeq,
-            toSeq: result.toSeq,
-            messages: result.entries,
-            status: session.status,
-            ...(result.kind === "snapshot" ? { reason: result.reason } : {}),
-            ...(result.kind === "snapshot" && session.olderHistoryDropped
-              ? { olderHistoryAvailable: true }
-              : {}),
-          } as ServerMessage);
-          this.sendClaudeCurrentSettings(ws, msg.sessionId, session);
-          this.sendAntigravityCurrentSettings(ws, msg.sessionId, session);
-          this.sendQueueState(ws, msg.sessionId, session);
-          this.sendBackgroundTasksState(ws, msg.sessionId, session);
-          // The client rebuilds completion from the history it holds, and the
-          // init / supported_commands entries fall out of the bounded history.
-          this.sendCachedCommands(ws, msg.sessionId, session);
-        } else {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: `Session ${msg.sessionId} not found`,
-          });
-        }
+      case "get_history_delta":
+        await handleGetHistoryDelta(this, msg, ws);
         break;
-      }
 
-      case "refresh_branch": {
-        const session = this.sessionManager.get(msg.sessionId);
-        if (session) {
-          const cwd = session.worktreePath ?? session.projectPath;
-          const branch = currentGitBranch(cwd);
-          // Update stored branch so future session_list responses are also current
-          session.gitBranch = branch;
-          this.send(ws, {
-            type: "branch_update",
-            sessionId: msg.sessionId,
-            branch,
-          });
-        } else {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: `Session ${msg.sessionId} not found`,
-          });
-        }
+      case "refresh_branch":
+        await handleRefreshBranch(this, msg, ws);
         break;
-      }
 
       case "get_debug_bundle":
         await handleGetDebugBundle(this, msg, ws);
@@ -5663,970 +3163,33 @@ export class BridgeWebSocketServer {
         await handleGetUsage(this, msg, ws);
         break;
 
-      case "list_recent_sessions": {
-        // Load the Codex thread snapshot ahead of the first search / filter.
-        if (msg.provider !== "claude") this.codexThreadSnapshot.warm();
-        const isProjectScopedRequest = msg.requestScope === "project";
-        const currentRequestId = this.recentSessionsRequestIds.get(ws) ?? 0;
-        const requestId = isProjectScopedRequest
-          ? currentRequestId
-          : currentRequestId + 1;
-        if (!isProjectScopedRequest) {
-          this.recentSessionsRequestIds.set(ws, requestId);
-        }
-        this.listRecentSessionsCoalesced(msg)
-          .then(({ sessions, hasMore, pinnedSessions }) => {
-            // List refreshes supersede older list responses. Project responses
-            // are correlated independently by requestId on the client.
-            if (
-              !isProjectScopedRequest &&
-              requestId !== (this.recentSessionsRequestIds.get(ws) ?? 0)
-            ) {
-              return;
-            }
-            this.send(ws, {
-              type: "recent_sessions",
-              sessions,
-              hasMore,
-              ...(pinnedSessions ? { pinnedSessions } : {}),
-              limit: msg.limit,
-              offset: msg.offset,
-              projectPath: msg.projectPath,
-              projectId: msg.projectId,
-              workspaceKind: msg.workspaceKind,
-              requestScope: msg.requestScope,
-              requestId: msg.requestId,
-            } as Record<string, unknown>);
-          })
-          .catch((err) => {
-            if (
-              !isProjectScopedRequest &&
-              requestId !== (this.recentSessionsRequestIds.get(ws) ?? 0)
-            ) {
-              return;
-            }
-            this.send(ws, {
-              type: "error",
-              message: `Failed to list recent sessions: ${err}`,
-              errorCode: "recent_sessions_failed",
-              path: msg.projectPath,
-              projectId: msg.projectId,
-              workspaceKind: msg.workspaceKind,
-              requestId: msg.requestId,
-              requestScope: msg.requestScope,
-              offset: msg.offset,
-            });
-          });
+      case "list_recent_sessions":
+        await handleListRecentSessions(this, msg, ws);
         break;
-      }
 
-      case "archive_session": {
-        const { sessionId, provider, projectPath } = msg;
-        const archiveProjectPath = resolvePlatformPath(
-          projectPath,
-          this.platform,
-        );
-        if (!this.isPathAllowed(archiveProjectPath)) {
-          const pathError = this.buildPathNotAllowedError(projectPath);
-          this.send(ws, {
-            type: "archive_result",
-            sessionId,
-            success: false,
-            error: pathError.message,
-          } as Record<string, unknown>);
-          break;
-        }
-        void (async () => {
-          if (provider === "codex") {
-            const activeProcess = this.getActiveCodexProcess();
-            const codexProcess =
-              activeProcess ??
-              (await this.createStandaloneCodexProcess(archiveProjectPath));
-            try {
-              await codexProcess.archiveThread(sessionId);
-            } catch (err) {
-              if (!(err instanceof CodexRpcError && err.code === -32601)) {
-                throw err;
-              }
-              console.warn(
-                "[ws] thread/archive unsupported; using local archive marker",
-              );
-            } finally {
-              if (!activeProcess) codexProcess.stop();
-            }
-          }
-          await this.archiveStore.archive(
-            sessionId,
-            provider,
-            archiveProjectPath,
-          );
-        })()
-          .then(() => {
-            this.send(ws, {
-              type: "archive_result",
-              sessionId,
-              success: true,
-            } as Record<string, unknown>);
-          })
-          .catch((err) => {
-            this.send(ws, {
-              type: "archive_result",
-              sessionId,
-              success: false,
-              error: codexErrorMessage(err),
-            } as Record<string, unknown>);
-          });
+      case "archive_session":
+        await handleArchiveSession(this, msg, ws);
         break;
-      }
 
-      case "resume_session": {
-        const resumeStartedAt = Date.now();
-        const provider = msg.provider ?? "claude";
-        const tierError = provider === "codex"
-          ? this.codexServiceTierError(msg.model, msg.serviceTier) : undefined;
-        if (tierError) {
-          this.sendResumeFailed(ws, { provider, sourceSessionId: msg.sessionId,
-            projectPath: msg.projectPath, resumeRequestId: msg.resumeRequestId });
-          this.send(ws, { type: "error", sessionId: msg.sessionId,
-            requestId: msg.resumeRequestId,
-            errorCode: "codex_service_tier_unavailable", message: tierError });
-          break;
-        }
-        const storedAssignment = this.workspaceStore?.getAssignment(
-          provider,
-          msg.sessionId,
-        );
-        const requestedProject =
-          !storedAssignment && msg.projectId
-            ? this.workspaceStore?.getProject(msg.projectId)
-            : undefined;
-        if (!storedAssignment && msg.projectId && !requestedProject) {
-          this.sendResumeFailed(ws, {
-            provider,
-            sourceSessionId: msg.sessionId,
-            projectPath: msg.projectPath,
-            resumeRequestId: msg.resumeRequestId,
-          });
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            requestId: msg.resumeRequestId,
-            errorCode: "project_not_found",
-            message: `Project not found: ${msg.projectId}`,
-          });
-          break;
-        }
-        const assignedProject = storedAssignment?.projectId
-          ? this.workspaceStore?.getProject(storedAssignment.projectId)
-          : undefined;
-        const resolvedResumeProjectName =
-          assignedProject?.name ?? storedAssignment?.projectName;
-        const resumeRoots =
-          storedAssignment?.rootPaths ?? requestedProject?.rootPaths;
-        console.log(
-          `[ws] resume_session: sessionId=${msg.sessionId} projectPath=${msg.projectPath} provider=${msg.provider ?? "claude"}`,
-        );
-        // A stored assignment supplies the root snapshot and secondary roots,
-        // while the recent-session path may be a worktree cwd that must win.
-        const resumeProjectPath = resolvePlatformPath(
-          storedAssignment
-            ? msg.projectPath
-            : (resumeRoots?.[0] ?? msg.projectPath),
-          this.platform,
-        );
-        const resumeAdditionalRoots =
-          resumeRoots?.slice(1) ?? msg.additionalWritableRoots;
-        const resolvedResumeWorkspace: ResolvedWorkspace | undefined =
-          storedAssignment
-            ? {
-                kind: storedAssignment.kind,
-                ...(storedAssignment.projectId
-                  ? { projectId: storedAssignment.projectId }
-                  : {}),
-                ...(resolvedResumeProjectName
-                  ? { projectName: resolvedResumeProjectName }
-                  : {}),
-                rootPaths: storedAssignment.rootPaths,
-              }
-            : requestedProject
-              ? {
-                  kind: "project",
-                  projectId: requestedProject.id,
-                  projectName: requestedProject.name,
-                  rootPaths: requestedProject.rootPaths,
-                }
-              : undefined;
-        if (!this.isPathAllowed(resumeProjectPath)) {
-          this.sendResumeFailed(ws, {
-            provider,
-            sourceSessionId: msg.sessionId,
-            projectPath: resumeProjectPath,
-            resumeRequestId: msg.resumeRequestId,
-          });
-          this.send(ws, {
-            ...this.buildPathNotAllowedError(
-              msg.projectPath,
-              msg.resumeRequestId,
-            ),
-            sessionId: msg.sessionId,
-          });
-          break;
-        }
-        if (
-          resolvedResumeWorkspace &&
-          !storedAssignment &&
-          this.workspaceStore
-        ) {
-          void this.workspaceStore.assignSession(
-            provider,
-            msg.sessionId,
-            resolvedResumeWorkspace,
-          ).catch((error) => {
-            console.error("[workspace] Failed to persist resume assignment:", error);
-          });
-        }
-        if (provider === "antigravity") {
-          const live = this.sessionManager
-            .list()
-            .find(
-              (candidate) =>
-                candidate.provider === "antigravity" &&
-                candidate.claudeSessionId === msg.sessionId,
-            );
-          const liveSession = live ? this.sessionManager.get(live.id) : undefined;
-          const reusable =
-            liveSession?.process instanceof AntigravityProcess &&
-            liveSession.process.isRunning;
-          // An exited process stays listed until eviction; replace it.
-          if (liveSession && !reusable) this.sessionManager.destroy(liveSession.id);
-          const remembered = this.antigravityStore.get(msg.sessionId);
-          const wtMapping = this.worktreeStore.get(msg.sessionId);
-          let effectiveResumeProjectPath = resumeProjectPath;
-          let worktreeOpts: WorktreeOptions | undefined;
-          if (wtMapping && worktreeExists(wtMapping.worktreePath)) {
-            const mappedProject = resolvePlatformPath(
-              wtMapping.projectPath,
-              this.platform,
-            );
-            if (this.isPathAllowed(mappedProject)) {
-              effectiveResumeProjectPath = mappedProject;
-            }
-            worktreeOpts = {
-              existingWorktreePath: wtMapping.worktreePath,
-              worktreeBranch: wtMapping.worktreeBranch,
-            };
-          }
-          if (!existsSync(effectiveResumeProjectPath)) {
-            const fallbackPath = resolvePlatformPath(
-              wtMapping?.projectPath ?? normalizeWorktreePath(effectiveResumeProjectPath),
-              this.platform,
-            );
-            if (this.isPathAllowed(fallbackPath)) {
-              effectiveResumeProjectPath = fallbackPath;
-            }
-          }
-          const sessionId =
-            (reusable ? liveSession?.id : undefined) ??
-            this.sessionManager.create(
-              effectiveResumeProjectPath,
-              {},
-              undefined,
-              worktreeOpts,
-              "antigravity",
-              undefined,
-              undefined,
-              {
-                sessionId: msg.sessionId,
-                // `session/load` starts on the agent default, so put back the
-                // model and mode the conversation last ran on.
-                model: msg.model ?? remembered?.model,
-                permissionMode: msg.permissionMode ?? remembered?.permissionMode,
-                modeBeforePlan: remembered?.modeBeforePlan,
-                compactions: remembered?.compactions,
-                permissionGrants: remembered?.permissionGrants,
-                // Roots outside the allowed folders are left out.
-                additionalDirectories: this.normalizeAdditionalWritableRoots(
-                  resumeAdditionalRoots,
-                  effectiveResumeProjectPath,
-                ).roots,
-              },
-            );
-          if (!reusable && remembered?.name) {
-            this.sessionManager.renameSession(sessionId, remembered.name);
-          }
-          const resumed = this.sessionManager.get(sessionId);
-          try {
-            // `session/load` replays the conversation into history before
-            // the client asks for it.
-            if (resumed?.process instanceof AntigravityProcess) {
-              await resumed.process.waitUntilReady();
-              await this.sessionManager.waitForPendingMessages(sessionId);
-            }
-          } catch (err) {
-            this.sessionManager.destroy(sessionId);
-            this.sendResumeFailed(ws, {
-              provider,
-              sourceSessionId: msg.sessionId,
-              projectPath: resumeProjectPath,
-              resumeRequestId: msg.resumeRequestId,
-            });
-            this.send(ws, {
-              type: "error",
-              sessionId: msg.sessionId,
-              requestId: msg.resumeRequestId,
-              message: `Failed to restore Antigravity session: ${errorMessageOf(err)}`,
-              ...(err instanceof AntigravityStartError && err.errorCode
-                ? { errorCode: err.errorCode }
-                : {}),
-            });
-            break;
-          }
-          if (resolvedResumeWorkspace) {
-            this.pendingSessionWorkspaces.set(sessionId, resolvedResumeWorkspace);
-          }
-          this.send(
-            ws,
-            this.buildSessionCreatedMessage({
-              sessionId,
-              provider,
-              projectPath: resumeProjectPath,
-              session: resumed,
-              permissionMode: resumed?.process instanceof AntigravityProcess
-                ? resumed.process.permissionMode
-                : msg.permissionMode,
-              resumeRequestId: msg.resumeRequestId,
-            }),
-          );
-          this.broadcastSessionList();
-          break;
-        }
-        const normalizedCodexPermissionsMode =
-          provider === "codex"
-            ? normalizeCodexPermissionsMode(msg.codexPermissionsMode)
-            : undefined;
-        const requestedCodexPermissionsMode =
-          this.codexAutoReviewDisabled &&
-          normalizedCodexPermissionsMode === "autoReview"
-            ? "default"
-            : normalizedCodexPermissionsMode;
-        const codexPermissionSettings = requestedCodexPermissionsMode
-          ? codexSettingsFromPermissionsMode(requestedCodexPermissionsMode)
-          : undefined;
-        const codexApprovalPolicy =
-          provider === "codex"
-            ? requestedCodexPermissionsMode
-              ? codexPermissionSettings?.approvalPolicy
-              : normalizeCodexApprovalPolicy(
-                  msg.approvalPolicy ??
-                    (msg.executionMode == null
-                      ? undefined
-                      : msg.executionMode === "fullAccess"
-                        ? "never"
-                        : "on-request"),
-                )
-            : undefined;
-        const executionMode = deriveExecutionMode({
-          provider,
-          permissionMode: msg.permissionMode,
-          executionMode: msg.executionMode,
-          approvalPolicy: codexApprovalPolicy,
-        });
-        const planMode = derivePlanMode({
-          permissionMode: msg.permissionMode,
-          planMode: msg.planMode,
-        });
-        const legacyPermissionMode = modesToLegacyPermissionMode(
-          provider,
-          executionMode,
-          planMode,
-        );
-        const claudePermissionMode =
-          provider === "claude"
-            ? ((msg.permissionMode as
-                | "default"
-                | "auto"
-                | "acceptEdits"
-                | "bypassPermissions"
-                | "plan"
-                | undefined) ?? legacyPermissionMode)
-            : legacyPermissionMode;
-        const sessionRefId = msg.sessionId;
-        // Resume flow: keep past history in SessionInfo and deliver it only
-        // via get_history(sessionId) to avoid duplicate/missed replay races.
-        if (provider === "codex") {
-          const wtMapping = this.worktreeStore.get(sessionRefId);
-          const effectiveProjectPath =
-            resolvePlatformPath(
-              wtMapping?.projectPath ?? resumeProjectPath,
-              this.platform,
-            );
-          let effectiveProfile: string | undefined;
-          try {
-            effectiveProfile = msg.profile
-              ? await this.resolveCodexResumeProfile(
-                  msg.profile,
-                  sessionRefId,
-                  effectiveProjectPath,
-                )
-              : undefined;
-          } catch (err) {
-            console.error(
-              `[ws] Failed to resolve Codex profile on resume: ${err}`,
-            );
-            this.sendResumeFailed(ws, {
-              provider,
-              sourceSessionId: sessionRefId,
-              projectPath: effectiveProjectPath,
-              resumeRequestId: msg.resumeRequestId,
-            });
-            this.send(ws, {
-              type: "error",
-              sessionId: sessionRefId,
-              requestId: msg.resumeRequestId,
-              message: `Failed to resolve Codex profile: ${codexErrorMessage(err)}`,
-            });
-            break;
-          }
-          const additionalWritableRoots =
-            this.normalizeAdditionalWritableRoots(
-              resumeAdditionalRoots,
-              effectiveProjectPath,
-            );
-          if (additionalWritableRoots.deniedRoot) {
-            this.sendResumeFailed(ws, {
-              provider,
-              sourceSessionId: sessionRefId,
-              projectPath: effectiveProjectPath,
-              resumeRequestId: msg.resumeRequestId,
-            });
-            this.send(ws, {
-              ...this.buildPathNotAllowedError(
-                additionalWritableRoots.deniedRoot,
-                msg.resumeRequestId,
-              ),
-              sessionId: sessionRefId,
-            });
-            break;
-          }
-          let worktreeOpts:
-            | {
-                useWorktree?: boolean;
-                worktreeBranch?: string;
-                existingWorktreePath?: string;
-              }
-            | undefined;
-          if (wtMapping) {
-            if (worktreeExists(wtMapping.worktreePath)) {
-              worktreeOpts = {
-                existingWorktreePath: wtMapping.worktreePath,
-                worktreeBranch: wtMapping.worktreeBranch,
-              };
-            } else {
-              worktreeOpts = {
-                useWorktree: true,
-                worktreeBranch: wtMapping.worktreeBranch,
-              };
-            }
-          }
-
-          const resumeOperation = this.beginResumeOperation({
-            ws,
-            provider: "codex",
-            sourceSessionId: sessionRefId,
-            projectPath: effectiveProjectPath,
-            request: msg,
-          });
-          if (!resumeOperation.isOwner) break;
-
-          let historyMetrics = summarizeResumeHistory([]);
-          let historyLoadMs = 0;
-          let historyLoaded = false;
-          let sessionCreateMs = 0;
-          let nameLoadMs = 0;
-          const historyStartedAt = Date.now();
-          try {
-            const pastMessages = await this.getCodexThreadHistory(
-              sessionRefId,
-              effectiveProjectPath,
-            );
-            historyLoadMs = Date.now() - historyStartedAt;
-            historyLoaded = true;
-            historyMetrics = summarizeResumeHistory(pastMessages);
-            const createStartedAt = Date.now();
-            const sessionId = this.sessionManager.create(
-              effectiveProjectPath,
-              undefined,
-              pastMessages,
-              worktreeOpts,
-              "codex",
-              this.withCodexAutoReviewPolicy({
-                threadId: sessionRefId,
-                profile: effectiveProfile,
-                approvalPolicy: codexPermissionSettings
-                  ? codexPermissionSettings.approvalPolicy
-                  : (codexApprovalPolicy ??
-                    normalizeCodexApprovalPolicy(
-                      executionMode === "fullAccess" ? "never" : "on-request",
-                    )),
-                approvalsReviewer:
-                  codexPermissionSettings?.approvalsReviewer ??
-                  msg.approvalsReviewer,
-                codexPermissionsMode:
-                  codexPermissionSettings?.codexPermissionsMode,
-                sandboxMode: codexPermissionSettings
-                  ? codexPermissionSettings.sandboxMode
-                  : sandboxModeToInternal(msg.sandboxMode),
-                model: msg.model,
-                modelReasoningEffort:
-                  (msg.modelReasoningEffort as CodexStartOptions["modelReasoningEffort"]) ??
-                  undefined,
-                serviceTier: msg.serviceTier,
-                networkAccessEnabled: msg.networkAccessEnabled,
-                webSearchMode:
-                  (msg.webSearchMode as "disabled" | "cached" | "live") ??
-                  undefined,
-                additionalWritableRoots: additionalWritableRoots.roots,
-                collaborationMode: planMode
-                  ? ("plan" as const)
-                  : ("default" as const),
-              }),
-              { deferProcessMessages: true },
-            );
-            if (
-              !this.attachProvisionalResumeSession(
-                resumeOperation.key,
-                resumeOperation.operationId,
-                sessionId,
-              )
-            ) {
-              this.sessionManager.destroy(sessionId);
-              break;
-            }
-            sessionCreateMs = Date.now() - createStartedAt;
-            const createdSession = this.sessionManager.get(sessionId);
-            const waitUntilReady = (
-              createdSession?.process as
-                | { waitUntilReady?: () => Promise<void> }
-                | undefined
-            )?.waitUntilReady;
-            if (!waitUntilReady) {
-              throw new Error("Codex session readiness is unavailable");
-            }
-            await waitUntilReady.call(createdSession?.process);
-            if (createdSession) {
-              // get_history immediately follows session_created on the app.
-              // Reuse the canonical history loaded above instead of issuing a
-              // second thread/read for the same restored session.
-              createdSession.codexInitialHistoryPending = true;
-            }
-            const cached = this.sessionManager.getCachedCommands(
-              "codex",
-              createdSession?.worktreePath ?? effectiveProjectPath,
-            );
-            const nameStartedAt = Date.now();
-            await this.loadAndSetSessionName(
-              createdSession,
-              "codex",
-              effectiveProjectPath,
-              sessionRefId,
-            );
-            nameLoadMs = Date.now() - nameStartedAt;
-            const createdMessage = this.buildSessionCreatedMessage({
-              sessionId,
-              provider: "codex",
-              projectPath: effectiveProjectPath,
-              session: createdSession,
-              sandboxMode: createdSession?.codexSettings?.sandboxMode
-                ? sandboxModeToExternal(createdSession.codexSettings.sandboxMode)
-                : undefined,
-              approvalsReviewer:
-                createdSession?.codexSettings?.approvalsReviewer,
-              codexPermissionsMode:
-                createdSession?.codexSettings?.codexPermissionsMode,
-              permissionMode: legacyPermissionMode,
-              executionMode,
-              planMode,
-              resumeRequestId: msg.resumeRequestId,
-              ...(cached
-                ? {
-                    slashCommands: cached.slashCommands,
-                    skills: cached.skills,
-                    ...(cached.skillMetadata
-                      ? { skillMetadata: cached.skillMetadata }
-                      : {}),
-                    apps: cached.apps,
-                    ...(cached.appMetadata
-                      ? { appMetadata: cached.appMetadata }
-                      : {}),
-                    plugins: cached.plugins,
-                    ...(cached.pluginMetadata
-                      ? { pluginMetadata: cached.pluginMetadata }
-                      : {}),
-                  }
-                : {}),
-            });
-            if (
-              !this.completeResumeOperation(
-                resumeOperation.key,
-                resumeOperation.operationId,
-                sessionId,
-                createdMessage,
-              )
-            ) {
-              this.sessionManager.destroy(sessionId);
-              break;
-            }
-            this.sessionManager.releaseDeferredProcessMessages(sessionId);
-            this.broadcastSessionList();
-            this.debugEvents.set(sessionId, []);
-            this.recordDebugEvent(sessionId, {
-              direction: "internal",
-              channel: "bridge",
-              type: "session_resumed",
-              detail: `provider=codex thread=${sessionRefId}`,
-            });
-            if (!resolvedResumeWorkspace) {
-              this.projectHistory?.addProject(effectiveProjectPath);
-            }
-            console.info(
-              formatResumePerformanceLog({
-                provider: "codex",
-                sourceSessionId: sessionRefId,
-                outcome: "success",
-                ...historyMetrics,
-                historyLoadMs,
-                sessionCreateMs,
-                nameLoadMs,
-                totalMs: Date.now() - resumeStartedAt,
-              }),
-            );
-          } catch (err) {
-            if (!historyLoaded) {
-              historyLoadMs = Date.now() - historyStartedAt;
-            }
-            console.info(
-              formatResumePerformanceLog({
-                provider: "codex",
-                sourceSessionId: sessionRefId,
-                outcome: "failed",
-                ...historyMetrics,
-                historyLoadMs,
-                sessionCreateMs,
-                nameLoadMs,
-                totalMs: Date.now() - resumeStartedAt,
-              }),
-            );
-            const activeWriterConflict = isCodexThreadWriterConflict(err);
-            this.failResumeOperation(
-              resumeOperation.key,
-              resumeOperation.operationId,
-              activeWriterConflict
-                ? codexErrorMessage(err)
-                : historyLoaded
-                  ? `Failed to restore Codex session: ${err}`
-                  : `Failed to load Codex session history: ${err}`,
-              activeWriterConflict
-                ? "codex_thread_writer_conflict"
-                : undefined,
-            );
-          }
-          break;
-        }
-
-        const claudeSessionId = sessionRefId;
-        const additionalDirectories = this.normalizeAdditionalWritableRoots(
-          resumeAdditionalRoots,
-          resumeProjectPath,
-        );
-        if (additionalDirectories.deniedRoot) {
-          this.sendResumeFailed(ws, {
-            provider,
-            sourceSessionId: sessionRefId,
-            projectPath: resumeProjectPath,
-            resumeRequestId: msg.resumeRequestId,
-          });
-          this.send(ws, {
-            ...this.buildPathNotAllowedError(
-              additionalDirectories.deniedRoot,
-              msg.resumeRequestId,
-            ),
-            sessionId: sessionRefId,
-          });
-          break;
-        }
-        // Look up worktree mapping for this Claude session
-        const wtMapping = this.worktreeStore.get(claudeSessionId);
-        let worktreeOpts:
-          | {
-              useWorktree?: boolean;
-              worktreeBranch?: string;
-              existingWorktreePath?: string;
-            }
-          | undefined;
-        if (wtMapping) {
-          if (worktreeExists(wtMapping.worktreePath)) {
-            // Worktree exists — reuse it directly
-            worktreeOpts = {
-              existingWorktreePath: wtMapping.worktreePath,
-              worktreeBranch: wtMapping.worktreeBranch,
-            };
-          } else {
-            // Worktree was deleted — recreate on the same branch
-            worktreeOpts = {
-              useWorktree: true,
-              worktreeBranch: wtMapping.worktreeBranch,
-            };
-          }
-        }
-
-        const resumeOperation = this.beginResumeOperation({
-          ws,
-          provider: "claude",
-          sourceSessionId: claudeSessionId,
-          projectPath: resumeProjectPath,
-          request: msg,
-        });
-        if (!resumeOperation.isOwner) break;
-
-        const historyStartedAt = Date.now();
-        let historyMetrics = summarizeResumeHistory([]);
-        let historyLoadMs = 0;
-        let historyLoaded = false;
-        let sessionCreateMs = 0;
-        getSessionHistory(claudeSessionId)
-          .then((pastMessages) => {
-            historyLoadMs = Date.now() - historyStartedAt;
-            historyLoaded = true;
-            historyMetrics = summarizeResumeHistory(pastMessages);
-            const createStartedAt = Date.now();
-            const {
-              sessionId,
-              permissionMode: effectivePermissionMode,
-              executionMode: effectiveExecutionMode,
-              planMode: effectivePlanMode,
-              usedFallback: autoFallbackUsed,
-            } = this.createClaudeSessionWithFallback({
-              projectPath: resumeProjectPath,
-              options: {
-                sessionId: claudeSessionId,
-                permissionMode: claudePermissionMode,
-                model: msg.model,
-                effort: msg.effort,
-                fastMode: msg.claudeFastMode,
-                ultracode: msg.claudeUltracode,
-                maxTurns: msg.maxTurns,
-                maxBudgetUsd: msg.maxBudgetUsd,
-                fallbackModel: msg.fallbackModel,
-                forkSession: msg.forkSession,
-                persistSession: msg.persistSession,
-                ...(msg.sandboxMode
-                  ? { sandboxEnabled: msg.sandboxMode === "on" }
-                  : {}),
-                additionalDirectories: additionalDirectories.roots,
-              },
-              pastMessages,
-              worktreeOptions: worktreeOpts,
-            });
-            sessionCreateMs = Date.now() - createStartedAt;
-            const createdSession = this.sessionManager.get(sessionId);
-            const cached = this.sessionManager.getCachedCommands(
-              "claude",
-              createdSession?.worktreePath ?? resumeProjectPath,
-            );
-            const nameStartedAt = Date.now();
-            const finishResume = () => {
-              const createdMessage = {
-                ...this.buildSessionCreatedMessage({
-                  sessionId,
-                  provider: "claude",
-                  projectPath: resumeProjectPath,
-                  session: createdSession,
-                  permissionMode: effectivePermissionMode,
-                  executionMode: effectiveExecutionMode,
-                  planMode: effectivePlanMode,
-                  sandboxMode: msg.sandboxMode,
-                  resumeRequestId: msg.resumeRequestId,
-                  ...(cached
-                    ? {
-                        slashCommands: cached.slashCommands,
-                        skills: cached.skills,
-                        ...(cached.skillMetadata
-                          ? { skillMetadata: cached.skillMetadata }
-                          : {}),
-                        apps: cached.apps,
-                        ...(cached.appMetadata
-                          ? { appMetadata: cached.appMetadata }
-                          : {}),
-                        plugins: cached.plugins,
-                        ...(cached.pluginMetadata
-                          ? { pluginMetadata: cached.pluginMetadata }
-                          : {}),
-                      }
-                    : {}),
-                }),
-                claudeSessionId,
-              } as SystemServerMessage;
-              if (
-                !this.completeResumeOperation(
-                  resumeOperation.key,
-                  resumeOperation.operationId,
-                  sessionId,
-                  createdMessage,
-                )
-              ) {
-                this.sessionManager.destroy(sessionId);
-                return;
-              }
-              this.broadcastSessionList();
-              if (autoFallbackUsed) {
-                this.sendTip(
-                  ws,
-                  sessionId,
-                  "auto_mode_fallback_default",
-                  createdSession,
-                );
-              }
-              console.info(
-                formatResumePerformanceLog({
-                  provider: "claude",
-                  sourceSessionId: claudeSessionId,
-                  outcome: "success",
-                  ...historyMetrics,
-                  historyLoadMs,
-                  sessionCreateMs,
-                  nameLoadMs: Date.now() - nameStartedAt,
-                  totalMs: Date.now() - resumeStartedAt,
-                }),
-              );
-            };
-            void this.loadAndSetSessionName(
-              createdSession,
-              "claude",
-              resumeProjectPath,
-              claudeSessionId,
-            ).then(finishResume, (err) => {
-              console.error("[ws] Failed to load resumed session name:", err);
-              finishResume();
-            });
-            this.debugEvents.set(sessionId, []);
-            this.recordDebugEvent(sessionId, {
-              direction: "internal",
-              channel: "bridge",
-              type: "session_resumed",
-              detail: `provider=claude session=${claudeSessionId}`,
-            });
-            if (!resolvedResumeWorkspace) {
-              this.projectHistory?.addProject(resumeProjectPath);
-            }
-          })
-          .catch((err) => {
-            if (!historyLoaded) {
-              historyLoadMs = Date.now() - historyStartedAt;
-            }
-            console.info(
-              formatResumePerformanceLog({
-                provider: "claude",
-                sourceSessionId: claudeSessionId,
-                outcome: "failed",
-                ...historyMetrics,
-                historyLoadMs,
-                sessionCreateMs,
-                nameLoadMs: 0,
-                totalMs: Date.now() - resumeStartedAt,
-              }),
-            );
-            this.failResumeOperation(
-              resumeOperation.key,
-              resumeOperation.operationId,
-              `Failed to load session history: ${err}`,
-            );
-          });
+      case "resume_session":
+        await handleResumeSession(this, msg, ws);
         break;
-      }
 
-      case "list_gallery": {
-        const projectPath = msg.projectPath ?? msg.project;
-        if (this.galleryStore) {
-          const images = this.galleryStore.list({
-            projectPath,
-            sessionId: msg.sessionId,
-          });
-          this.send(ws, {
-            type: "gallery_list",
-            images,
-            projectPath,
-            sessionId: msg.sessionId,
-            requestId: msg.requestId,
-          });
-        } else {
-          this.send(ws, {
-            type: "gallery_list",
-            images: [],
-            projectPath,
-            sessionId: msg.sessionId,
-            requestId: msg.requestId,
-          });
-        }
+      case "list_gallery":
+        await handleListGallery(this, msg, ws);
         break;
-      }
 
-      case "get_message_images": {
-        void extractMessageImages(msg.claudeSessionId, msg.messageUuid)
-          .then((images) => {
-            const refs: Array<{ id: string; url: string; mimeType: string }> =
-              [];
-            if (this.imageStore) {
-              for (const img of images) {
-                const ref = this.imageStore.registerFromBase64(
-                  img.base64,
-                  img.mimeType,
-                );
-                if (ref) refs.push(ref);
-              }
-            }
-            this.send(ws, {
-              type: "message_images_result",
-              messageUuid: msg.messageUuid,
-              images: refs,
-            });
-          })
-          .catch((err) => {
-            console.error("[ws] Failed to extract message images:", err);
-            this.send(ws, {
-              type: "message_images_result",
-              messageUuid: msg.messageUuid,
-              images: [],
-            });
-          });
+      case "get_message_images":
+        await handleGetMessageImages(this, msg, ws);
         break;
-      }
 
-      case "interrupt": {
-        const session = this.resolveSession(msg.sessionId);
-        if (!session) {
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: "No active session.",
-          });
-          return;
-        }
-        if (msg.retract === true) {
-          this.interruptAndRetract(ws, session).catch((err) => {
-            console.warn(
-              `[ws] Failed to retract interrupted prompt: ${err instanceof Error ? err.message : String(err)}`,
-            );
-          });
-          break;
-        }
-        session.process.interrupt();
+      case "interrupt":
+        await handleInterrupt(this, msg, ws);
         break;
-      }
 
-      case "edit_message": {
-        await this.editUserMessage(ws, msg);
+      case "edit_message":
+        await handleEditMessage(this, msg, ws);
         break;
-      }
 
       case "list_project_history":
         await handleListProjectHistory(this, msg, ws);
@@ -6781,220 +3344,17 @@ export class BridgeWebSocketServer {
         await handleGithubList(this, msg, ws);
         break;
 
-      case "rewind_dry_run": {
-        const session = this.sessionManager.get(msg.sessionId);
-        if (!session) {
-          this.send(ws, {
-            type: "rewind_preview",
-            sessionId: msg.sessionId,
-            canRewind: false,
-            error: `Session ${msg.sessionId} not found`,
-          });
-          return;
-        }
-        if (session.provider === "codex") {
-          this.send(ws, {
-            type: "rewind_preview",
-            sessionId: msg.sessionId,
-            canRewind: false,
-            error: "Codex rewind does not restore files",
-          });
-          return;
-        }
-        this.sessionManager
-          .rewindFiles(msg.sessionId, msg.targetUuid, true)
-          .then((result) => {
-            this.send(ws, {
-              type: "rewind_preview",
-              sessionId: msg.sessionId,
-              canRewind: result.canRewind,
-              filesChanged: result.filesChanged,
-              insertions: result.insertions,
-              deletions: result.deletions,
-              error: result.error,
-            });
-          })
-          .catch((err) => {
-            this.send(ws, {
-              type: "rewind_preview",
-              sessionId: msg.sessionId,
-              canRewind: false,
-              error: `Dry run failed: ${err}`,
-            });
-          });
+      case "rewind_dry_run":
+        await handleRewindDryRun(this, msg, ws);
         break;
-      }
 
-      case "rewind": {
-        const session = this.sessionManager.get(msg.sessionId);
-        if (!session) {
-          this.send(ws, {
-            type: "rewind_result",
-            sessionId: msg.sessionId,
-            success: false,
-            mode: msg.mode,
-            error: `Session ${msg.sessionId} not found`,
-          });
-          return;
-        }
-
-        const handleError = (err: unknown) => {
-          const errMsg = err instanceof Error ? err.message : String(err);
-          this.send(ws, {
-            type: "rewind_result",
-            sessionId: msg.sessionId,
-            success: false,
-            mode: msg.mode,
-            error: errMsg,
-          });
-        };
-
-        if (session.provider === "antigravity") {
-          handleError(new Error("Rewind is not supported for Antigravity sessions"));
-          break;
-        }
-        if (session.provider === "codex") {
-          this.rewindCodexConversation(ws, msg.sessionId, msg.targetUuid, msg.mode)
-            .catch(handleError);
-          break;
-        }
-
-        if (msg.mode === "code") {
-          // Code-only rewind: rewind files without restarting the conversation
-          this.sessionManager
-            .rewindFiles(msg.sessionId, msg.targetUuid)
-            .then((result) => {
-              if (result.canRewind) {
-                this.send(ws, {
-                  type: "rewind_result",
-                  sessionId: msg.sessionId,
-                  success: true,
-                  mode: "code",
-                });
-              } else {
-                this.send(ws, {
-                  type: "rewind_result",
-                  sessionId: msg.sessionId,
-                  success: false,
-                  mode: "code",
-                  error: result.error ?? "Cannot rewind files",
-                });
-              }
-            })
-            .catch(handleError);
-        } else if (msg.mode === "conversation") {
-          // Conversation-only rewind: restart session at the target UUID
-          try {
-            this.flushSessionDeltaBatches(msg.sessionId);
-            this.sessionManager.rewindConversation(
-              msg.sessionId,
-              msg.targetUuid,
-              (newSessionId) => {
-                this.send(ws, {
-                  type: "rewind_result",
-                  sessionId: msg.sessionId,
-                  success: true,
-                  mode: "conversation",
-                });
-                // Notify the new session ID
-                const newSession = this.sessionManager.get(newSessionId);
-                const rewindPermMode =
-                  newSession?.process instanceof SdkProcess
-                    ? newSession.process.permissionMode
-                    : undefined;
-                this.send(
-                  ws,
-                  this.buildSessionCreatedMessage({
-                    sessionId: newSessionId,
-                    provider: newSession?.provider ?? "claude",
-                    projectPath: newSession?.projectPath ?? "",
-                    session: newSession,
-                    permissionMode: rewindPermMode,
-                    sourceSessionId: msg.sessionId,
-                  }),
-                );
-                this.sendSessionList(ws);
-              },
-            );
-          } catch (err) {
-            handleError(err);
-          }
-        } else {
-          // Both: rewind files first, then rewind conversation
-          this.sessionManager
-            .rewindFiles(msg.sessionId, msg.targetUuid)
-            .then((result) => {
-              if (!result.canRewind) {
-                this.send(ws, {
-                  type: "rewind_result",
-                  sessionId: msg.sessionId,
-                  success: false,
-                  mode: "both",
-                  error: result.error ?? "Cannot rewind files",
-                });
-                return;
-              }
-              try {
-                this.flushSessionDeltaBatches(msg.sessionId);
-                this.sessionManager.rewindConversation(
-                  msg.sessionId,
-                  msg.targetUuid,
-                  (newSessionId) => {
-                    this.send(ws, {
-                      type: "rewind_result",
-                      sessionId: msg.sessionId,
-                      success: true,
-                      mode: "both",
-                    });
-                    const newSession = this.sessionManager.get(newSessionId);
-                    const rewindPermMode2 =
-                      newSession?.process instanceof SdkProcess
-                        ? newSession.process.permissionMode
-                        : undefined;
-                    this.send(
-                      ws,
-                      this.buildSessionCreatedMessage({
-                        sessionId: newSessionId,
-                        provider: newSession?.provider ?? "claude",
-                        projectPath: newSession?.projectPath ?? "",
-                        session: newSession,
-                        permissionMode: rewindPermMode2,
-                        sourceSessionId: msg.sessionId,
-                      }),
-                    );
-                    this.sendSessionList(ws);
-                  },
-                );
-              } catch (err) {
-                handleError(err);
-              }
-            })
-            .catch(handleError);
-        }
+      case "rewind":
+        await handleRewind(this, msg, ws);
         break;
-      }
 
-      case "fork": {
-        const forkSource = this.sessionManager.get(msg.sessionId);
-        const fork =
-          forkSource?.provider === "antigravity"
-            ? Promise.reject(
-                new Error("Fork is not supported for Antigravity sessions"),
-              )
-            : forkSource?.provider === "claude"
-              ? this.forkClaudeSession(ws, msg.sessionId, msg.targetUuid)
-              : this.forkCodexSession(ws, msg.sessionId, msg.targetUuid);
-        fork.catch((err) => {
-          const errMsg = err instanceof Error ? err.message : String(err);
-          this.send(ws, {
-            type: "error",
-            sessionId: msg.sessionId,
-            message: errMsg,
-            errorCode: "fork_failed",
-          });
-        });
+      case "fork":
+        await handleFork(this, msg, ws);
         break;
-      }
 
       case "list_windows":
         await handleListWindows(this, msg, ws);
@@ -7032,11 +3392,9 @@ export class BridgeWebSocketServer {
         await handleImportPromptHistoryV1(this, msg, ws);
         break;
 
-      case "rename_session": {
-        const name = (msg.name as string | null) || null;
-        await this.handleRenameSession(ws, msg.sessionId, name, msg);
+      case "rename_session":
+        await handleRenameSession(this, msg, ws);
         break;
-      }
     }
   }
 
@@ -7107,7 +3465,7 @@ export class BridgeWebSocketServer {
     }
   }
 
-  private beginResumeOperation(params: {
+  beginResumeOperation(params: {
     ws: WebSocket;
     provider: Provider;
     sourceSessionId: string;
@@ -7205,7 +3563,7 @@ export class BridgeWebSocketServer {
     return { key, operationId, isOwner: true };
   }
 
-  private completeResumeOperation(
+  completeResumeOperation(
     key: string,
     operationId: string,
     sessionId: string,
@@ -7238,7 +3596,7 @@ export class BridgeWebSocketServer {
     return true;
   }
 
-  private failResumeOperation(
+  failResumeOperation(
     key: string,
     operationId: string,
     message: string,
@@ -7269,7 +3627,7 @@ export class BridgeWebSocketServer {
     }
   }
 
-  private attachProvisionalResumeSession(
+  attachProvisionalResumeSession(
     key: string,
     operationId: string,
     sessionId: string,
@@ -7282,7 +3640,7 @@ export class BridgeWebSocketServer {
     return true;
   }
 
-  private sendResumeFailed(
+  sendResumeFailed(
     ws: WebSocket,
     resume: {
       provider: Provider;
@@ -7362,7 +3720,7 @@ export class BridgeWebSocketServer {
    * contains a candidate and the skills are not cached yet, wait briefly for
    * the provider to report them; on timeout the prompt is sent unchanged.
    */
-  private async prepareInitialPrompt(
+  async prepareInitialPrompt(
     provider: Provider,
     effectiveCwd: string,
     sessionId: string,
@@ -7393,7 +3751,7 @@ export class BridgeWebSocketServer {
     return convertSkillTriggers(text, catalog);
   }
 
-  private async loadAndSetSessionName(
+  async loadAndSetSessionName(
     session: SessionInfo | undefined,
     provider: string,
     projectPath: string,
@@ -7420,7 +3778,7 @@ export class BridgeWebSocketServer {
    * Supports both running sessions (by bridge session id) and recent sessions
    * (by provider session id, i.e. claudeSessionId or codex threadId).
    */
-  private async handleRenameSession(
+  async handleRenameSession(
     ws: WebSocket,
     sessionId: string,
     name: string | null,
@@ -7511,7 +3869,7 @@ export class BridgeWebSocketServer {
     return this.sessionManager.get(sessions[sessions.length - 1].id);
   }
 
-  private sendSessionList(ws: WebSocket): void {
+  sendSessionList(ws: WebSocket): void {
     this.pruneDebugEvents();
     const sessions = this.runtimeSessionsWithWorkspaces();
     this.send(ws, {
@@ -7554,7 +3912,7 @@ export class BridgeWebSocketServer {
   }
 
   /** Broadcast session list to all connected clients. */
-  private broadcastSessionList(): void {
+  broadcastSessionList(): void {
     this.pruneDebugEvents();
     const sessions = this.runtimeSessionsWithWorkspaces();
     this.broadcast({
@@ -7587,7 +3945,7 @@ export class BridgeWebSocketServer {
       .map((summary) => this.runtimeSessionWithWorkspace(summary));
   }
 
-  private runtimeSessionWithWorkspace(
+  runtimeSessionWithWorkspace(
     summary: SessionSummary,
   ): SessionSummary & { workspace?: ResolvedWorkspace } {
     const session = this.sessionManager.get(summary.id);
@@ -7614,7 +3972,7 @@ export class BridgeWebSocketServer {
     });
   }
 
-  private broadcastSessionMessage(
+  broadcastSessionMessage(
     sessionId: string,
     msg: ServerMessage,
     exclude?: WebSocket,
@@ -7745,7 +4103,7 @@ export class BridgeWebSocketServer {
     return chunks;
   }
 
-  private flushSessionDeltaBatches(sessionId: string): void {
+  flushSessionDeltaBatches(sessionId: string): void {
     for (const client of Array.from(this.deltaBatches.keys())) {
       this.flushClientDeltaBatch(client, sessionId);
     }
@@ -7781,7 +4139,7 @@ export class BridgeWebSocketServer {
     this.deltaBatches.delete(client);
   }
 
-  private destroySession(sessionId: string): void {
+  destroySession(sessionId: string): void {
     this.flushSessionDeltaBatches(sessionId);
     this.completionGate.discard(sessionId);
     this.pendingSessionWorkspaces.delete(sessionId);
@@ -8275,7 +4633,7 @@ export class BridgeWebSocketServer {
   }
 
   /** Antigravity conversations matching the request filters, newest first. */
-  private async listRecentAntigravitySessions(
+  async listRecentAntigravitySessions(
     msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
   ): Promise<AntigravityRecentSession[]> {
     if (!this.antigravityAvailable) return [];
@@ -8345,7 +4703,7 @@ export class BridgeWebSocketServer {
   }
 
   /** What a new Antigravity session offers; read without sending a prompt. */
-  private antigravityCatalog(): Promise<AntigravityCatalog> {
+  antigravityCatalog(): Promise<AntigravityCatalog> {
     // A running session already knows, and is fresher than the cache.
     for (const summary of this.sessionManager.list()) {
       const process = this.sessionManager.get(summary.id)?.process;
@@ -8386,7 +4744,7 @@ export class BridgeWebSocketServer {
       : BRIDGE_PROTOCOL_CAPABILITIES;
   }
 
-  private enrichRecentSessionWorkspace(session: unknown): unknown {
+  enrichRecentSessionWorkspace(session: unknown): unknown {
     if (!session || typeof session !== "object") return session;
     const value = session as Record<string, unknown>;
     const provider = value.provider;
@@ -8431,7 +4789,7 @@ export class BridgeWebSocketServer {
     return roots.length > 0 ? { roots } : {};
   }
 
-  private async persistPendingSessionWorkspace(sessionId: string): Promise<void> {
+  async persistPendingSessionWorkspace(sessionId: string): Promise<void> {
     const workspace = this.pendingSessionWorkspaces.get(sessionId);
     const session = this.sessionManager.get(sessionId);
     if (!workspace || !session?.claudeSessionId || !this.workspaceStore) return;
@@ -8472,7 +4830,7 @@ export class BridgeWebSocketServer {
     };
   }
 
-  private attachWorkspaceToRuntimeSession(
+  attachWorkspaceToRuntimeSession(
     sessionId: string,
     workspace: ResolvedWorkspace | undefined,
   ): void {
@@ -8507,7 +4865,7 @@ export class BridgeWebSocketServer {
     return this.projectHistory?.getProjects() ?? [];
   }
 
-  private listRecentSessionsCoalesced(
+  listRecentSessionsCoalesced(
     msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
   ): Promise<RecentSessionsListing> {
     const key = recentSessionsCoalescingKey(msg);
@@ -8598,7 +4956,7 @@ export class BridgeWebSocketServer {
     }
   }
 
-  private async refreshCodexMetadata(projectPath?: string): Promise<void> {
+  async refreshCodexMetadata(projectPath?: string): Promise<void> {
     if (this.codexMetadataRequest) {
       if (projectPath) {
         return this.codexMetadataRequest.then(() =>
@@ -8671,7 +5029,7 @@ export class BridgeWebSocketServer {
     }
   }
 
-  private async refreshClaudeModels(projectPath?: string): Promise<void> {
+  async refreshClaudeModels(projectPath?: string): Promise<void> {
     if (this.claudeModelsRequest) return this.claudeModelsRequest;
     this.claudeModelsRequest = this.loadClaudeModels(projectPath)
       .then((models) => {
@@ -8781,7 +5139,7 @@ export class BridgeWebSocketServer {
   }
 
   /** Validate candidates only. Codex still enforces account entitlement. */
-  private codexServiceTierError(
+  codexServiceTierError(
     model: string | undefined,
     value: string | undefined,
   ): string | undefined {
@@ -8831,7 +5189,7 @@ export class BridgeWebSocketServer {
     }
   }
 
-  private async validateCodexProfile(
+  async validateCodexProfile(
     profile: string | undefined,
     projectPath?: string,
   ): Promise<boolean> {
@@ -8842,7 +5200,7 @@ export class BridgeWebSocketServer {
     return snapshot.profiles.includes(profile);
   }
 
-  private async resolveCodexResumeProfile(
+  async resolveCodexResumeProfile(
     requestedProfile: string,
     threadId: string,
     projectPath?: string,
@@ -8871,7 +5229,7 @@ export class BridgeWebSocketServer {
     return fallbackProfile;
   }
 
-  private getActiveCodexProcess(): CodexProcess | null {
+  getActiveCodexProcess(): CodexProcess | null {
     // SessionManager retains idle sessions after their process exits.
     // Skip those entries so auxiliary RPCs can use a healthy process or
     // create a temporary standalone app-server.
@@ -8885,7 +5243,7 @@ export class BridgeWebSocketServer {
     return null;
   }
 
-  private withCodexAutoReviewPolicy(
+  withCodexAutoReviewPolicy(
     options: CodexStartOptions,
   ): CodexStartOptions {
     const disableAutoReview = this.codexAutoReviewDisabled;
@@ -8975,7 +5333,7 @@ export class BridgeWebSocketServer {
     }
   }
 
-  private async createStandaloneCodexProcess(
+  async createStandaloneCodexProcess(
     projectPath?: string,
   ): Promise<CodexProcess> {
     const proc = new CodexProcess();
@@ -9381,7 +5739,7 @@ export class BridgeWebSocketServer {
     );
   }
 
-  private hasInputConflictSince(session: SessionInfo, baseSeq: number): boolean {
+  hasInputConflictSince(session: SessionInfo, baseSeq: number): boolean {
     const codexResetRevision = session.codexHistoryResetRevision ??
       session.codexCanonicalHistoryRevision;
     if (
@@ -9412,7 +5770,7 @@ export class BridgeWebSocketServer {
     });
   }
 
-  private sendQueueState(
+  sendQueueState(
     ws: WebSocket,
     sessionId: string,
     session: SessionInfo,
@@ -9441,7 +5799,7 @@ export class BridgeWebSocketServer {
     } as Record<string, unknown>);
   }
 
-  private sendBackgroundTasksState(
+  sendBackgroundTasksState(
     ws: WebSocket,
     sessionId: string,
     session: SessionInfo,
@@ -9460,7 +5818,7 @@ export class BridgeWebSocketServer {
     }
   }
 
-  private sendCodexGoalState(
+  sendCodexGoalState(
     ws: WebSocket,
     sessionId: string,
     session: SessionInfo,
@@ -9475,7 +5833,7 @@ export class BridgeWebSocketServer {
     });
   }
 
-  private sendCachedCommands(
+  sendCachedCommands(
     ws: WebSocket,
     sessionId: string,
     session: SessionInfo,
@@ -9904,7 +6262,7 @@ export class BridgeWebSocketServer {
     return undefined;
   }
 
-  private recordDebugEvent(
+  recordDebugEvent(
     sessionId: string,
     event: Omit<DebugTraceEvent, "ts" | "sessionId">,
   ): void {
