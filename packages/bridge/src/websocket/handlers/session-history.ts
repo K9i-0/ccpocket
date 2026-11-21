@@ -11,6 +11,13 @@ import {
   shouldResetCodexHistoryDelta,
   sendCodexCanonicalHistorySnapshot,
 } from "../session-history.js";
+import {
+  sendCodexCurrentSettings,
+  sendClaudeCurrentSettings,
+  sendAntigravityCurrentSettings,
+  sendBackgroundTasksState,
+  sendCodexGoalState,
+} from "../session-state.js";
 
 export async function handleGetHistory(
   server: BridgeWebSocketServer,
@@ -53,10 +60,10 @@ export async function handleGetHistory(
         : {}),
     } as Record<string, unknown>);
     if (session.provider === "codex") {
-      server.sendCodexCurrentSettings(ws, msg.sessionId, session);
+      sendCodexCurrentSettings(server, ws, msg.sessionId, session);
     } else {
-      server.sendClaudeCurrentSettings(ws, msg.sessionId, session);
-      server.sendAntigravityCurrentSettings(ws, msg.sessionId, session);
+      sendClaudeCurrentSettings(server, ws, msg.sessionId, session);
+      sendAntigravityCurrentSettings(server, ws, msg.sessionId, session);
     }
     server.send(ws, {
       type: "status",
@@ -64,9 +71,9 @@ export async function handleGetHistory(
       sessionId: msg.sessionId,
     } as Record<string, unknown>);
     server.sendQueueState(ws, msg.sessionId, session);
-    server.sendBackgroundTasksState(ws, msg.sessionId, session);
+    sendBackgroundTasksState(server, ws, msg.sessionId, session);
     if (session.provider === "codex") {
-      server.sendCodexGoalState(ws, msg.sessionId, session);
+      sendCodexGoalState(server, ws, msg.sessionId, session);
     }
 
     server.sendCachedCommands(ws, msg.sessionId, session);
@@ -200,10 +207,10 @@ export async function handleGetHistoryDelta(
       status: session.status,
       ...(result.kind === "snapshot" ? { reason: result.reason } : {}),
     } as ServerMessage);
-    server.sendCodexCurrentSettings(ws, msg.sessionId, session);
+    sendCodexCurrentSettings(server, ws, msg.sessionId, session);
     server.sendQueueState(ws, msg.sessionId, session);
-    server.sendBackgroundTasksState(ws, msg.sessionId, session);
-    server.sendCodexGoalState(ws, msg.sessionId, session);
+    sendBackgroundTasksState(server, ws, msg.sessionId, session);
+    sendCodexGoalState(server, ws, msg.sessionId, session);
     server.sendCachedCommands(ws, msg.sessionId, session);
     return;
   }
@@ -248,10 +255,10 @@ export async function handleGetHistoryDelta(
         ? { olderHistoryAvailable: true }
         : {}),
     } as ServerMessage);
-    server.sendClaudeCurrentSettings(ws, msg.sessionId, session);
-    server.sendAntigravityCurrentSettings(ws, msg.sessionId, session);
+    sendClaudeCurrentSettings(server, ws, msg.sessionId, session);
+    sendAntigravityCurrentSettings(server, ws, msg.sessionId, session);
     server.sendQueueState(ws, msg.sessionId, session);
-    server.sendBackgroundTasksState(ws, msg.sessionId, session);
+    sendBackgroundTasksState(server, ws, msg.sessionId, session);
     // The client rebuilds completion from the history it holds, and the
     // init / supported_commands entries fall out of the bounded history.
     server.sendCachedCommands(ws, msg.sessionId, session);

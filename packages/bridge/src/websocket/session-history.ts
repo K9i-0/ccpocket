@@ -22,6 +22,11 @@ import {
 } from "../markdown-images.js";
 import { countCodexHistoryUserTurns } from "./shared.js";
 import type { BridgeWebSocketServer } from "../websocket.js";
+import {
+  sendCodexCurrentSettings,
+  sendBackgroundTasksState,
+  sendCodexGoalState,
+} from "./session-state.js";
 
 export async function splitPastHistoryMessages(
   server: BridgeWebSocketServer,
@@ -334,10 +339,10 @@ export async function sendCodexCanonicalHistorySnapshot(
       status: session.status,
       reason: "reset",
     } satisfies Extract<ServerMessage, { type: "history_snapshot" }>);
-    server.sendCodexCurrentSettings(ws, sessionId, session);
+    sendCodexCurrentSettings(server, ws, sessionId, session);
     server.sendQueueState(ws, sessionId, session);
-    server.sendBackgroundTasksState(ws, sessionId, session);
-    server.sendCodexGoalState(ws, sessionId, session);
+    sendBackgroundTasksState(server, ws, sessionId, session);
+    sendCodexGoalState(server, ws, sessionId, session);
     server.sendCachedCommands(ws, sessionId, session);
     return true;
   } catch (err) {
@@ -365,15 +370,15 @@ export async function sendCodexCanonicalLegacyHistory(
       messages: entries.map((entry) => entry.message),
       sessionId,
     } as Record<string, unknown>);
-    server.sendCodexCurrentSettings(ws, sessionId, session);
+    sendCodexCurrentSettings(server, ws, sessionId, session);
     server.send(ws, {
       type: "status",
       status: session.status,
       sessionId,
     } as Record<string, unknown>);
     server.sendQueueState(ws, sessionId, session);
-    server.sendBackgroundTasksState(ws, sessionId, session);
-    server.sendCodexGoalState(ws, sessionId, session);
+    sendBackgroundTasksState(server, ws, sessionId, session);
+    sendCodexGoalState(server, ws, sessionId, session);
     server.sendCachedCommands(ws, sessionId, session);
     return true;
   } catch (err) {

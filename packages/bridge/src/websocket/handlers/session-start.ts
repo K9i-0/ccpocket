@@ -21,6 +21,12 @@ import {
   isPathAllowed,
   normalizeAdditionalWritableRoots,
 } from "../file-access.js";
+import {
+  createClaudeSessionWithFallback,
+  loadAndSetSessionName,
+  sendTip,
+  prepareInitialPrompt,
+} from "../session-state.js";
 
 export async function handleStart(
   server: BridgeWebSocketServer,
@@ -179,7 +185,7 @@ export async function handleStart(
       usedFallback: autoFallbackUsed,
     } =
       provider === "claude"
-        ? server.createClaudeSessionWithFallback({
+        ? createClaudeSessionWithFallback(server, {
             projectPath,
             options: {
               sessionId: msg.sessionId,
@@ -299,7 +305,7 @@ export async function handleStart(
     );
 
     // Load saved session name from CLI storage (for resumed sessions)
-    void server.loadAndSetSessionName(
+    void loadAndSetSessionName(
       createdSession,
       provider,
       projectPath,
@@ -361,7 +367,8 @@ export async function handleStart(
         void server.refreshClaudeModels(projectPath);
       }
       if (autoFallbackUsed) {
-        server.sendTip(
+        sendTip(
+          server,
           ws,
           sessionId,
           "auto_mode_fallback_default",
@@ -369,7 +376,8 @@ export async function handleStart(
         );
       }
       if (msg.initialPrompt?.trim()) {
-        void server.prepareInitialPrompt(
+        void prepareInitialPrompt(
+          server,
           provider,
           createdSession?.worktreePath ?? projectPath,
           sessionId,
@@ -396,7 +404,7 @@ export async function handleStart(
       }
       // Send a gentle tip when the project is not a git repository
       if (createdSession && !createdSession.gitBranch) {
-        server.sendTip(ws, sessionId, "git_not_available", createdSession);
+        sendTip(server, ws, sessionId, "git_not_available", createdSession);
       }
     });
     server.debugEvents.set(sessionId, []);

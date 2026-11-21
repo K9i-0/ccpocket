@@ -11,6 +11,7 @@ import {
   buildHistorySummary,
   buildReproRecipe,
 } from "../debug-trace.js";
+import { buildAgentPrompt } from "../session-state.js";
 
 export async function handleGetDebugBundle(
   server: BridgeWebSocketServer,
@@ -58,7 +59,7 @@ export async function handleGetDebugBundle(
         traceLimit,
         includeDiff,
       ),
-      agentPrompt: server.buildAgentPrompt(session),
+      agentPrompt: buildAgentPrompt(session),
       diff,
       diffError,
     };

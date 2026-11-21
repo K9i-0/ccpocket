@@ -23,6 +23,7 @@ import {
 import type { BridgeWebSocketServer } from "../../websocket.js";
 import { recordDebugEvent } from "../debug-trace.js";
 import { getCodexThreadHistory } from "../session-history.js";
+import { loadAndSetSessionName } from "../session-state.js";
 
 export async function handleSetPermissionMode(
   server: BridgeWebSocketServer,
@@ -356,7 +357,7 @@ export async function handleSetPermissionMode(
           newSession.name = sessionName;
         }
 
-        void server.loadAndSetSessionName(
+        void loadAndSetSessionName(
           newSession,
           "codex",
           effectiveProjectPath,
@@ -533,7 +534,7 @@ export async function handleSetSandboxMode(
     const newSession = server.sessionManager.get(newId);
     if (newSession && sessionName) newSession.name = sessionName;
 
-    void server.loadAndSetSessionName(
+    void loadAndSetSessionName(
       newSession,
       "claude",
       projectPath,
@@ -756,7 +757,7 @@ export async function handleSetSandboxMode(
         newSession.name = sessionName;
       }
 
-      void server.loadAndSetSessionName(
+      void loadAndSetSessionName(
         newSession,
         "codex",
         effectiveProjectPath,

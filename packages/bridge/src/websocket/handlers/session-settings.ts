@@ -13,6 +13,11 @@ import type { ClientMessage } from "../../parser.js";
 import { sanitizeCodexModel, errorMessageOf } from "../shared.js";
 import type { BridgeWebSocketServer } from "../../websocket.js";
 import { recordDebugEvent } from "../debug-trace.js";
+import {
+  sendAntigravityCurrentSettings,
+  sendClaudeCurrentSettings,
+  claudeSettingsMessage,
+} from "../session-state.js";
 
 export async function handleSetAntigravityModel(
   server: BridgeWebSocketServer,
@@ -39,7 +44,7 @@ export async function handleSetAntigravityModel(
         message: `Failed to switch model: ${errorMessageOf(err)}`,
         errorCode: "set_antigravity_model_rejected",
       });
-      server.sendAntigravityCurrentSettings(ws, session.id, session);
+      sendAntigravityCurrentSettings(server, ws, session.id, session);
     });
 }
 
@@ -71,7 +76,7 @@ export async function handleSetAntigravitySettings(
         message: `Failed to change Antigravity settings: ${errorMessageOf(err)}`,
         errorCode: "set_antigravity_settings_rejected",
       });
-      server.sendAntigravityCurrentSettings(ws, session.id, session);
+      sendAntigravityCurrentSettings(server, ws, session.id, session);
     });
 }
 
@@ -264,13 +269,13 @@ export async function handleSetClaudeSettings(
       errorCode: "set_claude_settings_rejected",
     });
     // Re-sync the requester with the settings still in effect.
-    server.sendClaudeCurrentSettings(ws, session.id, session);
+    sendClaudeCurrentSettings(server, ws, session.id, session);
     return;
   }
   session.lastActivityAt = new Date();
   server.broadcastSessionMessage(
     session.id,
-    server.claudeSettingsMessage(session.id, session),
+    claudeSettingsMessage(session.id, session),
   );
   server.broadcastSessionList();
   const settings = claudeProcess.settings;

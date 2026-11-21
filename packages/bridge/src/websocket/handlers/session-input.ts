@@ -8,6 +8,7 @@ import type { ClientMessage, ServerMessage } from "../../parser.js";
 import { nextCodexUserTurnUuid } from "../shared.js";
 import type { BridgeWebSocketServer } from "../../websocket.js";
 import { interruptAndRetract, editUserMessage } from "../rewind-fork.js";
+import { hasInputConflictSince } from "../session-state.js";
 
 export async function handleInput(
   server: BridgeWebSocketServer,
@@ -80,7 +81,7 @@ export async function handleInput(
   if (
     clientMessageId &&
     baseSeq !== undefined &&
-    server.hasInputConflictSince(session, baseSeq)
+    hasInputConflictSince(server, session, baseSeq)
   ) {
     server.send(ws, {
       type: "input_rejected",

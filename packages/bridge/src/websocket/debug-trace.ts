@@ -6,6 +6,7 @@ import type {
 } from "../parser.js";
 import { MAX_DEBUG_EVENTS, MAX_HISTORY_SUMMARY_ITEMS } from "./shared.js";
 import type { BridgeWebSocketServer } from "../websocket.js";
+import { buildResumeSessionMessage } from "./session-state.js";
 
 export function extractSessionIdFromClientMessage(
   msg: ClientMessage,
@@ -187,7 +188,7 @@ export function buildReproRecipe(
   return {
     wsUrlHint,
     startBridgeCommand: `BRIDGE_PORT=${bridgePort} npm run bridge`,
-    resumeSessionMessage: server.buildResumeSessionMessage(session),
+    resumeSessionMessage: buildResumeSessionMessage(session),
     getHistoryMessage: {
       type: "get_history",
       sessionId: "<runtime_session_id>",

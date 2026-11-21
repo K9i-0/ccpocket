@@ -1,6 +1,7 @@
 import { WebSocket } from "ws";
 import type { ClientMessage } from "../../parser.js";
 import type { BridgeWebSocketServer } from "../../websocket.js";
+import { broadcastPromptHistoryStatus } from "../session-state.js";
 
 export async function handleBackupPromptHistory(
   server: BridgeWebSocketServer,
@@ -146,7 +147,7 @@ export async function handleRecordPromptHistory(
       revision: server.promptHistoryStore.revision,
       entry,
     });
-    server.broadcastPromptHistoryStatus();
+    broadcastPromptHistoryStatus(server);
   } catch (err) {
     server.send(ws, {
       type: "prompt_history_mutation_result",
@@ -182,7 +183,7 @@ export async function handleSyncPromptHistory(
       fullSnapshot: true,
       entries: server.promptHistoryStore.list(msg.includeDeleted ?? true),
     });
-    server.broadcastPromptHistoryStatus();
+    broadcastPromptHistoryStatus(server);
   } catch (err) {
     server.send(ws, {
       type: "prompt_history_sync_result",
@@ -223,7 +224,7 @@ export async function handleMutatePromptHistory(
       entry: entry ?? undefined,
       error: entry == null ? "Prompt not found" : undefined,
     });
-    if (entry) server.broadcastPromptHistoryStatus();
+    if (entry) broadcastPromptHistoryStatus(server);
   } catch (err) {
     server.send(ws, {
       type: "prompt_history_mutation_result",
@@ -261,7 +262,7 @@ export async function handleImportPromptHistoryV1(
       fullSnapshot: true,
       entries: result.entries,
     });
-    server.broadcastPromptHistoryStatus();
+    broadcastPromptHistoryStatus(server);
   } catch (err) {
     server.send(ws, {
       type: "prompt_history_sync_result",

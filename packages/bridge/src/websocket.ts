@@ -13,7 +13,6 @@ import {
   type HistoryEntry,
   type SessionInfo,
   type SessionSummary,
-  type WorktreeOptions,
 } from "./session.js";
 import {
   SdkProcess,
@@ -21,7 +20,6 @@ import {
   type ClaudeEffortLevel,
   type ClaudeModelMetadata,
 } from "./sdk-process.js";
-import type { StartOptions } from "./sdk-process.js";
 import {
   CodexProcess,
   type CodexModelMetadata,
@@ -74,7 +72,6 @@ import {
   getPinnedCodexSessions,
   recentSessionIdentityKey,
   type SessionHistoryMessage,
-  getClaudeSessionName,
   getCodexSessionIndexMetadata,
   loadCodexSessionNames,
   listIndexedCodexThreadIds,
@@ -114,11 +111,6 @@ import { getPackageVersion } from "./version.js";
 import { tokensMatch } from "./bridge-auth.js";
 import { BackgroundCompletionGate } from "./background-completion-gate.js";
 import {
-  catalogFromCachedCommands,
-  convertSkillTriggers,
-  hasForeignSkillTrigger,
-} from "./skill-triggers.js";
-import {
   isPathWithinAllowedDirectory,
   resolvePlatformPath,
 } from "./path-utils.js";
@@ -129,14 +121,11 @@ import {
   type SystemServerMessage,
   type ResultServerMessage,
   BACKGROUND_COMPLETION_SETTLE_MS,
-  INITIAL_PROMPT_SKILL_WAIT_MS,
-  INITIAL_PROMPT_SKILL_POLL_MS,
   type InputClientMessage,
   type ResumeClientMessage,
   type ResumeOperation,
   RESUME_OPERATION_TIMEOUT_MS,
   RESUME_COMPLETED_TTL_MS,
-  type ClaudePermissionMode,
   FALLBACK_CLAUDE_MODEL_OPTIONS,
   FALLBACK_CLAUDE_MODELS,
   FALLBACK_CLAUDE_MODEL_EFFORTS,
@@ -151,9 +140,6 @@ import {
   OPT_IN_SERVER_MESSAGES,
   isRecord,
   errorMessageOf,
-  isClaudeAutoModeUnavailableError,
-  deriveExecutionMode,
-  derivePlanMode,
   envFlagEnabled,
   positiveEnvInt,
   nonNegativeEnvInt,
@@ -332,6 +318,11 @@ import {
   registerPastToolResultImages,
   getCodexThreadHistoryFromRpc,
 } from "./websocket/session-history.js";
+import {
+  getFirstSession,
+  sendPromptHistoryStatus,
+  sendConversationQueue,
+} from "./websocket/session-state.js";
 export {
   pinnedSessionKeysForRecentRequest,
   pinnedOnlySessionKeys,
@@ -942,24 +933,6 @@ export class BridgeWebSocketServer {
     return msg;
   }
 
-  sendTip(
-    ws: WebSocket,
-    sessionId: string,
-    tipCode: string,
-    session?: SessionInfo,
-  ): void {
-    const tipMsg = {
-      type: "system",
-      subtype: "tip",
-      tipCode,
-      sessionId,
-    } as ServerMessage;
-    if (session) {
-      this.sessionManager.appendHistory(session.id, tipMsg);
-    }
-    this.send(ws, tipMsg);
-  }
-
   /** Registers past-history images so clients can fetch them by URL. */
   async preparePastHistoryMessages(
     session: SessionInfo,
@@ -1072,83 +1045,6 @@ export class BridgeWebSocketServer {
     return [];
   }
 
-  claudeSettingsMessage(
-    sessionId: string,
-    session: SessionInfo,
-  ): ServerMessage {
-    const settings =
-      session.provider === "claude"
-        ? ((session.process as Partial<Pick<SdkProcess, "settings">>)
-            .settings ?? {})
-        : {};
-    return {
-      type: "system",
-      subtype: "claude_settings",
-      sessionId,
-      provider: "claude",
-      ...(settings.model ? { model: settings.model } : {}),
-      ...(settings.effort ? { effort: settings.effort } : {}),
-      fastMode: settings.fastMode === true,
-      ultracode: settings.ultracode === true,
-    } as ServerMessage;
-  }
-
-  sendClaudeCurrentSettings(
-    ws: WebSocket,
-    sessionId: string,
-    session: SessionInfo,
-  ): void {
-    if (session.provider !== "claude") return;
-    this.send(ws, this.claudeSettingsMessage(sessionId, session));
-  }
-
-  sendAntigravityCurrentSettings(
-    ws: WebSocket,
-    sessionId: string,
-    session: SessionInfo,
-  ): void {
-    if (!(session.process instanceof AntigravityProcess)) return;
-    const settings = session.process.settings;
-    this.send(ws, {
-      type: "system",
-      subtype: "antigravity_settings",
-      sessionId,
-      provider: "antigravity",
-      ...(settings.model ? { model: settings.model } : {}),
-      ...(settings.permissionMode
-        ? { permissionMode: settings.permissionMode }
-        : {}),
-      antigravity: settings,
-    });
-  }
-
-  sendCodexCurrentSettings(
-    ws: WebSocket,
-    sessionId: string,
-    session: SessionInfo,
-  ): void {
-    const process = session.process instanceof CodexProcess
-      ? session.process
-      : undefined;
-    const settings = session.codexSettings;
-    this.send(ws, {
-      type: "system",
-      subtype: "codex_settings",
-      sessionId,
-      provider: "codex",
-      ...(settings?.model ?? process?.model
-        ? { model: settings?.model ?? process?.model }
-        : {}),
-      ...(settings?.modelReasoningEffort ?? process?.modelReasoningEffort
-        ? {
-            modelReasoningEffort:
-              settings?.modelReasoningEffort ?? process?.modelReasoningEffort,
-          }
-        : {}),
-      serviceTier: settings?.serviceTier ?? process?.serviceTier ?? "standard",
-    });
-  }
-
   async codexHistoryMessageToServerMessage(
     session: SessionInfo,
     item: SessionHistoryMessage,
@@ -1223,63 +1119,6 @@ export class BridgeWebSocketServer {
       ...(item.toolName ? { toolName: item.toolName } : {}),
       ...(images.length > 0 ? { images } : {}),
     };
-  }
-
-  createClaudeSessionWithFallback(params: {
-    projectPath: string;
-    options?: StartOptions & { permissionMode?: ClaudePermissionMode };
-    pastMessages?: unknown[];
-    worktreeOptions?: WorktreeOptions;
-  }): {
-    sessionId: string;
-    permissionMode: ClaudePermissionMode;
-    executionMode: "default" | "acceptEdits" | "fullAccess";
-    planMode: boolean;
-    usedFallback: boolean;
-  } {
-    const initialMode = params.options?.permissionMode ?? "default";
-    try {
-      const sessionId = this.sessionManager.create(
-        params.projectPath,
-        params.options,
-        params.pastMessages,
-        params.worktreeOptions,
-      );
-      return {
-        sessionId,
-        permissionMode: initialMode,
-        executionMode: deriveExecutionMode({
-          provider: "claude",
-          permissionMode: initialMode,
-        }),
-        planMode: derivePlanMode({ permissionMode: initialMode }),
-        usedFallback: false,
-      };
-    } catch (err) {
-      if (
-        initialMode !== "auto" ||
-        !isClaudeAutoModeUnavailableError(err)
-      ) {
-        throw err;
-      }
-      const fallbackOptions = {
-        ...params.options,
-        permissionMode: "default" as const,
-      };
-      const sessionId = this.sessionManager.create(
-        params.projectPath,
-        fallbackOptions,
-        params.pastMessages,
-        params.worktreeOptions,
-      );
-      return {
-        sessionId,
-        permissionMode: "default",
-        executionMode: "default",
-        planMode: false,
-        usedFallback: true,
-      };
-    }
   }
 
   close(): void {
@@ -1459,7 +1298,7 @@ export class BridgeWebSocketServer {
       if (msg.deliveryRevision !== undefined) {
         this.send(ws, { type: "performance_mode_state", deliveryRevision: msg.deliveryRevision });
       }
-      this.sendPromptHistoryStatus(ws);
+      sendPromptHistoryStatus(this, ws);
       return;
     }
 
@@ -2162,69 +2001,6 @@ export class BridgeWebSocketServer {
   }
 
   /**
-   * Load the saved session name from CLI storage and set it on the SessionInfo.
-   * Called after SessionManager.create() so that session_created carries the name.
-   */
-  /**
-   * Rewrite skills in a new session's first prompt to the agent's trigger
-   * (`/` for Claude, `$` for Codex). The app converts later messages itself,
-   * but it cannot know the skills before the session starts. When the prompt
-   * contains a candidate and the skills are not cached yet, wait briefly for
-   * the provider to report them; on timeout the prompt is sent unchanged.
-   */
-  async prepareInitialPrompt(
-    provider: Provider,
-    effectiveCwd: string,
-    sessionId: string,
-    text: string,
-  ): Promise<{ text: string; skills: Array<{ name: string; path: string }> }> {
-    // Antigravity has no skill catalog to translate triggers against.
-    if (provider === "antigravity") return { text, skills: [] };
-    if (!hasForeignSkillTrigger(text, provider)) return { text, skills: [] };
-    const deadline = Date.now() + INITIAL_PROMPT_SKILL_WAIT_MS;
-    let catalog = catalogFromCachedCommands(
-      provider,
-      this.sessionManager.getCachedCommands(provider, effectiveCwd),
-    );
-    while (
-      !catalog &&
-      Date.now() < deadline &&
-      this.sessionManager.get(sessionId)
-    ) {
-      await new Promise((resolve) =>
-        setTimeout(resolve, INITIAL_PROMPT_SKILL_POLL_MS),
-      );
-      catalog = catalogFromCachedCommands(
-        provider,
-        this.sessionManager.getCachedCommands(provider, effectiveCwd),
-      );
-    }
-    if (!catalog) return { text, skills: [] };
-    return convertSkillTriggers(text, catalog);
-  }
-
-  async loadAndSetSessionName(
-    session: SessionInfo | undefined,
-    provider: string,
-    projectPath: string,
-    cliSessionId?: string,
-  ): Promise<void> {
-    if (!session || !cliSessionId) return;
-    try {
-      if (provider === "claude") {
-        const name = await getClaudeSessionName(projectPath, cliSessionId);
-        if (name) session.name = name;
-      } else if (provider === "codex") {
-        const names = await loadCodexSessionNames();
-        const name = names.get(cliSessionId);
-        if (name) session.name = name;
-      }
-    } catch {
-      // Non-critical: session works without name
-    }
-  }
-
-  /**
    * Handle rename_session: update in-memory name and persist to CLI storage.
    *
    * Supports both running sessions (by bridge session id) and recent sessions
@@ -2312,13 +2088,7 @@ export class BridgeWebSocketServer {
     sessionId: string | undefined,
   ): SessionInfo | undefined {
     if (sessionId) return this.sessionManager.get(sessionId);
-    return this.getFirstSession();
-  }
-
-  private getFirstSession() {
-    const sessions = this.sessionManager.list();
-    if (sessions.length === 0) return undefined;
-    return this.sessionManager.get(sessions[sessions.length - 1].id);
+    return getFirstSession(this);
   }
 
   sendSessionList(ws: WebSocket): void {
@@ -2343,23 +2113,6 @@ export class BridgeWebSocketServer {
       protocolVersion: BRIDGE_PROTOCOL_MAX_VERSION,
       minimumProtocolVersion: BRIDGE_PROTOCOL_MIN_VERSION,
       protocolCapabilities: this.protocolCapabilities(),
-    });
-  }
-
-  private sendPromptHistoryStatus(ws: WebSocket): void {
-    if (!this.promptHistoryStore) return;
-    const entries = this.promptHistoryStore.list(true);
-    const updatedAt = entries.reduce<string | undefined>(
-      (latest, entry) =>
-        !latest || entry.updatedAt > latest ? entry.updatedAt : latest,
-      undefined,
-    );
-    this.send(ws, {
-      type: "prompt_history_status",
-      bridgeInstanceId: this.promptHistoryStore.bridgeInstanceId,
-      revision: this.promptHistoryStore.revision,
-      entryCount: entries.filter((entry) => !entry.deletedAt).length,
-      updatedAt,
     });
   }
 
@@ -2405,23 +2158,6 @@ export class BridgeWebSocketServer {
       ? this.workspaceForRuntimeSession(session)
       : undefined;
     return workspace ? { ...summary, workspace } : summary;
-  }
-
-  broadcastPromptHistoryStatus(): void {
-    if (!this.promptHistoryStore) return;
-    const entries = this.promptHistoryStore.list(true);
-    const updatedAt = entries.reduce<string | undefined>(
-      (latest, entry) =>
-        !latest || entry.updatedAt > latest ? entry.updatedAt : latest,
-      undefined,
-    );
-    this.broadcast({
-      type: "prompt_history_status",
-      bridgeInstanceId: this.promptHistoryStore.bridgeInstanceId,
-      revision: this.promptHistoryStore.revision,
-      entryCount: entries.filter((entry) => !entry.deletedAt).length,
-      updatedAt,
-    });
   }
 
   broadcastSessionMessage(
@@ -4180,7 +3916,7 @@ export class BridgeWebSocketServer {
     return msg;
   }
 
-  private shouldSendToClient(
+  shouldSendToClient(
     ws: WebSocket,
     msg: ServerMessage | Record<string, unknown>,
   ): boolean {
@@ -4191,44 +3927,13 @@ export class BridgeWebSocketServer {
     );
   }
 
-  hasInputConflictSince(session: SessionInfo, baseSeq: number): boolean {
-    const codexResetRevision = session.codexHistoryResetRevision ??
-      session.codexCanonicalHistoryRevision;
-    if (
-      session.provider === "codex" &&
-      typeof codexResetRevision === "number" &&
-      baseSeq < codexResetRevision
-    ) {
-      return true;
-    }
-
-    const delta = this.sessionManager.getHistorySince(session.id, baseSeq);
-    if (!delta) return true;
-    if (delta.kind === "snapshot") return true;
-
-    return delta.entries.some((entry) => {
-      const msg = entry.message;
-      if (msg.type === "user_input" || msg.type === "result") return true;
-      if (msg.type === "system") {
-        const subtype = (msg as Record<string, unknown>).subtype;
-        return (
-          subtype === "session_switched" ||
-          subtype === "session_rewound" ||
-          subtype === "sandbox_restarted" ||
-          subtype === "session_stopped"
-        );
-      }
-      return false;
-    });
-  }
-
   sendQueueState(
     ws: WebSocket,
     sessionId: string,
     session: SessionInfo,
   ): void {
     const item = session.queuedInput;
-    this.sendConversationQueue(ws, {
+    sendConversationQueue(this, ws, {
       type: "conversation_queue",
       sessionId,
       limit: 1,
@@ -4249,40 +3954,6 @@ export class BridgeWebSocketServer {
           ]
         : [],
     } as Record<string, unknown>);
-  }
-
-  sendBackgroundTasksState(
-    ws: WebSocket,
-    sessionId: string,
-    session: SessionInfo,
-  ): void {
-    this.send(ws, {
-      type: "background_tasks",
-      sessionId,
-      tasks: session.backgroundTasks ?? [],
-    });
-    if (session.agentActivity) {
-      this.send(ws, {
-        type: "agent_activity",
-        sessionId,
-        activity: session.agentActivity,
-      });
-    }
-  }
-
-  sendCodexGoalState(
-    ws: WebSocket,
-    sessionId: string,
-    session: SessionInfo,
-  ): void {
-    const recovery = (session.process as CodexProcess).getRecoveryState?.();
-    if (recovery) this.send(ws, { type: "codex_recovery_state", sessionId, recovery });
-    if (session.codexGoal === undefined) return;
-    this.send(ws, {
-      type: "goal_state",
-      sessionId,
-      goal: session.codexGoal,
-    });
   }
 
   sendCachedCommands(
@@ -4322,16 +3993,6 @@ export class BridgeWebSocketServer {
       plugins: cached.plugins,
       ...(cached.pluginMetadata ? { pluginMetadata: cached.pluginMetadata } : {}),
     });
-  }
-
-  private sendConversationQueue(
-    ws: WebSocket,
-    msg:
-      | Extract<ServerMessage, { type: "conversation_queue" }>
-      | Record<string, unknown>,
-  ): void {
-    if (!this.shouldSendToClient(ws, msg)) return;
-    this.send(ws, msg);
   }
 
   send(
@@ -4696,61 +4357,5 @@ export class BridgeWebSocketServer {
     } catch (err) {
       return { error: err instanceof Error ? err.message : String(err) };
     }
-  }
-
-  buildResumeSessionMessage(
-    session: SessionInfo,
-  ): Record<string, unknown> {
-    const msg: Record<string, unknown> = {
-      type: "resume_session",
-      sessionId: session.claudeSessionId ?? "<session_id_from_recent_sessions>",
-      projectPath: session.projectPath,
-      provider: session.provider,
-    };
-
-    if (session.provider === "codex" && session.codexSettings) {
-      if (session.codexSettings.approvalPolicy !== undefined) {
-        msg.approvalPolicy = session.codexSettings.approvalPolicy;
-      }
-      if (session.codexSettings.approvalsReviewer !== undefined) {
-        msg.approvalsReviewer = session.codexSettings.approvalsReviewer;
-      }
-      if (session.codexSettings.sandboxMode !== undefined) {
-        msg.sandboxMode = session.codexSettings.sandboxMode;
-      }
-      if (session.codexSettings.model !== undefined) {
-        msg.model = session.codexSettings.model;
-      }
-      if (session.codexSettings.modelReasoningEffort !== undefined) {
-        msg.modelReasoningEffort = session.codexSettings.modelReasoningEffort;
-      }
-      if (session.codexSettings.serviceTier !== undefined) {
-        msg.serviceTier = session.codexSettings.serviceTier;
-      }
-      if (session.codexSettings.networkAccessEnabled !== undefined) {
-        msg.networkAccessEnabled = session.codexSettings.networkAccessEnabled;
-      }
-      if (session.codexSettings.webSearchMode !== undefined) {
-        msg.webSearchMode = session.codexSettings.webSearchMode;
-      }
-      if (session.codexSettings.additionalWritableRoots !== undefined) {
-        msg.additionalWritableRoots =
-          session.codexSettings.additionalWritableRoots;
-      }
-    }
-
-    return msg;
-  }
-
-  buildAgentPrompt(session: SessionInfo): string {
-    return [
-      "Use this ccpocket debug bundle to investigate a chat-screen bug.",
-      `Target provider: ${session.provider}`,
-      `Project path: ${session.projectPath}`,
-      "Required output:",
-      "1) Timeline analysis from historySummary + debugTrace.",
-      "2) Top 1-3 root-cause hypotheses with confidence.",
-      "3) Concrete validation steps and the minimum extra logs needed.",
-    ].join("\n");
   }
 }

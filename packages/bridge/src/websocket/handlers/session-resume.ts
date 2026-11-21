@@ -42,6 +42,11 @@ import {
   normalizeAdditionalWritableRoots,
 } from "../file-access.js";
 import { getCodexThreadHistory } from "../session-history.js";
+import {
+  loadAndSetSessionName,
+  createClaudeSessionWithFallback,
+  sendTip,
+} from "../session-state.js";
 
 export async function handleResumeSession(
   server: BridgeWebSocketServer,
@@ -495,7 +500,7 @@ export async function handleResumeSession(
         createdSession?.worktreePath ?? effectiveProjectPath,
       );
       const nameStartedAt = Date.now();
-      await server.loadAndSetSessionName(
+      await loadAndSetSessionName(
         createdSession,
         "codex",
         effectiveProjectPath,
@@ -677,7 +682,7 @@ export async function handleResumeSession(
         executionMode: effectiveExecutionMode,
         planMode: effectivePlanMode,
         usedFallback: autoFallbackUsed,
-      } = server.createClaudeSessionWithFallback({
+      } = createClaudeSessionWithFallback(server, {
         projectPath: resumeProjectPath,
         options: {
           sessionId: claudeSessionId,
@@ -751,7 +756,8 @@ export async function handleResumeSession(
         }
         server.broadcastSessionList();
         if (autoFallbackUsed) {
-          server.sendTip(
+          sendTip(
+            server,
             ws,
             sessionId,
             "auto_mode_fallback_default",
@@ -771,7 +777,7 @@ export async function handleResumeSession(
           }),
         );
       };
-      void server.loadAndSetSessionName(
+      void loadAndSetSessionName(
         createdSession,
         "claude",
         resumeProjectPath,
