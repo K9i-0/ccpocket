@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.173.2] - 2026-11-21
+
+### Fixed
+
+- List editing in the message input: numbering now continues after a code block indented under a list item (`2.`, `3.` instead of restarting at `1.`), also when leaving an empty nested item.
+- Diff viewer: file paths that contain spaces no longer end with a stray tab.
+- Diff viewer: paths are read correctly when only one side of a `diff --git` line is quoted, and backslashes in unquoted paths (`C:\work\new.txt`) are kept.
+- Diff viewer: a removed line starting with `-- ` followed by an added line starting with `++ ` (for example SQL comments) no longer splits one file into two.
+
 ## [1.173.1] - 2026-11-21
 
 ### Fixed
