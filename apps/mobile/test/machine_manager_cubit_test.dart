@@ -161,6 +161,7 @@ class MockMachineManagerService implements MachineManagerService {
   void configureBridgeTunnelResolvers({
     BridgeWsUrlResolver? wsUrlResolver,
     BridgeHttpBaseUrlResolver? httpBaseUrlResolver,
+    BridgeTunnelMachineIdResolver? machineIdForLocalPort,
   }) {}
 
   @override
@@ -202,6 +203,10 @@ class MockMachineManagerService implements MachineManagerService {
   void markConnected(String host, int port) {
     calls.add('markConnected:$host:$port');
   }
+
+  @override
+  Machine? findByBridgeEndpoint(String host, int port) =>
+      findByHostPort(host, port);
 
   @override
   Machine? findByHostPort(String host, int port) {

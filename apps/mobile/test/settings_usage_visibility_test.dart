@@ -255,6 +255,7 @@ class _StaticMachineManagerService implements MachineManagerService {
   void configureBridgeTunnelResolvers({
     BridgeWsUrlResolver? wsUrlResolver,
     BridgeHttpBaseUrlResolver? httpBaseUrlResolver,
+    BridgeTunnelMachineIdResolver? machineIdForLocalPort,
   }) {}
 
   @override
@@ -288,6 +289,10 @@ class _StaticMachineManagerService implements MachineManagerService {
 
   @override
   void markConnected(String host, int port) {}
+
+  @override
+  Machine? findByBridgeEndpoint(String host, int port) =>
+      findByHostPort(host, port);
 
   @override
   Machine? findByHostPort(String host, int port) {

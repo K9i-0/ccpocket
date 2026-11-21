@@ -6,6 +6,8 @@ import 'package:dartssh2/dartssh2.dart';
 import '../models/machine.dart';
 import 'machine_manager_service.dart';
 
+typedef _StartingTunnel = ({String signature, Future<_BridgeTunnel> tunnel});
+
 /// Maintains local TCP forwards for Bridge HTTP/WebSocket traffic that must
 /// traverse an SSH jump host.
 class SshBridgeTunnelService {
@@ -13,6 +15,7 @@ class SshBridgeTunnelService {
   final Duration connectionTimeout;
   final void Function(String?)? debugLog;
   final Map<String, _BridgeTunnel> _tunnels = {};
+  final Map<String, _StartingTunnel> _startingTunnels = {};
 
   SshBridgeTunnelService(
     this._machineManager, {
@@ -46,6 +49,14 @@ class SshBridgeTunnelService {
     );
     if (tunnel == null) return machine.httpUrl;
     return '${machine.useSsl ? 'https' : 'http'}://127.0.0.1:${tunnel.localPort}';
+  }
+
+  /// The ID of the machine whose open tunnel listens on [localPort], if any.
+  String? machineIdForLocalPort(int localPort) {
+    for (final entry in _tunnels.entries) {
+      if (entry.value.localPort == localPort) return entry.key;
+    }
+    return null;
   }
 
   Future<void> closeForMachine(String machineId) async {
@@ -85,11 +96,58 @@ class SshBridgeTunnelService {
     }
 
     final signature = _tunnelSignature(machine);
-    final existing = _tunnels[machine.id];
-    if (existing != null && existing.signature == signature) {
-      return existing;
+    final hasOwnCredentials = password != null || promptForPassword != null;
+    Future<_BridgeTunnel>? failedStart;
+    while (true) {
+      final existing = _tunnels[machine.id];
+      if (existing != null && existing.signature == signature) {
+        return existing;
+      }
+
+      // Concurrent callers (for example a connect and a health check) share
+      // one start, so a second tunnel never replaces the one a connection is
+      // using.
+      final starting = _startingTunnels[machine.id];
+      if (starting == null ||
+          starting.signature != signature ||
+          identical(starting.tunnel, failedStart)) {
+        break;
+      }
+      try {
+        return await starting.tunnel;
+      } on SSHAuthError {
+        // The shared start only had the credentials of the caller that began
+        // it (a health check has no password prompt). A caller that brought
+        // its own gets one attempt with them instead of inheriting the error.
+        if (!hasOwnCredentials) rethrow;
+        failedStart = starting.tunnel;
+      }
     }
 
+    final tunnel = _startTunnel(
+      machine,
+      signature: signature,
+      jumpHost: jumpHost,
+      password: password,
+      promptForPassword: promptForPassword,
+    );
+    _startingTunnels[machine.id] = (signature: signature, tunnel: tunnel);
+    try {
+      return await tunnel;
+    } finally {
+      if (identical(_startingTunnels[machine.id]?.tunnel, tunnel)) {
+        _startingTunnels.remove(machine.id);
+      }
+    }
+  }
+
+  Future<_BridgeTunnel> _startTunnel(
+    Machine machine, {
+    required String signature,
+    required String jumpHost,
+    String? password,
+    Future<String?> Function()? promptForPassword,
+  }) async {
     await closeForMachine(machine.id);
 
     final credentials = await _resolveJumpCredentials(

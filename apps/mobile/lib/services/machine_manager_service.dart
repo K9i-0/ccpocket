@@ -26,6 +26,9 @@ typedef BridgeHttpBaseUrlResolver = Future<String> Function(
   Future<String?> Function()? promptForPassword,
 });
 
+/// Returns the ID of the machine whose Bridge tunnel listens on [localPort].
+typedef BridgeTunnelMachineIdResolver = String? Function(int localPort);
+
 /// Manages machine configurations, health status, and version info.
 ///
 /// Responsibilities:
@@ -61,6 +64,7 @@ class MachineManagerService {
   final Set<String> _authRequiredIds = {};
   BridgeWsUrlResolver? _bridgeWsUrlResolver;
   BridgeHttpBaseUrlResolver? _bridgeHttpBaseUrlResolver;
+  BridgeTunnelMachineIdResolver? _bridgeTunnelMachineIdResolver;
   Timer? _healthCheckTimer;
 
   MachineManagerService(
@@ -72,9 +76,11 @@ class MachineManagerService {
   void configureBridgeTunnelResolvers({
     BridgeWsUrlResolver? wsUrlResolver,
     BridgeHttpBaseUrlResolver? httpBaseUrlResolver,
+    BridgeTunnelMachineIdResolver? machineIdForLocalPort,
   }) {
     _bridgeWsUrlResolver = wsUrlResolver;
     _bridgeHttpBaseUrlResolver = httpBaseUrlResolver;
+    _bridgeTunnelMachineIdResolver = machineIdForLocalPort;
   }
 
   /// Stream of machines with their current status
@@ -385,6 +391,22 @@ class MachineManagerService {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Find the saved machine that a live Bridge connection URL points at.
+  ///
+  /// SSH-tunnelled connections use a local forward
+  /// (`127.0.0.1:<ephemeral port>`) that no saved machine matches, so fall back
+  /// to the machine whose tunnel owns that local port.
+  Machine? findByBridgeEndpoint(String host, int port) {
+    final direct = findByHostPort(host, port);
+    if (direct != null) return direct;
+    final resolver = _bridgeTunnelMachineIdResolver;
+    if (resolver == null || normalizeHostInput(host) != '127.0.0.1') {
+      return null;
+    }
+    final machineId = resolver(port);
+    return machineId == null ? null : getMachine(machineId);
   }
 
   /// Get machine by ID

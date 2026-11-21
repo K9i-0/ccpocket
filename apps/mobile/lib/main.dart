@@ -165,6 +165,7 @@ Future<CcpocketBootstrap> bootstrapCcpocket() async {
     machineManagerService.configureBridgeTunnelResolvers(
       wsUrlResolver: sshBridgeTunnelService.buildWsUrl,
       httpBaseUrlResolver: sshBridgeTunnelService.buildHttpBaseUrl,
+      machineIdForLocalPort: sshBridgeTunnelService.machineIdForLocalPort,
     );
   }
 
