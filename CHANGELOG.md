@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.173.0] - 2026-11-21
+
+### Added
+
+- "Visible models" setting: choose which models appear in the model pickers for each agent. Selecting all shows every available model.
+- "Model picker style" setting: open the model list as a "Sheet" or as a "Menu" that opens in place without another bottom sheet.
+- Antigravity thinking level is now a slider, in the same quick (slider) and advanced (rows) layout as the Claude and Codex settings.
+
+### Changed
+
+- Performance mode now keeps thinking blocks and assistant images (generated images and images embedded in assistant messages) while still hiding other tool details. Needs Bridge 1.114.0 or newer for the full effect; an older Bridge still strips them before they reach the app.
+- The app now expects Bridge 1.114.0 and offers the update when connected to an older Bridge.
+
 ## [1.172.0] - 2026-11-20
 
 ### Changed
