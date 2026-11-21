@@ -13698,13 +13698,19 @@ describe("performance mode delivery", () => {
       expect(JSON.parse(performance.send.mock.calls[0][0])).toMatchObject({ filtered: true, fromSeq: 1, toSeq: 2, messages: [{ seq: 2, message: { content: "" } }] });
       internal.send(performance, { ...history, sessionId: "full" });
       expect(JSON.parse(performance.send.mock.calls[1][0]).messages).toEqual(history.messages);
-      // Thinking batches queued before a mode switch are filtered when flushed.
-      internal.queueDeltaForClient(performance, "s1", "thinking_delta", internal.splitDeltaText("SECRET"));
+      // Thinking deltas remain delivered while omitted tool events emit throttled session_activity.
+      internal.queueDeltaForClient(performance, "s1", "thinking_delta", internal.splitDeltaText("STEP"));
       internal.flushClientDeltaBatch(performance, "s1");
-      const activity = JSON.parse(performance.send.mock.calls[2][0]);
+      expect(JSON.parse(performance.send.mock.calls[2][0])).toEqual({
+        type: "thinking_delta",
+        text: "STEP",
+        sessionId: "s1",
+      });
+      internal.send(performance, { type: "tool_use_summary", summary: "many tools", sessionId: "s1" });
+      const activity = JSON.parse(performance.send.mock.calls[3][0]);
       expect(activity.type).toBe("session_activity");
-      internal.send(performance, { type: "thinking_delta", text: "SECRET2", sessionId: "s1" });
-      expect(performance.send.mock.calls).toHaveLength(3);
+      internal.send(performance, { type: "tool_use_summary", summary: "throttled", sessionId: "s1" });
+      expect(performance.send.mock.calls).toHaveLength(4);
       await internal.handleClientMessage({ type: "client_capabilities", performanceMode: false, deliveryRevision: 2 }, performance);
       internal.send(performance, history);
       expect(JSON.parse(performance.send.mock.calls.at(-1)![0])).toEqual(history);

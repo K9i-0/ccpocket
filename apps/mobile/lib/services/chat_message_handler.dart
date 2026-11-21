@@ -561,6 +561,7 @@ class ChatMessageHandler {
         : AssistantServerMessage(
             message: displayMessage,
             messageUuid: msg.messageUuid,
+            images: msg.images,
           );
     currentThinkingText = '';
 

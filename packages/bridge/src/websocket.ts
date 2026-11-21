@@ -10184,10 +10184,6 @@ export class BridgeWebSocketServer {
       for (const client of this.wss.clients) {
         if (client.readyState !== WebSocket.OPEN) continue;
         if (!this.shouldSendToClient(client, msg)) continue;
-        if (msg.type === "thinking_delta" && this.performanceEnabled(client, { sessionId })) {
-          this.send(client, { ...msg, sessionId } as Record<string, unknown>);
-          continue;
-        }
         chunks ??= this.splitDeltaText(msg.text);
         this.queueDeltaForClient(client, sessionId, msg.type, chunks);
       }

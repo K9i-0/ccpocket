@@ -5,9 +5,13 @@ import 'package:ccpocket/models/messages.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-ServerChatEntry assistant(List<AssistantContent> content) => ServerChatEntry(
+ServerChatEntry assistant(
+  List<AssistantContent> content, {
+  List<ImageRef> images = const [],
+}) => ServerChatEntry(
   AssistantServerMessage(
     messageUuid: 'uuid',
+    images: images,
     message: AssistantMessage(
       id: 'a',
       role: 'assistant',
@@ -21,15 +25,35 @@ ServerChatEntry assistant(List<AssistantContent> content) => ServerChatEntry(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('keeps prose and generated/attached images, removes MCP screenshots and thinking', () {
+  test('keeps prose, thinking, embedded/generated/attached images, and removes MCP screenshots', () {
     final user = UserChatEntry('make an image', imageUrls: ['/images/input']);
-    final prose = assistant([
-      const TextContent(text: 'Checking the screen'),
-      const ThinkingContent(thinking: 'internal'),
+    const embeddedImage = ImageRef(
+      id: 'embed',
+      url: '/images/embed',
+      mimeType: 'image/png',
+    );
+    final prose = assistant(
+      [
+        const TextContent(text: 'Checking the screen'),
+        const ThinkingContent(thinking: 'internal'),
+        const ThinkingContent(thinking: '   '),
+        const ToolUseContent(
+          id: 'screenshot',
+          name: 'mcp__simulator__screenshot',
+          input: {},
+        ),
+      ],
+      images: const [embeddedImage],
+    );
+    final imageOnly = assistant(
+      [const ToolUseContent(id: 'read', name: 'Read', input: {})],
+      images: const [embeddedImage],
+    );
+    final imageGenInProgress = assistant([
       const ToolUseContent(
-        id: 'screenshot',
-        name: 'mcp__simulator__screenshot',
-        input: {},
+        id: 'generated',
+        name: 'ImageGeneration',
+        input: {'status': 'generating', 'revisedPrompt': 'apple'},
       ),
     ]);
     final screenshot = ServerChatEntry(
@@ -52,18 +76,33 @@ void main() {
         ],
       ),
     );
-    final original = [user, prose, screenshot, generated];
+    final original = [
+      user,
+      prose,
+      imageOnly,
+      imageGenInProgress,
+      screenshot,
+      generated,
+    ];
     final visible = liteModeEntries(original);
-    expect(visible.length, 3);
+    expect(visible.length, 5);
     expect(visible.first, same(user));
+    expect(visible[3], same(imageGenInProgress));
     expect(visible.last, same(generated));
     final projected =
         (visible[1] as ServerChatEntry).message as AssistantServerMessage;
-    expect(projected.message.content.single, isA<TextContent>());
+    expect(projected.message.content, hasLength(2));
+    expect(projected.message.content[0], isA<TextContent>());
+    expect(projected.message.content[1], isA<ThinkingContent>());
+    expect(projected.images, const [embeddedImage]);
     expect(projected.messageUuid, 'uuid');
     expect(visible[1].timestamp, prose.timestamp);
-    expect((prose.message as AssistantServerMessage).message.content.length, 3);
-    expect(original[2], same(screenshot));
+    final projectedImageOnly =
+        (visible[2] as ServerChatEntry).message as AssistantServerMessage;
+    expect(projectedImageOnly.message.content, isEmpty);
+    expect(projectedImageOnly.images, const [embeddedImage]);
+    expect((prose.message as AssistantServerMessage).message.content.length, 4);
+    expect(original[4], same(screenshot));
     expect(
       groupGeneratedImageResponses(visible).single.messages.single,
       generated.message,

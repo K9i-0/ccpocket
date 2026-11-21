@@ -7,14 +7,15 @@ and `settings_session_lite_mode:*` keys remain valid; no preference migration is
 ## Delivery policy
 
 Filtering runs per WebSocket **before JSON serialization** for live messages, legacy history,
-past history, and sequenced snapshots/deltas. Thinking delta batches are skipped for these
-clients; already queued batches pass through the same filter on flush.
+past history, and sequenced snapshots/deltas.
 
-- Keep assistant prose, user input/attachments, generated `ImageGeneration` results,
-  approvals, questions, plans, errors, status and completion.
+- Keep assistant prose, thinking blocks and `thinking_delta` streams, markdown-embedded
+  assistant images (`AssistantServerMessage.images`), user input/attachments,
+  `ImageGeneration` tool calls and results, approvals, questions, plans, errors, status
+  and completion.
 - Keep Explorer/file and explicitly requested image endpoints unchanged.
-- Remove tool inputs, tool output bodies, incidental tool images (including simulator
-  screenshots), thinking and tool summaries. Preserve a payload-free `tool_result` marker
+- Remove other tool inputs, tool output bodies, incidental tool images (including simulator
+  screenshots), and tool summaries. Preserve a payload-free `tool_result` marker
   with its completion ID so questions answered on another client stay resolved.
 - Preserve plan-file `Write` inputs because the approval UI derives plan text from them.
 - Replace omitted live events with a small `session_activity` at most once per second per

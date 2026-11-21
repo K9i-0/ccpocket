@@ -574,6 +574,43 @@ void main() {
     });
   });
 
+  group('AssistantServerMessage image preservation', () {
+    test('retains embedded images when injecting streamed thinking or stripping blank thinking', () {
+      const embedded = ImageRef(
+        id: 'embed-1',
+        url: '/images/embed-1',
+        mimeType: 'image/png',
+      );
+      handler.handle(
+        const ThinkingDeltaMessage(text: 'considering layout'),
+        isBackground: false,
+      );
+      final withInjectedThinking = handler.handle(
+        const AssistantServerMessage(
+          messageUuid: 'a-1',
+          images: [embedded],
+          message: AssistantMessage(
+            id: 'a-1',
+            role: 'assistant',
+            model: 'antigravity',
+            content: [
+              ThinkingContent(thinking: '   '),
+              TextContent(text: '![preview](preview.png)'),
+            ],
+          ),
+        ),
+        isBackground: false,
+      );
+      final entry = withInjectedThinking.entriesToAdd.single as ServerChatEntry;
+      final message = entry.message as AssistantServerMessage;
+      expect(message.images, const [embedded]);
+      expect(
+        message.message.content.whereType<ThinkingContent>().single.thinking,
+        'considering layout',
+      );
+    });
+  });
+
   group('ResultMessage handling', () {
     test('stopped resets all state', () {
       final update = handler.handle(
