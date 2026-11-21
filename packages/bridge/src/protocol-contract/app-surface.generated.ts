@@ -143,6 +143,12 @@ export type AppSent =
       sometimes: never;
     }
   | {
+      type: "get_pins";
+      from: "ClientMessage.getPins";
+      always: "type";
+      sometimes: "seed";
+    }
+  | {
       type: "get_prompt_history_backup_info";
       from: "ClientMessage.getPromptHistoryBackupInfo";
       always: "type";
@@ -545,10 +551,22 @@ export type AppSent =
       sometimes: "approvalPolicy" | "approvalsReviewer" | "codexPermissionsMode" | "executionMode" | "planMode" | "sessionId";
     }
   | {
+      type: "set_project_pin";
+      from: "ClientMessage.setProjectPin";
+      always: "pinned" | "projectPath" | "type";
+      sometimes: never;
+    }
+  | {
       type: "set_sandbox_mode";
       from: "ClientMessage.setSandboxMode";
       always: "sandboxMode" | "type";
       sometimes: "sessionId";
+    }
+  | {
+      type: "set_session_pin";
+      from: "ClientMessage.setSessionPin";
+      always: "pinned" | "projectPath" | "provider" | "sessionId" | "type";
+      sometimes: never;
     }
   | {
       type: "start";
@@ -853,6 +871,11 @@ export type AppRead =
       optional: never;
     }
   | {
+      type: "pins";
+      required: never;
+      optional: "projects" | "sessions";
+    }
+  | {
       type: "project_history";
       required: "projects";
       optional: never;
@@ -1046,6 +1069,7 @@ export type AppSupportedServerMessage =
   | "guardian_approval"
   | "history_delta"
   | "history_snapshot"
+  | "pins"
   | "projects"
   | "prompt_history_status"
   | "push_registration_result"

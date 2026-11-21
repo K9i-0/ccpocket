@@ -186,6 +186,7 @@ export const OPT_IN_SERVER_MESSAGE_TYPES = [
   "goal_state",
   "codex_recovery_state",
   "guardian_approval",
+  "pins",
   "prompt_history_status",
   "projects",
   "push_registration_result",

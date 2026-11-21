@@ -664,6 +664,31 @@ export type ClientMessage =
       projectPath: string;
     }
   | { type: "refresh_branch"; sessionId: string }
+  // ---- Pins shared by every client of this Bridge (docs/pin-sync.md) ----
+  | {
+      /**
+       * Ask for the pinned sessions and projects; answered with `pins`.
+       * `seed` carries the pins the client kept locally and is adopted only
+       * while the Bridge has never stored any.
+       */
+      type: "get_pins";
+      seed?: {
+        sessions?: Array<{
+          provider: Provider;
+          sessionId: string;
+          projectPath: string;
+        }>;
+        projects?: string[];
+      };
+    }
+  | {
+      type: "set_session_pin";
+      provider: Provider;
+      sessionId: string;
+      projectPath: string;
+      pinned: boolean;
+    }
+  | { type: "set_project_pin"; projectPath: string; pinned: boolean }
   // ---- Git Operations (Phase 1-3) ----
   | {
       type: "git_stage";
@@ -1369,6 +1394,19 @@ export type ServerMessage =
       error?: string;
     }
   | {
+      /**
+       * Pinned sessions and projects of this Bridge: the answer to
+       * `get_pins`, and broadcast after every change. Opt-in.
+       */
+      type: "pins";
+      sessions: Array<{
+        provider: Provider;
+        sessionId: string;
+        projectPath: string;
+      }>;
+      projects: string[];
+    }
+  | {
       type: "prompt_history_status";
       bridgeInstanceId: string;
       revision: number;
@@ -1712,6 +1750,35 @@ function isValidRecentDate(value: unknown): boolean {
     value.trim().length > 0 &&
     Number.isFinite(Date.parse(value))
   );
+}
+
+const PIN_MAX_PATH_LENGTH = 4096;
+
+function isValidPinProjectPath(value: unknown, allowEmpty: boolean): boolean {
+  return (
+    typeof value === "string" &&
+    value.length <= PIN_MAX_PATH_LENGTH &&
+    (allowEmpty || value.length > 0)
+  );
+}
+
+function isValidPinSeed(value: unknown): boolean {
+  if (value === undefined) return true;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const { sessions, projects } = value as Record<string, unknown>;
+  if (sessions !== undefined) {
+    if (!isValidRecentPinnedSessions(sessions)) return false;
+    const pins = sessions as Array<Record<string, unknown>>;
+    if (!pins.every((pin) => isValidPinProjectPath(pin.projectPath, true)))
+      return false;
+  }
+  if (projects !== undefined) {
+    if (!Array.isArray(projects)) return false;
+    if (projects.length > RECENT_SESSIONS_MAX_PINNED_SESSIONS) return false;
+    if (!projects.every((path) => isValidPinProjectPath(path, false)))
+      return false;
+  }
+  return true;
 }
 
 function isValidRecentPinnedSessions(value: unknown): boolean {
@@ -2774,6 +2841,19 @@ export function parseClientMessage(data: string): ClientMessage | null {
         if (!isOptionalEnum(msg.provider, PROVIDERS) || msg.provider === undefined)
           return null;
         if (typeof msg.projectPath !== "string") return null;
+        break;
+      case "get_pins":
+        if (!isValidPinSeed(msg.seed)) return null;
+        break;
+      case "set_session_pin":
+        if (!isEnum(msg.provider, PROVIDERS)) return null;
+        if (!isNonEmptyString(msg.sessionId)) return null;
+        if (!isValidPinProjectPath(msg.projectPath, true)) return null;
+        if (typeof msg.pinned !== "boolean") return null;
+        break;
+      case "set_project_pin":
+        if (!isValidPinProjectPath(msg.projectPath, false)) return null;
+        if (typeof msg.pinned !== "boolean") return null;
         break;
       default:
         return null;

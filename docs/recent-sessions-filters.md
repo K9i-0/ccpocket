@@ -13,7 +13,8 @@ The recent session list separates three layers:
    it holds conditions, an "Advanced n" chip appears after the quick filters.
 
 "Favorite projects" are the existing pinned projects
-(`session_list_pinned_project_paths_v1`). A favorite project is pinned to the
+(`session_list_pinned_project_paths_v1`, shared through the Bridge, see
+[pin-sync.md](pin-sync.md)). A favorite project is pinned to the
 top in grouped mode, shown first (with "select all favorites") in the project
 picker. It is not part of the pinned-only filter, which shows pinned
 sessions only (the app does not send `pinnedProjects`). List mode stays chronological

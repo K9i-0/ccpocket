@@ -599,6 +599,40 @@ class BridgeService implements BridgeServiceBase {
         !_recentSessions.any((s) => recentSessionRefOf(s) == ref);
   }
 
+  final _pinsController = StreamController<PinsMessage>.broadcast();
+
+  /// Pins stored on the Bridge: the answer to [requestPins] and every later
+  /// change made by any client. Silent on a Bridge without shared pins.
+  Stream<PinsMessage> get pinsStream => _pinsController.stream;
+
+  /// Asks for the Bridge's pins, offering this device's own as the seed.
+  void requestPins({
+    List<PinnedSessionEntry> seedSessions = const [],
+    List<String> seedProjects = const [],
+  }) {
+    send(
+      ClientMessage.getPins(
+        seedSessions: seedSessions,
+        seedProjects: seedProjects,
+      ),
+    );
+  }
+
+  void setSessionPin(PinnedSessionEntry pin, {required bool pinned}) {
+    send(
+      ClientMessage.setSessionPin(
+        provider: pin.provider,
+        sessionId: pin.sessionId,
+        projectPath: pin.projectPath,
+        pinned: pinned,
+      ),
+    );
+  }
+
+  void setProjectPin(String projectPath, {required bool pinned}) {
+    send(ClientMessage.setProjectPin(projectPath: projectPath, pinned: pinned));
+  }
+
   /// Pinned provider sessions to request with first list pages so they stay
   /// visible regardless of pagination.
   ///
@@ -1147,6 +1181,8 @@ class BridgeService implements BridgeServiceBase {
               case PromptHistoryMutationResultMessage():
                 _rememberPromptHistoryBridgeId(msg.bridgeInstanceId);
                 _promptHistoryMutationController.add(msg);
+              case PinsMessage():
+                _pinsController.add(msg);
               case PromptHistoryStatusMessage():
                 _rememberPromptHistoryBridgeId(msg.bridgeInstanceId);
                 _promptHistoryStatusController.add(msg);
@@ -1314,6 +1350,10 @@ class BridgeService implements BridgeServiceBase {
                   if (msg.errorCode == 'unsupported_message' &&
                       message == 'resolve_session_link') {
                     _completePendingSessionLinkResolutionsAsUnsupported();
+                  } else if (msg.errorCode == 'unsupported_message' &&
+                      _pinMessageTypes.contains(message)) {
+                    // A Bridge without shared pins: the pins stay on this
+                    // device (docs/pin-sync.md).
                   } else {
                     logger.error('Bridge error: $message');
                     if (sessionId != null) {
@@ -1693,6 +1733,12 @@ class BridgeService implements BridgeServiceBase {
     _dispatchNextLegacyWorktreeRemoveRequest();
     return true;
   }
+
+  static const _pinMessageTypes = {
+    'get_pins',
+    'set_session_pin',
+    'set_project_pin',
+  };
 
   bool _isFileUploadResponseError(ErrorMessage message) {
     if (message.errorCode?.startsWith('file_upload_') ?? false) return true;
@@ -2150,6 +2196,10 @@ class BridgeService implements BridgeServiceBase {
     // again itself, so a replayed read would only answer a forgotten id.
     if (message.type == 'github_list' || message.type == 'github_item') {
       return;
+    }
+    // One pending pin request is enough; the latest carries the latest seed.
+    if (message.type == 'get_pins') {
+      _messageQueue.removeWhere((queued) => queued.type == 'get_pins');
     }
     final dedupeKey = offlineMessageDedupeKey(message);
     if (dedupeKey != null) {
@@ -5150,6 +5200,7 @@ class BridgeService implements BridgeServiceBase {
     _promptHistorySyncController.close();
     _promptHistoryMutationController.close();
     _promptHistoryStatusController.close();
+    _pinsController.close();
     // Git Operations
     _gitStageResultController.close();
     _gitUnstageResultController.close();

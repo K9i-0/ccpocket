@@ -30,6 +30,39 @@ class MockBridgeService extends BridgeService {
   bool isPinnedRecentExtra(RecentSession session) =>
       pinnedExtraIds.contains(session.sessionId);
 
+  final _pinsController = StreamController<PinsMessage>.broadcast();
+  final _connectionController =
+      StreamController<BridgeConnectionState>.broadcast();
+  bool connected = false;
+
+  @override
+  Stream<PinsMessage> get pinsStream => _pinsController.stream;
+
+  @override
+  Stream<BridgeConnectionState> get connectionStatus =>
+      _connectionController.stream;
+
+  @override
+  bool get isConnected => connected;
+
+  void emitConnected() {
+    connected = true;
+    _connectionController.add(BridgeConnectionState.connected);
+  }
+
+  void emitPins({
+    List<PinnedSessionEntry> sessions = const [],
+    List<String> projects = const [],
+  }) {
+    _pinsController.add(PinsMessage(sessions: sessions, projects: projects));
+  }
+
+  List<Map<String, dynamic>> sentOfType(String type) => [
+    for (final message in sentMessages)
+      if (message.type == type)
+        jsonDecode(message.toJson()) as Map<String, dynamic>,
+  ];
+
   bool _hasMore = false;
   String? _projectFilter;
   RecentSessionsMessage? _lastRecentSessionsMessage;
@@ -282,6 +315,144 @@ void main() {
         prefs.getStringList('session_list_pinned_project_paths_v1'),
         contains('/a/proj1'),
       );
+    });
+
+    group('Bridge-managed pins', () {
+      test('offers the local pins as the seed on connect', () async {
+        final session = _session(id: 'local-pin', projectPath: '/a/proj1');
+        await cubit.close();
+        mockBridge.dispose();
+        SharedPreferences.setMockInitialValues({
+          'session_list_pinned_session_keys_v1': [recentSessionPinKey(session)],
+          'session_list_pinned_project_paths_v1': ['/a/proj1'],
+        });
+        mockBridge = MockBridgeService();
+        cubit = SessionListCubit(bridge: mockBridge);
+        await Future<void>.delayed(Duration.zero);
+        expect(mockBridge.sentOfType('get_pins'), isEmpty);
+
+        mockBridge.emitConnected();
+        await Future<void>.delayed(Duration.zero);
+
+        expect(mockBridge.sentOfType('get_pins'), [
+          {
+            'type': 'get_pins',
+            'seed': {
+              'sessions': [
+                {
+                  'provider': 'claude',
+                  'sessionId': 'local-pin',
+                  'projectPath': '/a/proj1',
+                },
+              ],
+              'projects': ['/a/proj1'],
+            },
+          },
+        ]);
+      });
+
+      test('asks without a seed when nothing is pinned locally', () async {
+        mockBridge.emitConnected();
+        await Future<void>.delayed(Duration.zero);
+
+        expect(mockBridge.sentOfType('get_pins'), [
+          {'type': 'get_pins'},
+        ]);
+      });
+
+      test('Bridge pins replace the local pins and are cached', () async {
+        final local = _session(id: 'local-pin', projectPath: '/a/proj1');
+        final remote = _session(id: 'remote-pin', projectPath: '/b/proj2');
+        await cubit.toggleRecentSessionPinned(local);
+        await cubit.toggleProjectPinned('/a/proj1');
+        cubit.refresh();
+        mockBridge.sentMessages.clear();
+
+        mockBridge.emitPins(
+          sessions: [
+            (
+              provider: 'claude',
+              sessionId: 'remote-pin',
+              projectPath: '/b/proj2',
+            ),
+          ],
+          projects: ['/b/proj2'],
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        expect(cubit.isRecentSessionPinned(local), isFalse);
+        expect(cubit.isRecentSessionPinned(remote), isTrue);
+        expect(cubit.state.pinnedProjectPaths, {'/b/proj2'});
+        expect(mockBridge.pushedPins, [
+          (provider: 'claude', sessionId: 'remote-pin'),
+        ]);
+        // The new pin may be outside the loaded pages.
+        expect(mockBridge.sentOfType('list_recent_sessions'), hasLength(1));
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getStringList('session_list_pinned_session_keys_v1'), [
+          recentSessionPinKey(remote),
+        ]);
+        expect(prefs.getStringList('session_list_pinned_project_paths_v1'), [
+          '/b/proj2',
+        ]);
+      });
+
+      test('an echo of the current pins changes nothing', () async {
+        final session = _session(id: 'pinned', projectPath: '/a/proj1');
+        await cubit.toggleRecentSessionPinned(session);
+        cubit.refresh();
+        mockBridge.sentMessages.clear();
+        final before = cubit.state;
+
+        mockBridge.emitPins(
+          sessions: [
+            // The Bridge may know the session under another project path.
+            (provider: 'claude', sessionId: 'pinned', projectPath: '/other'),
+          ],
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        expect(cubit.state, same(before));
+        expect(mockBridge.sentMessages, isEmpty);
+      });
+
+      test('toggles are sent to the Bridge', () async {
+        final session = _session(id: 'pinned', projectPath: '/a/proj1');
+
+        await cubit.toggleRecentSessionPinned(session);
+        await cubit.toggleRecentSessionPinned(session);
+        await cubit.toggleProjectPinned('/a/proj1');
+        await cubit.toggleProjectPinned('/a/proj1');
+
+        expect(mockBridge.sentOfType('set_session_pin'), [
+          {
+            'type': 'set_session_pin',
+            'provider': 'claude',
+            'sessionId': 'pinned',
+            'projectPath': '/a/proj1',
+            'pinned': true,
+          },
+          {
+            'type': 'set_session_pin',
+            'provider': 'claude',
+            'sessionId': 'pinned',
+            'projectPath': '/a/proj1',
+            'pinned': false,
+          },
+        ]);
+        expect(mockBridge.sentOfType('set_project_pin'), [
+          {
+            'type': 'set_project_pin',
+            'projectPath': '/a/proj1',
+            'pinned': true,
+          },
+          {
+            'type': 'set_project_pin',
+            'projectPath': '/a/proj1',
+            'pinned': false,
+          },
+        ]);
+      });
     });
 
     test('persisted session and project pins are restored', () async {
@@ -1066,9 +1237,12 @@ void main() {
     test('pin changes re-request while pinned only is active', () async {
       mockBridge.supportsFilters = true;
       cubit.togglePinnedOnly();
-      final before = mockBridge.sentMessages.length;
+      final before = mockBridge.sentOfType('list_recent_sessions').length;
       await cubit.toggleRecentSessionPinned(_session(id: 'x'));
-      expect(mockBridge.sentMessages.length, before + 1);
+      expect(
+        mockBridge.sentOfType('list_recent_sessions'),
+        hasLength(before + 1),
+      );
     });
 
     test('re-requests with filters once the Bridge announces them', () async {

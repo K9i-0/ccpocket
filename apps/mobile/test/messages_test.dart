@@ -689,6 +689,7 @@ void main() {
         'codex_recovery_state',
         'guardian_approval',
         'history_delta',
+        'pins',
         'history_snapshot',
         'git_status_result',
         'prompt_history_status',

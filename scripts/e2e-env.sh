@@ -16,6 +16,7 @@
 #   E2E_BRIDGE_PORT       use this port instead of picking one
 #   E2E_SIM_DEVICE_TYPE   simulator device type for new simulators (default: "iPhone 17")
 #   BRIDGE_API_KEY        token for `connect` (default: ~/.ccpocket/bridge-api-key)
+#   CCPOCKET_PINS_FILE    pin file of the test Bridge (default: a temp file per port)
 #   CCPOCKET_ANTIGRAVITY_API_KEY  Gemini API key for Antigravity sessions
 #                         (default: GEMINI_API_KEY in .env.antigravity.local)
 set -euo pipefail
@@ -85,6 +86,9 @@ cmd_bridge() {
   # If another agent grabbed the port meanwhile, the Bridge exits with
   # EADDRINUSE; run this command again to pick the next port.
   cd "$root"
+  # Pins are shared by every client of a Bridge; keep the test Bridge away
+  # from the production pins in ~/.ccpocket/pins.json.
+  export CCPOCKET_PINS_FILE="${CCPOCKET_PINS_FILE:-${TMPDIR:-/tmp}/ccpocket-e2e-pins-$port.json}"
   if [[ "${1:-}" == "--antigravity-login" ]]; then
     # The one exception to the rule below: features an API key cannot show
     # (auto mode, the plan name, ...), checked through the app UI the way a

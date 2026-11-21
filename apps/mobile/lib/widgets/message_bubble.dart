@@ -380,6 +380,7 @@ class ServerMessageWidget extends StatelessWidget {
       PromptHistorySyncResultMessage() => const SizedBox.shrink(),
       PromptHistoryMutationResultMessage() => const SizedBox.shrink(),
       PromptHistoryStatusMessage() => const SizedBox.shrink(),
+      PinsMessage() => const SizedBox.shrink(),
       RenameResultMessage() => const SizedBox.shrink(),
       ArchiveResultMessage() => const SizedBox.shrink(),
       BranchUpdateMessage() => const SizedBox.shrink(),

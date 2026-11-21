@@ -79,6 +79,7 @@ import {
   type WorkspaceStore,
 } from "./workspace-store.js";
 import { ArchiveStore } from "./archive-store.js";
+import { PinStore } from "./pin-store.js";
 import { WorktreeStore } from "./worktree-store.js";
 import { DebugTraceStore } from "./debug-trace-store.js";
 import { RecordingStore } from "./recording-store.js";
@@ -239,6 +240,11 @@ import {
   handleRenameSession,
 } from "./websocket/handlers/session-catalog.js";
 import {
+  handleGetPins,
+  handleSetProjectPin,
+  handleSetSessionPin,
+} from "./websocket/handlers/pins.js";
+import {
   handleGetHistory,
   handleGetSessionTranscript,
   handleGetSessionContext,
@@ -347,6 +353,8 @@ export interface BridgeServerOptions {
   antigravityConfig?: AntigravityConfig;
   /** Where names and models of Antigravity conversations are kept. */
   antigravityStore?: AntigravityStore;
+  /** Pinned sessions and projects. Tests replace it to avoid `~/.ccpocket`. */
+  pinStore?: PinStore;
   server: HttpServer;
   apiKey?: string;
   allowedDirs?: string[];
@@ -432,6 +440,7 @@ export class BridgeWebSocketServer {
   debugEvents = new Map<string, DebugTraceEvent[]>();
   notifiedPermissionToolUses = new Map<string, Set<string>>();
   archiveStore: ArchiveStore;
+  readonly pinStore: PinStore;
   readonly antigravityStore: AntigravityStore;
   antigravityUsageCache: { at: number; usage: UsageInfo[] } | undefined;
   private antigravityUsageRead: Promise<UsageInfo[]> | undefined;
@@ -621,6 +630,8 @@ export class BridgeWebSocketServer {
     );
 
     this.archiveStore = new ArchiveStore();
+    this.pinStore = options.pinStore ?? new PinStore();
+    void this.pinStore.init();
     this.antigravityStore = options.antigravityStore ?? new AntigravityStore();
     void this.antigravityStore.init().catch((err) => {
       console.error("[ws] Failed to initialize Antigravity store:", err);
@@ -1459,6 +1470,18 @@ export class BridgeWebSocketServer {
 
       case "archive_session":
         await handleArchiveSession(this, msg, ws);
+        break;
+
+      case "get_pins":
+        await handleGetPins(this, msg, ws);
+        break;
+
+      case "set_session_pin":
+        await handleSetSessionPin(this, msg);
+        break;
+
+      case "set_project_pin":
+        await handleSetProjectPin(this, msg);
         break;
 
       case "resume_session":

@@ -313,6 +313,45 @@ describe("parseClientMessage", () => {
     ).toBeNull();
   });
 
+  it("validates the pin messages", () => {
+    const parse = (msg: unknown) => parseClientMessage(JSON.stringify(msg));
+    const pin = { provider: "codex", sessionId: "s", projectPath: "/p" };
+
+    expect(parse({ type: "get_pins" })).toMatchObject({ type: "get_pins" });
+    expect(
+      parse({ type: "get_pins", seed: { sessions: [pin], projects: ["/p"] } }),
+    ).toMatchObject({ seed: { sessions: [pin] } });
+    expect(parse({ type: "get_pins", seed: {} })).not.toBeNull();
+    expect(parse({ type: "get_pins", seed: [] })).toBeNull();
+    expect(
+      parse({ type: "get_pins", seed: { sessions: [{ ...pin, provider: "x" }] } }),
+    ).toBeNull();
+    expect(
+      parse({ type: "get_pins", seed: { sessions: [{ ...pin, projectPath: 1 }] } }),
+    ).toBeNull();
+    expect(parse({ type: "get_pins", seed: { projects: [""] } })).toBeNull();
+
+    expect(
+      parse({ type: "set_session_pin", ...pin, pinned: true }),
+    ).toMatchObject({ pinned: true });
+    expect(
+      parse({ type: "set_session_pin", ...pin, projectPath: "", pinned: false }),
+    ).not.toBeNull();
+    expect(parse({ type: "set_session_pin", ...pin })).toBeNull();
+    expect(
+      parse({ type: "set_session_pin", ...pin, sessionId: "", pinned: true }),
+    ).toBeNull();
+    expect(
+      parse({ type: "set_session_pin", ...pin, provider: "x", pinned: true }),
+    ).toBeNull();
+
+    expect(
+      parse({ type: "set_project_pin", projectPath: "/p", pinned: false }),
+    ).toMatchObject({ pinned: false });
+    expect(parse({ type: "set_project_pin", projectPath: "", pinned: true })).toBeNull();
+    expect(parse({ type: "set_project_pin", projectPath: "/p" })).toBeNull();
+  });
+
   it("validates set_antigravity_model", () => {
     expect(
       parseClientMessage(

@@ -48,8 +48,57 @@ FixtureHandler recentSessionsHandler(List<JsonMap> all) => (request) {
   ];
 };
 
-/// Handlers for the requests [SessionListCubit.refresh] sends.
+/// Answers the pin requests like the Bridge: one pin set, seeded by the
+/// first non-empty `get_pins.seed`, returned as `pins` after every request.
+Map<String, FixtureHandler> pinsFixture() {
+  var sessions = <JsonMap>[];
+  var projects = <String>[];
+  var seeded = false;
+  List<JsonMap> pins() => [
+    {'type': 'pins', 'sessions': sessions, 'projects': projects},
+  ];
+  return {
+    'get_pins': (request) {
+      final seed = request['seed'] as Map?;
+      if (!seeded && seed != null) {
+        sessions = [...(seed['sessions'] as List? ?? []).cast<JsonMap>()];
+        projects = [...(seed['projects'] as List? ?? []).cast<String>()];
+        seeded = true;
+      }
+      return pins();
+    },
+    'set_session_pin': (request) {
+      seeded = true;
+      sessions = [
+        for (final pin in sessions)
+          if (pin['provider'] != request['provider'] ||
+              pin['sessionId'] != request['sessionId'])
+            pin,
+        if (request['pinned'] == true)
+          {
+            'provider': request['provider'],
+            'sessionId': request['sessionId'],
+            'projectPath': request['projectPath'],
+          },
+      ];
+      return pins();
+    },
+    'set_project_pin': (request) {
+      seeded = true;
+      projects = [
+        for (final path in projects)
+          if (path != request['projectPath']) path,
+        if (request['pinned'] == true) request['projectPath'] as String,
+      ];
+      return pins();
+    },
+  };
+}
+
+/// Handlers for the requests [SessionListCubit] sends on connect and
+/// [SessionListCubit.refresh].
 Map<String, FixtureHandler> sessionListFixture(List<JsonMap> recent) => {
+  ...pinsFixture(),
   'list_sessions': (_) => [FixtureBridge.sessionListMessage()],
   'list_recent_sessions': recentSessionsHandler(recent),
   'list_project_history': (_) => [

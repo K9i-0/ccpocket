@@ -15,6 +15,7 @@ import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { PinStore } from "./pin-store.js";
 import { AntigravityStore } from "./antigravity-store.js";
 import { resolvePlatformPath } from "./path-utils.js";
 import { MediaStore } from "./media-store.js";
@@ -3514,6 +3515,92 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     expect(ws.send).toHaveBeenCalledWith(JSON.stringify(msg));
 
     bridge.close();
+  });
+
+  it("shares pins between clients and seeds them from the first client", async () => {
+    const dir = mkdtempSync(resolve(tmpdir(), "ccpocket-pins-ws-"));
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      pinStore: new PinStore(resolve(dir, "pins.json")),
+    });
+    vi.spyOn(bridge as any, "refreshConnectionMetadata").mockImplementation(() => {});
+    httpServer.listen(0, "127.0.0.1");
+    await once(httpServer, "listening");
+    const port = (httpServer.address() as { port: number }).port;
+    async function connect(supportedServerMessages: string[]) {
+      const socket = new WebSocket(`ws://127.0.0.1:${port}`);
+      const pins: any[] = [];
+      socket.on("message", (data) => {
+        const message = JSON.parse(data.toString());
+        if (message.type === "pins") pins.push(message);
+      });
+      await once(socket, "open");
+      socket.send(
+        JSON.stringify({
+          type: "client_capabilities",
+          protocolVersion: 1,
+          minimumProtocolVersion: 1,
+          supportedServerMessages,
+        }),
+      );
+      return { socket, pins };
+    }
+    const pin = (sessionId: string) => ({
+      provider: "claude",
+      sessionId,
+      projectPath: "/p",
+    });
+    try {
+      const first = await connect(["pins"]);
+      const second = await connect(["pins"]);
+      const legacy = await connect([]);
+
+      // Nothing stored and nothing offered: an empty answer, still unseeded.
+      second.socket.send(JSON.stringify({ type: "get_pins" }));
+      await vi.waitFor(() => expect(second.pins).toHaveLength(1));
+      expect(second.pins[0]).toMatchObject({ sessions: [], projects: [] });
+
+      // The first non-empty seed becomes the Bridge's pins for everyone.
+      first.socket.send(
+        JSON.stringify({
+          type: "get_pins",
+          seed: { sessions: [pin("a")], projects: ["/p"] },
+        }),
+      );
+      await vi.waitFor(() => expect(second.pins).toHaveLength(2));
+      expect(first.pins).toEqual([
+        { type: "pins", sessions: [pin("a")], projects: ["/p"] },
+      ]);
+      expect(second.pins[1]).toEqual(first.pins[0]);
+
+      // A later seed is ignored and answered only to the sender.
+      second.socket.send(
+        JSON.stringify({ type: "get_pins", seed: { sessions: [pin("b")] } }),
+      );
+      await vi.waitFor(() => expect(second.pins).toHaveLength(3));
+      expect(second.pins[2].sessions).toEqual([pin("a")]);
+      expect(first.pins).toHaveLength(1);
+
+      // Changes reach every opted-in client, including the sender.
+      second.socket.send(
+        JSON.stringify({ type: "set_session_pin", ...pin("b"), pinned: true }),
+      );
+      second.socket.send(
+        JSON.stringify({ type: "set_project_pin", projectPath: "/p", pinned: false }),
+      );
+      await vi.waitFor(() => expect(first.pins).toHaveLength(3));
+      await vi.waitFor(() => expect(second.pins).toHaveLength(5));
+      expect(first.pins[2]).toEqual({
+        type: "pins",
+        sessions: [pin("a"), pin("b")],
+        projects: [],
+      });
+      expect(legacy.pins).toEqual([]);
+    } finally {
+      for (const socket of (bridge as any).wss.clients) socket.terminate();
+      bridge.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("limits file list payloads and reports truncation", async () => {

@@ -1905,6 +1905,22 @@ sealed class ServerMessage {
             : null,
         error: json['error'] as String?,
       ),
+      'pins' => PinsMessage(
+        sessions: [
+          for (final pin in json['sessions'] as List? ?? const [])
+            if (pin is Map &&
+                pin['provider'] is String &&
+                pin['sessionId'] is String)
+              (
+                provider: pin['provider'] as String,
+                sessionId: pin['sessionId'] as String,
+                projectPath: pin['projectPath'] as String? ?? '',
+              ),
+        ],
+        projects: (json['projects'] as List? ?? const [])
+            .whereType<String>()
+            .toList(),
+      ),
       'prompt_history_status' => PromptHistoryStatusMessage(
         bridgeInstanceId: json['bridgeInstanceId'] as String? ?? '',
         revision: json['revision'] as int? ?? 0,
@@ -4731,6 +4747,21 @@ class PromptHistoryMutationResultMessage implements ServerMessage {
   });
 }
 
+/// A pinned session as the Bridge stores it.
+typedef PinnedSessionEntry = ({
+  String provider,
+  String sessionId,
+  String projectPath,
+});
+
+/// Pinned sessions and projects shared by every client of the Bridge.
+class PinsMessage implements ServerMessage {
+  final List<PinnedSessionEntry> sessions;
+  final List<String> projects;
+
+  const PinsMessage({required this.sessions, required this.projects});
+}
+
 class PromptHistoryStatusMessage implements ServerMessage {
   final String bridgeInstanceId;
   final int revision;
@@ -5787,6 +5818,7 @@ class ClientMessage {
       'codex_recovery_state',
       'guardian_approval',
       'history_delta',
+      'pins',
       'history_snapshot',
       'git_status_result',
       'prompt_history_status',
@@ -6845,6 +6877,57 @@ class ClientMessage {
       'sessionId': sessionId,
       'provider': provider,
       'projectPath': projectPath,
+    });
+  }
+
+  // ---- Pins shared by every client of the Bridge ----
+
+  /// Asks for the Bridge's pins. [seedSessions] / [seedProjects] are this
+  /// device's own pins, adopted only by a Bridge that never stored any.
+  factory ClientMessage.getPins({
+    List<PinnedSessionEntry> seedSessions = const [],
+    List<String> seedProjects = const [],
+  }) {
+    return ClientMessage._(<String, dynamic>{
+      'type': 'get_pins',
+      if (seedSessions.isNotEmpty || seedProjects.isNotEmpty)
+        'seed': {
+          'sessions': [
+            for (final pin in seedSessions)
+              {
+                'provider': pin.provider,
+                'sessionId': pin.sessionId,
+                'projectPath': pin.projectPath,
+              },
+          ],
+          'projects': seedProjects,
+        },
+    });
+  }
+
+  factory ClientMessage.setSessionPin({
+    required String provider,
+    required String sessionId,
+    required String projectPath,
+    required bool pinned,
+  }) {
+    return ClientMessage._(<String, dynamic>{
+      'type': 'set_session_pin',
+      'provider': provider,
+      'sessionId': sessionId,
+      'projectPath': projectPath,
+      'pinned': pinned,
+    });
+  }
+
+  factory ClientMessage.setProjectPin({
+    required String projectPath,
+    required bool pinned,
+  }) {
+    return ClientMessage._(<String, dynamic>{
+      'type': 'set_project_pin',
+      'projectPath': projectPath,
+      'pinned': pinned,
     });
   }
 

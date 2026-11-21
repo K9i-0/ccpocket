@@ -56,6 +56,18 @@ RecentSessionRef? recentSessionRefFromPinKey(String key) {
   return (provider: provider, sessionId: sessionId);
 }
 
+/// The Bridge's form of a stored pin key, or null for a malformed key.
+PinnedSessionEntry? pinnedSessionEntryFromKey(String key) {
+  final ref = recentSessionRefFromPinKey(key);
+  if (ref == null) return null;
+  final parts = key.split('\n');
+  return (
+    provider: ref.provider,
+    sessionId: ref.sessionId,
+    projectPath: parts.sublist(1, parts.length - 1).join('\n'),
+  );
+}
+
 /// Provider-qualified identity (`provider:sessionId`) of a stored pin key.
 ///
 /// Pins are matched by this identity rather than the full key, because the
@@ -125,6 +137,8 @@ class SessionListCubit extends Cubit<SessionListState> {
   StreamSubscription<ServerMessage>? _messageSub;
   StreamSubscription<void>? _filtersAvailableSub;
   StreamSubscription<bool>? _antigravitySub;
+  StreamSubscription<PinsMessage>? _pinsSub;
+  StreamSubscription<BridgeConnectionState>? _connectionSub;
   Timer? _searchDebounce;
   late final Future<void> _preferencesLoaded;
 
@@ -156,7 +170,72 @@ class SessionListCubit extends Cubit<SessionListState> {
           break;
       }
     });
+    // Pins live on the Bridge and are shared by its clients; the copy in
+    // preferences is what this device last saw (docs/pin-sync.md).
+    _pinsSub = _bridge.pinsStream.listen(_onBridgePins);
+    _connectionSub = _bridge.connectionStatus.listen((status) {
+      if (status == BridgeConnectionState.connected) _requestBridgePins();
+    });
     _preferencesLoaded = _loadPreferences();
+  }
+
+  /// Ask the Bridge for its pins, offering this device's pins as the seed
+  /// for a Bridge that has none yet. Sent on every (re)connect because
+  /// changes made by other clients are missed while disconnected.
+  Future<void> _requestBridgePins() async {
+    await _preferencesLoaded;
+    if (isClosed || !_bridge.isConnected) return;
+    _bridge.requestPins(
+      seedSessions: state.pinnedSessionKeys
+          .map(pinnedSessionEntryFromKey)
+          .nonNulls
+          .toList(),
+      seedProjects: state.pinnedProjectPaths.toList(),
+    );
+  }
+
+  void _onBridgePins(PinsMessage message) {
+    if (isClosed) return;
+    final sessionKeys = {
+      for (final pin in message.sessions)
+        sessionPinKey(
+          provider: pin.provider,
+          projectPath: pin.projectPath,
+          sessionId: pin.sessionId,
+        ),
+    };
+    final projectPaths = message.projects.toSet();
+    final oldIdentities = pinIdentitiesOf(state.pinnedSessionKeys);
+    final newIdentities = pinIdentitiesOf(sessionKeys);
+    final sessionsChanged =
+        oldIdentities.length != newIdentities.length ||
+        !oldIdentities.containsAll(newIdentities);
+    final projectsChanged =
+        projectPaths.length != state.pinnedProjectPaths.length ||
+        !projectPaths.containsAll(state.pinnedProjectPaths);
+    if (!sessionsChanged && !projectsChanged) return;
+
+    emit(
+      state.copyWith(
+        pinnedSessionKeys: sessionsChanged
+            ? sessionKeys
+            : state.pinnedSessionKeys,
+        pinnedProjectPaths: projectPaths,
+      ),
+    );
+    if (sessionsChanged) {
+      _pushPinnedSessionsToBridge();
+      unawaited(_persistStringSet(_pinnedSessionKeysKey, sessionKeys));
+    }
+    if (projectsChanged) {
+      unawaited(_persistStringSet(_pinnedProjectPathsKey, projectPaths));
+    }
+    // A pin added elsewhere may be outside the loaded pages, and pins define
+    // the pinned-only result set.
+    final addedSession = newIdentities.difference(oldIdentities).isNotEmpty;
+    if (_hasRequestedList && (addedSession || state.filters.pinnedOnly)) {
+      _requestWithCurrentFilters();
+    }
   }
 
   Future<void> _loadPreferences() async {
@@ -193,6 +272,8 @@ class SessionListCubit extends Cubit<SessionListState> {
     if (_hasRequestedList && pinnedSessionKeys.isNotEmpty) {
       _requestWithCurrentFilters();
     }
+    // The connection may have been established while preferences loaded.
+    unawaited(_requestBridgePins());
   }
 
   void _pushPinnedSessionsToBridge() {
@@ -524,6 +605,10 @@ class SessionListCubit extends Cubit<SessionListState> {
     final next = togglePinKey(state.pinnedSessionKeys, key);
     emit(state.copyWith(pinnedSessionKeys: next));
     _pushPinnedSessionsToBridge();
+    final entry = pinnedSessionEntryFromKey(key);
+    if (entry != null) {
+      _bridge.setSessionPin(entry, pinned: next.contains(key));
+    }
     // Pins define the pinned-only result set.
     if (state.filters.pinnedOnly) _requestWithCurrentFilters();
     await _persistStringSet(_pinnedSessionKeysKey, next);
@@ -536,6 +621,7 @@ class SessionListCubit extends Cubit<SessionListState> {
     final next = {...state.pinnedProjectPaths};
     if (!next.remove(projectPath)) next.add(projectPath);
     emit(state.copyWith(pinnedProjectPaths: next));
+    _bridge.setProjectPin(projectPath, pinned: next.contains(projectPath));
     await _persistStringSet(_pinnedProjectPathsKey, next);
   }
 
@@ -654,6 +740,8 @@ class SessionListCubit extends Cubit<SessionListState> {
     _messageSub?.cancel();
     _filtersAvailableSub?.cancel();
     _antigravitySub?.cancel();
+    _pinsSub?.cancel();
+    _connectionSub?.cancel();
     return super.close();
   }
 }

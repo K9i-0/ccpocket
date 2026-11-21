@@ -1,7 +1,9 @@
 # Recent Sessions: keeping pinned sessions visible
 
-Pinned sessions are stored only in the app (SharedPreferences
-`session_list_pinned_session_keys_v1`, key `provider\nprojectPath\nsessionId`).
+Pinned sessions are owned by the Bridge and shared by its clients
+([pin-sync.md](pin-sync.md)); the app keeps a copy in SharedPreferences
+(`session_list_pinned_session_keys_v1`, key `provider\nprojectPath\nsessionId`)
+and still names them in each list request as described here.
 The list used to pin-sort only the sessions already loaded, so a pinned session
 outside the first page disappeared after every filter change (provider, named
 only, search, project), each of which re-fetches page 0.
