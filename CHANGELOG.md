@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.175.0] - 2026-11-22
+
+### Added
+
+- Antigravity swarms: board posts are now compact cards showing the poster, who the post is addressed to, its number and time, and a two-line preview. Tap a card to expand it in place; an expanded card can be copied or opened as a full-text sheet where text can be selected and file links opened.
+- Antigravity swarms: when only swarm workers are running, the bar above the input reads `Swarm (N)` with the worker's name and what it is doing, and opens a list of all workers that tells busy workers from waiting ones.
+- Antigravity swarms: the agent count on session cards stays in step with the swarm while it is active. Needs Bridge 1.116.0.
+
+### Fixed
+
+- Antigravity: a prompt you just sent no longer appears above agent output that arrived before the Bridge acknowledged it (flushed output, a turn the agent started on its own, swarm board posts). It now settles below them.
+
 ## [1.174.1] - 2026-11-22
 
 ### Fixed
