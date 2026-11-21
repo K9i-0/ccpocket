@@ -6,6 +6,8 @@ import 'package:dartssh2/dartssh2.dart';
 import '../models/machine.dart';
 import 'machine_manager_service.dart';
 
+typedef _StartingTunnel = ({String signature, Future<_BridgeTunnel> tunnel});
+
 /// Maintains local TCP forwards for Bridge HTTP/WebSocket traffic that must
 /// traverse an SSH jump host.
 class SshBridgeTunnelService {
@@ -13,6 +15,7 @@ class SshBridgeTunnelService {
   final Duration connectionTimeout;
   final void Function(String?)? debugLog;
   final Map<String, _BridgeTunnel> _tunnels = {};
+  final Map<String, _StartingTunnel> _startingTunnels = {};
 
   SshBridgeTunnelService(
     this._machineManager, {
@@ -98,6 +101,36 @@ class SshBridgeTunnelService {
       return existing;
     }
 
+    // Concurrent callers (for example a connect and a health check) share one
+    // start, so a second tunnel never replaces the one a connection is using.
+    final starting = _startingTunnels[machine.id];
+    if (starting != null && starting.signature == signature) {
+      return starting.tunnel;
+    }
+    final tunnel = _startTunnel(
+      machine,
+      signature: signature,
+      jumpHost: jumpHost,
+      password: password,
+      promptForPassword: promptForPassword,
+    );
+    _startingTunnels[machine.id] = (signature: signature, tunnel: tunnel);
+    try {
+      return await tunnel;
+    } finally {
+      if (identical(_startingTunnels[machine.id]?.tunnel, tunnel)) {
+        _startingTunnels.remove(machine.id);
+      }
+    }
+  }
+
+  Future<_BridgeTunnel> _startTunnel(
+    Machine machine, {
+    required String signature,
+    required String jumpHost,
+    String? password,
+    Future<String?> Function()? promptForPassword,
+  }) async {
     await closeForMachine(machine.id);
 
     final credentials = await _resolveJumpCredentials(

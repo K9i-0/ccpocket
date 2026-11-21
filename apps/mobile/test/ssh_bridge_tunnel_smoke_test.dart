@@ -169,6 +169,17 @@ void main() {
           jsonDecode(message as String),
           containsPair('type', 'bridge_smoke'),
         );
+
+        // Concurrent URL builds (a connect and a health check) share one
+        // tunnel, so the port in use always maps back to the machine.
+        await tunnelService.closeAll();
+        final urls = await Future.wait([
+          manager.buildWsUrl('m1'),
+          manager.buildWsUrl('m1'),
+        ]);
+        expect(urls[1], urls[0]);
+        final sharedPort = Uri.parse(urls[0]).port;
+        expect(manager.findByBridgeEndpoint('127.0.0.1', sharedPort)?.id, 'm1');
       },
     );
   });
