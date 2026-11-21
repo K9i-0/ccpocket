@@ -181,7 +181,11 @@ class SshBridgeTunnelService {
       connectionTimeout: connectionTimeout,
       debugLog: debugLog,
     );
+    // A start for other settings may have finished meanwhile; close it rather
+    // than leave its local port and health check running unreachable.
+    final replaced = _tunnels[machine.id];
     _tunnels[machine.id] = tunnel;
+    if (replaced != null) unawaited(replaced.close());
     return tunnel;
   }
 
