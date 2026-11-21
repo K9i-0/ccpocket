@@ -158,7 +158,7 @@ class SettingsCubit extends Cubit<SettingsState> {
     );
     if (uri == null) return;
 
-    final machine = manager.findByHostPort(
+    final machine = manager.findByBridgeEndpoint(
       uri.host,
       uri.port != 0 ? uri.port : 8765,
     );

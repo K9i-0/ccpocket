@@ -48,6 +48,14 @@ class SshBridgeTunnelService {
     return '${machine.useSsl ? 'https' : 'http'}://127.0.0.1:${tunnel.localPort}';
   }
 
+  /// The ID of the machine whose open tunnel listens on [localPort], if any.
+  String? machineIdForLocalPort(int localPort) {
+    for (final entry in _tunnels.entries) {
+      if (entry.value.localPort == localPort) return entry.key;
+    }
+    return null;
+  }
+
   Future<void> closeForMachine(String machineId) async {
     final tunnel = _tunnels.remove(machineId);
     await tunnel?.close();

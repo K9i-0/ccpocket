@@ -215,6 +215,103 @@ void main() {
       bridge.dispose();
     });
 
+    test('resolves active machine through an SSH tunnel local forward', () async {
+      SharedPreferences.setMockInitialValues({
+        'machines_v2':
+            '[{"id":"$_testMachineId","host":"$_testHost","port":$_testPort}]',
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final manager = await _createMachineManager(prefs);
+      await manager.init();
+      manager.configureBridgeTunnelResolvers(
+        machineIdForLocalPort: (port) =>
+            port == 54321 ? _testMachineId : null,
+      );
+      final bridge = FakeBridgeService()
+        ..emitConnection(
+          BridgeConnectionState.connected,
+          url: 'ws://127.0.0.1:54321',
+        );
+      final fcm = FakeFcmService(available: false);
+      final cubit = SettingsCubit(
+        prefs,
+        bridgeService: bridge,
+        machineManager: manager,
+        fcmService: fcm,
+      );
+
+      expect(cubit.state.activeMachineId, _testMachineId);
+
+      await cubit.close();
+      await fcm.disposeFake();
+      bridge.dispose();
+    });
+
+    test('leaves active machine unset for an unknown local port', () async {
+      SharedPreferences.setMockInitialValues({
+        'machines_v2':
+            '[{"id":"$_testMachineId","host":"$_testHost","port":$_testPort}]',
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final manager = await _createMachineManager(prefs);
+      await manager.init();
+      manager.configureBridgeTunnelResolvers(
+        machineIdForLocalPort: (port) =>
+            port == 54321 ? _testMachineId : null,
+      );
+      final bridge = FakeBridgeService()
+        ..emitConnection(
+          BridgeConnectionState.connected,
+          url: 'ws://127.0.0.1:60000',
+        );
+      final fcm = FakeFcmService(available: false);
+      final cubit = SettingsCubit(
+        prefs,
+        bridgeService: bridge,
+        machineManager: manager,
+        fcmService: fcm,
+      );
+
+      expect(cubit.state.activeMachineId, isNull);
+
+      await cubit.close();
+      await fcm.disposeFake();
+      bridge.dispose();
+    });
+
+    test('prefers a saved machine on the same local endpoint', () async {
+      SharedPreferences.setMockInitialValues({
+        'machines_v2':
+            '[{"id":"local-machine","host":"127.0.0.1","port":54321},'
+            '{"id":"$_testMachineId","host":"$_testHost","port":$_testPort}]',
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final manager = await _createMachineManager(prefs);
+      await manager.init();
+      manager.configureBridgeTunnelResolvers(
+        machineIdForLocalPort: (port) =>
+            port == 54321 ? _testMachineId : null,
+      );
+      final bridge = FakeBridgeService()
+        ..emitConnection(
+          BridgeConnectionState.connected,
+          url: 'ws://127.0.0.1:54321',
+        );
+      final fcm = FakeFcmService(available: false);
+      final cubit = SettingsCubit(
+        prefs,
+        bridgeService: bridge,
+        machineManager: manager,
+        fcmService: fcm,
+      );
+
+      expect(cubit.state.activeMachineId, 'local-machine');
+
+      await cubit.close();
+      await fcm.disposeFake();
+      bridge.dispose();
+    });
+
     test('auto registers token on init when machine is enabled', () async {
       SharedPreferences.setMockInitialValues({
         'settings_fcm_machines': '["$_testMachineId"]',
