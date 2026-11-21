@@ -36,7 +36,15 @@ root="$(git rev-parse --show-toplevel)"
 cd "$root"
 
 scratch="$(cd "$(mktemp -d "${TMPDIR:-/tmp}/ccpocket-mutation.XXXXXX")" && pwd -P)"
-trap 'rm -rf "$scratch/sandbox" "$scratch/home"' EXIT
+# The default report lives in the scratch directory, so that one stays behind.
+cleanup() {
+  if [ -n "${MUTATION_REPORT:-}" ]; then
+    rm -rf "$scratch"
+  else
+    rm -rf "$scratch/sandbox" "$scratch/home" "$scratch/stryker.json"
+  fi
+}
+trap cleanup EXIT
 mkdir -p "$scratch/home"
 printf '[user]\n\tname = Mutation\n\temail = mutation@example.invalid\n[init]\n\tdefaultBranch = main\n' \
   >"$scratch/home/.gitconfig"
