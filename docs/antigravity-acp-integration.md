@@ -252,7 +252,7 @@ Bridge はこの **2ファイルだけ** を読み取り専用で読む。各メ
 ### アプリ
 
 - `SwarmPost` はツールカードではなく、投稿者名・宛先メンション・`#seq`・時刻・2行プレビューをまとめたコンパクトカード（[swarm_post_card.dart](../apps/mobile/lib/widgets/bubbles/swarm_post_card.dart)）で出す。タップでインライン展開／折りたたみでき、展開ヘッダーから全文ボトムシート（テキスト選択・コピー・ファイルリンク対応）も開ける。対になる結果は表示しない。Lite モードでも残す。
-- **メンバーの色**（[swarm_colors.dart](../apps/mobile/lib/theme/swarm_colors.dart)）: coordinator はテーマの primary、worker は参加順の番号で 10 色のパレット（ライト／ダーク各1組）から順に取る。ランダムやハッシュにはしない。`agy` に worker 数の上限はない（手元の実例で最大 17 人）ので、11 人目からは色が一巡する。色相は primary のオレンジ・警告のアンバー・エラーの赤を避け、少人数で使う先頭ほど離してある。12px の文字として読めること（WCAG AA 4.5:1）はテストで確かめている。投稿カードの左線・投稿者名・`→ @宛先`、詳細シート、Swarm バー先頭のドット、worker 一覧のアイコンに使う。承認バーの `Swarm worker: …` には付けていない。番号のない worker（古い Bridge）は従来どおり tertiary の1色。
+- **メンバーの色**（[swarm_colors.dart](../apps/mobile/lib/theme/swarm_colors.dart)）: coordinator はテーマの primary、worker は参加順の番号で 8 色のパレット（ライト／ダーク各1組。青・エメラルド・ピンク・紫・シアン・ライム・フクシア・グレー）から順に取る。ランダムやハッシュにはしない。`agy` に worker 数の上限はない（手元の実例で最大 17 人）ので、9 人目からは色が一巡する。8 色にしたのは、次の条件を全部満たして見分けられる数がそこまでだから: 12px の文字として読める（WCAG AA 4.5:1）、どの2色も離れている（CIE Lab の距離 25 以上）、primary のオレンジ・tertiary のアンバー・エラーの赤から離れている（同 35 以上）。条件はテストで確かめている。少人数の swarm が大半なので、先頭の色ほど互いに離してある。投稿カードの左線・投稿者名・`→ @宛先`（宛先の色の文字と枠線）、詳細シート、Swarm バー先頭のドット、worker 一覧のアイコンに使う。承認バーの `Swarm worker: …` には付けていない。番号のない worker（古い Bridge）は従来どおり tertiary の1色。
 - **パフォーマンスモード**: ボードの投稿と `swarm add`（worker への brief）は会話として残す。それ以外の swarm 系ツール呼び出しは他のツールと同じく省く。Bridge 側の配信フィルタは [performance-mode.md](performance-mode.md)。
 - 承認バーとセッションカードの承認欄に `Swarm worker: <名前>` を出す。ツール行の要約は `[<名前>] …` で始める。
 - セッションカードのステータスバーに既存のサブエージェントと同様に `backgroundAgentCount`（`hub_outlined` + 人数）を表示し、チャット下部のバックグラウンドバーでは Swarm のみ稼働中は `Swarm (N)` としてワーカー名と処理内容をコンパクトに表示する（タップで全ワーカー一覧シート）。

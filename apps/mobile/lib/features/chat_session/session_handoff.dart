@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:material_ui/material_ui.dart';
@@ -6,6 +8,7 @@ import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
 import '../../models/new_session_tab.dart';
 import '../../services/bridge_service.dart';
+import '../session_list/services/session_start_defaults_store.dart';
 import '../session_list/session_list_screen.dart';
 import '../session_list/workspace_shell_screen.dart';
 import '../settings/state/settings_cubit.dart';
@@ -85,16 +88,44 @@ Future<void> handoffSessionFromScreen(
     target: target,
   );
   if (instruction == null || !context.mounted) return;
-  context.read<BridgeService>().send(
+  final bridge = context.read<BridgeService>();
+  final start = await rememberedStartOptions(
+    target,
+    antigravityPermissionModes: antigravityStartPermissionModes(bridge),
+  );
+  if (!context.mounted) return;
+  bridge.send(
     ClientMessage.handoffSession(
       sessionId,
       target: target,
       instruction: instruction.trim(),
+      start: start,
     ),
   );
   final l = AppLocalizations.of(context);
   ScaffoldMessenger.of(context)
       .showSnackBar(SnackBar(content: Text(l.handoffStarted(target.label))));
+}
+
+/// The `start` message a new [target] session would be started with, from
+/// the settings remembered for that agent (model, effort, permission mode).
+/// Null when nothing is remembered; the Bridge then uses its own defaults.
+///
+/// The Bridge ignores the project, worktree and prompt in it.
+Future<Map<String, dynamic>?> rememberedStartOptions(
+  Provider target, {
+  List<PermissionMode>? antigravityPermissionModes,
+  SessionStartDefaultsStore store = const SessionStartDefaultsStore(),
+}) async {
+  final defaults = await store.loadFor(target);
+  if (defaults == null || defaults.provider != target) return null;
+  final message = sessionStartMessage(
+    defaults,
+    autoRename: false,
+    antigravityPermissionModes: antigravityPermissionModes,
+    requestId: '',
+  );
+  return jsonDecode(message.toJson()) as Map<String, dynamic>;
 }
 
 /// Returns the instruction for the target (empty to continue the task), or

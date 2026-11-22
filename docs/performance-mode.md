@@ -61,8 +61,9 @@ No new client message type is sent, so there is no new `unsupported_message` flo
 Older apps omit preferences and retain standard delivery.
 
 Swarm posts and briefs are kept by Bridges from the release after 1.118.0. An older Bridge
-removes them in performance mode (the app already keeps them in its own projection, so they
-appear as soon as the Bridge is updated); standard mode shows them either way.
+removes them in performance mode; standard mode shows them either way. With an updated
+Bridge, posts appear in any app that knows `SwarmPost` (its projection already kept them);
+the brief row also needs an app from the release after 1.177.0, whose projection keeps it.
 
 ## Verification
 

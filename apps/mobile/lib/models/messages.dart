@@ -6807,17 +6807,22 @@ class ClientMessage {
 
   /// Stop [sessionId] and continue its task in a new [target] session.
   /// [instruction] says what the target should do; it continues the task
-  /// when omitted.
+  /// when omitted. [start] is the `start` message the app would send for a
+  /// new [target] session with its remembered settings: the Bridge takes the
+  /// model and, when the source's permission mode has no counterpart in the
+  /// target, the mode from it.
   factory ClientMessage.handoffSession(
     String sessionId, {
     required Provider target,
     String? instruction,
+    Map<String, dynamic>? start,
   }) => ClientMessage._({
     'type': 'handoff_session',
     'sessionId': sessionId,
     'targetProvider': target.value,
     if (instruction != null && instruction.isNotEmpty)
       'instruction': instruction,
+    if (start != null) 'start': start,
   });
 
   factory ClientMessage.listWindows() =>

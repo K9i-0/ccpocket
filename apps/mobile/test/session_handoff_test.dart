@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:ccpocket/features/chat_session/session_handoff.dart';
+import 'package:ccpocket/features/session_list/services/session_start_defaults_store.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/models/messages.dart';
@@ -9,6 +10,8 @@ import 'package:ccpocket/services/chat_message_handler.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/widgets/bubbles/handoff_bubble.dart';
 import 'package:ccpocket/widgets/bubbles/user_bubble.dart';
+import 'package:ccpocket/widgets/new_session_sheet.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -98,6 +101,50 @@ void main() {
         (entry.message as ErrorMessage).errorCode,
         'bridge_update_required',
       );
+    });
+  });
+
+  group('rememberedStartOptions', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    test('is the start message of the remembered settings', () async {
+      await const SessionStartDefaultsStore().save(
+        NewSessionParams(
+          projectPath: '/workspace/last',
+          provider: Provider.antigravity,
+          permissionMode: PermissionMode.acceptEdits,
+          antigravityModel: 'gemini-3.8-pro',
+          antigravityThoughtLevel: 'high',
+        ),
+      );
+
+      final start = await rememberedStartOptions(Provider.antigravity);
+
+      expect(start, containsPair('type', 'start'));
+      expect(start, containsPair('provider', 'antigravity'));
+      expect(start, containsPair('model', 'gemini-3.8-pro'));
+      expect(start, containsPair('effort', 'high'));
+      expect(start, containsPair('permissionMode', 'acceptEdits'));
+
+      final message = jsonDecode(
+        ClientMessage.handoffSession(
+          's1',
+          target: Provider.antigravity,
+          start: start,
+        ).toJson(),
+      );
+      expect(message['start'], start);
+    });
+
+    test('is null when nothing is remembered for the agent', () async {
+      await const SessionStartDefaultsStore().save(
+        NewSessionParams(
+          projectPath: '/workspace/last',
+          provider: Provider.codex,
+        ),
+      );
+      expect(await rememberedStartOptions(Provider.claude), isNull);
+      expect(await rememberedStartOptions(Provider.codex), isNotNull);
     });
   });
 

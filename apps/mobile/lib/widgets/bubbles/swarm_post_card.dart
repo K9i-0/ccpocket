@@ -63,6 +63,25 @@ class SwarmPostSummary {
   }
 }
 
+/// The chip naming whom a post addresses. With a member colour for the text
+/// it sits on the plain surface, outlined in that colour, so the name keeps
+/// its contrast; without one it is the grey chip it always was.
+BoxDecoration swarmTargetChipDecoration(
+  BuildContext context,
+  SwarmPostSummary summary, {
+  required double radius,
+  required Color plainColor,
+}) {
+  final accent = summary.targetAccent(context);
+  return BoxDecoration(
+    color: accent == null ? plainColor : Theme.of(context).colorScheme.surface,
+    border: accent == null
+        ? null
+        : Border.all(color: accent.withValues(alpha: 0.45), width: 0.8),
+    borderRadius: BorderRadius.circular(radius),
+  );
+}
+
 int? _memberIndex(Object? value) =>
     value is num && value >= 0 ? value.toInt() : null;
 
@@ -317,9 +336,13 @@ class _SwarmPostHeader extends StatelessWidget {
                     horizontal: 5,
                     vertical: 1,
                   ),
-                  decoration: BoxDecoration(
-                    color: cs.surfaceContainerHighest.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(4),
+                  decoration: swarmTargetChipDecoration(
+                    context,
+                    summary,
+                    radius: 4,
+                    plainColor: cs.surfaceContainerHighest.withValues(
+                      alpha: 0.7,
+                    ),
                   ),
                   child: Text(
                     '→ ${summary.targetMention}',
@@ -543,9 +566,11 @@ class _SwarmPostDetailSheet extends StatelessWidget {
                             horizontal: 6,
                             vertical: 2,
                           ),
-                          decoration: BoxDecoration(
-                            color: cs.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(6),
+                          decoration: swarmTargetChipDecoration(
+                            context,
+                            summary,
+                            radius: 6,
+                            plainColor: cs.surfaceContainerHighest,
                           ),
                           child: Text(
                             '→ ${summary.targetMention}',

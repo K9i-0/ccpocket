@@ -2605,7 +2605,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     this.besideReplyTimer = null;
     this.besideReply.length = 0;
     this.swarmWorkers.clear();
-    this.swarmJoinOrder.clear();
+    // `swarmJoinOrder` stays: a number, once given, is never given again.
   }
 
   /**

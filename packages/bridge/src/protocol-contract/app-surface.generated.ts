@@ -284,7 +284,7 @@ export type AppSent =
       type: "handoff_session";
       from: "ClientMessage.handoffSession";
       always: "sessionId" | "targetProvider" | "type";
-      sometimes: "instruction";
+      sometimes: "instruction" | "start";
     }
   | {
       type: "import_prompt_history_v1";

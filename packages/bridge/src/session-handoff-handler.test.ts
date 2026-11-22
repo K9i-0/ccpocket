@@ -103,6 +103,10 @@ function setup(overrides: Record<string, unknown> = {}) {
       reply(seq);
     }),
     antigravityStore: { setName: vi.fn() },
+    codexAutoReviewDisabled: false,
+    antigravityCatalog: vi.fn(async () => ({
+      permissionModes: ["default", "acceptEdits", "auto", "plan", "bypassPermissions"],
+    })),
   };
   return {
     session,
@@ -404,6 +408,111 @@ describe("handleHandoffSession", () => {
     release();
     await first;
     expect(handleStartMock).toHaveBeenCalledOnce();
+  });
+
+  describe("mode and model of the target", () => {
+    const run = async (
+      ctx: ReturnType<typeof setup>,
+      target: "claude" | "codex" | "antigravity",
+      start?: Record<string, unknown>,
+    ) => {
+      await handleHandoffSession(
+        ctx.server,
+        {
+          type: "handoff_session",
+          sessionId: "s-1",
+          targetProvider: target,
+          ...(start ? { start } : {}),
+        },
+        ctx.ws,
+      );
+      return handleStartMock.mock.calls[0][1];
+    };
+    const claudeIn = (permissionMode: string) => {
+      const ctx = setup();
+      ctx.session.process.permissionMode = permissionMode;
+      return ctx;
+    };
+
+    it("carries Claude auto over to Antigravity auto and keeps the model", async () => {
+      const start = await run(claudeIn("auto"), "antigravity", {
+        model: "gemini-3.8-pro",
+        effort: "high",
+        permissionMode: "default",
+        projectPath: "/elsewhere",
+      });
+      expect(start).toMatchObject({
+        provider: "antigravity",
+        projectPath: "/tmp/project",
+        model: "gemini-3.8-pro",
+        effort: "high",
+        permissionMode: "auto",
+      });
+      expect(start.executionMode).toBeUndefined();
+    });
+
+    it("carries Claude auto over to Codex auto review", async () => {
+      const start = await run(claudeIn("auto"), "codex", {
+        model: "gpt-6",
+        codexPermissionsMode: "default",
+        approvalPolicy: "on-request",
+        sandboxMode: "workspace-write",
+      });
+      expect(start).toMatchObject({ model: "gpt-6", codexPermissionsMode: "autoReview" });
+      expect(start.approvalPolicy).toBeUndefined();
+      expect(start.sandboxMode).toBeUndefined();
+    });
+
+    it("carries Codex auto review over to Claude auto", async () => {
+      const ctx = setup({
+        provider: "codex",
+        codexSettings: { codexPermissionsMode: "autoReview" },
+      });
+      const start = await run(ctx, "claude", { model: "opus", permissionMode: "default" });
+      expect(start).toMatchObject({ model: "opus", permissionMode: "auto" });
+    });
+
+    it("uses the remembered mode when the target has no counterpart", async () => {
+      // Codex has no accept-edits mode.
+      const start = await run(claudeIn("acceptEdits"), "codex", {
+        model: "gpt-6",
+        codexPermissionsMode: "fullAccess",
+      });
+      expect(start).toMatchObject({ model: "gpt-6", codexPermissionsMode: "fullAccess" });
+    });
+
+    it("uses the remembered mode when Antigravity does not offer auto", async () => {
+      const ctx = claudeIn("auto");
+      ctx.server.antigravityCatalog.mockResolvedValue({
+        permissionModes: ["default", "acceptEdits", "plan", "bypassPermissions"],
+      });
+      const start = await run(ctx, "antigravity", {
+        model: "gemini-3.1-pro",
+        permissionMode: "acceptEdits",
+      });
+      expect(start).toMatchObject({ model: "gemini-3.1-pro", permissionMode: "acceptEdits" });
+    });
+
+    it("uses the remembered mode when auto review is switched off", async () => {
+      const ctx = claudeIn("auto");
+      ctx.server.codexAutoReviewDisabled = true;
+      const start = await run(ctx, "codex", { codexPermissionsMode: "default" });
+      expect(start.codexPermissionsMode).toBe("default");
+    });
+
+    it("carries the mode over for an app that sends no start options", async () => {
+      const start = await run(claudeIn("auto"), "antigravity");
+      expect(start.permissionMode).toBe("auto");
+    });
+
+    it("drops remembered options that are not valid but keeps the mode", async () => {
+      const start = await run(claudeIn("auto"), "antigravity", {
+        model: 5,
+        permissionMode: "default",
+      });
+      expect(start.permissionMode).toBe("auto");
+      expect(start.model).toBeUndefined();
+    });
   });
 
   describe("carried-over name", () => {

@@ -6,7 +6,10 @@ import {
   HANDOFF_MARKER,
   buildHandoffNoteRequest,
   buildHandoffPrompt,
+  handoffModeFields,
+  handoffModeOfSource,
   handoffSessionTitle,
+  handoffStartOptions,
   renderHandoffTranscript,
   writeHandoffTranscript,
 } from "./session-handoff.js";
@@ -251,3 +254,139 @@ describe("writeHandoffTranscript", () => {
     expect(names).toContain("keep.txt");
   });
 });
+
+describe("handoffModeOfSource", () => {
+  it("reads Claude and Antigravity permission modes", () => {
+    const mode = (permissionMode: string, modeBeforePlan?: string) =>
+      handoffModeOfSource({ provider: "claude", permissionMode, modeBeforePlan });
+    expect(mode("default")).toBe("default");
+    expect(mode("acceptEdits")).toBe("acceptEdits");
+    expect(mode("auto")).toBe("auto");
+    expect(mode("bypassPermissions")).toBe("fullAccess");
+    expect(mode("plan")).toBeUndefined();
+    expect(mode("plan", "auto")).toBe("auto");
+    expect(handoffModeOfSource({ provider: "antigravity" })).toBeUndefined();
+  });
+
+  it("reads Codex permission modes", () => {
+    const mode = (codexPermissionsMode?: string) =>
+      handoffModeOfSource({ provider: "codex", codexPermissionsMode });
+    expect(mode("default")).toBe("default");
+    expect(mode("autoReview")).toBe("auto");
+    expect(mode("fullAccess")).toBe("fullAccess");
+    expect(mode("custom")).toBeUndefined();
+    expect(mode()).toBeUndefined();
+  });
+});
+
+describe("handoffModeFields", () => {
+  const all = { codexAutoReview: true };
+
+  it("maps auto to each provider's auto", () => {
+    expect(handoffModeFields("claude", "auto", all)).toEqual({ permissionMode: "auto" });
+    expect(handoffModeFields("antigravity", "auto", all)).toEqual({ permissionMode: "auto" });
+    expect(handoffModeFields("codex", "auto", all)).toEqual({
+      codexPermissionsMode: "autoReview",
+    });
+  });
+
+  it("maps default and full access", () => {
+    expect(handoffModeFields("codex", "default", all)).toEqual({
+      codexPermissionsMode: "default",
+    });
+    expect(handoffModeFields("codex", "fullAccess", all)).toEqual({
+      codexPermissionsMode: "fullAccess",
+    });
+    expect(handoffModeFields("claude", "fullAccess", all)).toEqual({
+      permissionMode: "bypassPermissions",
+    });
+    expect(handoffModeFields("antigravity", "acceptEdits", all)).toEqual({
+      permissionMode: "acceptEdits",
+    });
+  });
+
+  it("has no counterpart where the target lacks the mode", () => {
+    expect(handoffModeFields("codex", "acceptEdits", all)).toBeUndefined();
+    expect(
+      handoffModeFields("codex", "auto", { codexAutoReview: false }),
+    ).toBeUndefined();
+    expect(
+      handoffModeFields("antigravity", "auto", {
+        codexAutoReview: true,
+        antigravityModes: ["default", "acceptEdits", "plan", "bypassPermissions"],
+      }),
+    ).toBeUndefined();
+    expect(
+      handoffModeFields("antigravity", "auto", {
+        codexAutoReview: true,
+        antigravityModes: ["default", "auto"],
+      }),
+    ).toEqual({ permissionMode: "auto" });
+    expect(handoffModeFields("claude", undefined, all)).toBeUndefined();
+  });
+});
+
+describe("handoffStartOptions", () => {
+  const remembered = {
+    type: "start",
+    projectPath: "/other",
+    projectId: "p-9",
+    provider: "claude",
+    initialPrompt: "x",
+    requestId: "r",
+    useWorktree: true,
+    additionalWritableRoots: ["/x"],
+    profile: "work",
+    autoRename: true,
+    model: "gpt-6",
+    modelReasoningEffort: "high",
+    serviceTier: "fast",
+    codexPermissionsMode: "default",
+    approvalPolicy: "on-request",
+    approvalsReviewer: "user",
+    sandboxMode: "workspace-write",
+    planMode: true,
+  };
+
+  it("keeps the remembered mode when the source has no counterpart", () => {
+    expect(handoffStartOptions("codex", remembered, undefined)).toEqual({
+      model: "gpt-6",
+      modelReasoningEffort: "high",
+      serviceTier: "fast",
+      codexPermissionsMode: "default",
+      approvalPolicy: "on-request",
+      approvalsReviewer: "user",
+      sandboxMode: "workspace-write",
+      planMode: true,
+    });
+  });
+
+  it("replaces the mode but keeps the model", () => {
+    expect(
+      handoffStartOptions("codex", remembered, { codexPermissionsMode: "autoReview" }),
+    ).toEqual({
+      model: "gpt-6",
+      modelReasoningEffort: "high",
+      serviceTier: "fast",
+      codexPermissionsMode: "autoReview",
+    });
+  });
+
+  it("keeps Claude's sandbox switch, which is not a permission mode", () => {
+    expect(
+      handoffStartOptions(
+        "claude",
+        { model: "opus", effort: "high", permissionMode: "plan", sandboxMode: "on" },
+        { permissionMode: "auto" },
+      ),
+    ).toEqual({ model: "opus", effort: "high", permissionMode: "auto", sandboxMode: "on" });
+  });
+
+  it("works without remembered options", () => {
+    expect(handoffStartOptions("claude", undefined, { permissionMode: "auto" })).toEqual({
+      permissionMode: "auto",
+    });
+    expect(handoffStartOptions("claude", undefined, undefined)).toEqual({});
+  });
+});
+

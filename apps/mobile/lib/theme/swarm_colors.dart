@@ -9,33 +9,30 @@ import 'package:material_ui/material_ui.dart';
 ///
 /// The hues stay clear of what already means something in a transcript: the
 /// coordinator's primary orange, amber for warnings and red for errors.
-/// Neighbours in the list are far apart in hue, because most swarms use only
-/// the first few. Each colour reads as 12px text on the theme's surface
-/// (WCAG AA, checked in `swarm_colors_test.dart`).
+/// The first few are the furthest apart, because most swarms use only those.
+/// Eight is as many as stay tellable apart under these limits: each reads as
+/// 12px text on the theme's surface (WCAG AA) and keeps its distance from
+/// every other one and from the reserved colours (`swarm_colors_test.dart`).
 const swarmWorkerColorsLight = <Color>[
   Color(0xFF1D4ED8), // blue
   Color(0xFF047857), // emerald
-  Color(0xFF6D28D9), // violet
   Color(0xFFBE185D), // pink
-  Color(0xFF155E75), // cyan
+  Color(0xFF6D28D9), // violet
+  Color(0xFF0C6F87), // cyan
   Color(0xFF3F6212), // lime
-  Color(0xFF4338CA), // indigo
-  Color(0xFF0F766E), // teal
   Color(0xFFA21CAF), // fuchsia
-  Color(0xFF475569), // slate
+  Color(0xFF3F3F46), // gray
 ];
 
 const swarmWorkerColorsDark = <Color>[
   Color(0xFF60A5FA), // blue
   Color(0xFF34D399), // emerald
-  Color(0xFFA78BFA), // violet
   Color(0xFFF472B6), // pink
+  Color(0xFFA78BFA), // violet
   Color(0xFF22D3EE), // cyan
   Color(0xFFA3E635), // lime
-  Color(0xFF818CF8), // indigo
-  Color(0xFF2DD4BF), // teal
   Color(0xFFE879F9), // fuchsia
-  Color(0xFF94A3B8), // slate
+  Color(0xFFA1A1AA), // gray
 ];
 
 /// The colour of the worker that joined its swarm at [index] (from 0).

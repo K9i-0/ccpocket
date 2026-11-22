@@ -11,6 +11,27 @@ double _contrast(Color a, Color b) {
   return (math.max(la, lb) + 0.05) / (math.min(la, lb) + 0.05);
 }
 
+/// CIE L*a*b*, to tell how far apart two colours look.
+List<double> _lab(Color c) {
+  double lin(double v) =>
+      v <= 0.04045 ? v / 12.92 : math.pow((v + 0.055) / 1.055, 2.4).toDouble();
+  double f(double t) =>
+      t > 0.008856 ? math.pow(t, 1 / 3).toDouble() : 7.787 * t + 16 / 116;
+  final r = lin(c.r), g = lin(c.g), b = lin(c.b);
+  final x = f((0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047);
+  final y = f(0.2126 * r + 0.7152 * g + 0.0722 * b);
+  final z = f((0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883);
+  return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+}
+
+double _distance(Color a, Color b) {
+  final la = _lab(a), lb = _lab(b);
+  return math.sqrt(
+    [for (var i = 0; i < 3; i++) math.pow(la[i] - lb[i], 2)]
+        .reduce((sum, v) => sum + v),
+  );
+}
+
 void main() {
   for (final (name, theme, palette) in [
     ('light', AppTheme.lightTheme, swarmWorkerColorsLight),
@@ -29,11 +50,28 @@ void main() {
       }
     });
 
-    test('$name swarm colours are distinct and none is a reserved one', () {
+    test('$name swarm colours can be told apart, also from reserved ones', () {
       final scheme = theme.colorScheme;
-      expect(palette.toSet(), hasLength(palette.length));
-      for (final reserved in [scheme.primary, scheme.tertiary, scheme.error]) {
-        expect(palette, isNot(contains(reserved)));
+      for (var i = 0; i < palette.length; i++) {
+        for (var j = i + 1; j < palette.length; j++) {
+          expect(
+            _distance(palette[i], palette[j]),
+            greaterThanOrEqualTo(25),
+            reason: 'colours $i and $j',
+          );
+        }
+        // The coordinator's, warnings' and errors'.
+        for (final reserved in [
+          scheme.primary,
+          scheme.tertiary,
+          scheme.error,
+        ]) {
+          expect(
+            _distance(palette[i], reserved),
+            greaterThanOrEqualTo(35),
+            reason: 'colour $i and $reserved',
+          );
+        }
       }
     });
   }
