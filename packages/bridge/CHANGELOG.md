@@ -2,6 +2,14 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.117.0] - 2026-11-22
+
+### Added
+
+- Pinned sessions and pinned projects are now kept on the Bridge (`~/.ccpocket/pins.json`) and shared by every app connected to it. A change on one device reaches the others at once. The first app that connects with pins of its own defines the Bridge's pins. New messages: `get_pins`, `set_session_pin`, `set_project_pin` and the opt-in `pins`.
+- Shared state: a store on the Bridge (`~/.ccpocket/shared-state.json`) for settings and data that belong to the Bridge's machine rather than to a device, announced as `shared_state_v1`. The app uses it for per-session Claude settings, read marks, the Codex profile per project, recently used additional writable directories, the parent directory for new projects, new-session defaults and the auto-rename switches. New messages: `get_shared_state`, `set_shared_state`, `seed_shared_state` and the opt-in `shared_state`, `shared_state_changed`, `shared_state_seeded`.
+- `CCPOCKET_PINS_FILE` and `CCPOCKET_SHARED_STATE_FILE` override where the two files are stored.
+
 ## [1.116.0] - 2026-11-22
 
 ### Added
