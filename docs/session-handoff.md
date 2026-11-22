@@ -145,8 +145,10 @@ verification still follows the API-key rule in
 - Real agents on the test Bridge, driven over WebSocket (2026-11-22):
   Claude → Codex, Codex → Antigravity (API key) and Antigravity → Claude,
   each from an idle source and again from a source that was interrupted in
-  the middle of a turn. Each target received the note and acted on it. The
-  other three pairs use the same readers and starters but were not run.
+  the middle of a turn. Each target received the note and acted on it.
+  Claude → Antigravity, Codex → Claude and Antigravity → Codex were run from
+  an idle source. In one of them the target asked before continuing, because
+  the note said the next step came later; the handoff itself completed.
 - With the requesting socket closed right after `handoff_session`
   (Claude → Codex), the handoff still finished: after reconnecting, the
   target was running under the carried-over name and the source was gone.

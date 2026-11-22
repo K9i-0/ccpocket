@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.118.0] - 2026-11-22
+
+### Added
+
+- Session handoff: `handoff_session` stops a session and continues its task in a new session of another agent (Claude Code, Codex and Antigravity, in every direction), announced as `session_handoff_v1`. The source agent writes a handoff note in one last turn; the Bridge adds the recent conversation and the path of a transcript saved under `~/.ccpocket/handoffs/`, starts the target in the same directory, worktree and workspace with that as its first prompt, and stops the source. A running turn is interrupted first. When the source cannot write the note (usage limit, error, three-minute timeout) the target starts from the Bridge-built context alone. The session name is carried over. `session_created` for the new session carries `handoff` and `sourceSessionId`. See `docs/session-handoff.md`.
+
 ## [1.117.0] - 2026-11-22
 
 ### Added
