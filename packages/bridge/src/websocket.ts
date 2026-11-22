@@ -263,6 +263,7 @@ import {
   handleRewind,
   handleFork,
 } from "./websocket/handlers/rewind-fork.js";
+import { handleHandoffSession } from "./websocket/handlers/session-handoff.js";
 import {
   handleInput,
   handleUpdateQueuedInput,
@@ -758,6 +759,8 @@ export class BridgeWebSocketServer {
     sourceSessionId?: string;
     /** The source session keeps running (fork), unlike restarts/rewinds. */
     forked?: boolean;
+    /** Continues the stopped source session in another provider. */
+    handoff?: boolean;
     resumeRequestId?: string;
     requestId?: string;
   }): SystemServerMessage {
@@ -915,6 +918,7 @@ export class BridgeWebSocketServer {
         : {}),
       ...(sourceSessionId ? { sourceSessionId } : {}),
       ...(params.forked ? { forked: true } : {}),
+      ...(params.handoff ? { handoff: true } : {}),
       ...(resumeRequestId ? { resumeRequestId } : {}),
       ...(requestId ? { requestId } : {}),
     };
@@ -1691,6 +1695,10 @@ export class BridgeWebSocketServer {
 
       case "fork":
         await handleFork(this, msg, ws);
+        break;
+
+      case "handoff_session":
+        await handleHandoffSession(this, msg, ws);
         break;
 
       case "list_windows":

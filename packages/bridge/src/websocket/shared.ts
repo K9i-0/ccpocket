@@ -160,6 +160,7 @@ export const BRIDGE_PROTOCOL_CAPABILITIES = [
   "recent_sessions_filters_v1",
   "context_compaction_v1",
   "shared_state_v1",
+  "session_handoff_v1",
 ];
 /** Advertised only while the Antigravity CLI is installed on this machine. */
 export const ANTIGRAVITY_PROTOCOL_CAPABILITIES = [

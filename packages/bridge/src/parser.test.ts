@@ -1536,6 +1536,37 @@ describe("parseClientMessage", () => {
     });
   });
 
+  it("parses handoff_session and rejects unknown targets", () => {
+    expect(
+      parseClientMessage(
+        '{"type":"handoff_session","sessionId":"s1","targetProvider":"codex","instruction":"finish it"}',
+      ),
+    ).toEqual({
+      type: "handoff_session",
+      sessionId: "s1",
+      targetProvider: "codex",
+      instruction: "finish it",
+    });
+    expect(
+      parseClientMessage(
+        '{"type":"handoff_session","sessionId":"s1","targetProvider":"antigravity"}',
+      ),
+    ).not.toBeNull();
+    expect(
+      parseClientMessage(
+        '{"type":"handoff_session","sessionId":"s1","targetProvider":"gemini"}',
+      ),
+    ).toBeNull();
+    expect(
+      parseClientMessage('{"type":"handoff_session","targetProvider":"codex"}'),
+    ).toBeNull();
+    expect(
+      parseClientMessage(
+        '{"type":"handoff_session","sessionId":"s1","targetProvider":"codex","instruction":5}',
+      ),
+    ).toBeNull();
+  });
+
   // ---- Git Operations (Phase 1-3) ----
 
   // git_stage

@@ -593,6 +593,17 @@ export type ClientMessage =
     }
   | { type: "rewind_dry_run"; sessionId: string; targetUuid: string }
   | { type: "fork"; sessionId: string; targetUuid: string }
+  | {
+      /**
+       * Stop a session and continue its task in a new session of another
+       * provider. See docs/session-handoff.md.
+       */
+      type: "handoff_session";
+      sessionId: string;
+      targetProvider: Provider;
+      /** What the target should do; it continues the task when omitted. */
+      instruction?: string;
+    }
   | { type: "list_windows" }
   | {
       type: "take_screenshot";
@@ -917,6 +928,11 @@ export type ServerMessage =
       sourceSessionId?: string;
       /** The source session keeps running (fork), unlike restarts/rewinds. */
       forked?: boolean;
+      /**
+       * The session continues `sourceSessionId` in another provider. The
+       * source has been stopped, and the chat screen has to be replaced.
+       */
+      handoff?: boolean;
       resumeRequestId?: string;
       requestId?: string;
       /** Claude settings, sent with subtype `claude_settings`. */
@@ -2610,6 +2626,20 @@ export function parseClientMessage(data: string): ClientMessage | null {
         if (
           typeof msg.sessionId !== "string" ||
           typeof msg.targetUuid !== "string"
+        )
+          return null;
+        break;
+      case "handoff_session":
+        if (
+          typeof msg.sessionId !== "string" ||
+          (msg.targetProvider !== "claude" &&
+            msg.targetProvider !== "codex" &&
+            msg.targetProvider !== "antigravity")
+        )
+          return null;
+        if (
+          msg.instruction !== undefined &&
+          typeof msg.instruction !== "string"
         )
           return null;
         break;

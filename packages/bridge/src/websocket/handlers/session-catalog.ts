@@ -17,29 +17,37 @@ export async function handleListSessions(
   server.sendSessionList(ws);
 }
 
+/** Stop a running session and tell every client. False when it is unknown. */
+export function stopSessionAndNotify(
+  server: BridgeWebSocketServer,
+  sessionId: string,
+): boolean {
+  const session = server.sessionManager.get(sessionId);
+  if (!session) return false;
+  // Notify clients before destroying (destroy removes listeners)
+  server.broadcastSessionMessage(sessionId, {
+    type: "result",
+    subtype: "stopped",
+    sessionId: session.claudeSessionId,
+  });
+  server.destroySession(sessionId);
+  recordDebugEvent(server, sessionId, {
+    direction: "internal",
+    channel: "bridge",
+    type: "session_stopped",
+  });
+  server.debugEvents.delete(sessionId);
+  server.notifiedPermissionToolUses.delete(sessionId);
+  server.broadcastSessionList();
+  return true;
+}
+
 export async function handleStopSession(
   server: BridgeWebSocketServer,
   msg: Extract<ClientMessage, { type: "stop_session" }>,
   ws: WebSocket,
 ): Promise<void> {
-  const session = server.sessionManager.get(msg.sessionId);
-  if (session) {
-    // Notify clients before destroying (destroy removes listeners)
-    server.broadcastSessionMessage(msg.sessionId, {
-      type: "result",
-      subtype: "stopped",
-      sessionId: session.claudeSessionId,
-    });
-    server.destroySession(msg.sessionId);
-    recordDebugEvent(server, msg.sessionId, {
-      direction: "internal",
-      channel: "bridge",
-      type: "session_stopped",
-    });
-    server.debugEvents.delete(msg.sessionId);
-    server.notifiedPermissionToolUses.delete(msg.sessionId);
-    server.broadcastSessionList();
-  } else {
+  if (!stopSessionAndNotify(server, msg.sessionId)) {
     server.send(ws, {
       type: "error",
       sessionId: msg.sessionId,

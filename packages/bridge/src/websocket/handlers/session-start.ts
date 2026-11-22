@@ -33,11 +33,26 @@ import {
 } from "../workspaces.js";
 import { codexServiceTierError, withCodexAutoReviewPolicy } from "../models.js";
 
+/** Options of a start the Bridge issues itself; clients cannot send them. */
+export interface InternalStartOptions {
+  /** Continue this stopped session of another provider (session handoff). */
+  handoffSourceSessionId?: string;
+  /**
+   * Send `initialPrompt` as written. A handoff prompt quotes earlier user
+   * turns, and their skill triggers must not be rewritten or attached.
+   */
+  rawInitialPrompt?: boolean;
+  /** Name for the session, kept in memory until it can be persisted. */
+  name?: string;
+}
+
+/** Returns the id of the created session, or undefined when it failed. */
 export async function handleStart(
   server: BridgeWebSocketServer,
   msg: Extract<ClientMessage, { type: "start" }>,
   ws: WebSocket,
-): Promise<void> {
+  internal: InternalStartOptions = {},
+): Promise<string | undefined> {
   let projectPath = resolvePlatformPath(msg.projectPath, server.platform);
   let resolvedWorkspace: ResolvedWorkspace | undefined;
   if (msg.projectId) {
@@ -300,6 +315,9 @@ export async function handleStart(
             usedFallback: false,
           };
     const createdSession = server.sessionManager.get(sessionId);
+    if (internal.name) {
+      server.sessionManager.renameSession(sessionId, internal.name);
+    }
     if (resolvedWorkspace) {
       server.pendingSessionWorkspaces.set(sessionId, resolvedWorkspace);
       void persistPendingSessionWorkspace(server, sessionId);
@@ -340,6 +358,12 @@ export async function handleStart(
           approvalsReviewer:
             createdSession?.codexSettings?.approvalsReviewer,
           requestId: msg.requestId,
+          ...(internal.handoffSourceSessionId
+            ? {
+                sourceSessionId: internal.handoffSourceSessionId,
+                handoff: true,
+              }
+            : {}),
           ...(cached
             ? {
                 slashCommands: cached.slashCommands,
@@ -381,12 +405,16 @@ export async function handleStart(
         );
       }
       if (msg.initialPrompt?.trim()) {
-        void prepareInitialPrompt(
-          server,
-          provider,
-          createdSession?.worktreePath ?? projectPath,
-          sessionId,
-          msg.initialPrompt,
+        const initialPrompt = msg.initialPrompt;
+        void (internal.rawInitialPrompt
+          ? Promise.resolve({ text: initialPrompt, skills: [] })
+          : prepareInitialPrompt(
+              server,
+              provider,
+              createdSession?.worktreePath ?? projectPath,
+              sessionId,
+              initialPrompt,
+            )
         )
           .then((prepared) =>
             server.handleClientMessage(
@@ -433,6 +461,7 @@ export async function handleStart(
     if (!resolvedWorkspace) {
       server.projectHistory?.addProject(projectPath);
     }
+    return sessionId;
   } catch (err) {
     console.error(`[ws] Failed to start session:`, err);
     server.send(ws, {
@@ -441,5 +470,6 @@ export async function handleStart(
       path: msg.projectPath,
       message: `Failed to start session: ${(err as Error).message}`,
     });
+    return undefined;
   }
 }
