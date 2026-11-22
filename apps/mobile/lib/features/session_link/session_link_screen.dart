@@ -38,7 +38,10 @@ class SessionLinkScreen extends StatelessWidget {
   }
 }
 
-class _SessionLinkScreenBody extends StatelessWidget {
+/// Longer than the route's exit transition.
+const _dismissDuration = Duration(milliseconds: 250);
+
+class _SessionLinkScreenBody extends StatefulWidget {
   const _SessionLinkScreenBody({
     required this.sourceSessionId,
     required this.provider,
@@ -46,6 +49,18 @@ class _SessionLinkScreenBody extends StatelessWidget {
 
   final String sourceSessionId;
   final String provider;
+
+  @override
+  State<_SessionLinkScreenBody> createState() => _SessionLinkScreenBodyState();
+}
+
+class _SessionLinkScreenBodyState extends State<_SessionLinkScreenBody> {
+  /// Whether a screen is underneath. Decided once: the stack changes while this
+  /// route is leaving, and the look must not change with it.
+  late final bool _overlay = context.router.root.stack.length > 1;
+
+  String get sourceSessionId => widget.sourceSessionId;
+  String get provider => widget.provider;
 
   @override
   Widget build(BuildContext context) {
@@ -96,7 +111,7 @@ class _SessionLinkScreenBody extends StatelessWidget {
         // instead of flashing an error while the route goes away.
         return SessionLinkStatusView(
           resuming: state is SessionLinkResuming,
-          overlay: context.router.root.stack.length > 1,
+          overlay: _overlay,
         );
       },
     );
@@ -113,14 +128,19 @@ class _SessionLinkScreenBody extends StatelessWidget {
     } else {
       router.replaceAll([AdaptiveHomeRoute()]);
     }
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          key: const ValueKey('session_link_unavailable_snackbar'),
-          content: Text(message),
-        ),
-      );
+    // Shown once this route has gone: a snackbar that appears during the
+    // transition is drawn by every Scaffold involved and trips the Hero check.
+    Future<void>.delayed(_dismissDuration, () {
+      if (!messenger.mounted) return;
+      messenger
+        ..removeCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            key: const ValueKey('session_link_unavailable_snackbar'),
+            content: Text(message),
+          ),
+        );
+    });
   }
 
   void _openSession(
@@ -186,11 +206,13 @@ class SessionLinkStatusView extends StatelessWidget {
     final l = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    return Scaffold(
-      backgroundColor: overlay
+    // Not a Scaffold: one would draw the app's snackbars on top of the screen
+    // underneath a second time.
+    return Material(
+      color: overlay
           ? colors.scrim.withValues(alpha: 0.32)
           : theme.scaffoldBackgroundColor,
-      body: SafeArea(
+      child: SafeArea(
         child: Center(
           child: Padding(
             padding: const EdgeInsets.all(32),

@@ -370,6 +370,7 @@ class _CcpocketAppState extends State<CcpocketApp> {
   StreamSubscription<RemoteMessage>? _fcmOnMessageOpenedAppSub;
 
   late final AppRouter _appRouter;
+  final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
   late final DeepLinkDispatcher _deepLinkDispatcher;
   bool _routerInitialized = false;
   bool _fcmHandlersInitialized = false;
@@ -507,6 +508,9 @@ class _CcpocketAppState extends State<CcpocketApp> {
       sessionId: sessionId,
       provider: provider,
     );
+    // A snackbar left on screen would be caught in the route transition, where
+    // every Scaffold involved draws it.
+    _scaffoldMessengerKey.currentState?.removeCurrentSnackBar();
     if (_appRouter.current.name == SessionLinkRoute.name) {
       _appRouter.replace(route);
       return;
@@ -585,6 +589,7 @@ class _CcpocketAppState extends State<CcpocketApp> {
         return ConnectDeepLinkScope(
           notifier: _deepLinkNotifier,
           child: MaterialApp.router(
+            scaffoldMessengerKey: _scaffoldMessengerKey,
             title: 'CC Pocket',
             theme: AppTheme.lightThemeForLocale(themeLocale),
             darkTheme: AppTheme.darkThemeForLocale(themeLocale),
