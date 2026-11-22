@@ -4,6 +4,15 @@ const record = (value: unknown): value is Message =>
 const hasImages = (msg: Message): boolean =>
   Array.isArray(msg.images) && msg.images.length > 0;
 
+/**
+ * An Antigravity swarm's conversation: board posts, and the brief a worker is
+ * given when it is added (the board's copy of a brief is never sent, so the
+ * `swarm add` call is the only place a client reads it).
+ */
+const swarmConversation = (part: Message): boolean =>
+  part.name === "SwarmPost" ||
+  (part.name === "swarm" && record(part.input) && part.input.action === "add");
+
 /** Delivery projection only: never mutate the agent's canonical history. */
 export function performanceMessage(msg: Message): Message | null {
   if (msg.type === "tool_use_summary") return null;
@@ -17,6 +26,8 @@ export function performanceMessage(msg: Message): Message | null {
     return {
       ...(msg.role === "tool_result" ? { role: msg.role } : { type: msg.type }),
       toolUseId: msg.toolUseId,
+      // Lets a client tell a board post's result, which it never shows, from other results.
+      ...(msg.toolName === "SwarmPost" ? { toolName: msg.toolName } : {}),
       content: isQuestionAnswer && typeof msg.content === "string" ? msg.content : "",
       ...(msg.userMessageUuid != null ? { userMessageUuid: msg.userMessageUuid } : {}),
       ...(msg.permissionOutcome != null ? { permissionOutcome: msg.permissionOutcome } : {}),
@@ -40,7 +51,8 @@ export function performanceMessage(msg: Message): Message | null {
       if (
         part.name === "ExitPlanMode" ||
         part.name === "AskUserQuestion" ||
-        part.name === "ImageGeneration"
+        part.name === "ImageGeneration" ||
+        swarmConversation(part)
       ) {
         return true;
       }

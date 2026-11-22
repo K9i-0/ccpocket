@@ -26,10 +26,13 @@ List<ChatEntry> liteModeEntries(List<ChatEntry> entries) {
                   TextContent(:final text) => text.trim().isNotEmpty,
                   ThinkingContent(:final thinking) =>
                     thinking.trim().isNotEmpty,
-                  ToolUseContent(:final name) =>
+                  ToolUseContent(:final name, :final input) =>
                     name == 'ExitPlanMode' ||
                         name == 'ImageGeneration' ||
-                        name == 'SwarmPost',
+                        name == 'SwarmPost' ||
+                        // The brief a swarm worker is given: the board's copy
+                        // of it is not sent, so this call is where it reads.
+                        (name == 'swarm' && input['action'] == 'add'),
                 },
               )
               .toList();

@@ -13,6 +13,11 @@ past history, and sequenced snapshots/deltas.
   assistant images (`AssistantServerMessage.images`), user input/attachments,
   `ImageGeneration` tool calls and results, approvals, questions, plans, errors, status
   and completion.
+- Keep an Antigravity swarm's conversation: board posts (`SwarmPost` tool calls, whose text
+  is in the input) and the brief a worker is given (`swarm` calls with `action: "add"`).
+  Other swarm tool calls (`status`, `read_board`, `swarm_wait`, …) are removed like any tool.
+  A `SwarmPost` result is still emptied, but keeps its `toolName` so clients can go on
+  hiding it.
 - Keep Explorer/file and explicitly requested image endpoints unchanged.
 - Remove other tool inputs, tool output bodies, incidental tool images (including simulator
   screenshots), and tool summaries. Preserve a payload-free `tool_result` marker
@@ -54,6 +59,10 @@ Older Bridges ignore the added capability fields, retaining full delivery. The a
 its local UI projection and shows an update notice; it does not claim network savings.
 No new client message type is sent, so there is no new `unsupported_message` flow.
 Older apps omit preferences and retain standard delivery.
+
+Swarm posts and briefs are kept by Bridges from the release after 1.118.0. An older Bridge
+removes them in performance mode (the app already keeps them in its own projection, so they
+appear as soon as the Bridge is updated); standard mode shows them either way.
 
 ## Verification
 

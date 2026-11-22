@@ -7,6 +7,29 @@ const assistant = { type: "assistant", message: { id: "a1", role: "assistant", c
 const result = { type: "tool_result", toolUseId: "t1", content: "large".repeat(100_000), images: [{ data: "x".repeat(1_000_000) }], rawContentBlocks: ["raw"] };
 
 describe("performance delivery projection", () => {
+  it("keeps a swarm's board posts and worker briefs in live, history and delta delivery", () => {
+    const post = { type: "tool_use", id: "swarm-post:s:2", name: "SwarmPost", input: { seq: 2, agent: "writer", agentIndex: 0, text: "@coordinator [done]" } };
+    const add = { type: "tool_use", id: "c1", name: "swarm", input: { action: "add", name: "writer", brief: "Write a.txt" } };
+    const status = { type: "tool_use", id: "c2", name: "swarm", input: { action: "status" } };
+    const live = { type: "assistant", message: { id: "a1", role: "assistant", content: [post, add, status] } };
+    const kept = { ...live, message: { ...live.message, content: [post, add] } };
+    const postResult = { type: "tool_result", toolUseId: post.id, content: "@coordinator [done]", toolName: "SwarmPost" };
+    const marker = { type: "tool_result", toolUseId: post.id, toolName: "SwarmPost", content: "" };
+
+    expect(performanceMessage(live)).toEqual(kept);
+    expect(performanceMessage(postResult)).toEqual(marker);
+    expect(performanceMessage({ type: "history", messages: [live, postResult] })!.messages).toEqual([kept, marker]);
+    expect(
+      performanceMessage({ type: "history_delta", fromSeq: 1, toSeq: 2, messages: [{ seq: 1, message: live }, { seq: 2, message: postResult }] }),
+    ).toEqual({
+      type: "history_delta",
+      filtered: true,
+      fromSeq: 1,
+      toSeq: 2,
+      messages: [{ seq: 1, message: kept }, { seq: 2, message: marker }],
+    });
+  });
+
   it("removes large tool inputs, outputs and screenshot payloads while keeping thinking without mutating history", () => {
     const history = { type: "history", messages: [assistant, result] };
     const projected = performanceMessage(history)!;
