@@ -120,6 +120,11 @@ export interface BackgroundTaskInfo {
   summary?: string;
   /** Most recent tool invoked inside this task (`system/task_progress`). */
   lastToolName?: string;
+  /**
+   * For an Antigravity swarm worker: its place in the order workers joined,
+   * from 0. Clients colour a worker by it, the same as on its board posts.
+   */
+  swarmIndex?: number;
 }
 
 /**
@@ -603,6 +608,13 @@ export type ClientMessage =
       targetProvider: Provider;
       /** What the target should do; it continues the task when omitted. */
       instruction?: string;
+      /**
+       * The app's remembered `start` options for the target provider (model,
+       * effort, permission mode and the like). The Bridge takes the project,
+       * worktree and prompt from the source, and replaces the permission mode
+       * when the source's mode has a counterpart in the target.
+       */
+      start?: Record<string, unknown>;
     }
   | { type: "list_windows" }
   | {
@@ -2640,6 +2652,13 @@ export function parseClientMessage(data: string): ClientMessage | null {
         if (
           msg.instruction !== undefined &&
           typeof msg.instruction !== "string"
+        )
+          return null;
+        if (
+          msg.start !== undefined &&
+          (typeof msg.start !== "object" ||
+            msg.start === null ||
+            Array.isArray(msg.start))
         )
           return null;
         break;

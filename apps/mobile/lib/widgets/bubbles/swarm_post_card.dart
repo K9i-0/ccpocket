@@ -10,6 +10,7 @@ import '../../providers/bridge_cubits.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/markdown_style.dart';
+import '../../theme/swarm_colors.dart';
 import '../link_hover_underline.dart';
 import '../workspace_pane_chrome.dart';
 
@@ -25,8 +26,15 @@ class SwarmPostSummary {
   final String previewText;
   final String fullText;
 
+  /// Where the author and the member the post addresses stand in the order
+  /// workers joined. Null for the coordinator and from an older Bridge.
+  final int? agentIndex;
+  final int? targetIndex;
+
   const SwarmPostSummary({
     required this.agent,
+    this.agentIndex,
+    this.targetIndex,
     required this.seqLabel,
     required this.timeLabel,
     required this.targetMention,
@@ -35,7 +43,28 @@ class SwarmPostSummary {
   });
 
   bool get isCoordinator => agent == 'coordinator';
+
+  /// The colour this post's author is shown in everywhere.
+  Color accent(BuildContext context) => swarmMemberColor(
+    context,
+    isCoordinator: isCoordinator,
+    index: agentIndex,
+  );
+
+  /// The colour of the member the post addresses, when it is known.
+  Color? targetAccent(BuildContext context) {
+    final isCoordinatorTarget = targetMention == '@coordinator';
+    if (!isCoordinatorTarget && targetIndex == null) return null;
+    return swarmMemberColor(
+      context,
+      isCoordinator: isCoordinatorTarget,
+      index: targetIndex,
+    );
+  }
 }
+
+int? _memberIndex(Object? value) =>
+    value is num && value >= 0 ? value.toInt() : null;
 
 final _leadingMentionRe = RegExp(r'^@([A-Za-z0-9_-]+)\s+');
 final _timeExtractRe = RegExp(r'(\d{2}:\d{2})(?::\d{2})?');
@@ -80,6 +109,11 @@ SwarmPostSummary parseSwarmPostSummary(Map<String, dynamic> input) {
 
   return SwarmPostSummary(
     agent: agent,
+    agentIndex: _memberIndex(input['agentIndex']),
+    // Only for the member the post opens with, which is who the Bridge numbers.
+    targetIndex: targetMention != null
+        ? _memberIndex(input['targetIndex'])
+        : null,
     seqLabel: seqLabel,
     timeLabel: timeLabel,
     targetMention: targetMention,
@@ -150,7 +184,7 @@ class _SwarmPostCardState extends State<SwarmPostCard> {
     final cs = Theme.of(context).colorScheme;
     final summary = parseSwarmPostSummary(widget.input);
     final seq = widget.input['seq'];
-    final accent = summary.isCoordinator ? cs.primary : cs.tertiary;
+    final accent = summary.accent(context);
 
     return Padding(
       key: ValueKey('swarm_post_$seq'),
@@ -267,6 +301,7 @@ class _SwarmPostHeader extends StatelessWidget {
               Flexible(
                 child: Text(
                   summary.agent,
+                  key: ValueKey('swarm_post_agent_$seq'),
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
@@ -288,10 +323,12 @@ class _SwarmPostHeader extends StatelessWidget {
                   ),
                   child: Text(
                     '→ ${summary.targetMention}',
+                    key: ValueKey('swarm_post_target_$seq'),
                     style: TextStyle(
                       fontSize: 10.5,
-                      fontWeight: FontWeight.w500,
-                      color: cs.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                      color:
+                          summary.targetAccent(context) ?? cs.onSurfaceVariant,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -450,7 +487,7 @@ class _SwarmPostDetailSheet extends StatelessWidget {
     final appColors = Theme.of(context).extension<AppColors>()!;
     final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
-    final accent = summary.isCoordinator ? cs.primary : cs.tertiary;
+    final accent = summary.accent(context);
 
     return ConstrainedBox(
       key: const ValueKey('swarm_post_detail_sheet'),
@@ -514,7 +551,10 @@ class _SwarmPostDetailSheet extends StatelessWidget {
                             '→ ${summary.targetMention}',
                             style: TextStyle(
                               fontSize: 12,
-                              color: cs.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                              color:
+                                  summary.targetAccent(context) ??
+                                  cs.onSurfaceVariant,
                             ),
                           ),
                         ),

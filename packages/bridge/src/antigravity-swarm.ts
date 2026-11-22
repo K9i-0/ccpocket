@@ -49,6 +49,11 @@ export interface SwarmPost {
   kind?: string;
 }
 
+/** The member a post opens by addressing (`@writer please ...`), if any. */
+export function swarmPostTarget(text: string): string | undefined {
+  return /^\s*@([A-Za-z0-9_-]+)/.exec(text)?.[1];
+}
+
 export function isSwarmConversationId(value: unknown): value is string {
   return typeof value === "string" && CONVERSATION_ID_RE.test(value);
 }

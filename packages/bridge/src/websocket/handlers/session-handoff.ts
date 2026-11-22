@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { WebSocket } from "ws";
+import { parseClientMessage } from "../../parser.js";
 import type { ClientMessage, Provider } from "../../parser.js";
+import { deriveCodexPermissionsMode } from "../../codex-permissions.js";
 import type { SessionInfo } from "../../session.js";
 import type { SessionHistoryMessage } from "../../sessions-index.js";
 import { renameClaudeSession } from "../../sessions-index.js";
@@ -10,6 +12,9 @@ import {
   buildHandoffPrompt,
   handoffSessionTitle,
   handoffAgentName,
+  handoffModeFields,
+  handoffModeOfSource,
+  handoffStartOptions,
   writeHandoffTranscript,
 } from "../../session-handoff.js";
 import type { BridgeWebSocketServer } from "../../websocket.js";
@@ -151,15 +156,21 @@ export async function handleHandoffSession(
     const workspace = workspaceForRuntimeSession(server, session);
     // Without a name the target would be titled after the handoff prompt.
     const name = session.name?.trim() || handoffSessionTitle(history);
+    const options = await targetStartOptions(
+      server,
+      session,
+      target,
+      msg.start,
+      summary?.executionMode,
+    );
     const newSessionId = await handleStart(
       server,
       {
+        ...options,
         type: "start",
         projectPath: session.projectPath,
         provider: target,
         initialPrompt: prompt,
-        // Plan mode is not carried over: the target is asked to continue.
-        executionMode: executionModeForTarget(summary?.executionMode),
         ...(workspace?.kind === "project" && workspace.projectId
           ? { projectId: workspace.projectId }
           : workspace && workspace.rootPaths.length > 1
@@ -204,6 +215,78 @@ function executionModeForTarget(
   mode: string | undefined,
 ): "default" | "acceptEdits" | "fullAccess" {
   return mode === "fullAccess" || mode === "acceptEdits" ? mode : "default";
+}
+
+type StartMessage = Extract<ClientMessage, { type: "start" }>;
+
+/**
+ * Model, effort and permission mode of the target.
+ *
+ * The mode follows the source where the target has a counterpart (auto to
+ * auto, full access to full access). Everything else, and the mode when
+ * there is no counterpart, comes from the start options the app remembers
+ * for the target provider. An app that sends none gets the source's
+ * execution mode.
+ */
+async function targetStartOptions(
+  server: BridgeWebSocketServer,
+  session: SessionInfo,
+  target: Provider,
+  remembered: Record<string, unknown> | undefined,
+  sourceExecutionMode: string | undefined,
+): Promise<Partial<StartMessage>> {
+  const process = session.process as {
+    permissionMode?: string;
+    currentModeBeforePlan?: string;
+    approvalPolicy?: string;
+    approvalsReviewer?: string;
+  };
+  const codex = session.codexSettings;
+  const sourceMode = handoffModeOfSource({
+    provider: session.provider,
+    permissionMode: process.permissionMode,
+    modeBeforePlan: process.currentModeBeforePlan,
+    codexPermissionsMode:
+      session.provider === "codex"
+        ? deriveCodexPermissionsMode({
+            codexPermissionsMode: codex?.codexPermissionsMode,
+            approvalPolicy: codex?.approvalPolicy ?? process.approvalPolicy,
+            approvalsReviewer:
+              codex?.approvalsReviewer ?? process.approvalsReviewer,
+            sandboxMode: codex?.sandboxMode,
+          })
+        : undefined,
+  });
+  let antigravityModes: readonly string[] | undefined;
+  if (target === "antigravity" && sourceMode) {
+    try {
+      antigravityModes = (await server.antigravityCatalog()).permissionModes;
+    } catch {
+      // Unknown: `start` checks the mode itself and falls back to default.
+    }
+  }
+  const modeFields = handoffModeFields(target, sourceMode, {
+    codexAutoReview: !server.codexAutoReviewDisabled,
+    antigravityModes,
+  });
+
+  const legacy: Partial<StartMessage> = {
+    executionMode: executionModeForTarget(sourceExecutionMode),
+  };
+  if (!remembered) return modeFields ? (modeFields as Partial<StartMessage>) : legacy;
+
+  const options = handoffStartOptions(target, remembered, modeFields);
+  // The options come from the app as it stored them. They pass the same
+  // check as a `start` sent by the app, so a bad value cannot reach a
+  // provider; the mode still carries over when they are refused.
+  const checked = parseClientMessage(
+    JSON.stringify({ ...options, type: "start", projectPath: session.projectPath }),
+  );
+  if (!checked || checked.type !== "start") {
+    console.warn("[ws] handoff: the remembered start options were not valid");
+    return modeFields ? (modeFields as Partial<StartMessage>) : legacy;
+  }
+  return options as Partial<StartMessage>;
 }
 
 /** Ask the source agent for a handoff note and wait for its reply. */

@@ -33,6 +33,7 @@ import {
   readSwarmPosts,
   readSwarmRoster,
   swarmFilesSignature,
+  swarmPostTarget,
 } from "./antigravity-swarm.js";
 
 /**
@@ -1392,6 +1393,14 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
   private besideReplyTimer: ReturnType<typeof setTimeout> | null = null;
   /** Swarm workers by conversation id. */
   private readonly swarmWorkers = new Map<string, SwarmWorker>();
+  /**
+   * Workers by name, numbered from 0 in the order they joined. Clients colour
+   * each worker by its number, so one never changes once given: not when the
+   * worker is killed, and not after a restart (see `noteSwarmJoins`).
+   */
+  private readonly swarmJoinOrder = new Map<string, number>();
+  /** What the roster calls this session's own conversation. */
+  private swarmSelfName = "coordinator";
 
   constructor(options?: {
     config?: AntigravityConfig;
@@ -2251,6 +2260,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     }
     for (const worker of this.visibleSwarmWorkers()) {
       const summary = worker.working ? worker.lastTool : "Waiting";
+      const swarmIndex = this.swarmJoinOrder.get(worker.name);
       tasks.push({
         taskId: `swarm:${worker.name}`,
         taskType: "antigravity_agent",
@@ -2258,6 +2268,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
         description: `Swarm: ${worker.name}`,
         // What it is doing now; clients show it after the description.
         ...(summary ? { summary } : {}),
+        ...(swarmIndex !== undefined ? { swarmIndex } : {}),
       });
     }
     const key = JSON.stringify(tasks);
@@ -2576,7 +2587,9 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     if (!dir) return;
     if (!live) {
       if (!readSwarmRoster(dir)) return;
-      this.swarmLastSeq = readSwarmPosts(dir, 0).at(-1)?.seq ?? 0;
+      const posts = readSwarmPosts(dir, 0);
+      this.noteSwarmJoins(posts);
+      this.swarmLastSeq = posts.at(-1)?.seq ?? 0;
     }
     this.swarmDir = dir;
     this.swarmSignature = "";
@@ -2592,6 +2605,26 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     this.besideReplyTimer = null;
     this.besideReply.length = 0;
     this.swarmWorkers.clear();
+    this.swarmJoinOrder.clear();
+  }
+
+  /**
+   * Numbers the workers these posts brief. The roster cannot give the order
+   * (its names are sorted), but every `swarm add` appends a brief addressed to
+   * the new worker to the board, which is only ever appended to: reading it
+   * again from the start after a restart numbers everyone the same way.
+   */
+  private noteSwarmJoins(posts: Array<{ text: string; kind?: string }>): void {
+    for (const post of posts) {
+      if (post.kind !== "brief") continue;
+      const name = swarmPostTarget(post.text);
+      if (name) this.noteSwarmJoin(name);
+    }
+  }
+
+  private noteSwarmJoin(name: string): void {
+    if (name === this.swarmSelfName || this.swarmJoinOrder.has(name)) return;
+    this.swarmJoinOrder.set(name, this.swarmJoinOrder.size);
   }
 
   /**
@@ -2642,13 +2675,16 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     if (!this.swarmDir || this.stopped) return;
     const signature = swarmFilesSignature(this.swarmDir);
     if (signature && signature !== this.swarmSignature) {
+      // Before the roster, so that workers are numbered by their briefs.
+      const posts = readSwarmPosts(this.swarmDir, this.swarmLastSeq);
+      this.noteSwarmJoins(posts);
       const roster = readSwarmRoster(this.swarmDir);
       // Unreadable while it is rewritten: keep the signature so it is retried.
       if (roster) {
         this.swarmSignature = signature;
         this.applySwarmRoster(roster.members, stale);
       }
-      for (const post of readSwarmPosts(this.swarmDir, this.swarmLastSeq)) {
+      for (const post of posts) {
         this.swarmLastSeq = post.seq;
         this.swarmBoardRead = true;
         // A brief is already on the `swarm add` card.
@@ -2671,7 +2707,10 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
 
   private applySwarmRoster(members: SwarmMember[], stale: boolean): void {
     for (const member of members) {
-      if (member.conversationId === this._sessionId) continue;
+      if (member.conversationId === this._sessionId) {
+        this.swarmSelfName = member.name;
+        continue;
+      }
       let worker = this.swarmWorkers.get(member.conversationId);
       if (!worker) {
         worker = {
@@ -2689,6 +2728,9 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
         this.swarmWorkers.set(member.conversationId, worker);
         continue;
       }
+      // Already listed at the last read and still without a brief on the
+      // board: number it anyway, after everyone who has one.
+      this.noteSwarmJoin(member.name);
       const now = Date.now();
       if (member.working && !worker.working && !stale) {
         worker.lastActivityAt = now;
@@ -2812,6 +2854,10 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
 
   private emitSwarmPostNow(post: { seq: number; agent: string; text: string; time?: string }): void {
     const toolUseId = `swarm-post:${this._sessionId}:${post.seq}`;
+    // Join-order numbers of who wrote it and whom it addresses. The
+    // coordinator has none.
+    const agentIndex = this.swarmJoinOrder.get(post.agent);
+    const targetIndex = this.swarmJoinOrder.get(swarmPostTarget(post.text) ?? "");
     this.emitMessage({
       type: "assistant",
       message: {
@@ -2827,6 +2873,8 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
               agent: post.agent,
               text: post.text,
               ...(post.time ? { time: post.time } : {}),
+              ...(agentIndex !== undefined ? { agentIndex } : {}),
+              ...(targetIndex !== undefined ? { targetIndex } : {}),
             },
           },
         ],

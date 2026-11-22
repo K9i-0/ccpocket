@@ -500,6 +500,7 @@ describe("AntigravityProcess with a swarm", () => {
         taskType: "antigravity_agent",
         subagentType: "swarm",
         description: "Swarm: writer_b",
+        swarmIndex: 1,
       },
       {
         taskId: "swarm:writer_a",
@@ -507,6 +508,7 @@ describe("AntigravityProcess with a swarm", () => {
         subagentType: "swarm",
         description: "Swarm: writer_a",
         summary: "Waiting",
+        swarmIndex: 0,
       },
     ]);
 
@@ -531,6 +533,7 @@ describe("AntigravityProcess with a swarm", () => {
         taskType: "antigravity_agent",
         subagentType: "swarm",
         description: "Swarm: writer_a",
+        swarmIndex: 0,
       },
       {
         taskId: "swarm:writer_b",
@@ -538,6 +541,7 @@ describe("AntigravityProcess with a swarm", () => {
         subagentType: "swarm",
         description: "Swarm: writer_b",
         summary: "Waiting",
+        swarmIndex: 1,
       },
     ]);
     proc.stop();
@@ -578,13 +582,15 @@ describe("AntigravityProcess with a swarm", () => {
           agent: "writer_a",
           text: "@coordinator [done] wrote a",
           time: "2026-11-21 20:51:41",
+          agentIndex: 0,
         },
       },
       {
         type: "tool_use",
         id: `swarm-post:${COORDINATOR}:3`,
         name: "SwarmPost",
-        input: { seq: 3, agent: "coordinator", text: "@writer_b status?" },
+        // writer_b has no brief on the board yet; it is numbered after writer_a.
+        input: { seq: 3, agent: "coordinator", text: "@writer_b status?", targetIndex: 1 },
       },
     ]);
     expect(ofType(messages, "tool_result").map((m) => m.toolUseId)).not.toContain("call_2");
@@ -594,6 +600,70 @@ describe("AntigravityProcess with a swarm", () => {
       content: "@writer_b status?",
     });
     proc.stop();
+  });
+
+  it("numbers workers in the order they were briefed, for good", async () => {
+    const appData = appDataDir();
+    const ZED = "0110c18b-836c-487f-abdd-ed0e291472cf";
+    // The roster lists names sorted; the briefs say `zed` joined first.
+    const board = [
+      { seq: 1, agent: "coordinator", text: "@zed review", kind: "brief" },
+      { seq: 2, agent: "coordinator", text: "@writer_b write b", kind: "brief" },
+      { seq: 3, agent: "coordinator", text: "@writer_a write a", kind: "brief" },
+    ];
+    const members = {
+      writer_a: worker(WRITER_A, "working"),
+      writer_b: worker(WRITER_B, "working"),
+      zed: worker(ZED, "working"),
+    };
+    const indexes = (messages: ServerMessage[]) =>
+      Object.fromEntries(
+        (ofType(messages, "background_tasks").at(-1)?.tasks ?? []).map((task) => [
+          task.taskId,
+          task.swarmIndex,
+        ]),
+      );
+    const postInputs = (messages: ServerMessage[]) =>
+      toolUses(messages)
+        .filter((use) => use.name === "SwarmPost")
+        .map((use) => use.input);
+
+    const first = await startSession(appData);
+    first.proc.sendInput("/swarm write a and b");
+    writeSwarm(appData, members, board);
+    first.tool("call_1", "swarm", { action: "add", name: "writer_a", brief: "write a" });
+    expect(indexes(first.messages)).toEqual({
+      "swarm:zed": 0,
+      "swarm:writer_b": 1,
+      "swarm:writer_a": 2,
+    });
+    // A killed worker keeps its number, and so do the others.
+    writeSwarm(appData, { ...members, zed: worker(ZED, "mentions", true) }, [
+      ...board,
+      { seq: 4, agent: "writer_a", text: "@writer_b [done] over to you" },
+      { seq: 5, agent: "coordinator", text: "[done] all written" },
+    ]);
+    first.sync();
+    expect(indexes(first.messages)).toEqual({ "swarm:writer_b": 1, "swarm:writer_a": 2 });
+    expect(postInputs(first.messages)).toEqual([
+      { seq: 4, agent: "writer_a", text: "@writer_b [done] over to you", agentIndex: 2, targetIndex: 1 },
+      { seq: 5, agent: "coordinator", text: "[done] all written" },
+    ]);
+    first.proc.stop();
+
+    // Resumed: the whole roster is read at once, and the numbers are the same.
+    const again = await startSession(appData, { sessionId: COORDINATOR });
+    writeSwarm(appData, { ...members, zed: worker(ZED, "mentions", true) }, [
+      ...board,
+      { seq: 4, agent: "writer_a", text: "@writer_b [done] over to you" },
+      { seq: 5, agent: "coordinator", text: "[done] all written" },
+      { seq: 6, agent: "writer_b", text: "@zed are you there?" },
+    ]);
+    again.sync();
+    expect(postInputs(again.messages)).toEqual([
+      { seq: 6, agent: "writer_b", text: "@zed are you there?", agentIndex: 1, targetIndex: 0 },
+    ]);
+    again.proc.stop();
   });
 
   it("shows the coordinator's post as a tool card while the board cannot be read", async () => {

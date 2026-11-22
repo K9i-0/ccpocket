@@ -245,12 +245,15 @@ Bridge はこの **2ファイルだけ** を読み取り専用で読む。各メ
 - **表示の順序**: coordinator が返答を書いている最中に届いた worker の承認とボード投稿は、その返答が終わるまで（最長 5 秒）出すのを待つ。すぐ出すと返答が途中で切れて複数の吹き出しになる。
 - **worker からの質問**（`elicitation/create`）は `decline` を返す。ユーザーに聞くのは coordinator の役目。
 - **稼働状況**: 名簿の `wake_mode` が `working` で直近 5 分以内に動きのあった worker、およびライブ更新（思考・本文・ツール呼び出し・承認要求）が届いた worker を稼働中として扱う。稼働中の worker がいる間は `expectsFollowUp` が真になり、完了通知を保留する。coordinator のターン中または稼働中 worker がいる間は、同じ swarm の待機中 worker（`!killed` かつ直近 5 分以内に動きあり）も含めて `background_tasks` に `taskType: "antigravity_agent"`、`subagentType: "swarm"`、`description: "Swarm: <名前>"`（稼働中は実行中のツール、待機中は `Waiting`）で出し、セッションカードのサブエージェント数バッジとチャット下部の Swarm バーへ反映する。coordinator・全 worker がアイドルになったら `[]` に戻す。再開直後の名簿は前回の `working` が残っていることがあるので、接続後に動きが届くまでは数えない。
+- **参加順の番号**: worker に、参加した順で 0 からの番号を付ける。クライアントはこの番号で色を決める。名簿（`members.json`）は名前順に並ぶので順番の根拠にならない。`swarm add` のたびにボードへ追記される brief（`kind: "brief"`、本文が `@<worker名>` で始まる）の `seq` 順を使う。ボードは追記専用なので、再開や Bridge の再起動で先頭から読み直しても同じ番号になる。番号は kill されても詰めない（過去の投稿の色が変わらないように）。brief が見つからないまま名簿に2回続けて現れた worker には、その時点の末尾の番号を付ける。coordinator には番号がない。番号は `SwarmPost` の `input.agentIndex`（投稿者）と `input.targetIndex`（本文先頭の `@宛先`）、`background_tasks` の各 worker の `swarmIndex` に載せる。分からないときはキーごと省く。
 - **ボード**（ボードから1件でも読めたあと）: 新しい投稿を `tool_use`（`name: "SwarmPost"`、`input: {seq, agent, text, time}`）と、本文を入れた `tool_result` の組で出す。`kind: "brief"`（`swarm add` の brief の写し）は `swarm add` のカードと重なるので出さない。coordinator 自身の `post_message` は、ボードを見ている間はカードを出さず、ボードの投稿として1回だけ出す。再開時は過去の投稿を出し直さない。
 - **CLI 用の案内文**は確定した返答から取り除く（ストリーミング中の一時表示には残る）。
 
 ### アプリ
 
 - `SwarmPost` はツールカードではなく、投稿者名・宛先メンション・`#seq`・時刻・2行プレビューをまとめたコンパクトカード（[swarm_post_card.dart](../apps/mobile/lib/widgets/bubbles/swarm_post_card.dart)）で出す。タップでインライン展開／折りたたみでき、展開ヘッダーから全文ボトムシート（テキスト選択・コピー・ファイルリンク対応）も開ける。対になる結果は表示しない。Lite モードでも残す。
+- **メンバーの色**（[swarm_colors.dart](../apps/mobile/lib/theme/swarm_colors.dart)）: coordinator はテーマの primary、worker は参加順の番号で 10 色のパレット（ライト／ダーク各1組）から順に取る。ランダムやハッシュにはしない。`agy` に worker 数の上限はない（手元の実例で最大 17 人）ので、11 人目からは色が一巡する。色相は primary のオレンジ・警告のアンバー・エラーの赤を避け、少人数で使う先頭ほど離してある。12px の文字として読めること（WCAG AA 4.5:1）はテストで確かめている。投稿カードの左線・投稿者名・`→ @宛先`、詳細シート、Swarm バー先頭のドット、worker 一覧のアイコンに使う。承認バーの `Swarm worker: …` には付けていない。番号のない worker（古い Bridge）は従来どおり tertiary の1色。
+- **パフォーマンスモード**: ボードの投稿と `swarm add`（worker への brief）は会話として残す。それ以外の swarm 系ツール呼び出しは他のツールと同じく省く。Bridge 側の配信フィルタは [performance-mode.md](performance-mode.md)。
 - 承認バーとセッションカードの承認欄に `Swarm worker: <名前>` を出す。ツール行の要約は `[<名前>] …` で始める。
 - セッションカードのステータスバーに既存のサブエージェントと同様に `backgroundAgentCount`（`hub_outlined` + 人数）を表示し、チャット下部のバックグラウンドバーでは Swarm のみ稼働中は `Swarm (N)` としてワーカー名と処理内容をコンパクトに表示する（タップで全ワーカー一覧シート）。
 - `swarm` ツールの行は `add <名前>` / `status` のように要約する。
@@ -259,6 +262,8 @@ Bridge はこの **2ファイルだけ** を読み取り専用で読む。各メ
 
 - プロトコルの追加はない。`SwarmPost` は通常の `tool_use` / `tool_result` なので、**古いアプリ**でも汎用のツールカード（名前と JSON、結果に本文）として読める。`swarmWorker` は知らないキーとして無視される。稼働状況は既存の `background_tasks` に載る。
 - **新しいアプリ + 古い Bridge**: `SwarmPost` も `swarmWorker` も届かないので、これまでどおり（worker は承認待ちで止まる）。
+- 参加順の番号（`agentIndex` / `targetIndex` / `swarmIndex`）は既存メッセージへの任意フィールドの追加で、新しいメッセージ型はない。**古いアプリ**は無視する。**番号を送らない Bridge**（1.118.0 以前）や番号のない保存済みの投稿では、worker は従来の1色で出る。
+
 
 ### 確認したこと
 

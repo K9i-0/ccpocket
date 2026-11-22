@@ -343,3 +343,133 @@ async function pruneHandoffTranscripts(dir: string, now: Date): Promise<void> {
       }),
   );
 }
+
+/**
+ * Permission mode of a session in terms every provider has a word for.
+ * Plan mode and custom Codex permissions have no such word.
+ */
+export type HandoffMode = "default" | "acceptEdits" | "auto" | "fullAccess";
+
+export function handoffModeOfSource(source: {
+  provider: Provider;
+  /** Claude and Antigravity. */
+  permissionMode?: string;
+  /** Antigravity keeps the mode that plan mode replaced. */
+  modeBeforePlan?: string;
+  /** Codex, derived from its approval and sandbox settings. */
+  codexPermissionsMode?: string;
+}): HandoffMode | undefined {
+  if (source.provider === "codex") {
+    switch (source.codexPermissionsMode) {
+      case "default":
+        return "default";
+      case "autoReview":
+        return "auto";
+      case "fullAccess":
+        return "fullAccess";
+      default:
+        return undefined;
+    }
+  }
+  const mode =
+    source.permissionMode === "plan"
+      ? source.modeBeforePlan
+      : source.permissionMode;
+  switch (mode) {
+    case "default":
+    case "acceptEdits":
+    case "auto":
+      return mode;
+    case "bypassPermissions":
+      return "fullAccess";
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * `start` fields that put the target into the counterpart of [mode], or
+ * undefined when the target has none: Codex has no accept-edits mode, auto
+ * review can be switched off, and Antigravity offers `auto` only on some
+ * accounts.
+ */
+export function handoffModeFields(
+  target: Provider,
+  mode: HandoffMode | undefined,
+  available: {
+    codexAutoReview: boolean;
+    /** Modes Antigravity offers, when known. */
+    antigravityModes?: readonly string[];
+  },
+): Record<string, unknown> | undefined {
+  if (!mode) return undefined;
+  if (target === "codex") {
+    if (mode === "acceptEdits") return undefined;
+    if (mode === "auto") {
+      return available.codexAutoReview
+        ? { codexPermissionsMode: "autoReview" }
+        : undefined;
+    }
+    return { codexPermissionsMode: mode };
+  }
+  const permissionMode = mode === "fullAccess" ? "bypassPermissions" : mode;
+  if (
+    target === "antigravity" &&
+    available.antigravityModes &&
+    !available.antigravityModes.includes(permissionMode)
+  ) {
+    return undefined;
+  }
+  return { permissionMode };
+}
+
+/** Options of `start` that come from the source session, never the app. */
+const START_KEYS_FROM_SOURCE = [
+  "type",
+  "projectPath",
+  "projectId",
+  "projectName",
+  "workspaceKind",
+  "provider",
+  "sessionId",
+  "continue",
+  "forkSession",
+  "initialPrompt",
+  "requestId",
+  "useWorktree",
+  "worktreeBranch",
+  "existingWorktreePath",
+  "additionalWritableRoots",
+  // A Codex profile belongs to a project and replaces the mode settings.
+  "profile",
+  "autoRename",
+] as const;
+
+/** Options of `start` that choose the permission mode. */
+const START_MODE_KEYS = [
+  "permissionMode",
+  "executionMode",
+  "planMode",
+  "approvalPolicy",
+  "approvalsReviewer",
+  "codexPermissionsMode",
+] as const;
+
+/**
+ * The app's remembered start options with the mode replaced by the source's
+ * counterpart. Without a counterpart the remembered mode stays.
+ */
+export function handoffStartOptions(
+  target: Provider,
+  remembered: Record<string, unknown> | undefined,
+  modeFields: Record<string, unknown> | undefined,
+): Record<string, unknown> {
+  const options: Record<string, unknown> = { ...(remembered ?? {}) };
+  for (const key of START_KEYS_FROM_SOURCE) delete options[key];
+  if (!modeFields) return options;
+  for (const key of START_MODE_KEYS) delete options[key];
+  // For Codex `sandboxMode` is part of the permission mode; for Claude it is
+  // the separate sandbox switch.
+  if (target === "codex") delete options.sandboxMode;
+  return { ...options, ...modeFields };
+}

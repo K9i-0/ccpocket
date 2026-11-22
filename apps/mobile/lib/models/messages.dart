@@ -4380,6 +4380,10 @@ class BackgroundTaskInfo {
   final String? summary;
   final String? lastToolName;
 
+  /// For an Antigravity swarm worker: its place in the order workers joined,
+  /// from 0. Picks its colour, the same one as on its board posts.
+  final int? swarmIndex;
+
   const BackgroundTaskInfo({
     required this.taskId,
     required this.taskType,
@@ -4387,6 +4391,7 @@ class BackgroundTaskInfo {
     this.subagentType,
     this.summary,
     this.lastToolName,
+    this.swarmIndex,
   });
 
   static const _agentTaskTypes = {
@@ -4410,6 +4415,10 @@ class BackgroundTaskInfo {
       subagentType: json['subagentType'] as String?,
       summary: json['summary'] as String?,
       lastToolName: json['lastToolName'] as String?,
+      swarmIndex: switch (json['swarmIndex']) {
+        final num index when index >= 0 => index.toInt(),
+        _ => null,
+      },
     );
   }
 }
