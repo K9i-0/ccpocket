@@ -1,0 +1,6 @@
+• Hand a session over to another agent (Claude, Codex, Antigravity) from the chat menu. It continues in the same directory with a handoff note and keeps the permission mode where possible.
+• Antigravity swarms: board posts as cards, a colour per worker, and a Swarm bar.
+• Pins, read marks and new-session settings are shared between devices.
+• Notifications and session links open without leaving the current screen.
+• Fixes for the Codex menu and the diff viewer.
+Requires Bridge 1.119.0.

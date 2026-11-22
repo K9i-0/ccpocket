@@ -1,7 +1,8 @@
-• Visible models: choose in Settings which models appear in the model pickers for each agent.
-• Model picker style: open the model list as a Sheet, or as a Menu that opens in place without another bottom sheet.
-• The Antigravity thinking level is now a slider, in the same layout as the Claude and Codex settings.
-• Performance mode now keeps thinking blocks and assistant images (generated images and images in assistant messages) while still hiding other tool details. Requires Bridge 1.114.0 or later.
-• Bridge connections through the built-in SSH tunnel now recover by themselves after a network change (Wi-Fi to cellular, sleep).
-• Fixed Notifications and the other per-machine settings not appearing when connected through the SSH tunnel.
-• Fixed a connection through the SSH tunnel failing with "Password required" instead of asking for the SSH password.
+• Hand a session over to another agent: the chat menu now offers "Hand off to …" for Claude, Codex and Antigravity. The current agent writes a handoff note, and the other agent continues the task in the same directory. You can add an instruction for the new agent. The permission mode carries over where the other agent has the same one (auto stays auto); the model comes from your last start settings for that agent. Requires Bridge 1.119.0 or later.
+• Antigravity swarms (/swarm): posts on the swarm's board appear in the chat as compact cards, each worker has its own colour, and a Swarm bar above the input lists the workers and what they are doing. Approval requests say which worker is asking. Requires Bridge 1.119.0 or later.
+• Shared between your devices through the Bridge: pinned sessions and projects, read marks, the Claude settings of each session, and the options the new-session sheet starts with. Requires Bridge 1.117.0 or later.
+• Opening a notification or a session link no longer leaves the screen you are on while the session is looked up. If the session is no longer available, a message tells you so instead of a full-screen error.
+• Fixed: the Codex session menu showed Rename, Screenshot and Gallery in English regardless of the app's language.
+• Fixed: list numbering in the message input restarted at 1 after a code block inside a list item.
+• Fixed: several cases where the diff viewer showed file paths incorrectly (paths with spaces or quotes, lines starting with "-- ").
+• Fixed: with Antigravity, a prompt you just sent could appear above output that arrived before it.
