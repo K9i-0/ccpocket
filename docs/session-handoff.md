@@ -92,10 +92,34 @@ the other agent that must not be rewritten or attached.
 | --- | --- |
 | Files | Same directory or worktree, so every change is already on disk |
 | Workspace | Same project, or the same additional roots |
-| Execution mode | `default` / `acceptEdits` / `fullAccess` mapped by `start`, so full access on the source is full access (bypass) on the target; plan mode is not carried over |
-| Model, effort, sandbox | The target's defaults |
+| Permission mode | Follows the source where the target has a counterpart; otherwise the mode remembered for the target. See below |
+| Model, effort and other options | The start settings the app remembers for the target agent (`handoff_session.start`); the target's defaults when nothing is remembered |
 | Name | The source's name; without one, the first line of the first request (60 characters). It is written to the target's own storage; the attempt is repeated for up to two minutes, because the provider id exists before the provider accepts a name |
 | Rewind points | Not carried over; the target cannot rewind past the handoff |
+
+### Permission mode and model
+
+The app sends, as `start`, the `start` message it would send for a new
+session of the target agent with the settings it remembers for that agent
+(`session_start_defaults.<provider>`). The Bridge drops everything in it that
+belongs to the source (project, worktree, prompt, Codex profile) and passes
+the result through the same check as a real `start`.
+
+The permission mode follows the source when the target has a counterpart:
+
+| Source | Claude | Codex | Antigravity |
+| --- | --- | --- | --- |
+| default | `default` | `default` | `default` |
+| accept edits | `acceptEdits` | none | `acceptEdits` |
+| auto / auto review | `auto` | `autoReview` | `auto` |
+| full access / bypass | `bypassPermissions` | `fullAccess` | `bypassPermissions` |
+
+There is no counterpart for plan mode (Antigravity uses the mode plan mode
+replaced), for custom Codex permissions, for Codex auto review when it is
+switched off, and for an Antigravity mode the account does not offer (`auto`
+with an API key). The target then starts in the remembered mode, which is the
+mode a new session of that agent would start in. An app that sends no `start`
+gets the counterpart, or the source's execution mode without one.
 
 ## Protocol
 
@@ -104,6 +128,7 @@ All additions stay within protocol v1.
 | Item | Direction | Compatibility |
 | --- | --- | --- |
 | `handoff_session` | App → Bridge | Older Bridges answer `unsupported_message`; the chat shows the update hint (`_unsupportedActions`) |
+| `handoff_session.start` | App → Bridge | Optional. Bridge 1.118.0 ignores it and maps the execution mode only |
 | `session_created.handoff` with `sourceSessionId` | Bridge → App | Optional field. Only sent in answer to `handoff_session`, which older apps do not send |
 | `session_handoff_v1` | `protocolCapabilities` | The app shows the menu entries only with it |
 
@@ -161,3 +186,10 @@ verification still follows the API-key rule in
   instruction; the card after reopening the session; the menu and dialog of
   the Codex chat. The chat was a workspace pane; replacing a routed screen
   (`context.router.replace`) was not exercised.
+- Modes on the test Bridge with real agents (2026-11-22): Claude auto →
+  Codex auto review, Codex auto review → Claude auto, Claude bypass →
+  Antigravity bypass, Claude auto → Antigravity with an API key (no `auto`
+  there, so the remembered accept-edits mode was used) and Claude accept
+  edits → Codex (no counterpart, remembered full access was used). Auto to
+  Antigravity auto needs the Google sign-in and was not run; the remembered
+  model was only covered by unit tests.
