@@ -29,7 +29,7 @@ const NOTE_TURN_WAIT_MS = 180_000;
 const NOTE_MIN_LENGTH = 40;
 /** How long the target may take to get its provider session id. */
 const NAME_PERSIST_WAIT_MS = 120_000;
-const NAME_PERSIST_POLL_MS = 1_000;
+const NAME_PERSIST_POLL_MS = 2_000;
 
 /** Timings, replaceable in tests. */
 export const handoffTimings = {
@@ -290,8 +290,13 @@ function noteFromHistory(session: SessionInfo, requestSeq: number): NoteOutcome 
 }
 
 /**
- * Write the carried-over name to the target's own storage once the provider
- * has given the session an id. Until then the name only lives in memory.
+ * Write the carried-over name to the target's own storage. Until that works
+ * the name only lives in memory.
+ *
+ * The provider id appears before the provider has written anything: Codex
+ * refuses to name a thread whose rollout is still empty, and a Claude
+ * transcript does not exist before the first turn. So a failed attempt is
+ * repeated until it succeeds or the wait is over.
  */
 async function persistSessionName(
   server: BridgeWebSocketServer,
@@ -299,8 +304,10 @@ async function persistSessionName(
   name: string,
 ): Promise<void> {
   const deadline = Date.now() + handoffTimings.namePersistWaitMs;
+  let lastError: unknown;
   while (Date.now() < deadline) {
     const session = server.sessionManager.get(sessionId);
+    // Stopped, or renamed by the user in the meantime.
     if (!session || session.name !== name) return;
     const providerSessionId =
       session.claudeSessionId ??
@@ -309,25 +316,31 @@ async function persistSessionName(
         : undefined);
     if (providerSessionId) {
       try {
-        if (session.provider === "claude") {
-          await renameClaudeSession(
-            session.worktreePath ?? session.projectPath,
-            providerSessionId,
-            name,
-          );
-        } else if (session.process instanceof CodexProcess) {
+        if (session.process instanceof CodexProcess) {
           await session.process.renameThread(name);
-        } else if (session.provider === "antigravity") {
+          return;
+        }
+        if (session.provider === "antigravity") {
           // The recent-session list picks it up when its cache expires.
           await server.antigravityStore.setName(providerSessionId, name);
+          return;
         }
+        const saved = await renameClaudeSession(
+          session.worktreePath ?? session.projectPath,
+          providerSessionId,
+          name,
+        );
+        if (saved) return;
+        lastError = "the Claude transcript does not exist yet";
       } catch (err) {
-        console.warn(`[ws] handoff: could not save the session name: ${err}`);
+        lastError = err;
       }
-      return;
     }
     await new Promise((resolve) =>
       setTimeout(resolve, handoffTimings.namePersistPollMs),
     );
+  }
+  if (lastError !== undefined) {
+    console.warn(`[ws] handoff: could not save the session name: ${lastError}`);
   }
 }

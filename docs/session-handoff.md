@@ -92,9 +92,9 @@ the other agent that must not be rewritten or attached.
 | --- | --- |
 | Files | Same directory or worktree, so every change is already on disk |
 | Workspace | Same project, or the same additional roots |
-| Execution mode | `default` / `acceptEdits` / `fullAccess` mapped by `start`; plan mode is not carried over |
+| Execution mode | `default` / `acceptEdits` / `fullAccess` mapped by `start`, so full access on the source is full access (bypass) on the target; plan mode is not carried over |
 | Model, effort, sandbox | The target's defaults |
-| Name | The source's name; without one, the first line of the first request (60 characters). It is written to the target's own storage once the provider has given the session an id |
+| Name | The source's name; without one, the first line of the first request (60 characters). It is written to the target's own storage; the attempt is repeated for up to two minutes, because the provider id exists before the provider accepts a name |
 | Rewind points | Not carried over; the target cannot rewind past the handoff |
 
 ## Protocol
@@ -128,9 +128,11 @@ source and the new session reach other clients through the session list.
 
 ## Antigravity
 
-The note request and the handoff prompt are sent by the Bridge, but only
-after the user chose the handoff in the app, so they count as user input and
-are allowed with Google sign-in (decided 2026-11-22). Agent-driven
+Antigravity gets a Bridge-written prompt in both roles: the handoff prompt as
+a target, and the note request as a source. Both are sent only after the user
+chose the handoff in the app. The user decided on 2026-11-22 that a handoff
+to Antigravity counts as user input and is allowed with Google sign-in; the
+note request to an Antigravity source is treated the same way. Agent-driven
 verification still follows the API-key rule in
 [antigravity-acp-integration.md](antigravity-acp-integration.md).
 
@@ -141,10 +143,19 @@ verification still follows the API-key rule in
   start options), `test/session_handoff_test.dart` (message, targets, card,
   dialog).
 - Real agents on the test Bridge, driven over WebSocket (2026-11-22):
-  Claude → Codex, Codex → Antigravity (API key) and Antigravity → Claude.
-  Each target read the note and continued a four-step file task. The other
-  three pairs use the same readers and starters but were not run.
+  Claude → Codex, Codex → Antigravity (API key) and Antigravity → Claude,
+  each from an idle source and again from a source that was interrupted in
+  the middle of a turn. Each target received the note and acted on it. The
+  other three pairs use the same readers and starters but were not run.
+- With the requesting socket closed right after `handoff_session`
+  (Claude → Codex), the handoff still finished: after reconnecting, the
+  target was running under the carried-over name and the source was gone.
+- The name of a Codex target was missing from the recent sessions at first,
+  because Codex refuses to name a thread whose rollout is still empty. The
+  retry in `persistSessionName` fixed it.
+- No target was seen opening the transcript file; the prompt was enough for
+  these short tasks.
 - App on the iOS simulator: Claude → Codex from the menu, with an
-  instruction; the card after reopening the session; the menu of the Codex
-  chat. The chat was a workspace pane; replacing a routed screen
+  instruction; the card after reopening the session; the menu and dialog of
+  the Codex chat. The chat was a workspace pane; replacing a routed screen
   (`context.router.replace`) was not exercised.

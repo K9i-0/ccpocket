@@ -8,7 +8,9 @@ const {
   waitRunningMock,
   waitIdleMock,
   workspaceMock,
+  renameClaudeMock,
 } = vi.hoisted(() => ({
+  renameClaudeMock: vi.fn(),
   handleStartMock: vi.fn(),
   stopSessionAndNotifyMock: vi.fn(),
   transcriptMock: vi.fn(),
@@ -35,7 +37,7 @@ vi.mock("./websocket/workspaces.js", () => ({
   workspaceForRuntimeSession: workspaceMock,
 }));
 vi.mock("./sessions-index.js", () => ({
-  renameClaudeSession: vi.fn().mockResolvedValue(true),
+  renameClaudeSession: renameClaudeMock,
 }));
 vi.mock("./codex-process.js", () => ({
   CodexProcess: class CodexProcess {},
@@ -47,7 +49,11 @@ vi.mock("./session-handoff.js", async () => {
   return { ...actual, writeHandoffTranscript: writeTranscriptMock };
 });
 
-import { handleHandoffSession } from "./websocket/handlers/session-handoff.js";
+import {
+  handleHandoffSession,
+  handoffTimings,
+} from "./websocket/handlers/session-handoff.js";
+import { CodexProcess } from "./codex-process.js";
 
 const NOTE = "Goal: ship the login form. Done: markup. Remaining: validation and tests.";
 
@@ -121,6 +127,9 @@ beforeEach(() => {
   waitRunningMock.mockResolvedValue(true);
   waitIdleMock.mockResolvedValue(true);
   workspaceMock.mockReturnValue(undefined);
+  renameClaudeMock.mockResolvedValue(true);
+  handoffTimings.namePersistPollMs = 1;
+  handoffTimings.namePersistWaitMs = 500;
 });
 
 describe("handleHandoffSession", () => {
@@ -395,5 +404,75 @@ describe("handleHandoffSession", () => {
     release();
     await first;
     expect(handleStartMock).toHaveBeenCalledOnce();
+  });
+
+  describe("carried-over name", () => {
+    const handoff = (ctx: ReturnType<typeof setup>, target: "claude" | "codex") =>
+      handleHandoffSession(
+        ctx.server,
+        { type: "handoff_session", sessionId: "s-1", targetProvider: target },
+        ctx.ws,
+      );
+
+    it("is saved once the Claude transcript exists", async () => {
+      const ctx = setup({ provider: "codex", name: "Login form" });
+      const target: any = {
+        id: "s-2",
+        provider: "claude",
+        projectPath: "/tmp/project",
+        name: "Login form",
+        process: {},
+      };
+      ctx.sessions.set("s-2", target);
+      renameClaudeMock.mockResolvedValueOnce(false).mockResolvedValue(true);
+
+      await handoff(ctx, "claude");
+      expect(renameClaudeMock).not.toHaveBeenCalled();
+
+      target.claudeSessionId = "claude-new";
+      await vi.waitFor(() => expect(renameClaudeMock).toHaveBeenCalledTimes(2));
+      expect(renameClaudeMock).toHaveBeenLastCalledWith(
+        "/tmp/project",
+        "claude-new",
+        "Login form",
+      );
+    });
+
+    it("is retried while the Codex rollout is still empty", async () => {
+      const ctx = setup({ name: "Login form" });
+      const process: any = new (CodexProcess as any)();
+      process.sessionId = "thread-new";
+      process.renameThread = vi
+        .fn()
+        .mockRejectedValueOnce(new Error("rollout is empty"))
+        .mockResolvedValue(undefined);
+      ctx.sessions.set("s-2", {
+        id: "s-2",
+        provider: "codex",
+        projectPath: "/tmp/project",
+        name: "Login form",
+        process,
+      });
+
+      await handoff(ctx, "codex").catch(() => {});
+      await vi.waitFor(() => expect(process.renameThread).toHaveBeenCalledTimes(2));
+      expect(process.renameThread).toHaveBeenLastCalledWith("Login form");
+    });
+
+    it("is left alone after the user renamed the session", async () => {
+      const ctx = setup({ provider: "codex", name: "Login form" });
+      ctx.sessions.set("s-2", {
+        id: "s-2",
+        provider: "claude",
+        projectPath: "/tmp/project",
+        name: "Renamed by the user",
+        claudeSessionId: "claude-new",
+        process: {},
+      });
+
+      await handoff(ctx, "claude");
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(renameClaudeMock).not.toHaveBeenCalled();
+    });
   });
 });
