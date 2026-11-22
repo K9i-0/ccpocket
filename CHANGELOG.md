@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.177.0] - 2026-11-22
+
+### Added
+
+- Hand a session over to another agent: the chat menu offers "Hand off to …" for each of the other agents (Claude Code, Codex, Antigravity). After a confirmation with an optional instruction, the current agent writes a handoff note, the other agent continues the task in the same directory, and the chat switches to the new session. Needs Bridge 1.118.0.
+
+### Changed
+
+- Opening a notification or a session link no longer leaves the screen you are on while the session is looked up: the progress is shown over the current screen.
+
+### Fixed
+
+- Opening a notification for a session that is no longer available showed a full-screen error that had to be closed. You now stay on the screen you were on and a message at the bottom tells you the session is unavailable.
+
 ## [1.176.0] - 2026-11-22
 
 ### Added
