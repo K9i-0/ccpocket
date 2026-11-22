@@ -128,7 +128,7 @@ All additions stay within protocol v1.
 | Item | Direction | Compatibility |
 | --- | --- | --- |
 | `handoff_session` | App → Bridge | Older Bridges answer `unsupported_message`; the chat shows the update hint (`_unsupportedActions`) |
-| `handoff_session.start` | App → Bridge | Optional. Bridge 1.118.0 ignores it and maps the execution mode only |
+| `handoff_session.start` | App → Bridge | Optional, from Bridge 1.119.0. Bridge 1.118.0 ignores it and maps the execution mode only |
 | `session_created.handoff` with `sourceSessionId` | Bridge → App | Optional field. Only sent in answer to `handoff_session`, which older apps do not send |
 | `session_handoff_v1` | `protocolCapabilities` | The app shows the menu entries only with it |
 

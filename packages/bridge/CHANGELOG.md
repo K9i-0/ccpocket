@@ -2,6 +2,18 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.119.0] - 2026-11-22
+
+### Added
+
+- Session handoff: `handoff_session` takes `start`, the start options the app remembers for the target agent. The target follows the source's permission mode where it has a counterpart (Claude auto, Codex auto review and Antigravity auto; default; full access; accept edits between Claude and Antigravity). Without a counterpart (plan mode, custom Codex permissions, accept edits to Codex, auto review switched off, an Antigravity mode the account does not offer) it starts in the remembered mode. Model, effort and the other options also come from `start`.
+- Antigravity swarms: workers are numbered in the order they joined, read from the briefs on the board, and the number is sent on board posts (`agentIndex`, `targetIndex`) and background tasks (`swarmIndex`) so clients can give each worker its own colour.
+
+### Fixed
+
+- Session handoff: an auto-mode session handed over to another agent started in default mode.
+- Performance mode: an Antigravity swarm's board posts and the brief a worker is given were removed from the chat. They are kept now; other swarm tool calls are still removed.
+
 ## [1.118.0] - 2026-11-22
 
 ### Added
