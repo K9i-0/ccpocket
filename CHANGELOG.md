@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.178.0] - 2026-11-22
+
+### Added
+
+- Antigravity swarms: each worker now has its own colour, in the order the workers joined. It is used on the worker's posts, on the member a post is addressed to, in the Swarm bar and in the worker list. There are eight colours; from the ninth worker on they repeat. Needs Bridge 1.119.0; with an older Bridge workers keep the single colour.
+- Performance mode keeps a swarm's conversation: board posts and the brief each worker is given stay in the chat. Needs Bridge 1.119.0.
+
+### Changed
+
+- Handing a session over to another agent keeps the permission mode where the other agent has the same one: auto stays auto (Claude auto, Codex Auto Review, Antigravity auto), and default, full access and accept edits carry over the same way. Where there is no such mode, the new session starts in the mode you last started that agent with. The model and effort also come from your last start settings for that agent. Needs Bridge 1.119.0.
+
+### Fixed
+
+- A Claude session in auto mode handed over to Antigravity started in default mode.
+
 ## [1.177.0] - 2026-11-22
 
 ### Added
