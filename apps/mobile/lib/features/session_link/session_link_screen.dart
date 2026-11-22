@@ -41,6 +41,10 @@ class SessionLinkScreen extends StatelessWidget {
 /// Longer than the route's exit transition.
 const _dismissDuration = Duration(milliseconds: 250);
 
+/// Counts the links opened so far. A failure is only reported while its link
+/// is still the latest one, so it never appears over the next link's screen.
+int _openedLinks = 0;
+
 class _SessionLinkScreenBody extends StatefulWidget {
   const _SessionLinkScreenBody({
     required this.sourceSessionId,
@@ -58,6 +62,7 @@ class _SessionLinkScreenBodyState extends State<_SessionLinkScreenBody> {
   /// Whether a screen is underneath. Decided once: the stack changes while this
   /// route is leaving, and the look must not change with it.
   late final bool _overlay = context.router.root.stack.length > 1;
+  final int _link = ++_openedLinks;
 
   String get sourceSessionId => widget.sourceSessionId;
   String get provider => widget.provider;
@@ -121,6 +126,7 @@ class _SessionLinkScreenBodyState extends State<_SessionLinkScreenBody> {
   /// there, so the user has nothing to close.
   void _dismissAsUnavailable(BuildContext context) {
     final messenger = ScaffoldMessenger.of(context);
+    final link = _link;
     final message = AppLocalizations.of(context).sessionUnavailableDescription;
     final router = context.router.root;
     if (router.stack.length > 1) {
@@ -131,7 +137,7 @@ class _SessionLinkScreenBodyState extends State<_SessionLinkScreenBody> {
     // Shown once this route has gone: a snackbar that appears during the
     // transition is drawn by every Scaffold involved and trips the Hero check.
     Future<void>.delayed(_dismissDuration, () {
-      if (!messenger.mounted) return;
+      if (!messenger.mounted || link != _openedLinks) return;
       messenger
         ..removeCurrentSnackBar()
         ..showSnackBar(

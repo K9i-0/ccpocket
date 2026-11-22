@@ -11,7 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
 class _SessionLinkBridge extends BridgeService {
-  final resolution = Completer<SessionLinkResolveResult>();
+  var resolution = Completer<SessionLinkResolveResult>();
 
   @override
   Future<SessionLinkResolveResult> resolveSessionLink(
@@ -99,4 +99,52 @@ void main() {
       );
     },
   );
+
+  testWidgets('a failure is not reported once another link has been opened', (
+    tester,
+  ) async {
+    final bridge = _SessionLinkBridge();
+    addTearDown(bridge.dispose);
+    final router = _TestRouter();
+    await tester.pumpWidget(
+      RepositoryProvider<BridgeService>.value(
+        value: bridge,
+        child: MaterialApp.router(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          routerConfig: router.config(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    unawaited(router.push(SessionLinkRoute(sessionId: 'first')));
+    await tester.pump();
+    await tester.pump();
+    bridge.resolution.complete(const SessionLinkResolveResult.unavailable());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    // The second link is opened before the first failure is reported.
+    bridge.resolution = Completer<SessionLinkResolveResult>();
+    unawaited(router.push(SessionLinkRoute(sessionId: 'second')));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.text('Finding session...'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('session_link_unavailable_snackbar')),
+      findsNothing,
+    );
+
+    bridge.resolution.complete(const SessionLinkResolveResult.unavailable());
+    await tester.pumpAndSettle();
+
+    expect(router.stack, hasLength(1));
+    expect(
+      find.byKey(const ValueKey('session_link_unavailable_snackbar')),
+      findsOneWidget,
+    );
+  });
 }
