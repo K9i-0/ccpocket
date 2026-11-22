@@ -10,7 +10,6 @@ import '../../router/session_stack_navigation.dart';
 import '../../services/bridge_service.dart';
 import 'state/session_link_cubit.dart';
 import 'state/session_link_state.dart';
-import 'widgets/session_unavailable_view.dart';
 
 @RoutePage()
 class SessionLinkScreen extends StatelessWidget {
@@ -54,7 +53,8 @@ class _SessionLinkScreenBody extends StatelessWidget {
       listenWhen: (_, state) => switch (state) {
         SessionLinkOpenLive() ||
         SessionLinkOpenResumed() ||
-        SessionLinkOpenLegacy() => true,
+        SessionLinkOpenLegacy() ||
+        SessionLinkUnavailable() => true,
         _ => false,
       },
       listener: (context, state) {
@@ -85,21 +85,42 @@ class _SessionLinkScreenBody extends StatelessWidget {
               sessionId: sourceSessionId,
               provider: provider,
             );
+          case SessionLinkUnavailable():
+            _dismissAsUnavailable(context);
           default:
             return;
         }
       },
       builder: (context, state) {
-        final isUnavailable = state is SessionLinkUnavailable;
+        // An unavailable link leaves this screen, so it keeps showing progress
+        // instead of flashing an error while the route goes away.
         return SessionLinkStatusView(
-          unavailable: isUnavailable,
           resuming: state is SessionLinkResuming,
-          onOpenRecentSessions: () {
-            context.router.replaceAll([AdaptiveHomeRoute()]);
-          },
+          overlay: context.router.root.stack.length > 1,
         );
       },
     );
+  }
+
+  /// Returns to the screen the link was opened from and reports the failure
+  /// there, so the user has nothing to close.
+  void _dismissAsUnavailable(BuildContext context) {
+    final messenger = ScaffoldMessenger.of(context);
+    final message = AppLocalizations.of(context).sessionUnavailableDescription;
+    final router = context.router.root;
+    if (router.stack.length > 1) {
+      router.removeRoute(context.routeData);
+    } else {
+      router.replaceAll([AdaptiveHomeRoute()]);
+    }
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          key: const ValueKey('session_link_unavailable_snackbar'),
+          content: Text(message),
+        ),
+      );
   }
 
   void _openSession(
@@ -146,45 +167,57 @@ class _SessionLinkScreenBody extends StatelessWidget {
   }
 }
 
+/// Progress shown while a linked session is found or resumed.
+///
+/// As an [overlay] it dims the screen underneath instead of replacing it; with
+/// nothing underneath it fills the screen.
 class SessionLinkStatusView extends StatelessWidget {
   const SessionLinkStatusView({
     super.key,
-    required this.unavailable,
     required this.resuming,
-    required this.onOpenRecentSessions,
+    this.overlay = false,
   });
 
-  final bool unavailable;
   final bool resuming;
-  final VoidCallback onOpenRecentSessions;
+  final bool overlay;
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     return Scaffold(
+      backgroundColor: overlay
+          ? colors.scrim.withValues(alpha: 0.32)
+          : theme.scaffoldBackgroundColor,
       body: SafeArea(
-        child: unavailable
-            ? SessionUnavailableView(onOpenRecentSessions: onOpenRecentSessions)
-            : Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const CircularProgressIndicator.adaptive(
-                        key: ValueKey('session_link_progress_indicator'),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        resuming
-                            ? l.resumingLinkedSession
-                            : l.resolvingLinkedSession,
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Material(
+              color: overlay ? colors.surfaceContainerHigh : Colors.transparent,
+              borderRadius: BorderRadius.circular(16),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator.adaptive(
+                      key: ValueKey('session_link_progress_indicator'),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      resuming
+                          ? l.resumingLinkedSession
+                          : l.resolvingLinkedSession,
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ),
               ),
+            ),
+          ),
+        ),
       ),
     );
   }

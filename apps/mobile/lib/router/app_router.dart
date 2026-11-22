@@ -32,7 +32,16 @@ class AppRouter extends RootStackRouter {
   List<AutoRoute> get routes => [
     AutoRoute(page: AdaptiveHomeRoute.page, path: '/', initial: true),
     AutoRoute(page: ClaudeSessionRoute.page, path: '/session/:sessionId'),
-    AutoRoute(page: SessionLinkRoute.page, path: '/session-link/:sessionId'),
+    // Resolving a link is shown over the screen it was opened from, so a link
+    // that cannot be opened leaves the user where they were.
+    CustomRoute(
+      page: SessionLinkRoute.page,
+      path: '/session-link/:sessionId',
+      opaque: false,
+      transitionsBuilder: TransitionsBuilders.fadeIn,
+      duration: const Duration(milliseconds: 150),
+      reverseDuration: const Duration(milliseconds: 150),
+    ),
     AutoRoute(page: CodexSessionRoute.page, path: '/codex-session/:sessionId'),
     AutoRoute(page: ExploreRoute.page, path: '/explore'),
     AutoRoute(page: GalleryRoute.page, path: '/gallery'),
