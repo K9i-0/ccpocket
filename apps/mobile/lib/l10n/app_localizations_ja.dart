@@ -3947,4 +3947,40 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get modelPickerStylePopupMenu => 'メニュー';
+
+  @override
+  String handoffTo(String agent) {
+    return '$agentに引き継ぐ';
+  }
+
+  @override
+  String handoffConfirmBody(String source, String agent) {
+    return '$sourceが引き継ぎメモを書いたあと、このセッションを停止し、$agentが同じディレクトリで続きを行います。実行中のターンは中断されます。';
+  }
+
+  @override
+  String handoffInstructionLabel(String agent) {
+    return '$agentへの指示（任意）';
+  }
+
+  @override
+  String get handoffInstructionHint => '空欄なら作業の続きを任せます';
+
+  @override
+  String get handoffConfirmAction => '引き継ぐ';
+
+  @override
+  String handoffStarted(String agent) {
+    return '$agentへの引き継ぎを開始しました';
+  }
+
+  @override
+  String handoffCardFrom(String source) {
+    return '$sourceから引き継ぎ';
+  }
+
+  @override
+  String handoffCardNoteRequest(String agent) {
+    return '$agentへの引き継ぎメモを依頼';
+  }
 }

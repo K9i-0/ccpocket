@@ -1322,6 +1322,7 @@ sealed class ServerMessage {
         clearContext: json['clearContext'] as bool? ?? false,
         sourceSessionId: json['sourceSessionId'] as String?,
         forked: json['forked'] == true,
+        handoff: json['handoff'] == true,
         resumeRequestId: json['resumeRequestId'] as String?,
         requestId: json['requestId'] as String?,
         tipCode: json['tipCode'] as String?,
@@ -2285,6 +2286,10 @@ class SystemMessage implements ServerMessage {
 
   /// session_created for a fork: the source session keeps running.
   final bool forked;
+
+  /// session_created for a handoff: the session continues [sourceSessionId],
+  /// which has been stopped, in another provider.
+  final bool handoff;
   final String? resumeRequestId;
   final String? requestId;
   final String? tipCode;
@@ -2327,6 +2332,7 @@ class SystemMessage implements ServerMessage {
     this.clearContext = false,
     this.sourceSessionId,
     this.forked = false,
+    this.handoff = false,
     this.resumeRequestId,
     this.requestId,
     this.tipCode,
@@ -6789,6 +6795,21 @@ class ClientMessage {
         'sessionId': sessionId,
         'targetUuid': targetUuid,
       });
+
+  /// Stop [sessionId] and continue its task in a new [target] session.
+  /// [instruction] says what the target should do; it continues the task
+  /// when omitted.
+  factory ClientMessage.handoffSession(
+    String sessionId, {
+    required Provider target,
+    String? instruction,
+  }) => ClientMessage._({
+    'type': 'handoff_session',
+    'sessionId': sessionId,
+    'targetProvider': target.value,
+    if (instruction != null && instruction.isNotEmpty)
+      'instruction': instruction,
+  });
 
   factory ClientMessage.listWindows() =>
       ClientMessage._({'type': 'list_windows'});

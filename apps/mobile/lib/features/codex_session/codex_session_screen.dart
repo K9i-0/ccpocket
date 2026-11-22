@@ -55,6 +55,7 @@ import '../explore/state/explore_state.dart';
 import '../git/state/git_status_cubit.dart';
 import '../github/widgets/empty_chat_github_button.dart';
 import '../github/widgets/github_menu_item.dart';
+import '../chat_session/session_handoff.dart';
 import '../../router/app_router.dart';
 import '../workspace/widgets/workspace_session_route_adapter.dart';
 import '../../widgets/duo/duo_control_strip.dart';
@@ -336,6 +337,15 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
           msg.sessionId != _sessionId &&
           !_isPending &&
           mounted) {
+        if (msg.handoff) {
+          // Another agent continues the task: this screen is replaced.
+          openHandoffSession(
+            context,
+            msg,
+            hostedByShell: widget.onBackToSessions != null,
+          );
+          return;
+        }
         _switchSession(msg);
       }
     });
@@ -1184,6 +1194,18 @@ class _CodexChatBody extends HookWidget {
                         minHeight: 32,
                       ),
                       onSelected: (value) {
+                        final handoffTarget = handoffTargetFromMenuValue(value);
+                        if (handoffTarget != null) {
+                          unawaited(
+                            handoffSessionFromScreen(
+                              context,
+                              sessionId: sessionId,
+                              source: Provider.codex,
+                              target: handoffTarget,
+                            ),
+                          );
+                          return;
+                        }
                         switch (value) {
                           case 'recovery':
                             showCodexRecoverySheet(context);
@@ -1301,6 +1323,10 @@ class _CodexChatBody extends HookWidget {
                             ),
                           if (effectiveProjectPath != null)
                             gitHubSessionMenuItem(context),
+                          ...handoffSessionMenuItems(
+                            context,
+                            current: Provider.codex,
+                          ),
                           PopupMenuItem(
                             key: const ValueKey('menu_gallery'),
                             value: 'gallery',

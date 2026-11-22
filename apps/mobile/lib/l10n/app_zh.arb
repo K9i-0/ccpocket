@@ -1648,5 +1648,13 @@
   "settingsModelPickerStyle": "模型选择方式",
   "settingsModelPickerStyleSubtitle": "点击模型名称时的显示方式。选择弹出菜单可在原地直接选择，无需再弹出底部弹窗。",
   "modelPickerStyleBottomSheet": "底部弹窗",
-  "modelPickerStylePopupMenu": "弹出菜单"
+  "modelPickerStylePopupMenu": "弹出菜单",
+  "handoffTo": "移交给 {agent}",
+  "handoffConfirmBody": "{source} 会先写一份交接说明，然后此会话停止，由 {agent} 在同一目录继续。正在运行的回合会被中断。",
+  "handoffInstructionLabel": "给 {agent} 的指示（可选）",
+  "handoffInstructionHint": "留空则继续当前任务",
+  "handoffConfirmAction": "移交",
+  "handoffStarted": "已开始移交给 {agent}",
+  "handoffCardFrom": "从 {source} 移交",
+  "handoffCardNoteRequest": "已请求给 {agent} 的交接说明"
 }

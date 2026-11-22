@@ -22,6 +22,7 @@ const RECENT_MESSAGE_LIMIT = 2_000;
 const ORIGINAL_REQUEST_LIMIT = 2_000;
 const INSTRUCTION_LIMIT = 4_000;
 const TRANSCRIPT_ITEM_LIMIT = 4_000;
+const TITLE_LIMIT = 60;
 const TRANSCRIPT_RETENTION_MS = 30 * 24 * 60 * 60_000;
 
 export function handoffAgentName(provider: Provider): string {
@@ -55,6 +56,40 @@ export function handoffMessageText(message: SessionHistoryMessage): string {
     .map((item) => item.text as string)
     .join("\n")
     .trim();
+}
+
+/**
+ * Title for the target when the source has no name: the start of the first
+ * request, which is what the source was listed under.
+ */
+export function handoffSessionTitle(
+  history: readonly SessionHistoryMessage[],
+): string | undefined {
+  const first = history.find(isUserRequest);
+  if (!first) return undefined;
+  const line = handoffMessageText(first)
+    .split("\n")
+    .map((part) => part.trim())
+    .find((part) => part.length > 0);
+  if (!line) return undefined;
+  return line.length > TITLE_LIMIT ? `${line.slice(0, TITLE_LIMIT)}…` : line;
+}
+
+/** A prompt the Bridge wrote for an earlier handoff of the same task. */
+function isHandoffPrompt(message: SessionHistoryMessage): boolean {
+  return (
+    message.role === "user" &&
+    handoffMessageText(message).startsWith(HANDOFF_MARKER)
+  );
+}
+
+/** A request typed by the user, as opposed to a Bridge-written prompt. */
+function isUserRequest(message: SessionHistoryMessage): boolean {
+  return (
+    message.role === "user" &&
+    isConversationMessage(message) &&
+    !isHandoffPrompt(message)
+  );
 }
 
 function isConversationMessage(message: SessionHistoryMessage): boolean {
@@ -137,7 +172,7 @@ export function buildHandoffPrompt(input: HandoffPromptInput): string {
     used += length;
   }
 
-  const firstUser = conversation.find((message) => message.role === "user");
+  const firstUser = conversation.find(isUserRequest);
   if (firstUser && !recent.includes(firstUser)) {
     lines.push(
       "",
@@ -157,11 +192,16 @@ export function buildHandoffPrompt(input: HandoffPromptInput): string {
         : "The whole conversation, oldest first. Tool calls are left out and long messages are shortened.",
     );
     for (const message of recent) {
+      // The task was handed over before. The note covers what that prompt
+      // said, so it is not repeated; without a note it is the context.
+      const earlierHandoff = Boolean(note) && isHandoffPrompt(message);
       lines.push(
         "",
         `### ${message.role === "user" ? "User" : sourceName}`,
         "",
-        truncate(handoffMessageText(message), RECENT_MESSAGE_LIMIT),
+        earlierHandoff
+          ? `(${sourceName} itself took this task over from another agent here. That handoff prompt is in the full transcript.)`
+          : truncate(handoffMessageText(message), RECENT_MESSAGE_LIMIT),
       );
     }
   } else if (!note) {

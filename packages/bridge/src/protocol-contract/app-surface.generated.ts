@@ -281,6 +281,12 @@ export type AppSent =
       sometimes: never;
     }
   | {
+      type: "handoff_session";
+      from: "ClientMessage.handoffSession";
+      always: "sessionId" | "targetProvider" | "type";
+      sometimes: "instruction";
+    }
+  | {
       type: "import_prompt_history_v1";
       from: "ClientMessage.importPromptHistoryV1";
       always: "clientId" | "entries" | "type";
@@ -1046,7 +1052,7 @@ export type AppRead =
   | {
       type: "system";
       required: never;
-      optional: "antigravity" | "appMetadata" | "approvalPolicy" | "approvalsReviewer" | "apps" | "claudeSessionId" | "clearContext" | "codexCliJoin" | "codexPermissionsMode" | "effort" | "executionMode" | "fastMode" | "forked" | "model" | "modelReasoningEffort" | "networkAccessEnabled" | "permissionMode" | "planMode" | "pluginMetadata" | "plugins" | "projectPath" | "provider" | "requestId" | "resumeRequestId" | "sandboxMode" | "serviceTier" | "sessionId" | "skillMetadata" | "skills" | "slashCommandDescriptions" | "slashCommands" | "sourceSessionId" | "subtype" | "tipCode" | "ultracode" | "webSearchMode" | "workspace" | "worktreeBranch" | "worktreePath";
+      optional: "antigravity" | "appMetadata" | "approvalPolicy" | "approvalsReviewer" | "apps" | "claudeSessionId" | "clearContext" | "codexCliJoin" | "codexPermissionsMode" | "effort" | "executionMode" | "fastMode" | "forked" | "handoff" | "model" | "modelReasoningEffort" | "networkAccessEnabled" | "permissionMode" | "planMode" | "pluginMetadata" | "plugins" | "projectPath" | "provider" | "requestId" | "resumeRequestId" | "sandboxMode" | "serviceTier" | "sessionId" | "skillMetadata" | "skills" | "slashCommandDescriptions" | "slashCommands" | "sourceSessionId" | "subtype" | "tipCode" | "ultracode" | "webSearchMode" | "workspace" | "worktreeBranch" | "worktreePath";
     }
   | {
       type: "thinking_delta";

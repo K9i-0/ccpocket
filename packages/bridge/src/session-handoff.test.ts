@@ -6,6 +6,7 @@ import {
   HANDOFF_MARKER,
   buildHandoffNoteRequest,
   buildHandoffPrompt,
+  handoffSessionTitle,
   renderHandoffTranscript,
   writeHandoffTranscript,
 } from "./session-handoff.js";
@@ -124,6 +125,36 @@ describe("buildHandoffPrompt", () => {
     expect(prompt.length).toBeLessThan(6_000);
   });
 
+  it("does not repeat an earlier handoff prompt when there is a note", () => {
+    const earlier = buildHandoffPrompt({
+      source: "claude",
+      target: "codex",
+      history: [user("ORIGINAL"), assistant("first agent reply")],
+      note: "EARLIER-NOTE",
+    });
+    const history = [user(earlier), assistant("second agent reply")];
+
+    const withNote = buildHandoffPrompt({
+      source: "codex",
+      target: "antigravity",
+      history,
+      note: "LATER-NOTE",
+    });
+    expect(withNote).toContain("LATER-NOTE");
+    expect(withNote).not.toContain("EARLIER-NOTE");
+    expect(withNote).toContain("Codex itself took this task over");
+    expect(withNote).toContain("second agent reply");
+    expect(withNote).not.toContain("## Original request");
+
+    const withoutNote = buildHandoffPrompt({
+      source: "codex",
+      target: "antigravity",
+      history,
+    });
+    expect(withoutNote).toContain("EARLIER-NOTE");
+    expect(handoffSessionTitle(history)).toBeUndefined();
+  });
+
   it("caps a very long note", () => {
     const prompt = buildHandoffPrompt({
       source: "claude",
@@ -133,6 +164,20 @@ describe("buildHandoffPrompt", () => {
     });
     expect(prompt.length).toBeLessThan(14_000);
     expect(prompt).toContain("more characters omitted");
+  });
+});
+
+describe("handoffSessionTitle", () => {
+  it("uses the first line of the first request", () => {
+    expect(
+      handoffSessionTitle([
+        { role: "user", isMeta: true, content: "meta" },
+        user("\n  Add a login form\nwith validation"),
+        user("second"),
+      ]),
+    ).toBe("Add a login form");
+    expect(handoffSessionTitle([user("t".repeat(100))])).toBe(`${"t".repeat(60)}…`);
+    expect(handoffSessionTitle([assistant("only the agent")])).toBeUndefined();
   });
 });
 

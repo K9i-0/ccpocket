@@ -8,6 +8,7 @@ import { CodexProcess } from "../../codex-process.js";
 import {
   buildHandoffNoteRequest,
   buildHandoffPrompt,
+  handoffSessionTitle,
   handoffAgentName,
   writeHandoffTranscript,
 } from "../../session-handoff.js";
@@ -148,7 +149,8 @@ export async function handleHandoffSession(
       .list()
       .find((item) => item.id === sourceSessionId);
     const workspace = workspaceForRuntimeSession(server, session);
-    const name = session.name?.trim() || undefined;
+    // Without a name the target would be titled after the handoff prompt.
+    const name = session.name?.trim() || handoffSessionTitle(history);
     const newSessionId = await handleStart(
       server,
       {
@@ -171,7 +173,7 @@ export async function handleHandoffSession(
                 : {}),
             }
           : {}),
-        // The source's name is kept, so no name is generated.
+        // The name is carried over, so none is generated.
         ...(name ? { autoRename: false } : {}),
       },
       ws,

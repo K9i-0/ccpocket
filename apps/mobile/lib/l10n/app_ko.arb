@@ -1507,5 +1507,13 @@
   "settingsModelPickerStyle": "모델 선택 방식",
   "settingsModelPickerStyleSubtitle": "모델 이름을 탭했을 때 열리는 방식입니다. 메뉴를 선택하면 시트를 겹치지 않고 그 자리에서 선택합니다.",
   "modelPickerStyleBottomSheet": "시트",
-  "modelPickerStylePopupMenu": "메뉴"
+  "modelPickerStylePopupMenu": "메뉴",
+  "handoffTo": "{agent}에 인계",
+  "handoffConfirmBody": "{source}가 인계 메모를 작성한 뒤 이 세션을 중지하고, {agent}가 같은 디렉터리에서 작업을 이어갑니다. 실행 중인 턴은 중단됩니다.",
+  "handoffInstructionLabel": "{agent}에 전달할 지시 (선택)",
+  "handoffInstructionHint": "비워 두면 작업을 이어서 진행합니다",
+  "handoffConfirmAction": "인계",
+  "handoffStarted": "{agent}에 인계를 시작했습니다",
+  "handoffCardFrom": "{source}에서 인계됨",
+  "handoffCardNoteRequest": "{agent}용 인계 메모 요청"
 }

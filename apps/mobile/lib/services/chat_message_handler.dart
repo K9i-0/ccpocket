@@ -177,6 +177,7 @@ const _unsupportedActions = <String, UnsupportedAction>{
   'rewind': UnsupportedAction.showUpdateHint,
   'rewind_dry_run': UnsupportedAction.showUpdateHint,
   'fork': UnsupportedAction.showUpdateHint,
+  'handoff_session': UnsupportedAction.showUpdateHint,
   'take_screenshot': UnsupportedAction.showUpdateHint,
   'archive_session': UnsupportedAction.showUpdateHint,
   'read_file': UnsupportedAction.showUpdateHint,

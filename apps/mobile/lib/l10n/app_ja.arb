@@ -1676,5 +1676,58 @@
   "settingsModelPickerStyle": "モデルの選択方法",
   "settingsModelPickerStyleSubtitle": "モデル名をタップしたときの表示方法。メニューにするとシートを重ねずその場で選べます。",
   "modelPickerStyleBottomSheet": "シート",
-  "modelPickerStylePopupMenu": "メニュー"
+  "modelPickerStylePopupMenu": "メニュー",
+  "handoffTo": "{agent}に引き継ぐ",
+  "@handoffTo": {
+    "placeholders": {
+      "agent": {
+        "type": "String"
+      }
+    }
+  },
+  "handoffConfirmBody": "{source}が引き継ぎメモを書いたあと、このセッションを停止し、{agent}が同じディレクトリで続きを行います。実行中のターンは中断されます。",
+  "@handoffConfirmBody": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      },
+      "agent": {
+        "type": "String"
+      }
+    }
+  },
+  "handoffInstructionLabel": "{agent}への指示（任意）",
+  "@handoffInstructionLabel": {
+    "placeholders": {
+      "agent": {
+        "type": "String"
+      }
+    }
+  },
+  "handoffInstructionHint": "空欄なら作業の続きを任せます",
+  "handoffConfirmAction": "引き継ぐ",
+  "handoffStarted": "{agent}への引き継ぎを開始しました",
+  "@handoffStarted": {
+    "placeholders": {
+      "agent": {
+        "type": "String"
+      }
+    }
+  },
+  "handoffCardFrom": "{source}から引き継ぎ",
+  "@handoffCardFrom": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "handoffCardNoteRequest": "{agent}への引き継ぎメモを依頼",
+  "@handoffCardNoteRequest": {
+    "placeholders": {
+      "agent": {
+        "type": "String"
+      }
+    }
+  }
 }

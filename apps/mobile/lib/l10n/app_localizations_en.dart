@@ -4098,4 +4098,40 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get modelPickerStylePopupMenu => 'Menu';
+
+  @override
+  String handoffTo(String agent) {
+    return 'Hand off to $agent';
+  }
+
+  @override
+  String handoffConfirmBody(String source, String agent) {
+    return '$source writes a handoff note, then this session stops and $agent continues in the same directory. A running turn is interrupted.';
+  }
+
+  @override
+  String handoffInstructionLabel(String agent) {
+    return 'Instruction for $agent (optional)';
+  }
+
+  @override
+  String get handoffInstructionHint => 'Leave empty to continue the task';
+
+  @override
+  String get handoffConfirmAction => 'Hand off';
+
+  @override
+  String handoffStarted(String agent) {
+    return 'Handing off to $agent';
+  }
+
+  @override
+  String handoffCardFrom(String source) {
+    return 'Handed off from $source';
+  }
+
+  @override
+  String handoffCardNoteRequest(String agent) {
+    return 'Handoff note requested for $agent';
+  }
 }

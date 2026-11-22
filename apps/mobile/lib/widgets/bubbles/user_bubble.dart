@@ -10,6 +10,7 @@ import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/command_parser.dart';
 import '../adaptive_context_menu.dart';
+import 'handoff_bubble.dart';
 
 enum _UserMessageAction { rewind, restoreFiles }
 
@@ -93,6 +94,11 @@ class _UserBubbleState extends State<UserBubble> {
         onCancel: _stopEditing,
         onSend: _submitEdit,
       );
+    }
+    // Written by the Bridge for a session handoff: shown as a compact card.
+    final handoff = HandoffMessage.parse(widget.text);
+    if (handoff != null) {
+      return HandoffBubble(handoff: handoff, text: widget.text);
     }
     final onEdit = widget.onEdit == null ? null : _startEditing;
     // Detect command message with XML tags

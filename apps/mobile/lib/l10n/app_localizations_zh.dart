@@ -3901,4 +3901,40 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get modelPickerStylePopupMenu => '弹出菜单';
+
+  @override
+  String handoffTo(String agent) {
+    return '移交给 $agent';
+  }
+
+  @override
+  String handoffConfirmBody(String source, String agent) {
+    return '$source 会先写一份交接说明，然后此会话停止，由 $agent 在同一目录继续。正在运行的回合会被中断。';
+  }
+
+  @override
+  String handoffInstructionLabel(String agent) {
+    return '给 $agent 的指示（可选）';
+  }
+
+  @override
+  String get handoffInstructionHint => '留空则继续当前任务';
+
+  @override
+  String get handoffConfirmAction => '移交';
+
+  @override
+  String handoffStarted(String agent) {
+    return '已开始移交给 $agent';
+  }
+
+  @override
+  String handoffCardFrom(String source) {
+    return '从 $source 移交';
+  }
+
+  @override
+  String handoffCardNoteRequest(String agent) {
+    return '已请求给 $agent 的交接说明';
+  }
 }

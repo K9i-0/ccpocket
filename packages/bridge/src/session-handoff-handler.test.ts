@@ -153,9 +153,11 @@ describe("handleHandoffSession", () => {
     expect(start.initialPrompt).toContain("/tmp/handoffs/t.md");
     // The note request and its reply are not part of the quoted conversation.
     expect(start.initialPrompt).not.toContain("Write a handoff note");
+    // The unnamed source is titled after its first request.
     expect(internal).toEqual({
       handoffSourceSessionId: "s-1",
       rawInitialPrompt: true,
+      name: "Add a login form",
     });
     expect(stopSessionAndNotifyMock).toHaveBeenCalledWith(server, "s-1");
     expect(sent).toEqual([]);

@@ -364,6 +364,10 @@ class BridgeService implements BridgeServiceBase {
   bool get supportsClaudeFork =>
       _protocolCapabilities.contains('claude_fork_v1');
 
+  /// Bridge hands a session over to another provider (`handoff_session`).
+  bool get supportsSessionHandoff =>
+      _protocolCapabilities.contains('session_handoff_v1');
+
   /// Bridge stores shared state (`get_shared_state` and friends).
   bool get supportsSharedState =>
       _protocolCapabilities.contains('shared_state_v1');

@@ -7396,6 +7396,54 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'メニュー'**
   String get modelPickerStylePopupMenu;
+
+  /// No description provided for @handoffTo.
+  ///
+  /// In ja, this message translates to:
+  /// **'{agent}に引き継ぐ'**
+  String handoffTo(String agent);
+
+  /// No description provided for @handoffConfirmBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'{source}が引き継ぎメモを書いたあと、このセッションを停止し、{agent}が同じディレクトリで続きを行います。実行中のターンは中断されます。'**
+  String handoffConfirmBody(String source, String agent);
+
+  /// No description provided for @handoffInstructionLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'{agent}への指示（任意）'**
+  String handoffInstructionLabel(String agent);
+
+  /// No description provided for @handoffInstructionHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'空欄なら作業の続きを任せます'**
+  String get handoffInstructionHint;
+
+  /// No description provided for @handoffConfirmAction.
+  ///
+  /// In ja, this message translates to:
+  /// **'引き継ぐ'**
+  String get handoffConfirmAction;
+
+  /// No description provided for @handoffStarted.
+  ///
+  /// In ja, this message translates to:
+  /// **'{agent}への引き継ぎを開始しました'**
+  String handoffStarted(String agent);
+
+  /// No description provided for @handoffCardFrom.
+  ///
+  /// In ja, this message translates to:
+  /// **'{source}から引き継ぎ'**
+  String handoffCardFrom(String source);
+
+  /// No description provided for @handoffCardNoteRequest.
+  ///
+  /// In ja, this message translates to:
+  /// **'{agent}への引き継ぎメモを依頼'**
+  String handoffCardNoteRequest(String agent);
 }
 
 class _AppLocalizationsDelegate

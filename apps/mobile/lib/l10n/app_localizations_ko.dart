@@ -3978,4 +3978,40 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get modelPickerStylePopupMenu => '메뉴';
+
+  @override
+  String handoffTo(String agent) {
+    return '$agent에 인계';
+  }
+
+  @override
+  String handoffConfirmBody(String source, String agent) {
+    return '$source가 인계 메모를 작성한 뒤 이 세션을 중지하고, $agent가 같은 디렉터리에서 작업을 이어갑니다. 실행 중인 턴은 중단됩니다.';
+  }
+
+  @override
+  String handoffInstructionLabel(String agent) {
+    return '$agent에 전달할 지시 (선택)';
+  }
+
+  @override
+  String get handoffInstructionHint => '비워 두면 작업을 이어서 진행합니다';
+
+  @override
+  String get handoffConfirmAction => '인계';
+
+  @override
+  String handoffStarted(String agent) {
+    return '$agent에 인계를 시작했습니다';
+  }
+
+  @override
+  String handoffCardFrom(String source) {
+    return '$source에서 인계됨';
+  }
+
+  @override
+  String handoffCardNoteRequest(String agent) {
+    return '$agent용 인계 메모 요청';
+  }
 }

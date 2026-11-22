@@ -1594,5 +1594,13 @@
   "settingsModelPickerStyle": "Model picker style",
   "settingsModelPickerStyleSubtitle": "How the model list opens when tapping the model name. Menu opens in place without another bottom sheet.",
   "modelPickerStyleBottomSheet": "Sheet",
-  "modelPickerStylePopupMenu": "Menu"
+  "modelPickerStylePopupMenu": "Menu",
+  "handoffTo": "Hand off to {agent}",
+  "handoffConfirmBody": "{source} writes a handoff note, then this session stops and {agent} continues in the same directory. A running turn is interrupted.",
+  "handoffInstructionLabel": "Instruction for {agent} (optional)",
+  "handoffInstructionHint": "Leave empty to continue the task",
+  "handoffConfirmAction": "Hand off",
+  "handoffStarted": "Handing off to {agent}",
+  "handoffCardFrom": "Handed off from {source}",
+  "handoffCardNoteRequest": "Handoff note requested for {agent}"
 }
