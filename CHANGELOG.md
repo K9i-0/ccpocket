@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.176.0] - 2026-11-22
+
+### Added
+
+- Pinned sessions and pinned projects are now shared between your devices through the Bridge: pin on the phone and it is pinned on the Mac at once. The first device that connects with pins of its own brings them to the Bridge; pins that only existed on other devices are replaced by the Bridge's. Needs Bridge 1.117.0.
+- These are now shared between your devices through the Bridge as well, instead of being kept per device. Needs Bridge 1.117.0.
+  - The Claude settings of each session, used when you resume it on another device.
+  - Read marks: a session you opened on one device is no longer shown as unread on another.
+  - The Codex profile chosen for each project.
+  - Recently used additional writable directories, and the parent directory for new projects.
+  - The options the new-session sheet starts with, and the auto-rename switches. These no longer differ per device.
+- What a device had stored is brought to the Bridge the first time it connects; where the Bridge already has a value, the Bridge's is used. With an older Bridge everything stays on the device as before.
+
 ## [1.175.0] - 2026-11-22
 
 ### Added
