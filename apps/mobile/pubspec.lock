@@ -944,10 +944,10 @@ packages:
     dependency: transitive
     description:
       name: image
-      sha256: "89ed75b2f8231fe676808c5564f9590d728024ded7ac782a7ed8474f1c95b72a"
+      sha256: bc13f61f0f5cb77936e78ae5dae3800f442718dac5d2bc4654f03c239230ed0c
       url: "https://pub.dev"
     source: hosted
-    version: "4.12.0"
+    version: "4.13.1"
   image_picker:
     dependency: "direct main"
     description:
@@ -1201,10 +1201,10 @@ packages:
     dependency: "direct main"
     description:
       name: material_ui
-      sha256: "474c135fd46b56ff1d35ca982155e8863d28fbc6464d1192acf4ee53a738680e"
+      sha256: a6b19012df437a356cbc01f8ea22a105e07194c47c9a6009da0032a0ce35c4ab
       url: "https://pub.dev"
     source: hosted
-    version: "1.11.0"
+    version: "1.11.1"
   media_kit:
     dependency: "direct main"
     description:
@@ -1441,34 +1441,34 @@ packages:
     dependency: transitive
     description:
       name: pdfium_dart
-      sha256: caf60231f755418e66e76ad0699503b09b03bd8bd8949f1c7a532239c80d7531
+      sha256: b8cfc581c0267075f7052d803a46bbc05c7b3ced8537f432060366edd61679aa
       url: "https://pub.dev"
     source: hosted
-    version: "0.4.2"
+    version: "0.4.4"
   pdfium_flutter:
     dependency: transitive
     description:
       name: pdfium_flutter
-      sha256: "4b98ef6d86ada59ad99abd07cf90871929fa733677d6fbcac83a4f575e759ac3"
+      sha256: "58a7a43d562c29a4f214a35f5c87b3dcb75ebb4b2ea689113a4dc367b08a1842"
       url: "https://pub.dev"
     source: hosted
-    version: "0.4.2"
+    version: "0.4.4"
   pdfrx:
     dependency: "direct main"
     description:
       name: pdfrx
-      sha256: "98041d7076304542d047ada21cd759994ebb097a98f2949be79ddf07b13f006b"
+      sha256: cd8302e9de65036cb11f9900f20f644ecbeca6564ce40093c0b6eec78e133831
       url: "https://pub.dev"
     source: hosted
-    version: "2.12.1"
+    version: "3.1.0"
   pdfrx_engine:
     dependency: transitive
     description:
       name: pdfrx_engine
-      sha256: "67faaaac9de5d0e76c3f5742d943e13731c70a5e3fdabf59e0c9049b10a1c5da"
+      sha256: "5ddceeebc1bc77a5c7f4723aae83ba87837b1a4080dfe73f4a684227bb60624c"
       url: "https://pub.dev"
     source: hosted
-    version: "0.9.2"
+    version: "0.9.6"
   petitparser:
     dependency: transitive
     description:
