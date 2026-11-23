@@ -341,10 +341,10 @@ packages:
     dependency: "direct main"
     description:
       name: cupertino_ui
-      sha256: "369e39a1c5c030a6212589c3da1809920b1c2cfade7b02aade7695bfa4b88c3a"
+      sha256: c3eaf7f5bdfee36deb0b14a4cbf7602f1b6b8d8b8576b81f38fc08c25881c94c
       url: "https://pub.dev"
     source: hosted
-    version: "1.1.6"
+    version: "1.1.7"
   dart_style:
     dependency: transitive
     description:
@@ -413,10 +413,10 @@ packages:
     dependency: "direct main"
     description:
       name: duo_kit
-      sha256: "290575a07cba8a08cf7cbd5aab7b2917c3bc922f6744dede17e8484146d8fd84"
+      sha256: "53955911e9f9cc480f209c267e027eca9dcff3844dbc5bf415da1ffb5bff034d"
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.2"
+    version: "0.2.0"
   equatable:
     dependency: transitive
     description:
@@ -429,10 +429,10 @@ packages:
     dependency: "direct main"
     description:
       name: expandable_page_view
-      sha256: a60abe49d508c9acc113c6a61416536b6c4d2dd24247a71c7f679e77b3c2cbc3
+      sha256: "122136859f4551db159dc08a2303592dc612fde94b42da64055692c5acc745bd"
       url: "https://pub.dev"
     source: hosted
-    version: "1.3.0"
+    version: "1.3.1"
   extended_image:
     dependency: "direct main"
     description:
@@ -809,10 +809,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_svg
-      sha256: "455a22036f8d1b7c74f53283c8644d6af2f6f7c9ec72c7b06a2ff70fb3954a54"
+      sha256: "4565a66f0a968f2e1ab4197854686990258aadab9572eb80a7655053a01dc302"
       url: "https://pub.dev"
     source: hosted
-    version: "2.4.0"
+    version: "2.5.0"
   flutter_test:
     dependency: "direct dev"
     description: flutter
@@ -1201,10 +1201,10 @@ packages:
     dependency: "direct main"
     description:
       name: material_ui
-      sha256: "474c135fd46b56ff1d35ca982155e8863d28fbc6464d1192acf4ee53a738680e"
+      sha256: a6b19012df437a356cbc01f8ea22a105e07194c47c9a6009da0032a0ce35c4ab
       url: "https://pub.dev"
     source: hosted
-    version: "1.11.0"
+    version: "1.11.1"
   media_kit:
     dependency: "direct main"
     description:
@@ -1569,10 +1569,10 @@ packages:
     dependency: "direct main"
     description:
       name: purchases_flutter
-      sha256: "90458e8171fee73a45197453c8beb8403238a07dcfc4d7d8a1e63a7ca43fa06f"
+      sha256: bb41c8938153258f9d1b7a77eaac8a9869d87563dcac8b379d4a29531a075a08
       url: "https://pub.dev"
     source: hosted
-    version: "11.0.1"
+    version: "11.0.4"
   qr:
     dependency: transitive
     description:
