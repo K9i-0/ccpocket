@@ -1,8 +1,6 @@
-• Hand a session over to another agent: the chat menu now offers "Hand off to …" for Claude, Codex and Antigravity. The current agent writes a handoff note, and the other agent continues the task in the same directory. You can add an instruction for the new agent. The permission mode carries over where the other agent has the same one (auto stays auto); the model comes from your last start settings for that agent. Requires Bridge 1.119.0 or later.
-• Antigravity swarms (/swarm): posts on the swarm's board appear in the chat as compact cards, each worker has its own colour, and a Swarm bar above the input lists the workers and what they are doing. Approval requests say which worker is asking. Requires Bridge 1.119.0 or later.
-• Shared between your devices through the Bridge: pinned sessions and projects, read marks, the Claude settings of each session, and the options the new-session sheet starts with. Requires Bridge 1.117.0 or later.
-• Opening a notification or a session link no longer leaves the screen you are on while the session is looked up. If the session is no longer available, a message tells you so instead of a full-screen error.
-• Fixed: the Codex session menu showed Rename, Screenshot and Gallery in English regardless of the app's language.
-• Fixed: list numbering in the message input restarted at 1 after a code block inside a list item.
-• Fixed: several cases where the diff viewer showed file paths incorrectly (paths with spaces or quotes, lines starting with "-- ").
-• Fixed: with Antigravity, a prompt you just sent could appear above output that arrived before it.
+• The setup guide is redesigned and shorter: four steps, from what CC Pocket is to scanning the QR code.
+• If your computer is a Mac, the guide recommends CC Pocket for macOS, which starts and manages the Bridge without terminal commands (Apple silicon, macOS 13 or later). It shows the download page and the Homebrew command, and "Send to Mac" passes the link to your Mac.
+• The terminal steps for Linux, Windows and Intel Macs are on a second tab of the same page, with the auto-start and agent sign-in notes. Tailscale is explained on the connection page.
+• The last page of the guide opens the QR scanner directly.
+• The guide now covers Antigravity alongside Codex and Claude, and is easier to read in dark mode.
+• Fixed: Settings showed the API key as part of the connection address after connecting through a pairing link.
