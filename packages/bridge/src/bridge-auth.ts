@@ -156,7 +156,7 @@ export function httpRouteRequiresAuth(
   rawUrl: string | undefined,
 ): boolean {
   const pathname = new URL(rawUrl ?? "/", "http://localhost").pathname;
-  if (method === "GET" && (pathname === "/usage" || pathname === "/doctor")) {
+  if (method === "GET" && (pathname === "/usage" || pathname === "/doctor" || pathname === "/tools")) {
     return true;
   }
   if (method === "POST" && pathname === "/api/gallery/upload") return true;

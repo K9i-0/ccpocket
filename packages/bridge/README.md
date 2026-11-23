@@ -85,6 +85,52 @@ supported. When `BRIDGE_PROMPT_HISTORY_FILE` is not set and `BRIDGE_PORT` is not
 Push relay uses Firebase Anonymous Auth automatically; no FCM environment
 variables are required.
 
+### Config file
+
+Settings can also be saved in `~/.ccpocket/bridge-config.json` (mode `0600`;
+`BRIDGE_CONFIG_FILE` overrides the path). The precedence is CLI flag >
+environment variable > config file > default, so existing environment-based
+setups keep working unchanged. The file is read once at startup.
+
+```json
+{
+  "version": 1,
+  "settings": {
+    "port": 8765,
+    "host": "0.0.0.0",
+    "publicWsUrl": "wss://bridge.example.com",
+    "allowedDirs": ["/Users/me/Workspace"],
+    "readOnlyDirs": ["/tmp"],
+    "fileDownloadAllowAllPaths": false,
+    "insecureNoAuth": false,
+    "allowClaudeOAuth": true,
+    "codexAppServerMode": "private",
+    "codexSharedAppServerUrl": "ws://127.0.0.1:8767",
+    "codexAssistModel": "...",
+    "codexAssistReasoningEffort": "...",
+    "notifyGoalTurnCompleted": false,
+    "antigravityApiKey": "..."
+  }
+}
+```
+
+Every key is optional and maps to the environment variable of the same
+meaning (`allowedDirs` is `["*"]` for unrestricted access). Invalid settings
+are ignored with a startup warning.
+
+### Local management API
+
+The CC Pocket desktop app manages a Bridge on the same machine through
+`/admin/*` (status, settings, restart, API key replacement, recent logs).
+These endpoints do not accept the API key: like `/pairing`, they require a
+loopback connection and the per-start pairing secret in
+`~/.ccpocket/pairing-secret-<port>`, which only the Bridge's OS user can read.
+A paired phone therefore cannot change what the Bridge may access.
+
+`GET /tools` (API key required) reports the tools ccpocket relies on (Node.js,
+Git, Claude Code, Codex, Antigravity, GitHub CLI, Tailscale) with their install
+state and install commands.
+
 ## Claude Subscription Authentication (Explicit Opt-In)
 
 Anthropic's [Legal and compliance](https://code.claude.com/docs/en/legal-and-compliance)
