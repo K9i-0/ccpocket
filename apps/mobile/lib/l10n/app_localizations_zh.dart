@@ -1668,11 +1668,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get setupGuideTitle => '设置指南';
 
   @override
-  String get guideAboutTitle => '什么是 CC Pocket？';
+  String get guideAboutTitle => '把电脑上的代理，\n装进口袋。';
 
   @override
   String get guideAboutDescription =>
-      '一款可让你通过 Bridge 服务在智能手机上使用 Codex 和 Claude 的移动客户端。';
+      '在手机上与运行于自己 Mac / PC 上的 Codex、Claude、Antigravity 对话、审批步骤并查看变更。';
 
   @override
   String get guideAboutSdkNoteTitle => '关于 Claude Agent SDK';
@@ -1685,37 +1685,36 @@ class AppLocalizationsZh extends AppLocalizations {
   String get guideAboutDiagramTitle => '工作方式';
 
   @override
-  String get guideAboutDiagramPhone => 'iPhone';
+  String get guideAboutDiagramPhone => '当前设备';
 
   @override
   String get guideAboutDiagramBridge => 'Bridge 服务';
 
   @override
-  String get guideAboutDiagramClaude => 'Codex CLI\n/ Claude Agent SDK';
+  String get guideAboutDiagramClaude => 'Codex · Claude\nAntigravity';
 
   @override
   String get guideAboutDiagramCaption =>
-      '电脑上的 Bridge 服务会连接到 Codex CLI 和 Claude Agent SDK，\n然后你的手机再连接到 Bridge。';
+      '你的代码和配置始终留在自己的机器上，Bridge 负责连接应用与本地代理。';
 
   @override
-  String get guideBridgeTitle => 'Bridge 服务\n设置';
+  String get guideBridgeTitle => '启动 Bridge 服务';
 
   @override
-  String get guideBridgeDescription =>
-      '先在你的电脑上启动 Bridge 服务。Claude 需要 API 密钥，或明确启用订阅认证。';
+  String get guideBridgeDescription => '在终端中启动 Bridge 服务，即可从本应用或手机连接。';
 
   @override
   String get guideBridgePrerequisites => '前置条件';
 
   @override
-  String get guideBridgePrereq1 => '已安装 Node.js 的 Mac / PC';
+  String get guideBridgePrereq1 => '已安装 Node.js 22.19+ 的 Mac / PC';
 
   @override
   String get guideBridgePrereq2 =>
       'Claude 需要设置 ANTHROPIC_API_KEY 或 BRIDGE_ALLOW_CLAUDE_OAUTH=1';
 
   @override
-  String get guideBridgePrereq3 => '如果使用 Codex，请先完成 Codex 认证';
+  String get guideBridgePrereq3 => '使用 Codex 或 Antigravity 时请先完成 CLI 登录';
 
   @override
   String get guideBridgeStep1 => '使用 npx 运行（推荐）';
@@ -1731,26 +1730,27 @@ class AppLocalizationsZh extends AppLocalizations {
       'npm install -g @ccpocket/bridge\nccpocket-bridge';
 
   @override
-  String get guideBridgeQrNote => '启动后，终端中会显示二维码';
+  String get guideBridgeQrNote => '启动后，终端中会显示二维码和连接地址';
 
   @override
-  String get guideConnectionTitle => '连接方式';
+  String get guideConnectionTitle => '连接设备';
 
   @override
-  String get guideConnectionDescription => '如果处于同一个 Wi-Fi 网络下，你可以立即连接。';
+  String get guideConnectionDescription => '启动 Bridge 后，只需扫描二维码即可立即开始使用。';
 
   @override
   String get guideConnectionQr => '扫描二维码';
 
   @override
-  String get guideConnectionQrDescription => '只需扫描终端中显示的二维码。最简单的方法。';
+  String get guideConnectionQrDescription =>
+      '扫描 macOS 应用或终端中的二维码，会自动填入地址和 API 密钥。';
 
   @override
-  String get guideConnectionManual => '手动输入';
+  String get guideConnectionManual => '手动输入 / SSH';
 
   @override
   String get guideConnectionManualDescription =>
-      '直接输入 `ws://<IP 地址>:8765` 格式的地址。';
+      '可手动输入 ws://<IP 地址>:8765 与 API 密钥，也支持通过 SSH 远程启动 Bridge。';
 
   @override
   String get guideConnectionRecommended => '推荐';
@@ -1763,14 +1763,14 @@ class AppLocalizationsZh extends AppLocalizations {
       '如果要在家外使用，Tailscale（VPN）可以帮助你安全地远程连接。';
 
   @override
-  String get guideTailscaleStep1 => '在 Mac 和 iPhone 上都安装 Tailscale';
+  String get guideTailscaleStep1 => '在 Mac / 电脑和手机上都安装 Tailscale';
 
   @override
   String get guideTailscaleStep2 => '使用同一个账号登录';
 
   @override
   String get guideTailscaleStep3 =>
-      '在 Bridge URL 中使用 Tailscale IP\n（例如：ws://100.x.x.x:8765）';
+      '使用 Tailscale IP（ws://100.x.x.x:8765）或对应二维码连接';
 
   @override
   String get guideTailscaleWebsite => 'Tailscale 官网';
@@ -1806,7 +1806,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get guideReadyTitle => '全部就绪！';
 
   @override
-  String get guideReadyDescription => '启动 Bridge 服务并\n扫描二维码，\n马上开始。';
+  String get guideReadyDescription =>
+      '在 Mac 或电脑上启动 Bridge 后，扫描二维码即可开始首个会话。如果电脑不在身边，也可以先体验演示模式。';
 
   @override
   String get guideReadyStart => '开始使用';
@@ -4299,13 +4300,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get guideLocalBridgeStep2Detail =>
-      '查看 Node.js、Git 以及 Claude Code、Codex 等的安装状态和安装命令。';
+      '查看 Node.js、Git 以及 Codex、Claude Code、Antigravity 等的安装状态和可复制的安装命令。';
 
   @override
-  String get guideLocalBridgeStep3 => '用手机扫描二维码';
+  String get guideLocalBridgeStep3 => '在本机连接或用手机扫码';
 
   @override
-  String get guideLocalBridgeStep3Detail => '用手机上的 CC Pocket 扫描同一界面显示的二维码。';
+  String get guideLocalBridgeStep3Detail => '点击“从此应用连接”即可立即使用，或用手机扫描同一界面的二维码。';
 
   @override
   String get guideLocalBridgeOpen => '打开 Bridge 管理';
@@ -4321,4 +4322,159 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get localBridgeUnregister => '取消自动启动';
+
+  @override
+  String guideStepProgress(int current, int total) {
+    return 'STEP $current / $total';
+  }
+
+  @override
+  String get guideCopyLink => '复制链接';
+
+  @override
+  String get guideSendToMac => '发送到 Mac';
+
+  @override
+  String get guideSendToPc => '发送到电脑';
+
+  @override
+  String get guideOpenWebsite => '打开页面';
+
+  @override
+  String guideShareMacDownloadMessage(String url) {
+    return 'CC Pocket for macOS: $url';
+  }
+
+  @override
+  String guideShareBridgeCommandMessage(String command) {
+    return 'CC Pocket Bridge:\n$command';
+  }
+
+  @override
+  String get guideAboutDesktopTitle => '欢迎使用 CC Pocket';
+
+  @override
+  String get guideAboutMacDescription =>
+      '在这台 Mac 上使用 Codex、Claude 和 Antigravity，并在手机上无缝接续同一会话。';
+
+  @override
+  String get guideAboutDesktopDescription =>
+      '通过本桌面应用或手机控制运行在你机器上的 Codex、Claude 和 Antigravity。';
+
+  @override
+  String get guideAboutDiagramDesktop => 'Mac 与手机';
+
+  @override
+  String get guideAboutHighlightLocal => '代码与凭证始终保留在本地机器';
+
+  @override
+  String get guideAboutHighlightMac => 'Mac 用户只需安装 macOS 应用，无需终端配置';
+
+  @override
+  String get guideAboutHighlightMacLocal => '直接在此 Mac 应用中启动并管理 Bridge';
+
+  @override
+  String get guideAboutHighlightHandoff => '在 CLI、桌面端和手机间无缝继续同一会话';
+
+  @override
+  String get guideHostSetupTitle => '准备你的 Mac 或电脑';
+
+  @override
+  String get guideHostSetupDescription =>
+      '选择你的主机环境。如果你使用 Mac，安装 macOS 应用是最省心的方式。';
+
+  @override
+  String get guideHostTabMac => 'Mac（推荐）';
+
+  @override
+  String get guideHostTabCli => 'Linux / Windows / CLI';
+
+  @override
+  String get guideMacRecommendTitle => 'macOS 版 CC Pocket';
+
+  @override
+  String get guideMacRecommendSubtitle =>
+      '无需终端命令或守护进程配置，在 Mac 上安装应用即可一键启动 Bridge。';
+
+  @override
+  String get guideMacBenefit1 => '一键启动 Bridge，并支持登录时自动启动';
+
+  @override
+  String get guideMacBenefit2 => '自动检测 Node.js、Git 及各代理 CLI 安装状态';
+
+  @override
+  String get guideMacBenefit3 => '应用内直接显示配对二维码，扫码即连';
+
+  @override
+  String get guideMacInstallMethodDownload => '下载页面（.dmg）';
+
+  @override
+  String get guideMacInstallMethodHomebrew => '使用 Homebrew 安装';
+
+  @override
+  String get guideMacAppleSiliconNote =>
+      '支持 Apple Silicon Mac（macOS 13 及以上）。若使用 Intel Mac 或偏好终端，请切换至 Linux / Windows / CLI 标签页。';
+
+  @override
+  String get guideMacAfterInstallTitle => '安装后的 3 个步骤';
+
+  @override
+  String get guideMacAfterInstallStep1 =>
+      '在 Mac 上打开 CC Pocket，点击“此 Mac 上的 Bridge”';
+
+  @override
+  String get guideMacAfterInstallStep2 => '点击“启动 Bridge”，按提示检查所需工具';
+
+  @override
+  String get guideMacAfterInstallStep3 => '用这部手机扫描显示的二维码';
+
+  @override
+  String get guideCliPrerequisitesNote =>
+      '需要 Node.js 22.19+ 以及至少一个代理 CLI（Codex、Claude 或 Antigravity）。';
+
+  @override
+  String get guideCliRunTitle => '在终端中启动 Bridge';
+
+  @override
+  String get guideCliAutostartToggle => '可选：配置开机后台自动启动';
+
+  @override
+  String get guideCliAuthToggle => '各代理认证说明';
+
+  @override
+  String get guideCliAuthCodex => 'Codex：提前通过 codex CLI 登录（或设置 OPENAI_API_KEY）';
+
+  @override
+  String get guideCliAuthClaude =>
+      'Claude：设置 ANTHROPIC_API_KEY（订阅登录需显式设置 BRIDGE_ALLOW_CLAUDE_OAUTH=1）';
+
+  @override
+  String get guideCliAuthAntigravity =>
+      'Antigravity：提前通过 agy CLI 登录（或设置 Gemini API 密钥）';
+
+  @override
+  String get guideTailscaleSectionTitle => '想在外出时远程使用？（Tailscale）';
+
+  @override
+  String get guideReadyScanQr => '扫描二维码并连接';
+
+  @override
+  String get guideReadyLater => '稍后连接并返回首页';
+
+  @override
+  String get guideReadyDesktopTitle => '在手机上继续协作';
+
+  @override
+  String get guideReadyDesktopDescription =>
+      '一切就绪！在 iOS 或 Android 上安装 CC Pocket 并扫码配对，随时随地继续同一会话。';
+
+  @override
+  String get guideMobileAppCardTitle => 'CC Pocket 手机版（iOS / Android）';
+
+  @override
+  String get guideMobileAppCardBody => '打开安装页面即可前往 App Store / Google Play 下载。';
+
+  @override
+  String get guideDesktopLocalConnectTip =>
+      '连接本机 Bridge 时，请使用 ws://127.0.0.1:8765 以及启动时显示的 API 密钥。';
 }

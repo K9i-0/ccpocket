@@ -688,6 +688,7 @@ class SetupGuideRoute extends PageRouteInfo<SetupGuideRouteArgs> {
     VoidCallback? onBack,
     VoidCallback? onClose,
     bool? localBridgeOverride,
+    SetupGuidePlatform? platformOverride,
     List<PageRouteInfo>? children,
   }) : super(
          SetupGuideRoute.name,
@@ -697,6 +698,7 @@ class SetupGuideRoute extends PageRouteInfo<SetupGuideRouteArgs> {
            onBack: onBack,
            onClose: onClose,
            localBridgeOverride: localBridgeOverride,
+           platformOverride: platformOverride,
          ),
          initialChildren: children,
        );
@@ -715,6 +717,7 @@ class SetupGuideRoute extends PageRouteInfo<SetupGuideRouteArgs> {
         onBack: args.onBack,
         onClose: args.onClose,
         localBridgeOverride: args.localBridgeOverride,
+        platformOverride: args.platformOverride,
       );
     },
   );
@@ -727,6 +730,7 @@ class SetupGuideRouteArgs {
     this.onBack,
     this.onClose,
     this.localBridgeOverride,
+    this.platformOverride,
   });
 
   final Key? key;
@@ -739,9 +743,11 @@ class SetupGuideRouteArgs {
 
   final bool? localBridgeOverride;
 
+  final SetupGuidePlatform? platformOverride;
+
   @override
   String toString() {
-    return 'SetupGuideRouteArgs{key: $key, embedded: $embedded, onBack: $onBack, onClose: $onClose, localBridgeOverride: $localBridgeOverride}';
+    return 'SetupGuideRouteArgs{key: $key, embedded: $embedded, onBack: $onBack, onClose: $onClose, localBridgeOverride: $localBridgeOverride, platformOverride: $platformOverride}';
   }
 
   @override
@@ -752,7 +758,8 @@ class SetupGuideRouteArgs {
         embedded == other.embedded &&
         onBack == other.onBack &&
         onClose == other.onClose &&
-        localBridgeOverride == other.localBridgeOverride;
+        localBridgeOverride == other.localBridgeOverride &&
+        platformOverride == other.platformOverride;
   }
 
   @override
@@ -761,7 +768,8 @@ class SetupGuideRouteArgs {
       embedded.hashCode ^
       onBack.hashCode ^
       onClose.hashCode ^
-      localBridgeOverride.hashCode;
+      localBridgeOverride.hashCode ^
+      platformOverride.hashCode;
 }
 
 /// generated route for

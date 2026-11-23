@@ -2,17 +2,18 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../local_bridge/local_bridge_screen.dart';
+import 'guide_components.dart';
 import 'guide_page.dart';
 
-/// macOS: start and manage the Bridge on this Mac from the app. Replaces the
-/// terminal setup and auto-start pages of the guide.
+/// macOS Step 2: Start and manage the Bridge on this Mac directly from the app.
 class GuidePageLocalBridge extends StatelessWidget {
-  const GuidePageLocalBridge({super.key});
+  const GuidePageLocalBridge({super.key, required this.totalSteps});
+
+  final int totalSteps;
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final theme = Theme.of(context);
     final steps = [
       (l.guideLocalBridgeStep1, l.guideLocalBridgeStep1Detail),
       (l.guideLocalBridgeStep2, l.guideLocalBridgeStep2Detail),
@@ -20,73 +21,37 @@ class GuidePageLocalBridge extends StatelessWidget {
     ];
 
     return GuidePage(
-      icon: Icons.dns,
+      icon: Icons.dns_rounded,
       title: l.guideLocalBridgeTitle,
+      subtitle: l.guideLocalBridgeDescription,
+      stepIndex: 2,
+      totalSteps: totalSteps,
       body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(l.guideLocalBridgeDescription, style: theme.textTheme.bodyLarge),
-          const SizedBox(height: 20),
-          for (final (index, (title, detail)) in steps.indexed)
-            GuideNumberedStep(number: index + 1, title: title, detail: detail),
-          const SizedBox(height: 8),
-          FilledButton.icon(
-            key: const ValueKey('guide_open_local_bridge_button'),
-            onPressed: () => openLocalBridgeScreen(context),
-            icon: const Icon(Icons.play_arrow_rounded),
-            label: Text(l.guideLocalBridgeOpen),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class GuideNumberedStep extends StatelessWidget {
-  const GuideNumberedStep({
-    super.key,
-    required this.number,
-    required this.title,
-    required this.detail,
-  });
-
-  final int number;
-  final String title;
-  final String detail;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: 13,
-            backgroundColor: cs.primaryContainer,
-            child: Text(
-              '$number',
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: cs.onPrimaryContainer,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
+          GuideCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: theme.textTheme.titleSmall),
-                const SizedBox(height: 2),
-                Text(
-                  detail,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: cs.onSurfaceVariant,
+                for (final (index, (title, detail)) in steps.indexed) ...[
+                  if (index > 0) const SizedBox(height: 16),
+                  GuideNumberedStep(
+                    number: index + 1,
+                    title: title,
+                    detail: detail,
                   ),
-                ),
+                ],
               ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              key: const ValueKey('guide_open_local_bridge_button'),
+              onPressed: () => openLocalBridgeScreen(context),
+              icon: const Icon(Icons.play_arrow_rounded),
+              label: Text(l.guideLocalBridgeOpen),
             ),
           ),
         ],

@@ -28,6 +28,12 @@ class AppConstants {
   static const String macOSReleasesUrl =
       'https://github.com/K9i-0/ccpocket/releases?q=macos';
 
+  /// Homebrew Cask install command for CC Pocket for macOS
+  static const String macOSHomebrewCommand = 'brew install --cask cc-pocket';
+
+  /// Tailscale official website
+  static const String tailscaleUrl = 'https://tailscale.com/';
+
   /// App Store URL (iOS)
   static const String appStoreUrl =
       'https://apps.apple.com/us/app/cc-pocket-code-anywhere/id6759188790';

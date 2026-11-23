@@ -1,91 +1,71 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../setup_guide_platform.dart';
+import 'guide_components.dart';
 import 'guide_page.dart';
 
-/// Page 1: CC Pocketとは
+/// Step 1: Overview of CC Pocket, supported agents, and how the Bridge works.
 class GuidePageAbout extends StatelessWidget {
-  const GuidePageAbout({super.key});
+  const GuidePageAbout({
+    super.key,
+    required this.platform,
+    required this.totalSteps,
+  });
+
+  final SetupGuidePlatform platform;
+  final int totalSteps;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
-    final bodyStyle = Theme.of(context).textTheme.bodyLarge;
+    final isMobile = platform == SetupGuidePlatform.mobile;
+    final isMacOS = platform == SetupGuidePlatform.macOS;
+
+    final title = isMobile ? l.guideAboutTitle : l.guideAboutDesktopTitle;
+    final subtitle = switch (platform) {
+      SetupGuidePlatform.mobile => l.guideAboutDescription,
+      SetupGuidePlatform.macOS => l.guideAboutMacDescription,
+      SetupGuidePlatform.desktopOther => l.guideAboutDesktopDescription,
+    };
+    final icon = switch (platform) {
+      SetupGuidePlatform.mobile => Icons.smartphone_rounded,
+      SetupGuidePlatform.macOS => Icons.laptop_mac_rounded,
+      SetupGuidePlatform.desktopOther => Icons.desktop_windows_rounded,
+    };
 
     return GuidePage(
-      icon: Icons.smartphone,
-      title: l.guideAboutTitle,
+      icon: icon,
+      title: title,
+      subtitle: subtitle,
+      stepIndex: 1,
+      totalSteps: totalSteps,
       body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(l.guideAboutDescription, style: bodyStyle),
-          const SizedBox(height: 24),
-          // Architecture diagram
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(12),
-            ),
+          const GuideProviderBadges(),
+          const SizedBox(height: 18),
+          _ArchitectureCard(isMobile: isMobile),
+          const SizedBox(height: 14),
+          GuideCard(
             child: Column(
-              children: [
-                Text(
-                  l.guideAboutDiagramTitle,
-                  style: Theme.of(context).textTheme.titleSmall
-                      ?.copyWith(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 12),
-                _ArchDiagramRow(
-                  items: [
-                    l.guideAboutDiagramPhone,
-                    l.guideAboutDiagramBridge,
-                    l.guideAboutDiagramClaude,
-                  ],
-                  itemFlexes: const [1, 1, 2],
-                  colorScheme: cs,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  l.guideAboutDiagramCaption,
-                  style: Theme.of(context).textTheme.bodySmall
-                      ?.copyWith(color: cs.onSurfaceVariant),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: cs.secondaryContainer.withValues(alpha: 0.45),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.info_outline, size: 18, color: cs.secondary),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l.guideAboutSdkNoteTitle,
-                        style: Theme.of(context).textTheme.titleSmall
-                            ?.copyWith(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        l.guideAboutSdkNoteBody,
-                        style: Theme.of(context).textTheme.bodySmall
-                            ?.copyWith(color: cs.onSurfaceVariant),
-                      ),
-                    ],
-                  ),
+                GuideBulletItem(
+                  icon: Icons.shield_outlined,
+                  text: l.guideAboutHighlightLocal,
+                ),
+                const SizedBox(height: 10),
+                GuideBulletItem(
+                  icon: isMacOS ? Icons.bolt_rounded : Icons.laptop_mac_rounded,
+                  text: isMacOS
+                      ? l.guideAboutHighlightMacLocal
+                      : l.guideAboutHighlightMac,
+                ),
+                const SizedBox(height: 10),
+                GuideBulletItem(
+                  icon: Icons.devices_rounded,
+                  text: l.guideAboutHighlightHandoff,
                 ),
               ],
             ),
@@ -96,55 +76,134 @@ class GuidePageAbout extends StatelessWidget {
   }
 }
 
-class _ArchDiagramRow extends StatelessWidget {
-  final List<String> items;
-  final List<int>? itemFlexes;
-  final ColorScheme colorScheme;
+class _ArchitectureCard extends StatelessWidget {
+  const _ArchitectureCard({required this.isMobile});
 
-  const _ArchDiagramRow({
-    required this.items,
-    this.itemFlexes,
-    required this.colorScheme,
-  });
+  final bool isMobile;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        for (int i = 0; i < items.length; i++) ...[
-          if (i > 0) ...[
-            const SizedBox(width: 4),
-            Icon(
-              Icons.arrow_forward,
-              size: 16,
-              color: colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(width: 4),
-          ],
-          Expanded(
-            flex: itemFlexes != null && i < itemFlexes!.length
-                ? itemFlexes![i]
-                : 1,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                items[i],
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.onPrimaryContainer,
-                ),
-                textAlign: TextAlign.center,
-              ),
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final l = AppLocalizations.of(context);
+
+    return GuideCard(
+      child: Column(
+        children: [
+          Text(
+            l.guideAboutDiagramTitle,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
             ),
           ),
+          const SizedBox(height: 14),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _DiagramNode(
+                    icon: isMobile
+                        ? Icons.phone_iphone_rounded
+                        : Icons.devices_rounded,
+                    label: isMobile
+                        ? l.guideAboutDiagramPhone
+                        : l.guideAboutDiagramDesktop,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Icon(
+                    Icons.sync_alt_rounded,
+                    size: 16,
+                    color: cs.primary,
+                  ),
+                ),
+                Expanded(
+                  child: _DiagramNode(
+                    icon: Icons.dns_rounded,
+                    label: l.guideAboutDiagramBridge,
+                    accent: true,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Icon(
+                    Icons.sync_alt_rounded,
+                    size: 16,
+                    color: cs.primary,
+                  ),
+                ),
+                Expanded(
+                  child: _DiagramNode(
+                    icon: Icons.smart_toy_outlined,
+                    label: l.guideAboutDiagramClaude,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            l.guideAboutDiagramCaption,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+              height: 1.45,
+            ),
+            textAlign: TextAlign.center,
+          ),
         ],
-      ],
+      ),
+    );
+  }
+}
+
+class _DiagramNode extends StatelessWidget {
+  const _DiagramNode({
+    required this.icon,
+    required this.label,
+    this.accent = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final palette = GuidePalette.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+      decoration: BoxDecoration(
+        color: accent ? palette.accentSurface : palette.mutedSurface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: accent ? palette.accentBorder : palette.cardBorder,
+        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 20, color: accent ? cs.primary : cs.onSurface),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              fontSize: 10.5,
+              color: cs.onSurface,
+              fontWeight: FontWeight.w600,
+              height: 1.25,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
     );
   }
 }

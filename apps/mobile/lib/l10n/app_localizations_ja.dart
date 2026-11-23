@@ -1690,11 +1690,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get setupGuideTitle => 'セットアップガイド';
 
   @override
-  String get guideAboutTitle => 'CC Pocket とは';
+  String get guideAboutTitle => 'PC のエージェントを、\nポケットから。';
 
   @override
   String get guideAboutDescription =>
-      'Bridge Server 経由で Codex や Claude をスマートフォンから使えるモバイルクライアントです。';
+      '自分の Mac / PC で動く Codex・Claude・Antigravity に、スマホからチャットや承認ができるクライアントです。';
 
   @override
   String get guideAboutSdkNoteTitle => 'Claude Agent SDK について';
@@ -1707,40 +1707,40 @@ class AppLocalizationsJa extends AppLocalizations {
   String get guideAboutDiagramTitle => 'しくみ';
 
   @override
-  String get guideAboutDiagramPhone => 'iPhone';
+  String get guideAboutDiagramPhone => 'この端末';
 
   @override
   String get guideAboutDiagramBridge => 'Bridge Server';
 
   @override
-  String get guideAboutDiagramClaude => 'Codex CLI\n/ Claude Agent SDK';
+  String get guideAboutDiagramClaude => 'Codex · Claude\nAntigravity';
 
   @override
   String get guideAboutDiagramCaption =>
-      'PC の Bridge Server が Codex CLI や Claude Agent SDK に接続し、\nスマホからその Bridge に接続して使います。';
+      'コードや設定はあなたの Mac / PC の中にとどまります。Bridge がアプリと各エージェントをつなぎます。';
 
   @override
-  String get guideBridgeTitle => 'Bridge Server の\nセットアップ';
+  String get guideBridgeTitle => 'Bridge Server を\n起動する';
 
   @override
   String get guideBridgeDescription =>
-      'PC で Bridge Server を起動します。Claude にはAPIキー、またはサブスクリプション認証の明示的な有効化が必要です。';
+      'ターミナルで Bridge Server を起動して、このアプリやスマホから接続します。';
 
   @override
   String get guideBridgePrerequisites => '必要なもの';
 
   @override
-  String get guideBridgePrereq1 => 'Node.js がインストールされた Mac / PC';
+  String get guideBridgePrereq1 => 'Node.js 22.19 以上がインストールされた Mac / PC';
 
   @override
   String get guideBridgePrereq2 =>
       'Claudeには ANTHROPIC_API_KEY または BRIDGE_ALLOW_CLAUDE_OAUTH=1 を設定';
 
   @override
-  String get guideBridgePrereq3 => 'Codex を使う場合は Codex の認証を完了';
+  String get guideBridgePrereq3 => 'Codex / Antigravity を使う場合は各 CLI でログイン済み';
 
   @override
-  String get guideBridgeStep1 => 'npx で実行（推奨）';
+  String get guideBridgeStep1 => 'npx で実行（おすすめ）';
 
   @override
   String get guideBridgeStep1Command => 'npx --yes @ccpocket/bridge@latest';
@@ -1753,27 +1753,28 @@ class AppLocalizationsJa extends AppLocalizations {
       'npm install -g @ccpocket/bridge\nccpocket-bridge';
 
   @override
-  String get guideBridgeQrNote => '起動するとターミナルに QR コードが表示されます';
+  String get guideBridgeQrNote => '起動するとターミナルに QR コードと接続 URL が表示されます';
 
   @override
-  String get guideConnectionTitle => '接続方法';
+  String get guideConnectionTitle => '接続する';
 
   @override
-  String get guideConnectionDescription => '同じ Wi-Fi ネットワーク内なら、すぐに接続できます。';
+  String get guideConnectionDescription =>
+      'Bridge を起動したら、QR コードを読み取るだけですぐに使い始められます。';
 
   @override
   String get guideConnectionQr => 'QR コードスキャン';
 
   @override
   String get guideConnectionQrDescription =>
-      'ターミナルに表示された QR コードを読み取るだけ。一番簡単です。';
+      'macOS アプリまたはターミナルの QR コードを読み取ると、URL と API キーが自動で設定されます。';
 
   @override
-  String get guideConnectionManual => '手動入力';
+  String get guideConnectionManual => '手動入力 / SSH';
 
   @override
   String get guideConnectionManualDescription =>
-      'ws://<IP アドレス>:8765 の形式で直接入力します。';
+      'ws://<IP アドレス>:8765 と API キーを手動登録できます。SSH 経由での Bridge 起動にも対応しています。';
 
   @override
   String get guideConnectionRecommended => 'おすすめ';
@@ -1783,17 +1784,17 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get guideTailscaleDescription =>
-      '自宅の外からも使いたい場合は、Tailscale（VPN の一種）を使えば安全にリモート接続できます。';
+      '自宅の外からも使いたい場合は、Tailscale（VPN）を使えば安全にリモート接続できます。';
 
   @override
-  String get guideTailscaleStep1 => 'Mac と iPhone の両方に Tailscale をインストール';
+  String get guideTailscaleStep1 => 'Mac / PC とスマホの両方に Tailscale をインストール';
 
   @override
   String get guideTailscaleStep2 => '同じアカウントでログイン';
 
   @override
   String get guideTailscaleStep3 =>
-      'Bridge URL に Tailscale IP を使用\n(例: ws://100.x.x.x:8765)';
+      'Tailscale の IP（ws://100.x.x.x:8765）または Tailscale 用 QR コードで接続';
 
   @override
   String get guideTailscaleWebsite => 'Tailscale 公式サイト';
@@ -1827,17 +1828,17 @@ class AppLocalizationsJa extends AppLocalizations {
       'systemd ユーザーサービスを作成。Raspberry Pi 等の Linux ホストに対応。';
 
   @override
-  String get guideReadyTitle => '準備完了!';
+  String get guideReadyTitle => '準備完了！';
 
   @override
   String get guideReadyDescription =>
-      'Bridge Server を起動して、\nQR コードをスキャンするところから\n始めましょう。';
+      'Mac / PC で Bridge を起動したら、QR コードをスキャンして始めましょう。まだ準備前ならデモモードも試せます。';
 
   @override
   String get guideReadyStart => 'さっそく始める';
 
   @override
-  String get guideReadyHint => 'このガイドは設定画面からいつでも確認できます';
+  String get guideReadyHint => 'このガイドは設定画面からいつでも見返せます';
 
   @override
   String get creatingSession => 'セッション作成中...';
@@ -4349,14 +4350,14 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get guideLocalBridgeStep2Detail =>
-      'Node.js、Git、Claude CodeやCodexなどの導入状況と、インストール用のコマンドを確認できます。';
+      'Node.js、Git、Codex・Claude Code・Antigravity などの導入状況と、インストール用コマンドを確認できます。';
 
   @override
-  String get guideLocalBridgeStep3 => 'スマホでQRコードを読み取る';
+  String get guideLocalBridgeStep3 => 'この Mac で接続・スマホで QR スキャン';
 
   @override
   String get guideLocalBridgeStep3Detail =>
-      '同じ画面に表示されるQRコードを、スマホのCC Pocketで読み取ります。';
+      '「このアプリから接続」ですぐ使い始められます。スマホからも使う場合は、同じ画面の QR コードを読み取ります。';
 
   @override
   String get guideLocalBridgeOpen => 'Bridgeの管理を開く';
@@ -4372,4 +4373,160 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get localBridgeUnregister => '自動起動を解除';
+
+  @override
+  String guideStepProgress(int current, int total) {
+    return 'STEP $current / $total';
+  }
+
+  @override
+  String get guideCopyLink => 'リンクをコピー';
+
+  @override
+  String get guideSendToMac => 'Mac に送る';
+
+  @override
+  String get guideSendToPc => 'PC に送る';
+
+  @override
+  String get guideOpenWebsite => 'ページを開く';
+
+  @override
+  String guideShareMacDownloadMessage(String url) {
+    return 'CC Pocket for macOS: $url';
+  }
+
+  @override
+  String guideShareBridgeCommandMessage(String command) {
+    return 'CC Pocket Bridge:\n$command';
+  }
+
+  @override
+  String get guideAboutDesktopTitle => 'CC Pocket へようこそ';
+
+  @override
+  String get guideAboutMacDescription =>
+      'この Mac の Codex・Claude・Antigravity を快適に操作でき、同じセッションをスマホからもそのまま続けられます。';
+
+  @override
+  String get guideAboutDesktopDescription =>
+      '自分のマシンで動く Codex・Claude・Antigravity を、このアプリやスマホから操作できます。';
+
+  @override
+  String get guideAboutDiagramDesktop => 'Mac / スマホ';
+
+  @override
+  String get guideAboutHighlightLocal => 'コードも認証情報も自分のマシン内で完結';
+
+  @override
+  String get guideAboutHighlightMac => 'Mac なら専用アプリを入れるだけ（コマンド不要）';
+
+  @override
+  String get guideAboutHighlightMacLocal => 'この Mac アプリから Bridge の起動・管理まで完結';
+
+  @override
+  String get guideAboutHighlightHandoff => 'CLI・Mac・スマホ間でセッションをそのまま継続';
+
+  @override
+  String get guideHostSetupTitle => 'Mac / PC を準備する';
+
+  @override
+  String get guideHostSetupDescription =>
+      'お使いの環境を選んでください。Mac をお使いなら macOS 版アプリが一番かんたんです。';
+
+  @override
+  String get guideHostTabMac => 'Mac（おすすめ）';
+
+  @override
+  String get guideHostTabCli => 'Linux / Windows / CLI';
+
+  @override
+  String get guideMacRecommendTitle => 'macOS 版 CC Pocket';
+
+  @override
+  String get guideMacRecommendSubtitle =>
+      'ターミナル操作や常時起動の設定は不要。Mac にアプリを入れるだけで Bridge が動きます。';
+
+  @override
+  String get guideMacBenefit1 => 'ボタン 1 つで Bridge 起動・ログイン時自動起動';
+
+  @override
+  String get guideMacBenefit2 => 'Node.js や各エージェントの導入状況を自動チェック';
+
+  @override
+  String get guideMacBenefit3 => 'アプリ内の QR コードをスマホで読むだけで接続';
+
+  @override
+  String get guideMacInstallMethodDownload => 'ダウンロードページ（.dmg）';
+
+  @override
+  String get guideMacInstallMethodHomebrew => 'Homebrew でインストール';
+
+  @override
+  String get guideMacAppleSiliconNote =>
+      'Apple Silicon Mac（macOS 13 以降）対応。Intel Mac やコマンド派の方は「Linux / Windows / CLI」タブをご利用ください。';
+
+  @override
+  String get guideMacAfterInstallTitle => 'Mac に入れたら 3 ステップ';
+
+  @override
+  String get guideMacAfterInstallStep1 =>
+      'Mac で CC Pocket を開き「この Mac の Bridge」を押す';
+
+  @override
+  String get guideMacAfterInstallStep2 => '「Bridge を起動」を押し、不足ツールがあれば案内どおりに入れる';
+
+  @override
+  String get guideMacAfterInstallStep3 => '表示された QR コードをこのスマホでスキャン';
+
+  @override
+  String get guideCliPrerequisitesNote =>
+      'Node.js 22.19 以上と、使いたいエージェント CLI（Codex / Claude / Antigravity のいずれか 1 つ以上）が必要です。';
+
+  @override
+  String get guideCliRunTitle => 'ターミナルで Bridge を起動';
+
+  @override
+  String get guideCliAutostartToggle => '常時起動（自動起動）を設定したい場合';
+
+  @override
+  String get guideCliAuthToggle => '各エージェントの認証について';
+
+  @override
+  String get guideCliAuthCodex => 'Codex: 事前に codex でログイン（または OPENAI_API_KEY）';
+
+  @override
+  String get guideCliAuthClaude =>
+      'Claude: ANTHROPIC_API_KEY を設定（サブスク利用は BRIDGE_ALLOW_CLAUDE_OAUTH=1）';
+
+  @override
+  String get guideCliAuthAntigravity =>
+      'Antigravity: 事前に agy でログイン（または Gemini API キー）';
+
+  @override
+  String get guideTailscaleSectionTitle => '外出先から使いたい場合（Tailscale）';
+
+  @override
+  String get guideReadyScanQr => 'QR コードをスキャンして接続';
+
+  @override
+  String get guideReadyLater => 'あとで接続してホームへ';
+
+  @override
+  String get guideReadyDesktopTitle => 'スマホでも続けよう';
+
+  @override
+  String get guideReadyDesktopDescription =>
+      '準備完了です！モバイル版 CC Pocket を入れてペアリングすれば、外出先からも同じセッションを操作できます。';
+
+  @override
+  String get guideMobileAppCardTitle => 'モバイル版 CC Pocket（iOS / Android）';
+
+  @override
+  String get guideMobileAppCardBody =>
+      'インストールページを開くと App Store / Google Play へ移動します。';
+
+  @override
+  String get guideDesktopLocalConnectTip =>
+      'この PC の Bridge に接続するときは ws://127.0.0.1:8765 と起動時に表示される API キーを使います。';
 }

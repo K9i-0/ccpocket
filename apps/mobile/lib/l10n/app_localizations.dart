@@ -3224,13 +3224,13 @@ abstract class AppLocalizations {
   /// No description provided for @guideAboutTitle.
   ///
   /// In ja, this message translates to:
-  /// **'CC Pocket とは'**
+  /// **'PC のエージェントを、\nポケットから。'**
   String get guideAboutTitle;
 
   /// No description provided for @guideAboutDescription.
   ///
   /// In ja, this message translates to:
-  /// **'Bridge Server 経由で Codex や Claude をスマートフォンから使えるモバイルクライアントです。'**
+  /// **'自分の Mac / PC で動く Codex・Claude・Antigravity に、スマホからチャットや承認ができるクライアントです。'**
   String get guideAboutDescription;
 
   /// No description provided for @guideAboutSdkNoteTitle.
@@ -3254,7 +3254,7 @@ abstract class AppLocalizations {
   /// No description provided for @guideAboutDiagramPhone.
   ///
   /// In ja, this message translates to:
-  /// **'iPhone'**
+  /// **'この端末'**
   String get guideAboutDiagramPhone;
 
   /// No description provided for @guideAboutDiagramBridge.
@@ -3266,25 +3266,25 @@ abstract class AppLocalizations {
   /// No description provided for @guideAboutDiagramClaude.
   ///
   /// In ja, this message translates to:
-  /// **'Codex CLI\n/ Claude Agent SDK'**
+  /// **'Codex · Claude\nAntigravity'**
   String get guideAboutDiagramClaude;
 
   /// No description provided for @guideAboutDiagramCaption.
   ///
   /// In ja, this message translates to:
-  /// **'PC の Bridge Server が Codex CLI や Claude Agent SDK に接続し、\nスマホからその Bridge に接続して使います。'**
+  /// **'コードや設定はあなたの Mac / PC の中にとどまります。Bridge がアプリと各エージェントをつなぎます。'**
   String get guideAboutDiagramCaption;
 
   /// No description provided for @guideBridgeTitle.
   ///
   /// In ja, this message translates to:
-  /// **'Bridge Server の\nセットアップ'**
+  /// **'Bridge Server を\n起動する'**
   String get guideBridgeTitle;
 
   /// No description provided for @guideBridgeDescription.
   ///
   /// In ja, this message translates to:
-  /// **'PC で Bridge Server を起動します。Claude にはAPIキー、またはサブスクリプション認証の明示的な有効化が必要です。'**
+  /// **'ターミナルで Bridge Server を起動して、このアプリやスマホから接続します。'**
   String get guideBridgeDescription;
 
   /// No description provided for @guideBridgePrerequisites.
@@ -3296,7 +3296,7 @@ abstract class AppLocalizations {
   /// No description provided for @guideBridgePrereq1.
   ///
   /// In ja, this message translates to:
-  /// **'Node.js がインストールされた Mac / PC'**
+  /// **'Node.js 22.19 以上がインストールされた Mac / PC'**
   String get guideBridgePrereq1;
 
   /// No description provided for @guideBridgePrereq2.
@@ -3308,13 +3308,13 @@ abstract class AppLocalizations {
   /// No description provided for @guideBridgePrereq3.
   ///
   /// In ja, this message translates to:
-  /// **'Codex を使う場合は Codex の認証を完了'**
+  /// **'Codex / Antigravity を使う場合は各 CLI でログイン済み'**
   String get guideBridgePrereq3;
 
   /// No description provided for @guideBridgeStep1.
   ///
   /// In ja, this message translates to:
-  /// **'npx で実行（推奨）'**
+  /// **'npx で実行（おすすめ）'**
   String get guideBridgeStep1;
 
   /// No description provided for @guideBridgeStep1Command.
@@ -3338,19 +3338,19 @@ abstract class AppLocalizations {
   /// No description provided for @guideBridgeQrNote.
   ///
   /// In ja, this message translates to:
-  /// **'起動するとターミナルに QR コードが表示されます'**
+  /// **'起動するとターミナルに QR コードと接続 URL が表示されます'**
   String get guideBridgeQrNote;
 
   /// No description provided for @guideConnectionTitle.
   ///
   /// In ja, this message translates to:
-  /// **'接続方法'**
+  /// **'接続する'**
   String get guideConnectionTitle;
 
   /// No description provided for @guideConnectionDescription.
   ///
   /// In ja, this message translates to:
-  /// **'同じ Wi-Fi ネットワーク内なら、すぐに接続できます。'**
+  /// **'Bridge を起動したら、QR コードを読み取るだけですぐに使い始められます。'**
   String get guideConnectionDescription;
 
   /// No description provided for @guideConnectionQr.
@@ -3362,19 +3362,19 @@ abstract class AppLocalizations {
   /// No description provided for @guideConnectionQrDescription.
   ///
   /// In ja, this message translates to:
-  /// **'ターミナルに表示された QR コードを読み取るだけ。一番簡単です。'**
+  /// **'macOS アプリまたはターミナルの QR コードを読み取ると、URL と API キーが自動で設定されます。'**
   String get guideConnectionQrDescription;
 
   /// No description provided for @guideConnectionManual.
   ///
   /// In ja, this message translates to:
-  /// **'手動入力'**
+  /// **'手動入力 / SSH'**
   String get guideConnectionManual;
 
   /// No description provided for @guideConnectionManualDescription.
   ///
   /// In ja, this message translates to:
-  /// **'ws://<IP アドレス>:8765 の形式で直接入力します。'**
+  /// **'ws://<IP アドレス>:8765 と API キーを手動登録できます。SSH 経由での Bridge 起動にも対応しています。'**
   String get guideConnectionManualDescription;
 
   /// No description provided for @guideConnectionRecommended.
@@ -3392,13 +3392,13 @@ abstract class AppLocalizations {
   /// No description provided for @guideTailscaleDescription.
   ///
   /// In ja, this message translates to:
-  /// **'自宅の外からも使いたい場合は、Tailscale（VPN の一種）を使えば安全にリモート接続できます。'**
+  /// **'自宅の外からも使いたい場合は、Tailscale（VPN）を使えば安全にリモート接続できます。'**
   String get guideTailscaleDescription;
 
   /// No description provided for @guideTailscaleStep1.
   ///
   /// In ja, this message translates to:
-  /// **'Mac と iPhone の両方に Tailscale をインストール'**
+  /// **'Mac / PC とスマホの両方に Tailscale をインストール'**
   String get guideTailscaleStep1;
 
   /// No description provided for @guideTailscaleStep2.
@@ -3410,7 +3410,7 @@ abstract class AppLocalizations {
   /// No description provided for @guideTailscaleStep3.
   ///
   /// In ja, this message translates to:
-  /// **'Bridge URL に Tailscale IP を使用\n(例: ws://100.x.x.x:8765)'**
+  /// **'Tailscale の IP（ws://100.x.x.x:8765）または Tailscale 用 QR コードで接続'**
   String get guideTailscaleStep3;
 
   /// No description provided for @guideTailscaleWebsite.
@@ -3470,13 +3470,13 @@ abstract class AppLocalizations {
   /// No description provided for @guideReadyTitle.
   ///
   /// In ja, this message translates to:
-  /// **'準備完了!'**
+  /// **'準備完了！'**
   String get guideReadyTitle;
 
   /// No description provided for @guideReadyDescription.
   ///
   /// In ja, this message translates to:
-  /// **'Bridge Server を起動して、\nQR コードをスキャンするところから\n始めましょう。'**
+  /// **'Mac / PC で Bridge を起動したら、QR コードをスキャンして始めましょう。まだ準備前ならデモモードも試せます。'**
   String get guideReadyDescription;
 
   /// No description provided for @guideReadyStart.
@@ -3488,7 +3488,7 @@ abstract class AppLocalizations {
   /// No description provided for @guideReadyHint.
   ///
   /// In ja, this message translates to:
-  /// **'このガイドは設定画面からいつでも確認できます'**
+  /// **'このガイドは設定画面からいつでも見返せます'**
   String get guideReadyHint;
 
   /// No description provided for @creatingSession.
@@ -8126,19 +8126,19 @@ abstract class AppLocalizations {
   /// No description provided for @guideLocalBridgeStep2Detail.
   ///
   /// In ja, this message translates to:
-  /// **'Node.js、Git、Claude CodeやCodexなどの導入状況と、インストール用のコマンドを確認できます。'**
+  /// **'Node.js、Git、Codex・Claude Code・Antigravity などの導入状況と、インストール用コマンドを確認できます。'**
   String get guideLocalBridgeStep2Detail;
 
   /// No description provided for @guideLocalBridgeStep3.
   ///
   /// In ja, this message translates to:
-  /// **'スマホでQRコードを読み取る'**
+  /// **'この Mac で接続・スマホで QR スキャン'**
   String get guideLocalBridgeStep3;
 
   /// No description provided for @guideLocalBridgeStep3Detail.
   ///
   /// In ja, this message translates to:
-  /// **'同じ画面に表示されるQRコードを、スマホのCC Pocketで読み取ります。'**
+  /// **'「このアプリから接続」ですぐ使い始められます。スマホからも使う場合は、同じ画面の QR コードを読み取ります。'**
   String get guideLocalBridgeStep3Detail;
 
   /// No description provided for @guideLocalBridgeOpen.
@@ -8164,6 +8164,282 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'自動起動を解除'**
   String get localBridgeUnregister;
+
+  /// No description provided for @guideStepProgress.
+  ///
+  /// In ja, this message translates to:
+  /// **'STEP {current} / {total}'**
+  String guideStepProgress(int current, int total);
+
+  /// No description provided for @guideCopyLink.
+  ///
+  /// In ja, this message translates to:
+  /// **'リンクをコピー'**
+  String get guideCopyLink;
+
+  /// No description provided for @guideSendToMac.
+  ///
+  /// In ja, this message translates to:
+  /// **'Mac に送る'**
+  String get guideSendToMac;
+
+  /// No description provided for @guideSendToPc.
+  ///
+  /// In ja, this message translates to:
+  /// **'PC に送る'**
+  String get guideSendToPc;
+
+  /// No description provided for @guideOpenWebsite.
+  ///
+  /// In ja, this message translates to:
+  /// **'ページを開く'**
+  String get guideOpenWebsite;
+
+  /// No description provided for @guideShareMacDownloadMessage.
+  ///
+  /// In ja, this message translates to:
+  /// **'CC Pocket for macOS: {url}'**
+  String guideShareMacDownloadMessage(String url);
+
+  /// No description provided for @guideShareBridgeCommandMessage.
+  ///
+  /// In ja, this message translates to:
+  /// **'CC Pocket Bridge:\n{command}'**
+  String guideShareBridgeCommandMessage(String command);
+
+  /// No description provided for @guideAboutDesktopTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'CC Pocket へようこそ'**
+  String get guideAboutDesktopTitle;
+
+  /// No description provided for @guideAboutMacDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'この Mac の Codex・Claude・Antigravity を快適に操作でき、同じセッションをスマホからもそのまま続けられます。'**
+  String get guideAboutMacDescription;
+
+  /// No description provided for @guideAboutDesktopDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'自分のマシンで動く Codex・Claude・Antigravity を、このアプリやスマホから操作できます。'**
+  String get guideAboutDesktopDescription;
+
+  /// No description provided for @guideAboutDiagramDesktop.
+  ///
+  /// In ja, this message translates to:
+  /// **'Mac / スマホ'**
+  String get guideAboutDiagramDesktop;
+
+  /// No description provided for @guideAboutHighlightLocal.
+  ///
+  /// In ja, this message translates to:
+  /// **'コードも認証情報も自分のマシン内で完結'**
+  String get guideAboutHighlightLocal;
+
+  /// No description provided for @guideAboutHighlightMac.
+  ///
+  /// In ja, this message translates to:
+  /// **'Mac なら専用アプリを入れるだけ（コマンド不要）'**
+  String get guideAboutHighlightMac;
+
+  /// No description provided for @guideAboutHighlightMacLocal.
+  ///
+  /// In ja, this message translates to:
+  /// **'この Mac アプリから Bridge の起動・管理まで完結'**
+  String get guideAboutHighlightMacLocal;
+
+  /// No description provided for @guideAboutHighlightHandoff.
+  ///
+  /// In ja, this message translates to:
+  /// **'CLI・Mac・スマホ間でセッションをそのまま継続'**
+  String get guideAboutHighlightHandoff;
+
+  /// No description provided for @guideHostSetupTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'Mac / PC を準備する'**
+  String get guideHostSetupTitle;
+
+  /// No description provided for @guideHostSetupDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'お使いの環境を選んでください。Mac をお使いなら macOS 版アプリが一番かんたんです。'**
+  String get guideHostSetupDescription;
+
+  /// No description provided for @guideHostTabMac.
+  ///
+  /// In ja, this message translates to:
+  /// **'Mac（おすすめ）'**
+  String get guideHostTabMac;
+
+  /// No description provided for @guideHostTabCli.
+  ///
+  /// In ja, this message translates to:
+  /// **'Linux / Windows / CLI'**
+  String get guideHostTabCli;
+
+  /// No description provided for @guideMacRecommendTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'macOS 版 CC Pocket'**
+  String get guideMacRecommendTitle;
+
+  /// No description provided for @guideMacRecommendSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'ターミナル操作や常時起動の設定は不要。Mac にアプリを入れるだけで Bridge が動きます。'**
+  String get guideMacRecommendSubtitle;
+
+  /// No description provided for @guideMacBenefit1.
+  ///
+  /// In ja, this message translates to:
+  /// **'ボタン 1 つで Bridge 起動・ログイン時自動起動'**
+  String get guideMacBenefit1;
+
+  /// No description provided for @guideMacBenefit2.
+  ///
+  /// In ja, this message translates to:
+  /// **'Node.js や各エージェントの導入状況を自動チェック'**
+  String get guideMacBenefit2;
+
+  /// No description provided for @guideMacBenefit3.
+  ///
+  /// In ja, this message translates to:
+  /// **'アプリ内の QR コードをスマホで読むだけで接続'**
+  String get guideMacBenefit3;
+
+  /// No description provided for @guideMacInstallMethodDownload.
+  ///
+  /// In ja, this message translates to:
+  /// **'ダウンロードページ（.dmg）'**
+  String get guideMacInstallMethodDownload;
+
+  /// No description provided for @guideMacInstallMethodHomebrew.
+  ///
+  /// In ja, this message translates to:
+  /// **'Homebrew でインストール'**
+  String get guideMacInstallMethodHomebrew;
+
+  /// No description provided for @guideMacAppleSiliconNote.
+  ///
+  /// In ja, this message translates to:
+  /// **'Apple Silicon Mac（macOS 13 以降）対応。Intel Mac やコマンド派の方は「Linux / Windows / CLI」タブをご利用ください。'**
+  String get guideMacAppleSiliconNote;
+
+  /// No description provided for @guideMacAfterInstallTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'Mac に入れたら 3 ステップ'**
+  String get guideMacAfterInstallTitle;
+
+  /// No description provided for @guideMacAfterInstallStep1.
+  ///
+  /// In ja, this message translates to:
+  /// **'Mac で CC Pocket を開き「この Mac の Bridge」を押す'**
+  String get guideMacAfterInstallStep1;
+
+  /// No description provided for @guideMacAfterInstallStep2.
+  ///
+  /// In ja, this message translates to:
+  /// **'「Bridge を起動」を押し、不足ツールがあれば案内どおりに入れる'**
+  String get guideMacAfterInstallStep2;
+
+  /// No description provided for @guideMacAfterInstallStep3.
+  ///
+  /// In ja, this message translates to:
+  /// **'表示された QR コードをこのスマホでスキャン'**
+  String get guideMacAfterInstallStep3;
+
+  /// No description provided for @guideCliPrerequisitesNote.
+  ///
+  /// In ja, this message translates to:
+  /// **'Node.js 22.19 以上と、使いたいエージェント CLI（Codex / Claude / Antigravity のいずれか 1 つ以上）が必要です。'**
+  String get guideCliPrerequisitesNote;
+
+  /// No description provided for @guideCliRunTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'ターミナルで Bridge を起動'**
+  String get guideCliRunTitle;
+
+  /// No description provided for @guideCliAutostartToggle.
+  ///
+  /// In ja, this message translates to:
+  /// **'常時起動（自動起動）を設定したい場合'**
+  String get guideCliAutostartToggle;
+
+  /// No description provided for @guideCliAuthToggle.
+  ///
+  /// In ja, this message translates to:
+  /// **'各エージェントの認証について'**
+  String get guideCliAuthToggle;
+
+  /// No description provided for @guideCliAuthCodex.
+  ///
+  /// In ja, this message translates to:
+  /// **'Codex: 事前に codex でログイン（または OPENAI_API_KEY）'**
+  String get guideCliAuthCodex;
+
+  /// No description provided for @guideCliAuthClaude.
+  ///
+  /// In ja, this message translates to:
+  /// **'Claude: ANTHROPIC_API_KEY を設定（サブスク利用は BRIDGE_ALLOW_CLAUDE_OAUTH=1）'**
+  String get guideCliAuthClaude;
+
+  /// No description provided for @guideCliAuthAntigravity.
+  ///
+  /// In ja, this message translates to:
+  /// **'Antigravity: 事前に agy でログイン（または Gemini API キー）'**
+  String get guideCliAuthAntigravity;
+
+  /// No description provided for @guideTailscaleSectionTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'外出先から使いたい場合（Tailscale）'**
+  String get guideTailscaleSectionTitle;
+
+  /// No description provided for @guideReadyScanQr.
+  ///
+  /// In ja, this message translates to:
+  /// **'QR コードをスキャンして接続'**
+  String get guideReadyScanQr;
+
+  /// No description provided for @guideReadyLater.
+  ///
+  /// In ja, this message translates to:
+  /// **'あとで接続してホームへ'**
+  String get guideReadyLater;
+
+  /// No description provided for @guideReadyDesktopTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'スマホでも続けよう'**
+  String get guideReadyDesktopTitle;
+
+  /// No description provided for @guideReadyDesktopDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'準備完了です！モバイル版 CC Pocket を入れてペアリングすれば、外出先からも同じセッションを操作できます。'**
+  String get guideReadyDesktopDescription;
+
+  /// No description provided for @guideMobileAppCardTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'モバイル版 CC Pocket（iOS / Android）'**
+  String get guideMobileAppCardTitle;
+
+  /// No description provided for @guideMobileAppCardBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'インストールページを開くと App Store / Google Play へ移動します。'**
+  String get guideMobileAppCardBody;
+
+  /// No description provided for @guideDesktopLocalConnectTip.
+  ///
+  /// In ja, this message translates to:
+  /// **'この PC の Bridge に接続するときは ws://127.0.0.1:8765 と起動時に表示される API キーを使います。'**
+  String get guideDesktopLocalConnectTip;
 }
 
 class _AppLocalizationsDelegate
