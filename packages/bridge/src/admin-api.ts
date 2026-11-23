@@ -31,6 +31,8 @@ const MAX_BODY_BYTES = 64 * 1024;
 
 /** Set by launchers that restart the Bridge when it exits. */
 export const SUPERVISED_ENV = "CCPOCKET_BRIDGE_SUPERVISED";
+/** Set by launchers to start without the saved settings (see index.ts). */
+export const SAFE_MODE_ENV = "CCPOCKET_BRIDGE_SAFE_MODE";
 /** Label of the service written by `ccpocket-bridge setup` (KeepAlive). */
 const SETUP_LAUNCHD_LABEL = "com.ccpocket.bridge";
 
@@ -49,6 +51,8 @@ export interface AdminContext {
   startedAt: number;
   appliedConfig: AppliedBridgeConfig;
   apiKeySource: ApiKeySource;
+  /** The saved settings were ignored for this run. */
+  safeMode?: boolean;
   logs: LogBuffer;
   counts: () => { sessions: number; clients: number };
   /** Exit so the supervisor starts a fresh Bridge. */
@@ -128,6 +132,7 @@ async function route(
         startedAt: ctx.startedAt,
         supervised: isSupervised(env),
         apiKeySource: ctx.apiKeySource,
+        safeMode: ctx.safeMode ?? false,
         restartRequired: (await configView()).restartRequired,
         ...ctx.counts(),
       });

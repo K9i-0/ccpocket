@@ -1,15 +1,19 @@
 import 'package:ccpocket/features/local_bridge/data/local_bridge_client.dart';
+import 'package:ccpocket/features/local_bridge/data/local_bridge_launcher.dart';
 import 'package:ccpocket/features/local_bridge/state/local_bridge_cubit.dart';
 import 'package:ccpocket/features/local_bridge/state/local_bridge_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'local_bridge_fakes.dart';
 
-LocalBridgeCubit cubitFor(FakeLocalBridge bridge) => LocalBridgeCubit(
-  clientFactory: bridge.client,
-  restartPollInterval: const Duration(milliseconds: 1),
-  restartTimeout: const Duration(milliseconds: 200),
-);
+LocalBridgeCubit cubitFor(FakeLocalBridge bridge, {FakeLauncher? launcher}) =>
+    LocalBridgeCubit(
+      clientFactory: bridge.client,
+      launcher: launcher ?? FakeLauncher(bridge, available: false),
+      startTimeout: const Duration(milliseconds: 200),
+      restartPollInterval: const Duration(milliseconds: 1),
+      restartTimeout: const Duration(milliseconds: 200),
+    );
 
 Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 5));
 
@@ -164,5 +168,85 @@ void main() {
     expect(cubit.state.status!.port, 8770);
     expect(cubit.state.phase, LocalBridgePhase.ready);
     await cubit.close();
+  });
+
+  group('launcher', () {
+    test('starts the Bridge from the app and can stop it again', () async {
+      final bridge = FakeLocalBridge()..running = false;
+      final launcher = FakeLauncher(bridge);
+      final cubit = cubitFor(bridge, launcher: launcher);
+      await cubit.load();
+      expect(cubit.state.phase, LocalBridgePhase.notRunning);
+      expect(cubit.state.canStart, isTrue);
+      expect(cubit.state.managedByApp, isFalse);
+
+      expect(await cubit.start(), isTrue);
+      expect(cubit.state.phase, LocalBridgePhase.ready);
+      expect(cubit.state.managedByApp, isTrue);
+      expect(cubit.state.busy, LocalBridgeBusy.none);
+
+      expect(await cubit.stop(), isTrue);
+      expect(cubit.state.phase, LocalBridgePhase.notRunning);
+      expect(cubit.state.managedByApp, isFalse);
+      expect(launcher.actions, containsAllInOrder(['register', 'unregister']));
+      await cubit.close();
+    });
+
+    test('reports a missing Node instead of waiting', () async {
+      final bridge = FakeLocalBridge()..running = false;
+      final launcher = FakeLauncher(bridge)
+        ..problemOnStart = LauncherStatus(
+          state: 'node_missing',
+          updatedAt: DateTime(2026),
+        );
+      final cubit = cubitFor(bridge, launcher: launcher);
+      await cubit.load();
+      expect(await cubit.start(), isFalse);
+      expect(cubit.state.launcherProblem, LauncherProblem.nodeMissing);
+      expect(cubit.state.startFailed, isFalse);
+      await cubit.close();
+    });
+
+    test('asks for approval when the login item is turned off', () async {
+      final bridge = FakeLocalBridge()..running = false;
+      final launcher = FakeLauncher(bridge)..approvalRequired = true;
+      final cubit = cubitFor(bridge, launcher: launcher);
+      await cubit.load();
+      expect(await cubit.start(), isFalse);
+      expect(
+        cubit.state.launcherRegistration,
+        LauncherRegistration.requiresApproval,
+      );
+      expect(cubit.state.startFailed, isFalse);
+      await cubit.close();
+    });
+
+    test('does not offer to start where the launcher is unavailable', () async {
+      final bridge = FakeLocalBridge()..running = false;
+      final cubit = cubitFor(bridge);
+      await cubit.load();
+      expect(cubit.state.canStart, isFalse);
+      await cubit.close();
+    });
+
+    test('only offers to start on the port the launcher uses', () async {
+      final bridge = FakeLocalBridge()..running = false;
+      final cubit = cubitFor(bridge, launcher: FakeLauncher(bridge));
+      await cubit.load();
+      expect(cubit.state.canStart, isTrue);
+      await cubit.setPort(8790);
+      expect(cubit.state.canStart, isFalse);
+      await cubit.close();
+    });
+
+    test('manages the port saved in the config file', () async {
+      final bridge = FakeLocalBridge();
+      final launcher = FakeLauncher(bridge)..savedPort = 8790;
+      final cubit = cubitFor(bridge, launcher: launcher);
+      await cubit.load();
+      expect(cubit.state.port, 8790);
+      expect(cubit.state.status!.port, 8790);
+      await cubit.close();
+    });
   });
 }

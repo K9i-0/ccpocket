@@ -687,6 +687,7 @@ class SetupGuideRoute extends PageRouteInfo<SetupGuideRouteArgs> {
     bool embedded = false,
     VoidCallback? onBack,
     VoidCallback? onClose,
+    bool? localBridgeOverride,
     List<PageRouteInfo>? children,
   }) : super(
          SetupGuideRoute.name,
@@ -695,6 +696,7 @@ class SetupGuideRoute extends PageRouteInfo<SetupGuideRouteArgs> {
            embedded: embedded,
            onBack: onBack,
            onClose: onClose,
+           localBridgeOverride: localBridgeOverride,
          ),
          initialChildren: children,
        );
@@ -712,6 +714,7 @@ class SetupGuideRoute extends PageRouteInfo<SetupGuideRouteArgs> {
         embedded: args.embedded,
         onBack: args.onBack,
         onClose: args.onClose,
+        localBridgeOverride: args.localBridgeOverride,
       );
     },
   );
@@ -723,6 +726,7 @@ class SetupGuideRouteArgs {
     this.embedded = false,
     this.onBack,
     this.onClose,
+    this.localBridgeOverride,
   });
 
   final Key? key;
@@ -733,9 +737,11 @@ class SetupGuideRouteArgs {
 
   final VoidCallback? onClose;
 
+  final bool? localBridgeOverride;
+
   @override
   String toString() {
-    return 'SetupGuideRouteArgs{key: $key, embedded: $embedded, onBack: $onBack, onClose: $onClose}';
+    return 'SetupGuideRouteArgs{key: $key, embedded: $embedded, onBack: $onBack, onClose: $onClose, localBridgeOverride: $localBridgeOverride}';
   }
 
   @override
@@ -745,12 +751,17 @@ class SetupGuideRouteArgs {
     return key == other.key &&
         embedded == other.embedded &&
         onBack == other.onBack &&
-        onClose == other.onClose;
+        onClose == other.onClose &&
+        localBridgeOverride == other.localBridgeOverride;
   }
 
   @override
   int get hashCode =>
-      key.hashCode ^ embedded.hashCode ^ onBack.hashCode ^ onClose.hashCode;
+      key.hashCode ^
+      embedded.hashCode ^
+      onBack.hashCode ^
+      onClose.hashCode ^
+      localBridgeOverride.hashCode;
 }
 
 /// generated route for

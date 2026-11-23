@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import '../data/local_bridge_client.dart';
+import '../data/local_bridge_launcher.dart';
 import '../data/local_bridge_models.dart';
 
 part 'local_bridge_state.freezed.dart';
@@ -21,7 +22,14 @@ enum LocalBridgePhase {
 }
 
 /// What the screen is waiting for; at most one at a time.
-enum LocalBridgeBusy { none, saving, restarting, rotatingKey }
+enum LocalBridgeBusy {
+  none,
+  saving,
+  restarting,
+  rotatingKey,
+  starting,
+  stopping,
+}
 
 @freezed
 abstract class LocalBridgeState with _$LocalBridgeState {
@@ -53,7 +61,36 @@ abstract class LocalBridgeState with _$LocalBridgeState {
     /// The API key was replaced and applies after a restart.
     @Default(false) bool apiKeyRotated,
     String? errorDetail,
+
+    /// Whether the app's LaunchAgent runs the Bridge.
+    @Default(LauncherRegistration.unavailable)
+    LauncherRegistration launcherRegistration,
+
+    /// Port the launcher's Bridge listens on (the saved port, else 8765).
+    /// Starting from the app only applies while that port is shown.
+    @Default(8765) int launcherPort,
+
+    /// What the launcher last reported (missing Node, port in use, ...).
+    LauncherStatus? launcherStatus,
+
+    /// Starting from the app did not bring the Bridge up in time.
+    @Default(false) bool startFailed,
   }) = _LocalBridgeState;
+
+  /// The app can start a Bridge on this machine.
+  bool get canStart =>
+      launcherRegistration != LauncherRegistration.unavailable &&
+      port == launcherPort;
+
+  /// The Bridge is run by the app's LaunchAgent (so the app can stop it).
+  bool get managedByApp => launcherRegistration == LauncherRegistration.enabled;
+
+  /// A launcher problem that is still current: only meaningful while the
+  /// agent is registered and no Bridge answers.
+  LauncherProblem? get launcherProblem =>
+      managedByApp && phase == LocalBridgePhase.notRunning
+      ? launcherStatus?.problem
+      : null;
 
   bool get hasEdits => edits.isNotEmpty;
 

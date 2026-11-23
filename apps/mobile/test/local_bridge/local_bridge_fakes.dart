@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:ccpocket/features/local_bridge/data/local_bridge_client.dart';
+import 'package:ccpocket/features/local_bridge/data/local_bridge_launcher.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
@@ -194,5 +195,51 @@ class FakeLocalBridge {
         });
     }
     return _json({'error': 'not_found'}, 404);
+  }
+}
+
+/// Launcher that starts and stops a [FakeLocalBridge].
+class FakeLauncher implements LocalBridgeLauncher {
+  FakeLauncher(this.bridge, {this.available = true});
+
+  final FakeLocalBridge bridge;
+  bool available;
+  LauncherRegistration registration = LauncherRegistration.notRegistered;
+
+  /// What registering leads to instead of a running Bridge.
+  LauncherStatus? problemOnStart;
+  bool approvalRequired = false;
+  int? savedPort;
+  LauncherStatus? status;
+  final actions = <String>[];
+
+  @override
+  Future<bool> isAvailable() async => available;
+
+  @override
+  Future<int?> configuredPort() async => savedPort;
+
+  @override
+  Future<LauncherStatus?> readStatus() async => status;
+
+  @override
+  Future<LauncherResult> run(String action) async {
+    actions.add(action);
+    if (action == 'register') {
+      if (approvalRequired) {
+        registration = LauncherRegistration.requiresApproval;
+        return LauncherResult(ok: false, registration: registration);
+      }
+      registration = LauncherRegistration.enabled;
+      if (problemOnStart != null) {
+        status = problemOnStart;
+      } else {
+        bridge.running = true;
+      }
+    } else if (action == 'unregister') {
+      registration = LauncherRegistration.notRegistered;
+      bridge.running = false;
+    }
+    return LauncherResult(ok: true, registration: registration);
   }
 }

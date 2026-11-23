@@ -147,6 +147,27 @@ jobs:
               "$SPARKLE_FRAMEWORK_PATH"
           fi
 
+          # The Bridge helper app and its LaunchAgent launcher are built by
+          # the "Build Bridge Helper" phase. Sign them with Developer ID and
+          # without entitlements: they must stay outside the app sandbox
+          # (docs/design/local-bridge-management.md).
+          BRIDGE_HELPER_PATH="$APP_PATH/Contents/Helpers/CC Pocket Bridge.app"
+          if [ ! -x "$BRIDGE_HELPER_PATH/Contents/MacOS/bridge-launcher" ]; then
+            echo "::error::missing Bridge helper app in the macOS app bundle"
+            exit 1
+          fi
+          for BRIDGE_HELPER_ITEM in \
+            "$BRIDGE_HELPER_PATH/Contents/MacOS/bridge-launcher" \
+            "$BRIDGE_HELPER_PATH"; do
+            codesign --force --timestamp --options runtime \
+              --sign "$IDENTITY" \
+              "$BRIDGE_HELPER_ITEM"
+          done
+          if codesign -d --entitlements :- "$BRIDGE_HELPER_PATH" 2>/dev/null | grep -q "app-sandbox"; then
+            echo "::error::the Bridge helper app must not be sandboxed"
+            exit 1
+          fi
+
           # Re-sign the final app bundle for notarization requirements while
           # keeping the provisioning-derived keychain entitlements intact.
           codesign --force --timestamp --options runtime \

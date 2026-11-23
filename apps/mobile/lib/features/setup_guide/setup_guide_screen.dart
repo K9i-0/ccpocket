@@ -4,11 +4,13 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../../utils/platform_helper.dart';
 import '../../widgets/workspace_pane_chrome.dart';
 import '../session_list/workspace_shell_screen.dart';
 import 'widgets/guide_page_about.dart';
 import 'widgets/guide_page_bridge_setup.dart';
 import 'widgets/guide_page_connection.dart';
+import 'widgets/guide_page_local_bridge.dart';
 import 'widgets/guide_page_autostart.dart';
 import 'widgets/guide_page_ready.dart';
 import 'widgets/guide_page_tailscale.dart';
@@ -24,9 +26,12 @@ class SetupGuideScreen extends HookWidget {
     this.embedded = false,
     this.onBack,
     this.onClose,
+    this.localBridgeOverride,
   });
 
-  static const _pageCount = 6;
+  /// Overrides whether the guide is for a Mac that runs its own Bridge
+  /// (tests); defaults to the platform.
+  final bool? localBridgeOverride;
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +44,8 @@ class SetupGuideScreen extends HookWidget {
       isLeftPaneVisible: shell?.isLeftPaneVisible ?? false,
       slot: WorkspacePaneSlot.center,
     );
+    final localBridge = localBridgeOverride ?? isMacOSPlatform;
+    final pageCount = localBridge ? 5 : 6;
     final pageController = usePageController();
     final currentPage = useState(0);
 
@@ -52,7 +59,7 @@ class SetupGuideScreen extends HookWidget {
     }
 
     void goNext() {
-      if (currentPage.value < _pageCount - 1) {
+      if (currentPage.value < pageCount - 1) {
         pageController.nextPage(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
@@ -113,10 +120,15 @@ class SetupGuideScreen extends HookWidget {
               onPageChanged: (index) => currentPage.value = index,
               children: [
                 const GuidePageAbout(),
-                const GuidePageBridgeSetup(),
+                // On a Mac the app starts the Bridge itself (and keeps it
+                // starting at login), so the terminal pages are not needed.
+                if (localBridge)
+                  const GuidePageLocalBridge()
+                else
+                  const GuidePageBridgeSetup(),
                 const GuidePageConnection(),
                 const GuidePageTailscale(),
-                const GuidePageAutostart(),
+                if (!localBridge) const GuidePageAutostart(),
                 GuidePageReady(onGetStarted: close),
               ],
             ),
@@ -141,7 +153,7 @@ class SetupGuideScreen extends HookWidget {
                   // Dot indicator
                   SmoothPageIndicator(
                     controller: pageController,
-                    count: _pageCount,
+                    count: pageCount,
                     effect: WormEffect(
                       dotWidth: 8,
                       dotHeight: 8,
@@ -152,7 +164,7 @@ class SetupGuideScreen extends HookWidget {
                   ),
                   const Spacer(),
                   // Next button
-                  if (currentPage.value < _pageCount - 1)
+                  if (currentPage.value < pageCount - 1)
                     TextButton.icon(
                       key: const ValueKey('guide_next_button'),
                       onPressed: goNext,

@@ -8002,6 +8002,156 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'このアプリから接続'**
   String get localBridgeConnectHere;
+
+  /// No description provided for @localBridgeStart.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridgeを起動'**
+  String get localBridgeStart;
+
+  /// No description provided for @localBridgeStop.
+  ///
+  /// In ja, this message translates to:
+  /// **'停止'**
+  String get localBridgeStop;
+
+  /// No description provided for @localBridgeStarting.
+  ///
+  /// In ja, this message translates to:
+  /// **'起動中…（初回は1分ほどかかることがあります）'**
+  String get localBridgeStarting;
+
+  /// No description provided for @localBridgeStopping.
+  ///
+  /// In ja, this message translates to:
+  /// **'停止中…'**
+  String get localBridgeStopping;
+
+  /// No description provided for @localBridgeStartBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'ボタンを押すと、このMacでBridgeが起動します。'**
+  String get localBridgeStartBody;
+
+  /// No description provided for @localBridgeManagedNote.
+  ///
+  /// In ja, this message translates to:
+  /// **'アプリを閉じてもBridgeは動き続け、ログイン時に自動で起動します。'**
+  String get localBridgeManagedNote;
+
+  /// No description provided for @localBridgeManualStartHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'ターミナルから起動することもできます。'**
+  String get localBridgeManualStartHint;
+
+  /// No description provided for @localBridgeStopConfirmTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridgeを停止しますか？'**
+  String get localBridgeStopConfirmTitle;
+
+  /// No description provided for @localBridgeStopConfirmBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'接続中の端末は切断され、ログイン時の自動起動も解除されます。'**
+  String get localBridgeStopConfirmBody;
+
+  /// No description provided for @localBridgeRequiresApproval.
+  ///
+  /// In ja, this message translates to:
+  /// **'システム設定の「一般 > ログイン項目と機能拡張」で「CC Pocket Bridge」を許可してください。'**
+  String get localBridgeRequiresApproval;
+
+  /// No description provided for @localBridgeNodeMissing.
+  ///
+  /// In ja, this message translates to:
+  /// **'Node.js が見つかりません。インストールすると自動で起動します。'**
+  String get localBridgeNodeMissing;
+
+  /// No description provided for @localBridgeNodeTooOld.
+  ///
+  /// In ja, this message translates to:
+  /// **'Node.js {version} は古すぎます。22.19 以上に更新すると自動で起動します。'**
+  String localBridgeNodeTooOld(String version);
+
+  /// No description provided for @localBridgePortInUse.
+  ///
+  /// In ja, this message translates to:
+  /// **'ポート {port} は別のプログラムが使用中です。'**
+  String localBridgePortInUse(int port);
+
+  /// No description provided for @localBridgeStartFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridgeの起動を確認できませんでした'**
+  String get localBridgeStartFailed;
+
+  /// No description provided for @localBridgeSafeMode.
+  ///
+  /// In ja, this message translates to:
+  /// **'保存された設定では起動できなかったため、既定の設定で動いています。設定を見直して再起動してください。'**
+  String get localBridgeSafeMode;
+
+  /// No description provided for @guideLocalBridgeTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'このMacで\nBridgeを動かす'**
+  String get guideLocalBridgeTitle;
+
+  /// No description provided for @guideLocalBridgeDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridgeは、スマホとこのMacのエージェントをつなぐ小さなサーバーです。macOS版ではアプリから起動・管理できます。'**
+  String get guideLocalBridgeDescription;
+
+  /// No description provided for @guideLocalBridgeStep1.
+  ///
+  /// In ja, this message translates to:
+  /// **'「Bridgeを起動」を押す'**
+  String get guideLocalBridgeStep1;
+
+  /// No description provided for @guideLocalBridgeStep1Detail.
+  ///
+  /// In ja, this message translates to:
+  /// **'アプリを閉じても動き続け、ログイン時に自動で起動します。'**
+  String get guideLocalBridgeStep1Detail;
+
+  /// No description provided for @guideLocalBridgeStep2.
+  ///
+  /// In ja, this message translates to:
+  /// **'必要なツールを確認する'**
+  String get guideLocalBridgeStep2;
+
+  /// No description provided for @guideLocalBridgeStep2Detail.
+  ///
+  /// In ja, this message translates to:
+  /// **'Node.js、Git、Claude CodeやCodexなどの導入状況と、インストール用のコマンドを確認できます。'**
+  String get guideLocalBridgeStep2Detail;
+
+  /// No description provided for @guideLocalBridgeStep3.
+  ///
+  /// In ja, this message translates to:
+  /// **'スマホでQRコードを読み取る'**
+  String get guideLocalBridgeStep3;
+
+  /// No description provided for @guideLocalBridgeStep3Detail.
+  ///
+  /// In ja, this message translates to:
+  /// **'同じ画面に表示されるQRコードを、スマホのCC Pocketで読み取ります。'**
+  String get guideLocalBridgeStep3Detail;
+
+  /// No description provided for @guideLocalBridgeOpen.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridgeの管理を開く'**
+  String get guideLocalBridgeOpen;
+
+  /// No description provided for @guideBridgeMacAppNote.
+  ///
+  /// In ja, this message translates to:
+  /// **'Macをお使いなら、macOS版CC Pocketを入れるとアプリからBridgeを起動でき、下のコマンドは不要です。'**
+  String get guideBridgeMacAppNote;
 }
 
 class _AppLocalizationsDelegate

@@ -22,6 +22,7 @@ class LocalBridgeStatus {
     required this.restartRequired,
     required this.sessions,
     required this.clients,
+    this.safeMode = false,
   });
 
   factory LocalBridgeStatus.fromJson(Map<String, Object?> json) =>
@@ -35,8 +36,12 @@ class LocalBridgeStatus {
         restartRequired: _bool(json['restartRequired']),
         sessions: _int(json['sessions']),
         clients: _int(json['clients']),
+        safeMode: _bool(json['safeMode']),
       );
 
+  /// The saved settings were ignored because the Bridge kept failing to
+  /// start with them.
+  final bool safeMode;
   final int adminApiVersion;
   final String version;
   final int port;

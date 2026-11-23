@@ -14,7 +14,11 @@ class LocalBridgeStatusCard extends StatelessWidget {
     required this.busy,
     required this.onRestart,
     this.onConnectHere,
+    this.onStop,
   });
+
+  /// Stops a Bridge the app started; null when it was started elsewhere.
+  final VoidCallback? onStop;
 
   /// Connects this app to the Bridge over loopback; null hides the action.
   final VoidCallback? onConnectHere;
@@ -29,6 +33,7 @@ class LocalBridgeStatusCard extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final restarting = busy == LocalBridgeBusy.restarting;
+    final stopping = busy == LocalBridgeBusy.stopping;
 
     return SettingsCard(
       key: const ValueKey('local_bridge_status_card'),
@@ -49,22 +54,34 @@ class LocalBridgeStatusCard extends StatelessWidget {
                   child: Text(
                     restarting
                         ? l.localBridgeRestarting
+                        : stopping
+                        ? l.localBridgeStopping
                         : l.localBridgeStatusRunning,
                     style: theme.textTheme.titleMedium,
                   ),
                 ),
-                if (restarting)
+                if (restarting || stopping)
                   const SizedBox.square(
                     dimension: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                else if (status.supervised)
-                  OutlinedButton.icon(
-                    key: const ValueKey('local_bridge_restart_button'),
-                    onPressed: busy == LocalBridgeBusy.none ? onRestart : null,
-                    icon: const Icon(Icons.restart_alt_rounded, size: 18),
-                    label: Text(l.restart),
-                  ),
+                else ...[
+                  if (onStop != null)
+                    TextButton(
+                      key: const ValueKey('local_bridge_stop_button'),
+                      onPressed: busy == LocalBridgeBusy.none ? onStop : null,
+                      child: Text(l.localBridgeStop),
+                    ),
+                  if (status.supervised)
+                    OutlinedButton.icon(
+                      key: const ValueKey('local_bridge_restart_button'),
+                      onPressed: busy == LocalBridgeBusy.none
+                          ? onRestart
+                          : null,
+                      icon: const Icon(Icons.restart_alt_rounded, size: 18),
+                      label: Text(l.restart),
+                    ),
+                ],
               ],
             ),
             const SizedBox(height: 8),
@@ -79,7 +96,25 @@ class LocalBridgeStatusCard extends StatelessWidget {
                 color: cs.onSurfaceVariant,
               ),
             ),
-            if (onConnectHere != null && !restarting) ...[
+            if (onStop != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                l.localBridgeManagedNote,
+                key: const ValueKey('local_bridge_managed_note'),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ],
+            if (status.safeMode) ...[
+              const SizedBox(height: 10),
+              Text(
+                l.localBridgeSafeMode,
+                key: const ValueKey('local_bridge_safe_mode_note'),
+                style: theme.textTheme.bodySmall?.copyWith(color: cs.error),
+              ),
+            ],
+            if (onConnectHere != null && !restarting && !stopping) ...[
               const SizedBox(height: 12),
               Align(
                 alignment: Alignment.centerLeft,
@@ -101,7 +136,7 @@ class LocalBridgeStatusCard extends StatelessWidget {
                 ),
               ),
             ],
-            if (restartRequired && !restarting) ...[
+            if (restartRequired && !restarting && !stopping) ...[
               const SizedBox(height: 12),
               LocalBridgeRestartBanner(
                 canRestart: status.supervised && busy == LocalBridgeBusy.none,

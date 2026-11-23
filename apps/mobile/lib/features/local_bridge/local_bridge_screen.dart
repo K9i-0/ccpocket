@@ -110,6 +110,12 @@ class LocalBridgeView extends StatelessWidget {
               port: state.port,
               detail: state.errorDetail,
               onRetry: cubit.load,
+              onStart: state.canStart ? cubit.start : null,
+              busy: state.busy,
+              registration: state.launcherRegistration,
+              problem: state.launcherProblem,
+              problemNodeVersion: state.launcherStatus?.nodeVersion,
+              startFailed: state.startFailed,
             ),
           },
           bottomNavigationBar: state.hasEdits
@@ -158,6 +164,30 @@ class LocalBridgeReadyBody extends StatelessWidget {
       ),
     );
     if (confirmed == true) await cubit.restart();
+  }
+
+  Future<void> _confirmStop(BuildContext context) async {
+    final l = AppLocalizations.of(context);
+    final cubit = context.read<LocalBridgeCubit>();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l.localBridgeStopConfirmTitle),
+        content: Text(l.localBridgeStopConfirmBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(l.cancel),
+          ),
+          FilledButton(
+            key: const ValueKey('local_bridge_stop_confirm_button'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(l.localBridgeStop),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) await cubit.stop();
   }
 
   Future<void> _confirmRotateKey(BuildContext context) async {
@@ -212,6 +242,7 @@ class LocalBridgeReadyBody extends StatelessWidget {
               restartRequired: state.restartRequired,
               busy: state.busy,
               onRestart: () => _confirmRestart(context),
+              onStop: state.managedByApp ? () => _confirmStop(context) : null,
               onConnectHere: connectLinks == null || pairing == null
                   ? null
                   : () => connectLinks.value = ConnectionParams(

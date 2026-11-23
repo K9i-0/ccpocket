@@ -4279,4 +4279,89 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get localBridgeConnectHere => 'このアプリから接続';
+
+  @override
+  String get localBridgeStart => 'Bridgeを起動';
+
+  @override
+  String get localBridgeStop => '停止';
+
+  @override
+  String get localBridgeStarting => '起動中…（初回は1分ほどかかることがあります）';
+
+  @override
+  String get localBridgeStopping => '停止中…';
+
+  @override
+  String get localBridgeStartBody => 'ボタンを押すと、このMacでBridgeが起動します。';
+
+  @override
+  String get localBridgeManagedNote => 'アプリを閉じてもBridgeは動き続け、ログイン時に自動で起動します。';
+
+  @override
+  String get localBridgeManualStartHint => 'ターミナルから起動することもできます。';
+
+  @override
+  String get localBridgeStopConfirmTitle => 'Bridgeを停止しますか？';
+
+  @override
+  String get localBridgeStopConfirmBody => '接続中の端末は切断され、ログイン時の自動起動も解除されます。';
+
+  @override
+  String get localBridgeRequiresApproval =>
+      'システム設定の「一般 > ログイン項目と機能拡張」で「CC Pocket Bridge」を許可してください。';
+
+  @override
+  String get localBridgeNodeMissing => 'Node.js が見つかりません。インストールすると自動で起動します。';
+
+  @override
+  String localBridgeNodeTooOld(String version) {
+    return 'Node.js $version は古すぎます。22.19 以上に更新すると自動で起動します。';
+  }
+
+  @override
+  String localBridgePortInUse(int port) {
+    return 'ポート $port は別のプログラムが使用中です。';
+  }
+
+  @override
+  String get localBridgeStartFailed => 'Bridgeの起動を確認できませんでした';
+
+  @override
+  String get localBridgeSafeMode =>
+      '保存された設定では起動できなかったため、既定の設定で動いています。設定を見直して再起動してください。';
+
+  @override
+  String get guideLocalBridgeTitle => 'このMacで\nBridgeを動かす';
+
+  @override
+  String get guideLocalBridgeDescription =>
+      'Bridgeは、スマホとこのMacのエージェントをつなぐ小さなサーバーです。macOS版ではアプリから起動・管理できます。';
+
+  @override
+  String get guideLocalBridgeStep1 => '「Bridgeを起動」を押す';
+
+  @override
+  String get guideLocalBridgeStep1Detail => 'アプリを閉じても動き続け、ログイン時に自動で起動します。';
+
+  @override
+  String get guideLocalBridgeStep2 => '必要なツールを確認する';
+
+  @override
+  String get guideLocalBridgeStep2Detail =>
+      'Node.js、Git、Claude CodeやCodexなどの導入状況と、インストール用のコマンドを確認できます。';
+
+  @override
+  String get guideLocalBridgeStep3 => 'スマホでQRコードを読み取る';
+
+  @override
+  String get guideLocalBridgeStep3Detail =>
+      '同じ画面に表示されるQRコードを、スマホのCC Pocketで読み取ります。';
+
+  @override
+  String get guideLocalBridgeOpen => 'Bridgeの管理を開く';
+
+  @override
+  String get guideBridgeMacAppNote =>
+      'Macをお使いなら、macOS版CC Pocketを入れるとアプリからBridgeを起動でき、下のコマンドは不要です。';
 }

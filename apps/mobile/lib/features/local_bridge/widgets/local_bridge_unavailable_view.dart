@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../data/local_bridge_launcher.dart';
 import '../state/local_bridge_state.dart';
 import 'copyable_command.dart';
 
@@ -15,7 +16,23 @@ class LocalBridgeUnavailableView extends StatelessWidget {
     required this.port,
     required this.onRetry,
     this.detail,
+    this.onStart,
+    this.busy = LocalBridgeBusy.none,
+    this.registration = LauncherRegistration.unavailable,
+    this.problem,
+    this.problemNodeVersion,
+    this.startFailed = false,
   });
+
+  /// Starts the Bridge from the app; null when this build cannot.
+  final VoidCallback? onStart;
+  final LocalBridgeBusy busy;
+  final LauncherRegistration registration;
+
+  /// Why the launcher could not start the Bridge, if it reported one.
+  final LauncherProblem? problem;
+  final String? problemNodeVersion;
+  final bool startFailed;
 
   final LocalBridgePhase phase;
   final int port;
@@ -31,7 +48,9 @@ class LocalBridgeUnavailableView extends StatelessWidget {
       LocalBridgePhase.notRunning => (
         Icons.power_settings_new_rounded,
         l.localBridgeNotRunningTitle,
-        l.localBridgeNotRunningBody(port),
+        onStart == null
+            ? l.localBridgeNotRunningBody(port)
+            : l.localBridgeStartBody,
       ),
       LocalBridgePhase.secretUnavailable => (
         Icons.lock_outline_rounded,
@@ -79,10 +98,29 @@ class LocalBridgeUnavailableView extends StatelessWidget {
                 ),
               ),
             ],
-            if (command != null) ...[
+            if (phase == LocalBridgePhase.notRunning && onStart != null) ...[
               const SizedBox(height: 16),
-              CopyableCommand(command: command),
-            ],
+              LocalBridgeStartPanel(
+                port: port,
+                busy: busy,
+                registration: registration,
+                problem: problem,
+                problemNodeVersion: problemNodeVersion,
+                startFailed: startFailed,
+                onStart: onStart!,
+              ),
+              const SizedBox(height: 20),
+              Text(
+                l.localBridgeManualStartHint,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 6),
+            ] else if (command != null)
+              const SizedBox(height: 16),
+            if (command != null) CopyableCommand(command: command),
             const SizedBox(height: 20),
             Center(
               child: FilledButton.tonalIcon(
@@ -95,6 +133,92 @@ class LocalBridgeUnavailableView extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// "Start the Bridge" with whatever keeps it from starting.
+class LocalBridgeStartPanel extends StatelessWidget {
+  const LocalBridgeStartPanel({
+    super.key,
+    required this.port,
+    required this.busy,
+    required this.registration,
+    required this.onStart,
+    this.problem,
+    this.problemNodeVersion,
+    this.startFailed = false,
+  });
+
+  final int port;
+  final LocalBridgeBusy busy;
+  final LauncherRegistration registration;
+  final VoidCallback onStart;
+  final LauncherProblem? problem;
+  final String? problemNodeVersion;
+  final bool startFailed;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final starting = busy == LocalBridgeBusy.starting;
+    final message = registration == LauncherRegistration.requiresApproval
+        ? l.localBridgeRequiresApproval
+        : switch (problem) {
+            LauncherProblem.nodeMissing => l.localBridgeNodeMissing,
+            LauncherProblem.nodeTooOld => l.localBridgeNodeTooOld(
+              problemNodeVersion ?? '',
+            ),
+            LauncherProblem.portInUse => l.localBridgePortInUse(port),
+            LauncherProblem.execFailed => l.localBridgeStartFailed,
+            null => startFailed ? l.localBridgeStartFailed : null,
+          };
+    final needsNode =
+        problem == LauncherProblem.nodeMissing ||
+        problem == LauncherProblem.nodeTooOld;
+    // While the agent waits for Node it retries by itself: nothing to press.
+    final waitingForFix =
+        registration == LauncherRegistration.enabled && problem != null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (message != null) ...[
+          Text(
+            message,
+            key: const ValueKey('local_bridge_start_problem'),
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(color: cs.error),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (needsNode) ...[
+          const CopyableCommand(
+            command: 'brew install node',
+            label: 'Homebrew',
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (starting)
+          Column(
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 12),
+              Text(l.localBridgeStarting, textAlign: TextAlign.center),
+            ],
+          )
+        else if (!waitingForFix)
+          Center(
+            child: FilledButton.icon(
+              key: const ValueKey('local_bridge_start_button'),
+              onPressed: busy == LocalBridgeBusy.none ? onStart : null,
+              icon: const Icon(Icons.play_arrow_rounded),
+              label: Text(l.localBridgeStart),
+            ),
+          ),
+      ],
     );
   }
 }

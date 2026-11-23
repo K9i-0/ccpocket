@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../data/local_bridge_client.dart';
+import '../data/local_bridge_launcher.dart';
 import '../data/local_bridge_models.dart';
 import 'local_bridge_state.dart';
 
@@ -12,15 +13,27 @@ typedef LocalBridgeClientFactory = LocalBridgeClient Function(int port);
 /// Drives the management screen for the Bridge running on this machine.
 class LocalBridgeCubit extends Cubit<LocalBridgeState> {
   LocalBridgeCubit({
-    int port = defaultPort,
+    int? port,
     LocalBridgeClientFactory? clientFactory,
+    this.launcher = const HelperLocalBridgeLauncher(),
+    this.startTimeout = const Duration(seconds: 90),
     this.restartPollInterval = const Duration(milliseconds: 500),
     this.restartTimeout = const Duration(seconds: 40),
   }) : _clientFactory =
            clientFactory ?? ((port) => LocalBridgeClient(port: port)),
-       super(LocalBridgeState(port: port)) {
-    _client = _clientFactory(port);
+       _portResolved = port != null,
+       super(LocalBridgeState(port: port ?? defaultPort)) {
+    _client = _clientFactory(state.port);
   }
+
+  final LocalBridgeLauncher launcher;
+
+  /// How long to wait for a Bridge started from the app (the first start
+  /// downloads the package).
+  final Duration startTimeout;
+
+  /// Whether the port to manage is known (given, or read from the config).
+  bool _portResolved;
 
   static const defaultPort = 8765;
 
@@ -35,6 +48,17 @@ class LocalBridgeCubit extends Cubit<LocalBridgeState> {
   Future<void> load({bool showLoading = true}) async {
     final generation = _generation;
     if (showLoading) emit(state.copyWith(phase: LocalBridgePhase.loading));
+    if (!_portResolved) {
+      _portResolved = true;
+      final saved = await launcher.configuredPort();
+      if (saved != null && saved != state.port && !isClosed) {
+        _client.close();
+        _client = _clientFactory(saved);
+        emit(state.copyWith(port: saved));
+      }
+    }
+    await _refreshLauncher();
+    if (generation != _generation || isClosed) return;
     try {
       final status = await _client.status();
       final config = await _client.config();
@@ -71,6 +95,96 @@ class LocalBridgeCubit extends Cubit<LocalBridgeState> {
   }
 
   /// [force] bypasses the Bridge's short cache (the "check again" button).
+  Future<void> _refreshLauncher() async {
+    if (!await launcher.isAvailable()) {
+      if (isClosed) return;
+      emit(
+        state.copyWith(launcherRegistration: LauncherRegistration.unavailable),
+      );
+      return;
+    }
+    final result = await launcher.run('status');
+    final status = await launcher.readStatus();
+    final launcherPort = await launcher.configuredPort() ?? defaultPort;
+    if (isClosed) return;
+    emit(
+      state.copyWith(
+        launcherPort: launcherPort,
+        launcherRegistration: result.registration,
+        launcherStatus: status,
+      ),
+    );
+  }
+
+  /// Register the LaunchAgent and wait for the Bridge it starts.
+  Future<bool> start() async {
+    if (state.busy != LocalBridgeBusy.none) return false;
+    emit(state.copyWith(busy: LocalBridgeBusy.starting, startFailed: false));
+    final result = await launcher.run('register');
+    if (isClosed) return false;
+    emit(state.copyWith(launcherRegistration: result.registration));
+    if (!result.ok || result.registration != LauncherRegistration.enabled) {
+      emit(
+        state.copyWith(
+          busy: LocalBridgeBusy.none,
+          startFailed:
+              result.registration != LauncherRegistration.requiresApproval,
+          errorDetail: result.error,
+        ),
+      );
+      return false;
+    }
+
+    final deadline = DateTime.now().add(startTimeout);
+    while (DateTime.now().isBefore(deadline) && !isClosed) {
+      await Future<void>.delayed(restartPollInterval);
+      if (await _client.isRunning()) {
+        // The pairing secret is written just before the port opens.
+        emit(state.copyWith(busy: LocalBridgeBusy.none));
+        await load(showLoading: false);
+        return state.phase == LocalBridgePhase.ready;
+      }
+      final status = await launcher.readStatus();
+      if (isClosed) return false;
+      if (status?.problem != null) {
+        emit(
+          state.copyWith(
+            busy: LocalBridgeBusy.none,
+            launcherStatus: status,
+            phase: LocalBridgePhase.notRunning,
+          ),
+        );
+        return false;
+      }
+    }
+    if (isClosed) return false;
+    emit(state.copyWith(busy: LocalBridgeBusy.none, startFailed: true));
+    await load(showLoading: false);
+    return false;
+  }
+
+  /// Unregister the LaunchAgent: stops the Bridge and its start at login.
+  Future<bool> stop() async {
+    if (state.busy != LocalBridgeBusy.none) return false;
+    emit(state.copyWith(busy: LocalBridgeBusy.stopping, actionFailure: null));
+    final result = await launcher.run('unregister');
+    if (isClosed) return false;
+    final deadline = DateTime.now().add(const Duration(seconds: 15));
+    while (result.ok && DateTime.now().isBefore(deadline) && !isClosed) {
+      if (!await _client.isRunning()) break;
+      await Future<void>.delayed(restartPollInterval);
+    }
+    if (isClosed) return false;
+    emit(
+      state.copyWith(
+        busy: LocalBridgeBusy.none,
+        actionFailure: result.ok ? null : LocalBridgeFailure.other,
+      ),
+    );
+    await load(showLoading: false);
+    return result.ok;
+  }
+
   Future<void> refreshTools({bool force = false}) async {
     if (state.toolsLoading) return;
     final generation = _generation;
@@ -107,6 +221,7 @@ class LocalBridgeCubit extends Cubit<LocalBridgeState> {
     _generation += 1;
     _client.close();
     _client = _clientFactory(port);
+    _portResolved = true;
     emit(LocalBridgeState(port: port));
     await load();
   }

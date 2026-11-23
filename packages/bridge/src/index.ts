@@ -26,7 +26,7 @@ import { getVersionInfo } from "./version.js";
 import { fetchAllUsage } from "./usage.js";
 import { runDoctor } from "./doctor.js";
 import { getCachedToolsReport } from "./tools.js";
-import { handleAdminRequest } from "./admin-api.js";
+import { handleAdminRequest, SAFE_MODE_ENV } from "./admin-api.js";
 import { applyBridgeConfig, readBridgeConfigFile } from "./bridge-config.js";
 import { LogBuffer } from "./log-buffer.js";
 import { DebugTraceStore } from "./debug-trace-store.js";
@@ -64,7 +64,17 @@ export async function startServer() {
   for (const warning of loadedConfig.warnings) {
     console.warn(`[bridge] WARNING: ${warning}`);
   }
-  const appliedConfig = applyBridgeConfig(loadedConfig.settings);
+  // A launcher sets this after the Bridge kept exiting right after start:
+  // run on defaults so the saved settings can be fixed through /admin.
+  const safeMode = process.env[SAFE_MODE_ENV] === "1";
+  if (safeMode) {
+    console.warn(
+      "[bridge] WARNING: safe mode: the saved settings are ignored because the Bridge failed to start repeatedly.",
+    );
+  }
+  const appliedConfig = applyBridgeConfig(
+    safeMode ? {} : loadedConfig.settings,
+  );
 
   const PORT = parseBridgePort();
   const HOST = process.env.BRIDGE_HOST ?? "0.0.0.0";
@@ -276,6 +286,7 @@ export async function startServer() {
         startedAt,
         appliedConfig,
         apiKeySource,
+        safeMode,
         logs: logBuffer,
         counts: () => ({
           sessions: wsServer?.sessionCount ?? 0,

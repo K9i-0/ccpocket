@@ -4449,4 +4449,96 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get localBridgeConnectHere => 'Connect from this app';
+
+  @override
+  String get localBridgeStart => 'Start the Bridge';
+
+  @override
+  String get localBridgeStop => 'Stop';
+
+  @override
+  String get localBridgeStarting =>
+      'Starting… (the first start can take about a minute)';
+
+  @override
+  String get localBridgeStopping => 'Stopping…';
+
+  @override
+  String get localBridgeStartBody =>
+      'Press the button to start the Bridge on this Mac.';
+
+  @override
+  String get localBridgeManagedNote =>
+      'The Bridge keeps running after you close the app and starts at login.';
+
+  @override
+  String get localBridgeManualStartHint =>
+      'You can also start it from a terminal.';
+
+  @override
+  String get localBridgeStopConfirmTitle => 'Stop the Bridge?';
+
+  @override
+  String get localBridgeStopConfirmBody =>
+      'Connected devices are disconnected and the Bridge no longer starts at login.';
+
+  @override
+  String get localBridgeRequiresApproval =>
+      'Allow \"CC Pocket Bridge\" in System Settings > General > Login Items & Extensions.';
+
+  @override
+  String get localBridgeNodeMissing =>
+      'Node.js was not found. The Bridge starts by itself once it is installed.';
+
+  @override
+  String localBridgeNodeTooOld(String version) {
+    return 'Node.js $version is too old. The Bridge starts by itself once Node.js is 22.19 or newer.';
+  }
+
+  @override
+  String localBridgePortInUse(int port) {
+    return 'Port $port is in use by another program.';
+  }
+
+  @override
+  String get localBridgeStartFailed => 'The Bridge did not start';
+
+  @override
+  String get localBridgeSafeMode =>
+      'The saved settings kept the Bridge from starting, so it is running on defaults. Review the settings and restart.';
+
+  @override
+  String get guideLocalBridgeTitle => 'Run the Bridge\non this Mac';
+
+  @override
+  String get guideLocalBridgeDescription =>
+      'The Bridge is a small server that connects your phone to the agents on this Mac. On macOS the app starts and manages it for you.';
+
+  @override
+  String get guideLocalBridgeStep1 => 'Press \"Start the Bridge\"';
+
+  @override
+  String get guideLocalBridgeStep1Detail =>
+      'It keeps running after you close the app and starts at login.';
+
+  @override
+  String get guideLocalBridgeStep2 => 'Check the required tools';
+
+  @override
+  String get guideLocalBridgeStep2Detail =>
+      'See whether Node.js, Git and agents such as Claude Code or Codex are installed, with the commands to install them.';
+
+  @override
+  String get guideLocalBridgeStep3 => 'Scan the QR code with your phone';
+
+  @override
+  String get guideLocalBridgeStep3Detail =>
+      'Scan the QR code shown on the same screen with CC Pocket on your phone.';
+
+  @override
+  String get guideLocalBridgeOpen => 'Open Bridge management';
+
+  @override
+  String get guideBridgeMacAppNote =>
+      'On a Mac, CC Pocket for macOS can start the Bridge for you, without the commands below.';
 }

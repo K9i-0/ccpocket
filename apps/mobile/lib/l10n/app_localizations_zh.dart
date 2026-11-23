@@ -4230,4 +4230,87 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get localBridgeConnectHere => '从此应用连接';
+
+  @override
+  String get localBridgeStart => '启动 Bridge';
+
+  @override
+  String get localBridgeStop => '停止';
+
+  @override
+  String get localBridgeStarting => '正在启动…（首次启动可能需要约 1 分钟）';
+
+  @override
+  String get localBridgeStopping => '正在停止…';
+
+  @override
+  String get localBridgeStartBody => '点击按钮即可在这台 Mac 上启动 Bridge。';
+
+  @override
+  String get localBridgeManagedNote => '关闭应用后 Bridge 仍会继续运行，并在登录时自动启动。';
+
+  @override
+  String get localBridgeManualStartHint => '也可以从终端启动。';
+
+  @override
+  String get localBridgeStopConfirmTitle => '要停止 Bridge 吗？';
+
+  @override
+  String get localBridgeStopConfirmBody => '已连接的设备将断开，并取消登录时自动启动。';
+
+  @override
+  String get localBridgeRequiresApproval =>
+      '请在系统设置的“通用 > 登录项与扩展”中允许“CC Pocket Bridge”。';
+
+  @override
+  String get localBridgeNodeMissing => '未找到 Node.js。安装后会自动启动。';
+
+  @override
+  String localBridgeNodeTooOld(String version) {
+    return 'Node.js $version 版本过旧。更新到 22.19 或更高版本后会自动启动。';
+  }
+
+  @override
+  String localBridgePortInUse(int port) {
+    return '端口 $port 正被其他程序占用。';
+  }
+
+  @override
+  String get localBridgeStartFailed => '未能确认 Bridge 已启动';
+
+  @override
+  String get localBridgeSafeMode => '保存的设置导致无法启动，目前以默认设置运行。请检查设置后重新启动。';
+
+  @override
+  String get guideLocalBridgeTitle => '在这台 Mac 上\n运行 Bridge';
+
+  @override
+  String get guideLocalBridgeDescription =>
+      'Bridge 是连接手机与这台 Mac 上代理的小型服务器。在 macOS 上可以由应用启动和管理。';
+
+  @override
+  String get guideLocalBridgeStep1 => '点击“启动 Bridge”';
+
+  @override
+  String get guideLocalBridgeStep1Detail => '关闭应用后仍会继续运行，并在登录时自动启动。';
+
+  @override
+  String get guideLocalBridgeStep2 => '检查所需工具';
+
+  @override
+  String get guideLocalBridgeStep2Detail =>
+      '查看 Node.js、Git 以及 Claude Code、Codex 等的安装状态和安装命令。';
+
+  @override
+  String get guideLocalBridgeStep3 => '用手机扫描二维码';
+
+  @override
+  String get guideLocalBridgeStep3Detail => '用手机上的 CC Pocket 扫描同一界面显示的二维码。';
+
+  @override
+  String get guideLocalBridgeOpen => '打开 Bridge 管理';
+
+  @override
+  String get guideBridgeMacAppNote =>
+      '如果使用 Mac，安装 macOS 版 CC Pocket 后可由应用启动 Bridge，无需下面的命令。';
 }

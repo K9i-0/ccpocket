@@ -21,7 +21,12 @@ mixin _$LocalBridgeState {
  Map<String, Object?> get edits;/// Setting key -> problem reported by the Bridge on save.
  Map<String, String> get settingErrors; LocalBridgeBusy get busy;/// Last failed action, shown once by the screen.
  LocalBridgeFailure? get actionFailure;/// The API key was replaced and applies after a restart.
- bool get apiKeyRotated; String? get errorDetail;
+ bool get apiKeyRotated; String? get errorDetail;/// Whether the app's LaunchAgent runs the Bridge.
+ LauncherRegistration get launcherRegistration;/// Port the launcher's Bridge listens on (the saved port, else 8765).
+/// Starting from the app only applies while that port is shown.
+ int get launcherPort;/// What the launcher last reported (missing Node, port in use, ...).
+ LauncherStatus? get launcherStatus;/// Starting from the app did not bring the Bridge up in time.
+ bool get startFailed;
 /// Create a copy of LocalBridgeState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -33,20 +38,20 @@ $LocalBridgeStateCopyWith<LocalBridgeState> get copyWith => _$LocalBridgeStateCo
 @override
 bool operator ==(Object other) {
   final _this = this as LocalBridgeState;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is LocalBridgeState&&(identical(other.port, _this.port) || other.port == _this.port)&&(identical(other.phase, _this.phase) || other.phase == _this.phase)&&(identical(other.status, _this.status) || other.status == _this.status)&&(identical(other.config, _this.config) || other.config == _this.config)&&(identical(other.pairing, _this.pairing) || other.pairing == _this.pairing)&&(identical(other.tools, _this.tools) || other.tools == _this.tools)&&(identical(other.toolsLoading, _this.toolsLoading) || other.toolsLoading == _this.toolsLoading)&&(identical(other.toolsUnsupported, _this.toolsUnsupported) || other.toolsUnsupported == _this.toolsUnsupported)&&const DeepCollectionEquality().equals(other.edits, _this.edits)&&const DeepCollectionEquality().equals(other.settingErrors, _this.settingErrors)&&(identical(other.busy, _this.busy) || other.busy == _this.busy)&&(identical(other.actionFailure, _this.actionFailure) || other.actionFailure == _this.actionFailure)&&(identical(other.apiKeyRotated, _this.apiKeyRotated) || other.apiKeyRotated == _this.apiKeyRotated)&&(identical(other.errorDetail, _this.errorDetail) || other.errorDetail == _this.errorDetail));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is LocalBridgeState&&(identical(other.port, _this.port) || other.port == _this.port)&&(identical(other.phase, _this.phase) || other.phase == _this.phase)&&(identical(other.status, _this.status) || other.status == _this.status)&&(identical(other.config, _this.config) || other.config == _this.config)&&(identical(other.pairing, _this.pairing) || other.pairing == _this.pairing)&&(identical(other.tools, _this.tools) || other.tools == _this.tools)&&(identical(other.toolsLoading, _this.toolsLoading) || other.toolsLoading == _this.toolsLoading)&&(identical(other.toolsUnsupported, _this.toolsUnsupported) || other.toolsUnsupported == _this.toolsUnsupported)&&const DeepCollectionEquality().equals(other.edits, _this.edits)&&const DeepCollectionEquality().equals(other.settingErrors, _this.settingErrors)&&(identical(other.busy, _this.busy) || other.busy == _this.busy)&&(identical(other.actionFailure, _this.actionFailure) || other.actionFailure == _this.actionFailure)&&(identical(other.apiKeyRotated, _this.apiKeyRotated) || other.apiKeyRotated == _this.apiKeyRotated)&&(identical(other.errorDetail, _this.errorDetail) || other.errorDetail == _this.errorDetail)&&(identical(other.launcherRegistration, _this.launcherRegistration) || other.launcherRegistration == _this.launcherRegistration)&&(identical(other.launcherPort, _this.launcherPort) || other.launcherPort == _this.launcherPort)&&(identical(other.launcherStatus, _this.launcherStatus) || other.launcherStatus == _this.launcherStatus)&&(identical(other.startFailed, _this.startFailed) || other.startFailed == _this.startFailed));
 }
 
 
 @override
 int get hashCode {
   final _this = this as LocalBridgeState;
-  return Object.hash(runtimeType,_this.port,_this.phase,_this.status,_this.config,_this.pairing,_this.tools,_this.toolsLoading,_this.toolsUnsupported,const DeepCollectionEquality().hash(_this.edits),const DeepCollectionEquality().hash(_this.settingErrors),_this.busy,_this.actionFailure,_this.apiKeyRotated,_this.errorDetail);
+  return Object.hash(runtimeType,_this.port,_this.phase,_this.status,_this.config,_this.pairing,_this.tools,_this.toolsLoading,_this.toolsUnsupported,const DeepCollectionEquality().hash(_this.edits),const DeepCollectionEquality().hash(_this.settingErrors),_this.busy,_this.actionFailure,_this.apiKeyRotated,_this.errorDetail,_this.launcherRegistration,_this.launcherPort,_this.launcherStatus,_this.startFailed);
 }
 
 @override
 String toString() {
   final _this = this as LocalBridgeState;
-  return 'LocalBridgeState(port: ${_this.port}, phase: ${_this.phase}, status: ${_this.status}, config: ${_this.config}, pairing: ${_this.pairing}, tools: ${_this.tools}, toolsLoading: ${_this.toolsLoading}, toolsUnsupported: ${_this.toolsUnsupported}, edits: ${_this.edits}, settingErrors: ${_this.settingErrors}, busy: ${_this.busy}, actionFailure: ${_this.actionFailure}, apiKeyRotated: ${_this.apiKeyRotated}, errorDetail: ${_this.errorDetail})';
+  return 'LocalBridgeState(port: ${_this.port}, phase: ${_this.phase}, status: ${_this.status}, config: ${_this.config}, pairing: ${_this.pairing}, tools: ${_this.tools}, toolsLoading: ${_this.toolsLoading}, toolsUnsupported: ${_this.toolsUnsupported}, edits: ${_this.edits}, settingErrors: ${_this.settingErrors}, busy: ${_this.busy}, actionFailure: ${_this.actionFailure}, apiKeyRotated: ${_this.apiKeyRotated}, errorDetail: ${_this.errorDetail}, launcherRegistration: ${_this.launcherRegistration}, launcherPort: ${_this.launcherPort}, launcherStatus: ${_this.launcherStatus}, startFailed: ${_this.startFailed})';
 }
 
 
@@ -57,7 +62,7 @@ abstract mixin class $LocalBridgeStateCopyWith<$Res>  {
   factory $LocalBridgeStateCopyWith(LocalBridgeState value, $Res Function(LocalBridgeState) _then) = _$LocalBridgeStateCopyWithImpl;
 @useResult
 $Res call({
- int port, LocalBridgePhase phase, LocalBridgeStatus? status, LocalBridgeConfig? config, LocalBridgePairing? pairing, LocalBridgeTools? tools, bool toolsLoading, bool toolsUnsupported, Map<String, Object?> edits, Map<String, String> settingErrors, LocalBridgeBusy busy, LocalBridgeFailure? actionFailure, bool apiKeyRotated, String? errorDetail
+ int port, LocalBridgePhase phase, LocalBridgeStatus? status, LocalBridgeConfig? config, LocalBridgePairing? pairing, LocalBridgeTools? tools, bool toolsLoading, bool toolsUnsupported, Map<String, Object?> edits, Map<String, String> settingErrors, LocalBridgeBusy busy, LocalBridgeFailure? actionFailure, bool apiKeyRotated, String? errorDetail, LauncherRegistration launcherRegistration, int launcherPort, LauncherStatus? launcherStatus, bool startFailed
 });
 
 
@@ -74,7 +79,7 @@ class _$LocalBridgeStateCopyWithImpl<$Res>
 
 /// Create a copy of LocalBridgeState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? port = null,Object? phase = null,Object? status = freezed,Object? config = freezed,Object? pairing = freezed,Object? tools = freezed,Object? toolsLoading = null,Object? toolsUnsupported = null,Object? edits = null,Object? settingErrors = null,Object? busy = null,Object? actionFailure = freezed,Object? apiKeyRotated = null,Object? errorDetail = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? port = null,Object? phase = null,Object? status = freezed,Object? config = freezed,Object? pairing = freezed,Object? tools = freezed,Object? toolsLoading = null,Object? toolsUnsupported = null,Object? edits = null,Object? settingErrors = null,Object? busy = null,Object? actionFailure = freezed,Object? apiKeyRotated = null,Object? errorDetail = freezed,Object? launcherRegistration = null,Object? launcherPort = null,Object? launcherStatus = freezed,Object? startFailed = null,}) {
   return _then(LocalBridgeState(
 port: null == port ? _self.port : port // ignore: cast_nullable_to_non_nullable
 as int,phase: null == phase ? _self.phase : phase // ignore: cast_nullable_to_non_nullable
@@ -90,7 +95,11 @@ as Map<String, String>,busy: null == busy ? _self.busy : busy // ignore: cast_nu
 as LocalBridgeBusy,actionFailure: freezed == actionFailure ? _self.actionFailure : actionFailure // ignore: cast_nullable_to_non_nullable
 as LocalBridgeFailure?,apiKeyRotated: null == apiKeyRotated ? _self.apiKeyRotated : apiKeyRotated // ignore: cast_nullable_to_non_nullable
 as bool,errorDetail: freezed == errorDetail ? _self.errorDetail : errorDetail // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,launcherRegistration: null == launcherRegistration ? _self.launcherRegistration : launcherRegistration // ignore: cast_nullable_to_non_nullable
+as LauncherRegistration,launcherPort: null == launcherPort ? _self.launcherPort : launcherPort // ignore: cast_nullable_to_non_nullable
+as int,launcherStatus: freezed == launcherStatus ? _self.launcherStatus : launcherStatus // ignore: cast_nullable_to_non_nullable
+as LauncherStatus?,startFailed: null == startFailed ? _self.startFailed : startFailed // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 
@@ -175,10 +184,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int port,  LocalBridgePhase phase,  LocalBridgeStatus? status,  LocalBridgeConfig? config,  LocalBridgePairing? pairing,  LocalBridgeTools? tools,  bool toolsLoading,  bool toolsUnsupported,  Map<String, Object?> edits,  Map<String, String> settingErrors,  LocalBridgeBusy busy,  LocalBridgeFailure? actionFailure,  bool apiKeyRotated,  String? errorDetail)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int port,  LocalBridgePhase phase,  LocalBridgeStatus? status,  LocalBridgeConfig? config,  LocalBridgePairing? pairing,  LocalBridgeTools? tools,  bool toolsLoading,  bool toolsUnsupported,  Map<String, Object?> edits,  Map<String, String> settingErrors,  LocalBridgeBusy busy,  LocalBridgeFailure? actionFailure,  bool apiKeyRotated,  String? errorDetail,  LauncherRegistration launcherRegistration,  int launcherPort,  LauncherStatus? launcherStatus,  bool startFailed)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _LocalBridgeState() when $default != null:
-return $default(_that.port,_that.phase,_that.status,_that.config,_that.pairing,_that.tools,_that.toolsLoading,_that.toolsUnsupported,_that.edits,_that.settingErrors,_that.busy,_that.actionFailure,_that.apiKeyRotated,_that.errorDetail);case _:
+return $default(_that.port,_that.phase,_that.status,_that.config,_that.pairing,_that.tools,_that.toolsLoading,_that.toolsUnsupported,_that.edits,_that.settingErrors,_that.busy,_that.actionFailure,_that.apiKeyRotated,_that.errorDetail,_that.launcherRegistration,_that.launcherPort,_that.launcherStatus,_that.startFailed);case _:
   return orElse();
 
 }
@@ -196,10 +205,10 @@ return $default(_that.port,_that.phase,_that.status,_that.config,_that.pairing,_
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int port,  LocalBridgePhase phase,  LocalBridgeStatus? status,  LocalBridgeConfig? config,  LocalBridgePairing? pairing,  LocalBridgeTools? tools,  bool toolsLoading,  bool toolsUnsupported,  Map<String, Object?> edits,  Map<String, String> settingErrors,  LocalBridgeBusy busy,  LocalBridgeFailure? actionFailure,  bool apiKeyRotated,  String? errorDetail)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int port,  LocalBridgePhase phase,  LocalBridgeStatus? status,  LocalBridgeConfig? config,  LocalBridgePairing? pairing,  LocalBridgeTools? tools,  bool toolsLoading,  bool toolsUnsupported,  Map<String, Object?> edits,  Map<String, String> settingErrors,  LocalBridgeBusy busy,  LocalBridgeFailure? actionFailure,  bool apiKeyRotated,  String? errorDetail,  LauncherRegistration launcherRegistration,  int launcherPort,  LauncherStatus? launcherStatus,  bool startFailed)  $default,) {final _that = this;
 switch (_that) {
 case _LocalBridgeState():
-return $default(_that.port,_that.phase,_that.status,_that.config,_that.pairing,_that.tools,_that.toolsLoading,_that.toolsUnsupported,_that.edits,_that.settingErrors,_that.busy,_that.actionFailure,_that.apiKeyRotated,_that.errorDetail);case _:
+return $default(_that.port,_that.phase,_that.status,_that.config,_that.pairing,_that.tools,_that.toolsLoading,_that.toolsUnsupported,_that.edits,_that.settingErrors,_that.busy,_that.actionFailure,_that.apiKeyRotated,_that.errorDetail,_that.launcherRegistration,_that.launcherPort,_that.launcherStatus,_that.startFailed);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -216,10 +225,10 @@ return $default(_that.port,_that.phase,_that.status,_that.config,_that.pairing,_
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int port,  LocalBridgePhase phase,  LocalBridgeStatus? status,  LocalBridgeConfig? config,  LocalBridgePairing? pairing,  LocalBridgeTools? tools,  bool toolsLoading,  bool toolsUnsupported,  Map<String, Object?> edits,  Map<String, String> settingErrors,  LocalBridgeBusy busy,  LocalBridgeFailure? actionFailure,  bool apiKeyRotated,  String? errorDetail)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int port,  LocalBridgePhase phase,  LocalBridgeStatus? status,  LocalBridgeConfig? config,  LocalBridgePairing? pairing,  LocalBridgeTools? tools,  bool toolsLoading,  bool toolsUnsupported,  Map<String, Object?> edits,  Map<String, String> settingErrors,  LocalBridgeBusy busy,  LocalBridgeFailure? actionFailure,  bool apiKeyRotated,  String? errorDetail,  LauncherRegistration launcherRegistration,  int launcherPort,  LauncherStatus? launcherStatus,  bool startFailed)?  $default,) {final _that = this;
 switch (_that) {
 case _LocalBridgeState() when $default != null:
-return $default(_that.port,_that.phase,_that.status,_that.config,_that.pairing,_that.tools,_that.toolsLoading,_that.toolsUnsupported,_that.edits,_that.settingErrors,_that.busy,_that.actionFailure,_that.apiKeyRotated,_that.errorDetail);case _:
+return $default(_that.port,_that.phase,_that.status,_that.config,_that.pairing,_that.tools,_that.toolsLoading,_that.toolsUnsupported,_that.edits,_that.settingErrors,_that.busy,_that.actionFailure,_that.apiKeyRotated,_that.errorDetail,_that.launcherRegistration,_that.launcherPort,_that.launcherStatus,_that.startFailed);case _:
   return null;
 
 }
@@ -231,7 +240,7 @@ return $default(_that.port,_that.phase,_that.status,_that.config,_that.pairing,_
 
 
 class _LocalBridgeState extends LocalBridgeState {
-  const _LocalBridgeState({required this.port, this.phase = LocalBridgePhase.loading, this.status, this.config, this.pairing, this.tools, this.toolsLoading = false, this.toolsUnsupported = false,  Map<String, Object?> edits = const <String, Object?>{},  Map<String, String> settingErrors = const <String, String>{}, this.busy = LocalBridgeBusy.none, this.actionFailure, this.apiKeyRotated = false, this.errorDetail}): _edits = edits,_settingErrors = settingErrors,super._();
+  const _LocalBridgeState({required this.port, this.phase = LocalBridgePhase.loading, this.status, this.config, this.pairing, this.tools, this.toolsLoading = false, this.toolsUnsupported = false,  Map<String, Object?> edits = const <String, Object?>{},  Map<String, String> settingErrors = const <String, String>{}, this.busy = LocalBridgeBusy.none, this.actionFailure, this.apiKeyRotated = false, this.errorDetail, this.launcherRegistration = LauncherRegistration.unavailable, this.launcherPort = 8765, this.launcherStatus, this.startFailed = false}): _edits = edits,_settingErrors = settingErrors,super._();
   
 
 @override final  int port;
@@ -269,6 +278,15 @@ class _LocalBridgeState extends LocalBridgeState {
 /// The API key was replaced and applies after a restart.
 @override@JsonKey() final  bool apiKeyRotated;
 @override final  String? errorDetail;
+/// Whether the app's LaunchAgent runs the Bridge.
+@override@JsonKey() final  LauncherRegistration launcherRegistration;
+/// Port the launcher's Bridge listens on (the saved port, else 8765).
+/// Starting from the app only applies while that port is shown.
+@override@JsonKey() final  int launcherPort;
+/// What the launcher last reported (missing Node, port in use, ...).
+@override final  LauncherStatus? launcherStatus;
+/// Starting from the app did not bring the Bridge up in time.
+@override@JsonKey() final  bool startFailed;
 
 /// Create a copy of LocalBridgeState
 /// with the given fields replaced by the non-null parameter values.
@@ -280,18 +298,18 @@ _$LocalBridgeStateCopyWith<_LocalBridgeState> get copyWith => __$LocalBridgeStat
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _LocalBridgeState&&(identical(other.port, port) || other.port == port)&&(identical(other.phase, phase) || other.phase == phase)&&(identical(other.status, status) || other.status == status)&&(identical(other.config, config) || other.config == config)&&(identical(other.pairing, pairing) || other.pairing == pairing)&&(identical(other.tools, tools) || other.tools == tools)&&(identical(other.toolsLoading, toolsLoading) || other.toolsLoading == toolsLoading)&&(identical(other.toolsUnsupported, toolsUnsupported) || other.toolsUnsupported == toolsUnsupported)&&const DeepCollectionEquality().equals(other.edits, _edits)&&const DeepCollectionEquality().equals(other.settingErrors, _settingErrors)&&(identical(other.busy, busy) || other.busy == busy)&&(identical(other.actionFailure, actionFailure) || other.actionFailure == actionFailure)&&(identical(other.apiKeyRotated, apiKeyRotated) || other.apiKeyRotated == apiKeyRotated)&&(identical(other.errorDetail, errorDetail) || other.errorDetail == errorDetail));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _LocalBridgeState&&(identical(other.port, port) || other.port == port)&&(identical(other.phase, phase) || other.phase == phase)&&(identical(other.status, status) || other.status == status)&&(identical(other.config, config) || other.config == config)&&(identical(other.pairing, pairing) || other.pairing == pairing)&&(identical(other.tools, tools) || other.tools == tools)&&(identical(other.toolsLoading, toolsLoading) || other.toolsLoading == toolsLoading)&&(identical(other.toolsUnsupported, toolsUnsupported) || other.toolsUnsupported == toolsUnsupported)&&const DeepCollectionEquality().equals(other.edits, _edits)&&const DeepCollectionEquality().equals(other.settingErrors, _settingErrors)&&(identical(other.busy, busy) || other.busy == busy)&&(identical(other.actionFailure, actionFailure) || other.actionFailure == actionFailure)&&(identical(other.apiKeyRotated, apiKeyRotated) || other.apiKeyRotated == apiKeyRotated)&&(identical(other.errorDetail, errorDetail) || other.errorDetail == errorDetail)&&(identical(other.launcherRegistration, launcherRegistration) || other.launcherRegistration == launcherRegistration)&&(identical(other.launcherPort, launcherPort) || other.launcherPort == launcherPort)&&(identical(other.launcherStatus, launcherStatus) || other.launcherStatus == launcherStatus)&&(identical(other.startFailed, startFailed) || other.startFailed == startFailed));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,port,phase,status,config,pairing,tools,toolsLoading,toolsUnsupported,const DeepCollectionEquality().hash(_edits),const DeepCollectionEquality().hash(_settingErrors),busy,actionFailure,apiKeyRotated,errorDetail);
+    return Object.hash(runtimeType,port,phase,status,config,pairing,tools,toolsLoading,toolsUnsupported,const DeepCollectionEquality().hash(_edits),const DeepCollectionEquality().hash(_settingErrors),busy,actionFailure,apiKeyRotated,errorDetail,launcherRegistration,launcherPort,launcherStatus,startFailed);
 }
 
 @override
 String toString() {
-    return 'LocalBridgeState(port: $port, phase: $phase, status: $status, config: $config, pairing: $pairing, tools: $tools, toolsLoading: $toolsLoading, toolsUnsupported: $toolsUnsupported, edits: $edits, settingErrors: $settingErrors, busy: $busy, actionFailure: $actionFailure, apiKeyRotated: $apiKeyRotated, errorDetail: $errorDetail)';
+    return 'LocalBridgeState(port: $port, phase: $phase, status: $status, config: $config, pairing: $pairing, tools: $tools, toolsLoading: $toolsLoading, toolsUnsupported: $toolsUnsupported, edits: $edits, settingErrors: $settingErrors, busy: $busy, actionFailure: $actionFailure, apiKeyRotated: $apiKeyRotated, errorDetail: $errorDetail, launcherRegistration: $launcherRegistration, launcherPort: $launcherPort, launcherStatus: $launcherStatus, startFailed: $startFailed)';
 }
 
 
@@ -302,7 +320,7 @@ abstract mixin class _$LocalBridgeStateCopyWith<$Res> implements $LocalBridgeSta
   factory _$LocalBridgeStateCopyWith(_LocalBridgeState value, $Res Function(_LocalBridgeState) _then) = __$LocalBridgeStateCopyWithImpl;
 @override @useResult
 $Res call({
- int port, LocalBridgePhase phase, LocalBridgeStatus? status, LocalBridgeConfig? config, LocalBridgePairing? pairing, LocalBridgeTools? tools, bool toolsLoading, bool toolsUnsupported, Map<String, Object?> edits, Map<String, String> settingErrors, LocalBridgeBusy busy, LocalBridgeFailure? actionFailure, bool apiKeyRotated, String? errorDetail
+ int port, LocalBridgePhase phase, LocalBridgeStatus? status, LocalBridgeConfig? config, LocalBridgePairing? pairing, LocalBridgeTools? tools, bool toolsLoading, bool toolsUnsupported, Map<String, Object?> edits, Map<String, String> settingErrors, LocalBridgeBusy busy, LocalBridgeFailure? actionFailure, bool apiKeyRotated, String? errorDetail, LauncherRegistration launcherRegistration, int launcherPort, LauncherStatus? launcherStatus, bool startFailed
 });
 
 
@@ -319,7 +337,7 @@ class __$LocalBridgeStateCopyWithImpl<$Res>
 
 /// Create a copy of LocalBridgeState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? port = null,Object? phase = null,Object? status = freezed,Object? config = freezed,Object? pairing = freezed,Object? tools = freezed,Object? toolsLoading = null,Object? toolsUnsupported = null,Object? edits = null,Object? settingErrors = null,Object? busy = null,Object? actionFailure = freezed,Object? apiKeyRotated = null,Object? errorDetail = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? port = null,Object? phase = null,Object? status = freezed,Object? config = freezed,Object? pairing = freezed,Object? tools = freezed,Object? toolsLoading = null,Object? toolsUnsupported = null,Object? edits = null,Object? settingErrors = null,Object? busy = null,Object? actionFailure = freezed,Object? apiKeyRotated = null,Object? errorDetail = freezed,Object? launcherRegistration = null,Object? launcherPort = null,Object? launcherStatus = freezed,Object? startFailed = null,}) {
   return _then(_LocalBridgeState(
 port: null == port ? _self.port : port // ignore: cast_nullable_to_non_nullable
 as int,phase: null == phase ? _self.phase : phase // ignore: cast_nullable_to_non_nullable
@@ -335,7 +353,11 @@ as Map<String, String>,busy: null == busy ? _self.busy : busy // ignore: cast_nu
 as LocalBridgeBusy,actionFailure: freezed == actionFailure ? _self.actionFailure : actionFailure // ignore: cast_nullable_to_non_nullable
 as LocalBridgeFailure?,apiKeyRotated: null == apiKeyRotated ? _self.apiKeyRotated : apiKeyRotated // ignore: cast_nullable_to_non_nullable
 as bool,errorDetail: freezed == errorDetail ? _self.errorDetail : errorDetail // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,launcherRegistration: null == launcherRegistration ? _self.launcherRegistration : launcherRegistration // ignore: cast_nullable_to_non_nullable
+as LauncherRegistration,launcherPort: null == launcherPort ? _self.launcherPort : launcherPort // ignore: cast_nullable_to_non_nullable
+as int,launcherStatus: freezed == launcherStatus ? _self.launcherStatus : launcherStatus // ignore: cast_nullable_to_non_nullable
+as LauncherStatus?,startFailed: null == startFailed ? _self.startFailed : startFailed // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 

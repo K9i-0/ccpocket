@@ -1,3 +1,4 @@
+import 'package:ccpocket/features/local_bridge/data/local_bridge_launcher.dart';
 import 'package:ccpocket/features/local_bridge/local_bridge_screen.dart';
 import 'package:ccpocket/features/local_bridge/state/local_bridge_cubit.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
@@ -10,7 +11,11 @@ import 'local_bridge_fakes.dart';
 
 final connectLinks = ValueNotifier<ConnectionParams?>(null);
 
-Future<void> pumpScreen(WidgetTester tester, FakeLocalBridge bridge) async {
+Future<void> pumpScreen(
+  WidgetTester tester,
+  FakeLocalBridge bridge, {
+  FakeLauncher? launcher,
+}) async {
   connectLinks.value = null;
   tester.view.physicalSize = const Size(900, 3200);
   tester.view.devicePixelRatio = 1;
@@ -25,6 +30,8 @@ Future<void> pumpScreen(WidgetTester tester, FakeLocalBridge bridge) async {
       home: LocalBridgeScreen(
         createCubit: () => LocalBridgeCubit(
           clientFactory: bridge.client,
+          launcher: launcher ?? FakeLauncher(bridge, available: false),
+          startTimeout: const Duration(seconds: 1),
           restartPollInterval: const Duration(milliseconds: 10),
           restartTimeout: const Duration(seconds: 1),
         ),
@@ -158,6 +165,45 @@ void main() {
     expect(find.text('The Bridge is not running'), findsOneWidget);
     expect(find.text('npx --yes @ccpocket/bridge@1'), findsOneWidget);
     expect(key('local_bridge_retry_button'), findsOneWidget);
+  });
+
+  testWidgets('starts the Bridge with one button and can stop it', (
+    tester,
+  ) async {
+    final bridge = FakeLocalBridge()..running = false;
+    await pumpScreen(tester, bridge, launcher: FakeLauncher(bridge));
+    expect(
+      find.text('Press the button to start the Bridge on this Mac.'),
+      findsOneWidget,
+    );
+    await tester.tap(key('local_bridge_start_button'));
+    await tester.pumpAndSettle();
+    expect(find.text('Running'), findsOneWidget);
+    expect(key('local_bridge_managed_note'), findsOneWidget);
+
+    await tester.tap(key('local_bridge_stop_button'));
+    await tester.pumpAndSettle();
+    await tester.tap(key('local_bridge_stop_confirm_button'));
+    await tester.pumpAndSettle();
+    expect(bridge.running, isFalse);
+    expect(key('local_bridge_start_button'), findsOneWidget);
+  });
+
+  testWidgets('shows how to install Node when the launcher misses it', (
+    tester,
+  ) async {
+    final bridge = FakeLocalBridge()..running = false;
+    final launcher = FakeLauncher(bridge)
+      ..problemOnStart = LauncherStatus(
+        state: 'node_missing',
+        updatedAt: DateTime(2026),
+      );
+    await pumpScreen(tester, bridge, launcher: launcher);
+    await tester.tap(key('local_bridge_start_button'));
+    await tester.pumpAndSettle();
+    expect(key('local_bridge_start_problem'), findsOneWidget);
+    expect(find.text('brew install node'), findsOneWidget);
+    expect(key('local_bridge_start_button'), findsNothing);
   });
 
   testWidgets('asks for an update when the Bridge is too old', (tester) async {

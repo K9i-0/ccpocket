@@ -4313,4 +4313,91 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get localBridgeConnectHere => '이 앱에서 연결';
+
+  @override
+  String get localBridgeStart => 'Bridge 시작';
+
+  @override
+  String get localBridgeStop => '중지';
+
+  @override
+  String get localBridgeStarting => '시작 중… (처음에는 1분 정도 걸릴 수 있습니다)';
+
+  @override
+  String get localBridgeStopping => '중지 중…';
+
+  @override
+  String get localBridgeStartBody => '버튼을 누르면 이 Mac에서 Bridge가 시작됩니다.';
+
+  @override
+  String get localBridgeManagedNote =>
+      '앱을 닫아도 Bridge는 계속 실행되며 로그인 시 자동으로 시작됩니다.';
+
+  @override
+  String get localBridgeManualStartHint => '터미널에서 시작할 수도 있습니다.';
+
+  @override
+  String get localBridgeStopConfirmTitle => 'Bridge를 중지할까요?';
+
+  @override
+  String get localBridgeStopConfirmBody =>
+      '연결된 기기의 연결이 끊기고 로그인 시 자동 시작도 해제됩니다.';
+
+  @override
+  String get localBridgeRequiresApproval =>
+      '시스템 설정의 \'일반 > 로그인 항목 및 확장 프로그램\'에서 \'CC Pocket Bridge\'를 허용하세요.';
+
+  @override
+  String get localBridgeNodeMissing => 'Node.js를 찾을 수 없습니다. 설치하면 자동으로 시작됩니다.';
+
+  @override
+  String localBridgeNodeTooOld(String version) {
+    return 'Node.js $version은(는) 너무 오래되었습니다. 22.19 이상으로 업데이트하면 자동으로 시작됩니다.';
+  }
+
+  @override
+  String localBridgePortInUse(int port) {
+    return '포트 $port은(는) 다른 프로그램이 사용 중입니다.';
+  }
+
+  @override
+  String get localBridgeStartFailed => 'Bridge 시작을 확인하지 못했습니다';
+
+  @override
+  String get localBridgeSafeMode =>
+      '저장된 설정으로 시작할 수 없어 기본 설정으로 실행 중입니다. 설정을 확인한 뒤 재시작하세요.';
+
+  @override
+  String get guideLocalBridgeTitle => '이 Mac에서\nBridge 실행';
+
+  @override
+  String get guideLocalBridgeDescription =>
+      'Bridge는 휴대폰과 이 Mac의 에이전트를 연결하는 작은 서버입니다. macOS에서는 앱에서 시작하고 관리할 수 있습니다.';
+
+  @override
+  String get guideLocalBridgeStep1 => '\'Bridge 시작\'을 누릅니다';
+
+  @override
+  String get guideLocalBridgeStep1Detail => '앱을 닫아도 계속 실행되며 로그인 시 자동으로 시작됩니다.';
+
+  @override
+  String get guideLocalBridgeStep2 => '필요한 도구 확인';
+
+  @override
+  String get guideLocalBridgeStep2Detail =>
+      'Node.js, Git, Claude Code나 Codex 등의 설치 상태와 설치 명령을 확인할 수 있습니다.';
+
+  @override
+  String get guideLocalBridgeStep3 => '휴대폰으로 QR 코드 스캔';
+
+  @override
+  String get guideLocalBridgeStep3Detail =>
+      '같은 화면에 표시되는 QR 코드를 휴대폰의 CC Pocket으로 스캔합니다.';
+
+  @override
+  String get guideLocalBridgeOpen => 'Bridge 관리 열기';
+
+  @override
+  String get guideBridgeMacAppNote =>
+      'Mac을 사용 중이라면 macOS용 CC Pocket에서 Bridge를 시작할 수 있어 아래 명령이 필요 없습니다.';
 }

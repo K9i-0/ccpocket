@@ -3097,7 +3097,11 @@ void main() {
       find.byKey(const ValueKey('workspace_setup_guide_button')),
     );
     await tester.pumpAndSettle();
-    for (var i = 0; i < 5; i++) {
+    // The guide is one page shorter on macOS, where the app runs the Bridge.
+    while (find
+        .byKey(const ValueKey('guide_next_button'))
+        .evaluate()
+        .isNotEmpty) {
       await tester.tap(find.byKey(const ValueKey('guide_next_button')));
       await tester.pumpAndSettle();
     }

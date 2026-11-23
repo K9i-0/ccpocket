@@ -6,6 +6,7 @@ class MainFlutterWindow: NSWindow {
   private var nativePasteBridgeChannel: FlutterMethodChannel?
   private var nativePasteBridgeEnabled = false
   private var appUpdater: AppUpdater?
+  private var localBridgeHelper: LocalBridgeHelper?
 
   override func awakeFromNib() {
     titleVisibility = .hidden
@@ -47,6 +48,8 @@ class MainFlutterWindow: NSWindow {
     }
     nativePasteBridgeChannel = pasteBridgeChannel
     appUpdater = AppUpdater(binaryMessenger: flutterViewController.engine.binaryMessenger)
+    localBridgeHelper = LocalBridgeHelper(
+      binaryMessenger: flutterViewController.engine.binaryMessenger)
 
     let windowFrame = self.frame
     self.contentViewController = flutterViewController

@@ -32,6 +32,12 @@ class GuidePageBridgeSetup extends StatelessWidget {
               l.guideBridgePrereq2,
             ],
           ),
+          const SizedBox(height: 12),
+          Text(
+            l.guideBridgeMacAppNote,
+            key: const ValueKey('guide_bridge_mac_app_note'),
+            style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+          ),
           const SizedBox(height: 16),
           // Steps
           _StepCard(

@@ -5,13 +5,15 @@ working standalone (`npx @ccpocket/bridge@1`, `setup`, environment variables).
 
 Status (2026-11-23):
 
-- Done: Bridge side (config file, `/admin/*`, `/tools`); the macOS management
-  screen (Settings > Connection > "Bridge on this Mac") for a Bridge that is
-  already running: status, restart, pairing QR, tools checklist, settings,
-  logs.
-- Not done: starting/stopping the Bridge from the app (launcher +
-  `SMAppService`), automatic registration of "this Mac" as a machine, the
-  setup guide, the tools checklist for remote hosts on mobile.
+- Done: Bridge side (config file, `/admin/*`, `/tools`, safe mode); the macOS
+  management screen (Settings > Connection > "Bridge on this Mac"): start and
+  stop, status, restart, pairing QR, connect this app, tools checklist,
+  settings, logs; the macOS setup guide.
+- Verified by tests and on a hand-signed sandboxed build: everything except
+  the last step of "start" (registering the agent from the real app) and
+  "stop", which register a login item and were left to a manual check.
+- Not done: the tools checklist for remote hosts on mobile; asynchronous tool
+  checks.
 
 ## Constraints
 
@@ -19,46 +21,67 @@ Status (2026-11-23):
   Sparkle. A process the app spawns inherits the sandbox, so it cannot run
   `claude` / `codex` / `agy` against arbitrary project directories, and the
   app cannot write `~/Library/LaunchAgents` or read `~/.ccpocket`.
-  Verified with a signed test bundle (2026-11-23): a spawned `zsh` got
-  `Operation not permitted` on `~/.ccpocket`; a
-  `temporary-exception.files.home-relative-path.read-only` entitlement made
-  exactly that directory readable (and nothing else, and not writable).
 - Phones connect to this Bridge, so it must outlive the app window.
 - Bridge releases stay independent of app releases.
+
+Verified with signed test bundles on 2026-11-23:
+
+| Question | Result |
+|---|---|
+| Does a process spawned by the sandboxed app leave the sandbox? | No: `Operation not permitted` on `~/.ccpocket` |
+| Can the sandboxed app read `~/.ccpocket` with a `temporary-exception.files.home-relative-path.read-only` entitlement? | Yes, exactly that directory, read-only |
+| Can the sandboxed app register a LaunchAgent with `SMAppService.agent`? | No: `SMAppServiceErrorDomain Code=1 "Operation not permitted"` |
+| Can a non-sandboxed app do it? | Yes; its agent sees the login-shell `node` / `claude` / `agy` and can write to project folders |
+| Can the sandboxed app open a bundled non-sandboxed helper app that registers the agent? | Yes |
 
 ## Architecture
 
 ```
 CC Pocket.app (sandboxed)
- ├─ Flutter: LocalBridgeController ── MethodChannel ── Swift: SMAppService
- ├─ Contents/Library/LaunchAgents/<label>.plist      (bundled agent definition)
- └─ Contents/MacOS/bridge-launcher (not sandboxed)
-        └─ zsh -li -c "exec npx --yes @ccpocket/bridge@1"   (user's Node)
+ ├─ Flutter: LocalBridgeLauncher ── MethodChannel ── Runner/LocalBridgeHelper.swift
+ │                                                     │ request.json in the app container
+ │                                                     ▼ NSWorkspace.openApplication
+ └─ Contents/Helpers/CC Pocket Bridge.app (not sandboxed, LSUIElement)
+      ├─ Contents/MacOS/CC Pocket Bridge     helper: SMAppService register / unregister / status
+      ├─ Contents/Library/LaunchAgents/com.k9i.ccpocket.bridge-agent.plist
+      └─ Contents/MacOS/bridge-launcher      agent program (launchd: RunAtLoad, KeepAlive)
+             └─ zsh -lic "exec npx --yes @ccpocket/bridge@1"   (user's Node)
 
 app ⇄ Bridge: http://127.0.0.1:<port>/admin/*  (loopback + pairing secret)
 ```
 
-- **Process owner: launchd.** The app registers a bundled LaunchAgent with
-  `SMAppService.agent`. launchd starts the launcher, so nothing inherits the
-  app sandbox. Start = register, stop = unregister, "launch at login" is the
-  same registration. Quitting the app does not stop the Bridge.
-  Verified 2026-11-23 with signed test bundles: `SMAppService.agent`
-  **fails from a sandboxed app** (`SMAppServiceErrorDomain Code=1 "Operation
-  not permitted"`), and works from a non-sandboxed one, whose agent then sees
-  the login-shell `node` / `claude` / `agy` and can write to project folders.
-  The diagram above therefore needs one more hop. Candidates:
-  1. Keep the app sandboxed and bundle a small non-sandboxed helper app that
-     the main app opens (`NSWorkspace.open(_:withApplicationAt:)`) to
-     register/unregister the agent. No app-data migration. *To verify.*
-  2. Drop the sandbox from the main app. Needs migration of preferences,
-     databases and keychain items out of the container, and is hard to undo.
+Sources: `apps/mobile/macos/BridgeHelper/` (built by the "Build Bridge Helper"
+phase of the Runner target, re-signed by `macos-release.yml`).
+
+- **Process owner: launchd.** Start = register the agent, stop = unregister.
+  Registering also makes it start at login. Quitting the app does not stop
+  the Bridge. The item appears in System Settings > Login Items as
+  "CC Pocket Bridge"; if the user turns it off there the app shows how to
+  allow it again.
+- **Helper request.** The helper has no URL scheme and takes no arguments, so
+  nothing outside the main app can drive it: it reads
+  `<app container>/Library/Application Support/local-bridge-helper/request.json`
+  (`{id, action, createdAt}`, ignored when older than 30 seconds), acts, and
+  writes `~/.ccpocket/launcher-helper.json`, which the main app polls for the
+  matching `id`.
+- **Launcher** (`Launcher.swift`), before replacing itself with the Bridge:
+  - stops if another Bridge already answers on the configured port
+    (`port_in_use`), so it never fights the `setup` service or a manual run;
+  - checks `node -v` through the login shell (`node_missing`,
+    `node_too_old`); the agent retries about every 30 seconds, so installing
+    Node is enough to continue;
+  - after 4 starts within 45 seconds sets `CCPOCKET_BRIDGE_SAFE_MODE=1`: the
+    Bridge ignores the saved settings and reports `safeMode`, so settings that
+    prevent startup (unbindable host or port) can be fixed from the app;
+  - sets `CCPOCKET_BRIDGE_SUPERVISED=1` and writes Bridge output to
+    `~/.ccpocket/logs/bridge.log`.
+  It reports its state in `~/.ccpocket/launcher-status.json`.
 - **Runtime: the user's Node** through a login shell, like `setup-launchd.ts`.
-  The launcher sets `CCPOCKET_BRIDGE_SUPERVISED=1` and reports a missing or
-  old Node in a status file under `~/.ccpocket/` (the Bridge cannot report
-  that itself).
 - **Existing Bridges are adopted.** If a Bridge already answers on the port
   (the `com.ccpocket.bridge` service from `setup`, or a manual `npx`), the app
-  manages it through the same API and only disables start/stop.
+  manages it through the same API and offers neither start nor stop.
+- **macOS 12** has no `SMAppService`: the helper needs macOS 13, and the app
+  hides the start button where the helper is unavailable.
 
 ## Settings
 
@@ -113,19 +136,15 @@ Bridge per platform; user-facing texts are localized in the app by tool id.
   Bridge (save -> restart -> setting applied) and against Bridge 1.119.0,
   which shows the "update the Bridge" state.
 
-## Known gaps before the launcher ships
+## Known gaps
 
-- A saved `host` or `port` that cannot be bound makes a supervised Bridge
-  exit on every start, and the app then has no API to repair the file. The
-  launcher must detect repeated start failures and start once with the file
-  ignored (or the Bridge must fall back to defaults) before the app owns the
-  process.
 - `/tools` runs CLIs synchronously and blocks the Bridge while it does. It is
-  cached for 30 seconds (`?refresh=1` bypasses); making the checks
-  asynchronous is still open.
-- The tools checklist needs a running Bridge, so a Mac without Node gets no
-  checklist yet. The launcher has to report a missing or old Node itself.
-- `MACOSX_DEPLOYMENT_TARGET` is 12.0; `SMAppService` needs 13.
+  cached for 30 seconds (`?refresh=1` bypasses).
+- The tools checklist needs a running Bridge. Without Node the launcher
+  reports it and the app shows the install command for Node only.
+- The app and the `ccpocket-bridge setup` service are separate LaunchAgents.
+  The launcher yields when the port is taken, but the app does not migrate a
+  `setup` service into its own agent.
 
 ## Compatibility
 

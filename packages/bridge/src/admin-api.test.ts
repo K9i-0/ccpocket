@@ -129,6 +129,7 @@ describe("handleAdminRequest", () => {
       port: 8765,
       supervised: false,
       apiKeySource: "stored",
+      safeMode: false,
       restartRequired: false,
       sessions: 2,
       clients: 1,
