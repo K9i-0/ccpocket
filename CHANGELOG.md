@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.179.0] - 2026-11-23
+
+### Added
+
+- macOS: "Bridge on this Mac". The app can start the Bridge on the Mac it runs on, and manage it: status and restart, the pairing QR code for your phone, the tools CC Pocket relies on (Node.js, Git, Claude Code, Codex, Antigravity, GitHub CLI, Tailscale) with install commands and a re-check, every Bridge setting that used to need environment variables, and recent logs. A Bridge started from the app keeps running after the app is closed and starts at login; it runs on your own Node.js. Open it from the disconnected screen, from Settings, or from the setup guide. Managing a Bridge needs Bridge 1.120.0; starting it from the app needs macOS 13.
+- macOS: "Connect from this app" on that screen pairs the app with the local Bridge without a terminal command, and the "Bridge requires authentication" card links to it for a Bridge on the same Mac.
+- macOS: the setup guide starts the Bridge from the app instead of showing the terminal and auto-start pages. On other platforms the guide mentions that the Mac app can do this.
+
 ## [1.178.0] - 2026-11-22
 
 ### Added
