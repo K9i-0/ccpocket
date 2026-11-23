@@ -41,7 +41,9 @@ jobs:
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           flutter-version: ${{ steps.mise.outputs.flutter_version }}
-          cache: true
+          # A cache saved by a tag run is scoped to that tag, so no later
+          # release can restore it: saving ~2 GB only cost a minute per run.
+          cache: false
       - name: Install Codemagic CLI Tools
         run: |
           pipx install codemagic-cli-tools

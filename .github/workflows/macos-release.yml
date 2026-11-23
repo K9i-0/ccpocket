@@ -44,7 +44,9 @@ jobs:
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           flutter-version: ${{ steps.mise.outputs.flutter_version }}
-          cache: true
+          # A cache saved by a tag run is scoped to that tag, so no later
+          # release can restore it: saving ~2 GB only cost a minute per run.
+          cache: false
 
       - run: flutter pub get
         working-directory: apps/mobile
@@ -90,7 +92,27 @@ jobs:
 
       - name: Build macOS app
         working-directory: apps/mobile
+        # Apple silicon only: Intel Macs are no longer supported, and building
+        # one architecture halves the native compile. The appcast marks the
+        # update as arm64-only so Sparkle does not offer it on Intel.
+        env:
+          FLUTTER_XCODE_EXCLUDED_ARCHS: x86_64
         run: flutter build macos --release
+
+      - name: Verify the app is Apple silicon only
+        run: |
+          APP_PATH="apps/mobile/build/macos/Build/Products/Release/CC Pocket.app"
+          for BINARY in \
+            "$APP_PATH/Contents/MacOS/CC Pocket" \
+            "$APP_PATH/Contents/Frameworks/App.framework/App" \
+            "$APP_PATH/Contents/Helpers/CC Pocket Bridge.app/Contents/MacOS/bridge-launcher"; do
+            ARCHS="$(lipo -archs "$BINARY")"
+            echo "$ARCHS <- $BINARY"
+            if [ "$ARCHS" != "arm64" ]; then
+              echo "::error::expected an arm64-only binary: $BINARY ($ARCHS)"
+              exit 1
+            fi
+          done
 
       - name: Re-sign and verify signed app bundle
         id: app
@@ -455,6 +477,7 @@ jobs:
             '      <sparkle:version>${{ needs.release.outputs.build_number }}</sparkle:version>' \
             '      <sparkle:shortVersionString>${{ needs.release.outputs.semver }}</sparkle:shortVersionString>' \
             '      <sparkle:releaseNotesLink>${{ needs.release.outputs.release_url }}</sparkle:releaseNotesLink>' \
+            '      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>' \
             '      <enclosure' \
             '        url="${{ needs.release.outputs.dmg_url }}"' \
             '        sparkle:version="${{ needs.release.outputs.build_number }}"' \
@@ -513,6 +536,11 @@ jobs:
               )
           if enclosure is None or not enclosure.attrib.get(f"{sparkle}edSignature"):
               errors.append("missing enclosure/@sparkle:edSignature")
+          # The app is arm64-only: without this an Intel Mac would install an
+          # update it cannot launch.
+          hardware = item.find(f"{sparkle}hardwareRequirements") if item is not None else None
+          if hardware is None or (hardware.text or "").strip() != "arm64":
+              errors.append("missing sparkle:hardwareRequirements=arm64")
 
           if errors:
               raise SystemExit("Invalid generated Sparkle appcast: " + "; ".join(errors))
