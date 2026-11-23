@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { getToolsReport, installCommandsFor, type ToolChecks } from "./tools.js";
+import {
+  getCachedToolsReport,
+  getToolsReport,
+  installCommandsFor,
+  type ToolChecks,
+  type ToolsReport,
+} from "./tools.js";
 
 function checks(overrides: Partial<ToolChecks> = {}): ToolChecks {
   return {
@@ -57,8 +63,11 @@ describe("getToolsReport", () => {
       installed: true, ready: false, setupCommand: "codex login",
     });
     expect(byId.antigravity).toMatchObject({
-      installed: false, ready: false, installCommands: [], requirement: "agent",
+      installed: false, ready: false, requirement: "agent",
     });
+    expect(byId.antigravity.installCommands[0].command).toBe(
+      "curl -fsSL https://antigravity.google/cli/install.sh | bash",
+    );
     expect(byId.antigravity.docsUrl).toContain("antigravity.google");
     expect(byId.gh).toMatchObject({ installed: false, ready: false });
     expect(byId.gh.installCommands).toEqual([
@@ -102,8 +111,29 @@ describe("installCommandsFor", () => {
       "claude.ai/install.sh",
     );
     expect(installCommandsFor("claude", "win32").map((c) => c.label)).toEqual([
-      "npm",
+      "PowerShell",
+      "winget",
     ]);
+    expect(installCommandsFor("tailscale", "darwin")[0].command).toBe(
+      "brew install --cask tailscale-app",
+    );
     expect(installCommandsFor("node", "linux")).toEqual([]);
+  });
+});
+
+describe("getCachedToolsReport", () => {
+  it("reuses a recent report unless a refresh is asked for", async () => {
+    let calls = 0;
+    const load = async (): Promise<ToolsReport> => {
+      calls += 1;
+      return { platform: "darwin", tools: [], ready: false };
+    };
+    await getCachedToolsReport(true, 1_000, load);
+    await getCachedToolsReport(false, 20_000, load);
+    expect(calls).toBe(1);
+    await getCachedToolsReport(true, 21_000, load);
+    expect(calls).toBe(2);
+    await getCachedToolsReport(false, 60_000, load);
+    expect(calls).toBe(3);
   });
 });

@@ -139,12 +139,14 @@ class LocalBridgeClient {
       LocalBridgePairing.fromJson(await _admin('GET', '/pairing'));
 
   /// Tools report; needs the API key from [pairing] unless auth is off.
-  Future<LocalBridgeTools> tools({String? apiKey}) async {
+  ///
+  /// The Bridge caches the report briefly; [refresh] forces new checks.
+  Future<LocalBridgeTools> tools({String? apiKey, bool refresh = false}) async {
     final http.Response response;
     try {
       response = await _http
           .get(
-            _uri('/tools'),
+            _uri('/tools', refresh ? const {'refresh': '1'} : null),
             headers: {if (apiKey != null) 'Authorization': 'Bearer $apiKey'},
           )
           // Version and sign-in checks run several CLIs.

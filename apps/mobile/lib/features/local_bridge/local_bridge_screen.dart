@@ -224,7 +224,7 @@ class LocalBridgeReadyBody extends StatelessWidget {
               tools: state.tools,
               loading: state.toolsLoading,
               unsupported: state.toolsUnsupported,
-              onRecheck: cubit.refreshTools,
+              onRecheck: () => cubit.refreshTools(force: true),
             ),
             LocalBridgeSettingsSection(state: state, onEdit: cubit.edit),
             SettingsGroup(

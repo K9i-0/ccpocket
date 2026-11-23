@@ -15,6 +15,19 @@ describe("LogBuffer", () => {
     expect(buffer.tail(0)).toEqual([]);
   });
 
+  it("drops messages that contain a secret", () => {
+    const buffer = new LogBuffer();
+    buffer.addSecret("fixture/key+value");
+    buffer.add("info", "link ccpocket://connect?token=fixture%2Fkey%2Bvalue\n▄▄▄", 1);
+    buffer.add("info", "raw fixture/key+value", 2);
+    buffer.add("info", "harmless", 3);
+    expect(buffer.tail().map((e) => e.message)).toEqual([
+      "[pairing details omitted]",
+      "[pairing details omitted]",
+      "harmless",
+    ]);
+  });
+
   it("mirrors console output and still calls the original", () => {
     const log = vi.fn();
     const error = vi.fn();

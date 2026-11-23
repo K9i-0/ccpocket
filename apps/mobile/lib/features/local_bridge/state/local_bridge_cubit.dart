@@ -70,12 +70,16 @@ class LocalBridgeCubit extends Cubit<LocalBridgeState> {
     }
   }
 
-  Future<void> refreshTools() async {
+  /// [force] bypasses the Bridge's short cache (the "check again" button).
+  Future<void> refreshTools({bool force = false}) async {
     if (state.toolsLoading) return;
     final generation = _generation;
     emit(state.copyWith(toolsLoading: true));
     try {
-      final tools = await _client.tools(apiKey: state.pairing?.token);
+      final tools = await _client.tools(
+        apiKey: state.pairing?.token,
+        refresh: force,
+      );
       if (generation != _generation || isClosed) return;
       emit(
         state.copyWith(
@@ -172,6 +176,18 @@ class LocalBridgeCubit extends Cubit<LocalBridgeState> {
         state.copyWith(busy: LocalBridgeBusy.none, actionFailure: err.failure),
       );
       return false;
+    }
+
+    // A saved port change takes effect now: look for the Bridge there.
+    final savedPort = state.config?.setting('port');
+    if (savedPort != null &&
+        !savedPort.lockedByEnv &&
+        savedPort.fileValue is int &&
+        savedPort.fileValue != state.port) {
+      _generation += 1;
+      _client.close();
+      _client = _clientFactory(savedPort.fileValue! as int);
+      emit(state.copyWith(port: savedPort.fileValue! as int));
     }
 
     final deadline = DateTime.now().add(restartTimeout);

@@ -2,6 +2,8 @@ import { format } from "node:util";
 
 export type LogLevel = "info" | "warn" | "error";
 
+export const OMITTED_MESSAGE = "[pairing details omitted]";
+
 export interface LogEntry {
   /** Epoch milliseconds. */
   time: number;
@@ -16,20 +18,37 @@ export interface LogEntry {
  */
 export class LogBuffer {
   private entries: LogEntry[] = [];
+  private secrets: string[] = [];
 
   constructor(
     private readonly capacity = 2000,
     private readonly maxMessageLength = 4000,
   ) {}
 
+  /**
+   * Messages containing [secret] are not kept. Whole messages are dropped
+   * rather than masked because a pairing QR code encodes the key as well.
+   */
+  addSecret(secret: string): void {
+    if (secret.length < 8) return;
+    this.secrets.push(
+      secret,
+      encodeURIComponent(secret),
+      // Deep links are built with URLSearchParams, which encodes differently.
+      new URLSearchParams({ k: secret }).toString().slice(2),
+    );
+  }
+
   add(level: LogLevel, message: string, time = Date.now()): void {
+    const sensitive = this.secrets.some((secret) => message.includes(secret));
+    const kept = sensitive ? OMITTED_MESSAGE : message;
     this.entries.push({
       time,
       level,
       message:
-        message.length > this.maxMessageLength
-          ? `${message.slice(0, this.maxMessageLength)}…`
-          : message,
+        kept.length > this.maxMessageLength
+          ? `${kept.slice(0, this.maxMessageLength)}…`
+          : kept,
     });
     if (this.entries.length > this.capacity) {
       this.entries.splice(0, this.entries.length - this.capacity);

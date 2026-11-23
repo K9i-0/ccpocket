@@ -106,6 +106,20 @@ Bridge per platform; user-facing texts are localized in the app by tool id.
   Bridge (save -> restart -> setting applied) and against Bridge 1.119.0,
   which shows the "update the Bridge" state.
 
+## Known gaps before the launcher ships
+
+- A saved `host` or `port` that cannot be bound makes a supervised Bridge
+  exit on every start, and the app then has no API to repair the file. The
+  launcher must detect repeated start failures and start once with the file
+  ignored (or the Bridge must fall back to defaults) before the app owns the
+  process.
+- `/tools` runs CLIs synchronously and blocks the Bridge while it does. It is
+  cached for 30 seconds (`?refresh=1` bypasses); making the checks
+  asynchronous is still open.
+- The tools checklist needs a running Bridge, so a Mac without Node gets no
+  checklist yet. The launcher has to report a missing or old Node itself.
+- `MACOSX_DEPLOYMENT_TARGET` is 12.0; `SMAppService` needs 13.
+
 ## Compatibility
 
 - No WebSocket message and no protocol version change.

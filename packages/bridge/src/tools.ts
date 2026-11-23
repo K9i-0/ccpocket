@@ -68,7 +68,7 @@ const BREW = "Homebrew";
 const INSTALL_COMMANDS: Record<ToolId, PlatformCommands> = {
   node: {
     darwin: [{ label: BREW, command: "brew install node" }],
-    win32: [{ label: "winget", command: "winget install OpenJS.NodeJS.LTS" }],
+    win32: [{ label: "winget", command: "winget install -e --id OpenJS.NodeJS.LTS" }],
   },
   git: {
     darwin: [
@@ -76,7 +76,7 @@ const INSTALL_COMMANDS: Record<ToolId, PlatformCommands> = {
       { label: BREW, command: "brew install git" },
     ],
     linux: [{ label: "apt", command: "sudo apt install git" }],
-    win32: [{ label: "winget", command: "winget install Git.Git" }],
+    win32: [{ label: "winget", command: "winget install --id Git.Git -e --source winget" }],
   },
   claude: {
     default: [
@@ -84,10 +84,14 @@ const INSTALL_COMMANDS: Record<ToolId, PlatformCommands> = {
         label: "Installer",
         command: "curl -fsSL https://claude.ai/install.sh | bash",
       },
-      { label: "npm", command: "npm install -g @anthropic-ai/claude-code" },
+      { label: BREW, command: "brew install --cask claude-code" },
     ],
     win32: [
-      { label: "npm", command: "npm install -g @anthropic-ai/claude-code" },
+      {
+        label: "PowerShell",
+        command: "irm https://claude.ai/install.ps1 | iex",
+      },
+      { label: "winget", command: "winget install Anthropic.ClaudeCode" },
     ],
   },
   codex: {
@@ -96,18 +100,38 @@ const INSTALL_COMMANDS: Record<ToolId, PlatformCommands> = {
         label: "Installer",
         command: "curl -fsSL https://chatgpt.com/codex/install.sh | sh",
       },
+      { label: BREW, command: "brew install --cask codex" },
+      { label: "npm", command: "npm install -g @openai/codex" },
+    ],
+    linux: [
+      {
+        label: "Installer",
+        command: "curl -fsSL https://chatgpt.com/codex/install.sh | sh",
+      },
       { label: "npm", command: "npm install -g @openai/codex" },
     ],
     win32: [{ label: "npm", command: "npm install -g @openai/codex" }],
   },
-  // No stable one-line installer to recommend: point at the official guide.
-  antigravity: {},
+  antigravity: {
+    default: [
+      {
+        label: "Installer",
+        command: "curl -fsSL https://antigravity.google/cli/install.sh | bash",
+      },
+    ],
+    win32: [
+      {
+        label: "PowerShell",
+        command: "irm https://antigravity.google/cli/install.ps1 | iex",
+      },
+    ],
+  },
   gh: {
     darwin: [{ label: BREW, command: "brew install gh" }],
-    win32: [{ label: "winget", command: "winget install GitHub.cli" }],
+    win32: [{ label: "winget", command: "winget install --id GitHub.cli --source winget" }],
   },
   tailscale: {
-    darwin: [{ label: BREW, command: "brew install --cask tailscale" }],
+    darwin: [{ label: BREW, command: "brew install --cask tailscale-app" }],
     linux: [
       {
         label: "Installer",
@@ -120,9 +144,9 @@ const INSTALL_COMMANDS: Record<ToolId, PlatformCommands> = {
 const DOCS_URLS: Record<ToolId, string> = {
   node: "https://nodejs.org/en/download",
   git: "https://git-scm.com/downloads",
-  claude: "https://docs.anthropic.com/en/docs/claude-code/getting-started",
+  claude: "https://code.claude.com/docs/en/setup",
   codex: "https://github.com/openai/codex",
-  antigravity: "https://antigravity.google/docs/install/",
+  antigravity: "https://antigravity.google/docs/getting-started/?tab=cli",
   gh: "https://cli.github.com/",
   tailscale: "https://tailscale.com/download",
 };
@@ -257,4 +281,28 @@ export async function getToolsReport(
       .every((tool) => tool.ready) &&
     tools.some((tool) => tool.requirement === "agent" && tool.ready);
   return { platform, tools, ready };
+}
+
+const TOOLS_CACHE_MS = 30_000;
+let cachedReport: { at: number; report: Promise<ToolsReport> } | undefined;
+
+/**
+ * [getToolsReport] with a short cache. The checks run CLIs synchronously and
+ * block the Bridge while they do, so screens that merely open reuse a recent
+ * result; an explicit "check again" passes [refresh].
+ */
+export function getCachedToolsReport(
+  refresh = false,
+  now = Date.now(),
+  load: () => Promise<ToolsReport> = () => getToolsReport(),
+): Promise<ToolsReport> {
+  if (!refresh && cachedReport && now - cachedReport.at < TOOLS_CACHE_MS) {
+    return cachedReport.report;
+  }
+  const report = load();
+  cachedReport = { at: now, report };
+  report.catch(() => {
+    if (cachedReport?.report === report) cachedReport = undefined;
+  });
+  return report;
 }

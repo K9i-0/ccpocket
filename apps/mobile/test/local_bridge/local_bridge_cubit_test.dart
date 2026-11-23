@@ -152,4 +152,17 @@ void main() {
     expect(cubit.state.status!.port, 8770);
     await cubit.close();
   });
+
+  test('follows a saved port change across the restart', () async {
+    final bridge = FakeLocalBridge()..envSettings = {};
+    final cubit = cubitFor(bridge);
+    await cubit.load();
+    cubit.edit('port', 8770);
+    expect(await cubit.save(), isTrue);
+    expect(await cubit.restart(), isTrue);
+    expect(cubit.state.port, 8770);
+    expect(cubit.state.status!.port, 8770);
+    expect(cubit.state.phase, LocalBridgePhase.ready);
+    await cubit.close();
+  });
 }

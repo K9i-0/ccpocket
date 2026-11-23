@@ -25,7 +25,7 @@ import { WorkspaceStore } from "./workspace-store.js";
 import { getVersionInfo } from "./version.js";
 import { fetchAllUsage } from "./usage.js";
 import { runDoctor } from "./doctor.js";
-import { getToolsReport } from "./tools.js";
+import { getCachedToolsReport } from "./tools.js";
 import { handleAdminRequest } from "./admin-api.js";
 import { applyBridgeConfig, readBridgeConfigFile } from "./bridge-config.js";
 import { LogBuffer } from "./log-buffer.js";
@@ -88,6 +88,9 @@ export async function startServer() {
     configured: process.env.BRIDGE_API_KEY,
     insecureNoAuth,
   });
+  // Pairing output (deep link, QR code) carries the key: keep it out of the
+  // log buffer the management UI shows and copies.
+  if (API_KEY) logBuffer.addSecret(API_KEY);
   switch (apiKeySource) {
     case "configured":
       console.log("[bridge] API key authentication enabled");
@@ -368,8 +371,11 @@ export async function startServer() {
     }
 
     // Tools the host needs, with install state (setup guide in the app)
-    if (req.url === "/tools" && req.method === "GET") {
-      getToolsReport()
+    if (
+      (req.url === "/tools" || req.url === "/tools?refresh=1") &&
+      req.method === "GET"
+    ) {
+      getCachedToolsReport(req.url.endsWith("refresh=1"))
         .then((report) => {
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify(report));
