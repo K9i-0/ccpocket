@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.180.0] - 2026-11-23
+
+### Changed
+
+- The setup guide is redesigned and shorter, with a flow for each platform. On a phone it has four steps: it recommends CC Pocket for macOS as the easiest way to set up a Mac (download page or Homebrew, with "Send to Mac" to pass the link along), keeps the terminal steps for Linux, Windows and the CLI on a second tab, and the last page opens the QR scanner directly. On macOS it has three steps around "Bridge on this Mac". On Linux and Windows it has three steps around starting the Bridge in a terminal.
+- The setup guide now covers Antigravity alongside Codex and Claude, states the Node.js 22.19+ requirement, and folds the Tailscale and auto-start instructions into the setup pages instead of separate ones.
+- The setup guide is easier to read in dark mode.
+
 ## [1.179.1] - 2026-11-23
 
 ### Changed
