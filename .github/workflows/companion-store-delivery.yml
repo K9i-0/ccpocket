@@ -97,7 +97,7 @@ jobs:
         run: python3 scripts/store-review/apps/deliver-ios.py
       - name: Set up Ruby
         if: inputs.platform == 'android'
-        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199
+        uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18
         with:
           ruby-version: '3.3'
           bundler-cache: true
