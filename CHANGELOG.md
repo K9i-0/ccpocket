@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.179.1] - 2026-11-23
+
+### Changed
+
+- macOS: the app is now built for Apple silicon only. Intel Macs are no longer supported; 1.179.0 is the last version that runs on them, and the updater does not offer newer versions there. The download is about half the size.
+- macOS: "Bridge on this Mac" opens beside the session list when it is opened from the disconnected screen, instead of covering the window.
+
+### Fixed
+
+- Settings showed the API key as part of the connection address ("ws://…?token=…") after connecting through a pairing link or "Connect from this app". The address is now shown without it.
+- macOS: "Connect from this app" added a second machine ("127.0.0.1") when the same Bridge was already saved as "localhost".
+
 ## [1.179.0] - 2026-11-23
 
 ### Added
