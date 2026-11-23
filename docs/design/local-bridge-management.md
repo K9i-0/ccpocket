@@ -3,8 +3,15 @@
 The macOS app can start and manage a Bridge on the same Mac. The Bridge keeps
 working standalone (`npx @ccpocket/bridge@1`, `setup`, environment variables).
 
-Status: the Bridge side (config file, `/admin/*`, `/tools`) is implemented.
-The macOS launcher, the management screen and the setup guide are in progress.
+Status (2026-11-23):
+
+- Done: Bridge side (config file, `/admin/*`, `/tools`); the macOS management
+  screen (Settings > Connection > "Bridge on this Mac") for a Bridge that is
+  already running: status, restart, pairing QR, tools checklist, settings,
+  logs.
+- Not done: starting/stopping the Bridge from the app (launcher +
+  `SMAppService`), automatic registration of "this Mac" as a machine, the
+  setup guide, the tools checklist for remote hosts on mobile.
 
 ## Constraints
 
@@ -80,6 +87,24 @@ to widen `allowedDirs` or turn authentication off.
 `GET /tools` uses the normal API key (like `/doctor`), so a phone can show the
 same install checklist for a remote host. Install commands come from the
 Bridge per platform; user-facing texts are localized in the app by tool id.
+
+## App side
+
+`apps/mobile/lib/features/local_bridge/`: `LocalBridgeClient` (HTTP to
+`127.0.0.1`), `LocalBridgeCubit`, `LocalBridgeScreen`.
+
+- The app reads `~/.ccpocket/pairing-secret-<port>` through the
+  `temporary-exception.files.home-relative-path.read-only` entitlement for
+  `/.ccpocket/`. `HOME` is the sandbox container, so the real home is derived
+  from it (`realHomeDirectory`). The app never writes there: settings go
+  through `PUT /admin/config`.
+- Edits are staged and saved together; the screen then offers "restart to
+  apply". Restart waits until a different pid answers.
+- The pairing QR code carries the API key and is hidden until requested.
+- Port: 8765 by default; another port can be chosen from the menu.
+- Verified on a sandboxed, Developer ID signed debug build against a test
+  Bridge (save -> restart -> setting applied) and against Bridge 1.119.0,
+  which shows the "update the Bridge" state.
 
 ## Compatibility
 

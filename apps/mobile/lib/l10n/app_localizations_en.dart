@@ -4134,4 +4134,316 @@ class AppLocalizationsEn extends AppLocalizations {
   String handoffCardNoteRequest(String agent) {
     return 'Handoff note requested for $agent';
   }
+
+  @override
+  String get localBridgeTitle => 'Bridge on this Mac';
+
+  @override
+  String get localBridgeSettingsSubtitle => 'Status, pairing and settings';
+
+  @override
+  String get localBridgeStatusRunning => 'Running';
+
+  @override
+  String localBridgeStatusDetail(String version, int port) {
+    return 'v$version · port $port';
+  }
+
+  @override
+  String localBridgeStatusCounts(int sessions, int clients) {
+    return '$sessions sessions · $clients connected devices';
+  }
+
+  @override
+  String get localBridgeNotRunningTitle => 'The Bridge is not running';
+
+  @override
+  String localBridgeNotRunningBody(int port) {
+    return 'Nothing answers on port $port. Run this command in a terminal to start it.';
+  }
+
+  @override
+  String get localBridgeSecretUnavailableTitle =>
+      'This Bridge cannot be managed';
+
+  @override
+  String get localBridgeSecretUnavailableBody =>
+      'A Bridge is running, but its pairing information cannot be read. It may run as another user or be out of date.';
+
+  @override
+  String get localBridgeUpdateRequiredTitle => 'The Bridge needs an update';
+
+  @override
+  String get localBridgeUpdateRequiredBody =>
+      'This Bridge does not support management from the app yet. Update it to the latest version and restart it.';
+
+  @override
+  String get localBridgeErrorTitle =>
+      'Could not read the Bridge\'s information';
+
+  @override
+  String get localBridgeRestartRequired => 'Changes apply after a restart';
+
+  @override
+  String get localBridgeRestartNow => 'Restart to apply';
+
+  @override
+  String get localBridgeRestarting => 'Restarting…';
+
+  @override
+  String get localBridgeRestartConfirmTitle => 'Restart the Bridge?';
+
+  @override
+  String get localBridgeRestartConfirmBody =>
+      'Connected devices reconnect automatically.';
+
+  @override
+  String localBridgeRestartConfirmSessions(int count) {
+    return '$count running sessions will be interrupted.';
+  }
+
+  @override
+  String get localBridgeNotSupervised =>
+      'This Bridge was started manually, so the app cannot restart it. Restart it in the terminal that runs it.';
+
+  @override
+  String get localBridgeRestartFailed => 'The Bridge did not come back';
+
+  @override
+  String get localBridgeActionFailed => 'The action failed';
+
+  @override
+  String get localBridgeInvalidSettings => 'Some settings could not be saved';
+
+  @override
+  String get localBridgeChangePort => 'Manage a Bridge on another port';
+
+  @override
+  String get localBridgePairingTitle => 'Connect your phone';
+
+  @override
+  String get localBridgePairingBody =>
+      'Scan the QR code with CC Pocket on your phone to connect.';
+
+  @override
+  String get localBridgePairingSensitive =>
+      'The QR code contains the API key. Take care when sharing your screen.';
+
+  @override
+  String get localBridgePairingNoAddress =>
+      'No address other devices can reach was found. Connect to Wi-Fi or Tailscale.';
+
+  @override
+  String get localBridgeCopyLink => 'Copy connection link';
+
+  @override
+  String get localBridgeShowQr => 'Show QR code';
+
+  @override
+  String get localBridgeHideQr => 'Hide QR code';
+
+  @override
+  String get localBridgeRotateKey => 'Replace the API key';
+
+  @override
+  String get localBridgeRotateKeyConfirmBody =>
+      'After the restart, paired devices must scan the QR code again.';
+
+  @override
+  String get localBridgeRotateKeyDone =>
+      'The API key was replaced. It applies after a restart.';
+
+  @override
+  String get localBridgeAuthDisabled =>
+      'Authentication is off. Anyone who can reach this port can control your agents.';
+
+  @override
+  String get localBridgeToolsTitle => 'Required tools';
+
+  @override
+  String get localBridgeToolsReady => 'Everything needed is ready';
+
+  @override
+  String get localBridgeToolsNotReady =>
+      'Node.js, Git and at least one agent are needed';
+
+  @override
+  String get localBridgeToolsUnsupported => 'Update the Bridge to check tools';
+
+  @override
+  String get localBridgeToolReady => 'Ready';
+
+  @override
+  String get localBridgeToolNotInstalled => 'Not installed';
+
+  @override
+  String get localBridgeToolNeedsSetup => 'Needs setup';
+
+  @override
+  String get localBridgeToolInstall => 'Install';
+
+  @override
+  String get localBridgeToolSetup => 'Set up';
+
+  @override
+  String get localBridgeToolDocs => 'Open the official guide';
+
+  @override
+  String get localBridgeToolRecheck => 'Check again';
+
+  @override
+  String get localBridgeToolRunInTerminal =>
+      'Run it in a terminal, then check again.';
+
+  @override
+  String get localBridgeToolRequired => 'Required';
+
+  @override
+  String get localBridgeToolAgent => 'Agent';
+
+  @override
+  String get localBridgeToolOptional => 'Optional';
+
+  @override
+  String get localBridgeToolDescNode => 'Runs the Bridge';
+
+  @override
+  String get localBridgeToolDescGit => 'Used for diffs and branch operations';
+
+  @override
+  String get localBridgeToolDescClaude => 'Used for Claude Code sessions';
+
+  @override
+  String get localBridgeToolDescCodex => 'Used for Codex sessions';
+
+  @override
+  String get localBridgeToolDescAntigravity => 'Used for Antigravity sessions';
+
+  @override
+  String get localBridgeToolDescGh =>
+      'Used to show GitHub issues and pull requests';
+
+  @override
+  String get localBridgeToolDescTailscale =>
+      'Lets you connect securely from anywhere';
+
+  @override
+  String get localBridgeGroupNetwork => 'Network';
+
+  @override
+  String get localBridgeGroupAccess => 'Access';
+
+  @override
+  String get localBridgeGroupAgents => 'Agents';
+
+  @override
+  String get localBridgeGroupSecurity => 'Security';
+
+  @override
+  String get localBridgeSettingPort => 'Port';
+
+  @override
+  String get localBridgeSettingHost => 'Bind address';
+
+  @override
+  String get localBridgeSettingPublicWsUrl => 'Public URL';
+
+  @override
+  String get localBridgeSettingPublicWsUrlDesc =>
+      'ws:// or wss:// URL used in the QR code';
+
+  @override
+  String get localBridgeSettingAllowedDirs =>
+      'Folders projects may be opened from';
+
+  @override
+  String get localBridgeSettingReadOnlyDirs =>
+      'Folders allowed for viewing only';
+
+  @override
+  String get localBridgeSettingFileDownloadAllowAllPaths =>
+      'Allow sharing any file';
+
+  @override
+  String get localBridgeSettingFileDownloadAllowAllPathsDesc =>
+      'Files outside projects can be downloaded too';
+
+  @override
+  String get localBridgeSettingInsecureNoAuth => 'Turn off authentication';
+
+  @override
+  String get localBridgeSettingInsecureNoAuthDesc =>
+      'Not recommended. Anyone who can reach the port gets control';
+
+  @override
+  String get localBridgeSettingAllowClaudeOAuth =>
+      'Use the Claude subscription login';
+
+  @override
+  String get localBridgeSettingCodexAppServerMode => 'Codex app-server sharing';
+
+  @override
+  String get localBridgeSettingCodexSharedAppServerUrl =>
+      'Shared app-server URL';
+
+  @override
+  String get localBridgeSettingCodexAssistModel => 'Codex assist model';
+
+  @override
+  String get localBridgeSettingCodexAssistReasoningEffort =>
+      'Codex assist reasoning effort';
+
+  @override
+  String get localBridgeSettingNotifyGoalTurnCompleted =>
+      'Notify intermediate Goal turns';
+
+  @override
+  String get localBridgeSettingAntigravityApiKey => 'Antigravity API key';
+
+  @override
+  String get localBridgeCodexModePrivate => 'Not shared';
+
+  @override
+  String get localBridgeCodexModeManaged => 'Started by the Bridge';
+
+  @override
+  String get localBridgeCodexModeExternal => 'Use an external app-server';
+
+  @override
+  String localBridgeSettingLockedByEnv(String env) {
+    return 'Set by the environment variable $env';
+  }
+
+  @override
+  String get localBridgeSettingNotSet => 'Not set';
+
+  @override
+  String get localBridgeSettingConfigured => 'Set';
+
+  @override
+  String get localBridgeSettingResetToDefault => 'Reset to default';
+
+  @override
+  String get localBridgeAllowedDirsAll => 'All folders (unrestricted)';
+
+  @override
+  String get localBridgeAddFolder => 'Add folder';
+
+  @override
+  String get localBridgeUnsavedChanges => 'You have unsaved changes';
+
+  @override
+  String get localBridgeDiscard => 'Discard';
+
+  @override
+  String get localBridgeSaved => 'Saved';
+
+  @override
+  String get localBridgeLogsTitle => 'Logs';
+
+  @override
+  String get localBridgeLogsSubtitle => 'Recent Bridge output';
+
+  @override
+  String get localBridgeLogsEmpty => 'No logs';
 }

@@ -5,6 +5,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../models/machine.dart';
 import '../../../providers/machine_manager_cubit.dart';
 import '../../../services/bridge_service.dart';
+import '../../local_bridge/local_bridge_screen.dart';
 import '../models/settings_catalog.dart';
 import '../state/settings_state.dart';
 import '../widgets/bridge_update_status_tile.dart';
@@ -56,37 +57,55 @@ class ConnectionSettingsSection extends StatelessWidget {
         SettingsGroup(
           cardKey: const ValueKey('settings_connection_section_card'),
           children: [
-            SettingsItem(
-              id: SettingsEntryIds.bridgeMachine,
-              child: SettingsNavTile(
-                icon: Icons.computer_rounded,
-                title: Text(l.settingsBridgeMachine),
-                subtitle:
-                    machine?.displayName ??
-                    (bridge.lastUrl ?? l.settingsNotConnected),
+            if (visibility.hasActiveMachine)
+              SettingsItem(
+                id: SettingsEntryIds.bridgeMachine,
+                child: SettingsNavTile(
+                  icon: Icons.computer_rounded,
+                  title: Text(l.settingsBridgeMachine),
+                  subtitle:
+                      machine?.displayName ??
+                      (bridge.lastUrl ?? l.settingsNotConnected),
+                ),
               ),
-            ),
+            if (visibility.isMacOS)
+              SettingsItem(
+                id: SettingsEntryIds.localBridge,
+                child: SettingsNavTile(
+                  key: const ValueKey('settings_local_bridge_tile'),
+                  icon: Icons.dns_rounded,
+                  title: Text(l.localBridgeTitle),
+                  subtitle: l.localBridgeSettingsSubtitle,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const LocalBridgeScreen(),
+                    ),
+                  ),
+                ),
+              ),
             if (visibility.hasBridgeUrl)
               SettingsItem(
                 id: SettingsEntryIds.localUrl,
                 child: LocalUrlSettingsTile(bridgeUrl: bridge.lastUrl!),
               ),
-            SettingsItem(
-              id: SettingsEntryIds.bridgeUpdate,
-              child: BridgeUpdateStatusTile(
-                machineWithStatus: machineWithStatus,
-                isUpdating: isUpdating,
-                latestBridgeVersion: machineState.latestBridgeVersion,
-                isCheckingLatestBridgeVersion:
-                    machineState.isCheckingLatestBridgeVersion,
-                latestBridgeVersionError: machineState.latestBridgeVersionError,
-                onRefreshLatestVersion: () => machineManagerCubit
-                    .refreshLatestBridgeVersion(forceRefresh: true),
-                onUpdate: machineWithStatus == null
-                    ? null
-                    : () => onUpdateBridge(machineWithStatus),
+            if (visibility.hasActiveMachine)
+              SettingsItem(
+                id: SettingsEntryIds.bridgeUpdate,
+                child: BridgeUpdateStatusTile(
+                  machineWithStatus: machineWithStatus,
+                  isUpdating: isUpdating,
+                  latestBridgeVersion: machineState.latestBridgeVersion,
+                  isCheckingLatestBridgeVersion:
+                      machineState.isCheckingLatestBridgeVersion,
+                  latestBridgeVersionError:
+                      machineState.latestBridgeVersionError,
+                  onRefreshLatestVersion: () => machineManagerCubit
+                      .refreshLatestBridgeVersion(forceRefresh: true),
+                  onUpdate: machineWithStatus == null
+                      ? null
+                      : () => onUpdateBridge(machineWithStatus),
+                ),
               ),
-            ),
           ],
         ),
         if (visibility.hasActiveMachine && visibility.promptHistoryAvailable)

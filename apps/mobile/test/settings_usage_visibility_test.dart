@@ -19,6 +19,7 @@ import 'package:ccpocket/services/platform_environment_service.dart';
 import 'package:ccpocket/services/app_update_service.dart';
 import 'package:ccpocket/services/bridge_latest_version_service.dart';
 import 'package:ccpocket/services/bridge_service.dart';
+import 'package:ccpocket/utils/platform_helper.dart';
 import 'package:ccpocket/services/database_service.dart';
 import 'package:ccpocket/services/in_app_review_service.dart';
 import 'package:ccpocket/services/machine_manager_service.dart';
@@ -2177,6 +2178,7 @@ void main() {
     test('catalog keeps every setting that the old single list had', () {
       expect(settingsEntries.map((e) => e.id).toSet(), {
         'bridge_machine',
+        'local_bridge',
         'local_url',
         'bridge_update',
         'prompt_history',
@@ -2299,7 +2301,11 @@ void main() {
           catalog: homeContext.read<RevenueCatService>().catalogState.value,
         );
         final categories = visibleSettingsCategories(visibility);
-        expect(categories.contains(SettingsCategory.connection), connected);
+        // On macOS the local Bridge screen keeps the category available.
+        expect(
+          categories.contains(SettingsCategory.connection),
+          connected || visibility.isMacOS,
+        );
         expect(categories, isNot(contains(SettingsCategory.usage)));
         // Usage is part of the status card on the home instead.
         expect(
@@ -2441,9 +2447,16 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Disconnected: the first visible category is selected by default.
+      // Disconnected: the first visible category is selected by default
+      // (on macOS that is Connection, which holds the local Bridge screen).
       expect(
-        find.byKey(const ValueKey('settings_detail_appearance')),
+        find.byKey(
+          ValueKey(
+            isMacOSPlatform
+                ? 'settings_detail_connection'
+                : 'settings_detail_appearance',
+          ),
+        ),
         findsOneWidget,
       );
 

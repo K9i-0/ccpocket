@@ -3937,4 +3937,294 @@ class AppLocalizationsZh extends AppLocalizations {
   String handoffCardNoteRequest(String agent) {
     return '已请求给 $agent 的交接说明';
   }
+
+  @override
+  String get localBridgeTitle => '这台 Mac 的 Bridge';
+
+  @override
+  String get localBridgeSettingsSubtitle => '状态、配对与设置';
+
+  @override
+  String get localBridgeStatusRunning => '运行中';
+
+  @override
+  String localBridgeStatusDetail(String version, int port) {
+    return 'v$version · 端口 $port';
+  }
+
+  @override
+  String localBridgeStatusCounts(int sessions, int clients) {
+    return '会话 $sessions · 已连接设备 $clients';
+  }
+
+  @override
+  String get localBridgeNotRunningTitle => 'Bridge 未运行';
+
+  @override
+  String localBridgeNotRunningBody(int port) {
+    return '端口 $port 没有响应。请在终端运行以下命令启动。';
+  }
+
+  @override
+  String get localBridgeSecretUnavailableTitle => '无法管理此 Bridge';
+
+  @override
+  String get localBridgeSecretUnavailableBody =>
+      'Bridge 正在运行，但无法读取配对信息。可能由其他用户启动，或版本过旧。';
+
+  @override
+  String get localBridgeUpdateRequiredTitle => '需要更新 Bridge';
+
+  @override
+  String get localBridgeUpdateRequiredBody =>
+      '此 Bridge 尚不支持从应用管理。请更新到最新版本并重新启动。';
+
+  @override
+  String get localBridgeErrorTitle => '无法获取 Bridge 信息';
+
+  @override
+  String get localBridgeRestartRequired => '更改将在重新启动后生效';
+
+  @override
+  String get localBridgeRestartNow => '重新启动以应用';
+
+  @override
+  String get localBridgeRestarting => '正在重新启动…';
+
+  @override
+  String get localBridgeRestartConfirmTitle => '要重新启动 Bridge 吗？';
+
+  @override
+  String get localBridgeRestartConfirmBody => '已连接的设备会自动重新连接。';
+
+  @override
+  String localBridgeRestartConfirmSessions(int count) {
+    return '$count 个运行中的会话将被中断。';
+  }
+
+  @override
+  String get localBridgeNotSupervised =>
+      '此 Bridge 是手动启动的，应用无法重新启动它。请在运行它的终端中重新启动。';
+
+  @override
+  String get localBridgeRestartFailed => 'Bridge 未能重新启动';
+
+  @override
+  String get localBridgeActionFailed => '操作失败';
+
+  @override
+  String get localBridgeInvalidSettings => '部分设置无法保存';
+
+  @override
+  String get localBridgeChangePort => '管理其他端口的 Bridge';
+
+  @override
+  String get localBridgePairingTitle => '连接手机';
+
+  @override
+  String get localBridgePairingBody => '用手机上的 CC Pocket 扫描二维码即可连接。';
+
+  @override
+  String get localBridgePairingSensitive => '二维码包含 API 密钥，共享屏幕时请注意。';
+
+  @override
+  String get localBridgePairingNoAddress =>
+      '未找到其他设备可访问的地址。请连接 Wi-Fi 或 Tailscale。';
+
+  @override
+  String get localBridgeCopyLink => '复制连接链接';
+
+  @override
+  String get localBridgeShowQr => '显示二维码';
+
+  @override
+  String get localBridgeHideQr => '隐藏二维码';
+
+  @override
+  String get localBridgeRotateKey => '重新生成 API 密钥';
+
+  @override
+  String get localBridgeRotateKeyConfirmBody => '重新启动后，已配对的设备需要重新扫描二维码。';
+
+  @override
+  String get localBridgeRotateKeyDone => '已重新生成 API 密钥，重新启动后生效。';
+
+  @override
+  String get localBridgeAuthDisabled => '认证已关闭。任何能访问此端口的人都可以操作你的代理。';
+
+  @override
+  String get localBridgeToolsTitle => '所需工具';
+
+  @override
+  String get localBridgeToolsReady => '一切就绪';
+
+  @override
+  String get localBridgeToolsNotReady => '需要 Node.js、Git 以及至少一个代理';
+
+  @override
+  String get localBridgeToolsUnsupported => '需要更新 Bridge 才能检查工具';
+
+  @override
+  String get localBridgeToolReady => '可用';
+
+  @override
+  String get localBridgeToolNotInstalled => '未安装';
+
+  @override
+  String get localBridgeToolNeedsSetup => '需要设置';
+
+  @override
+  String get localBridgeToolInstall => '安装';
+
+  @override
+  String get localBridgeToolSetup => '设置';
+
+  @override
+  String get localBridgeToolDocs => '打开官方指南';
+
+  @override
+  String get localBridgeToolRecheck => '重新检查';
+
+  @override
+  String get localBridgeToolRunInTerminal => '请在终端运行后重新检查。';
+
+  @override
+  String get localBridgeToolRequired => '必需';
+
+  @override
+  String get localBridgeToolAgent => '代理';
+
+  @override
+  String get localBridgeToolOptional => '可选';
+
+  @override
+  String get localBridgeToolDescNode => '运行 Bridge 所需';
+
+  @override
+  String get localBridgeToolDescGit => '用于查看差异和分支操作';
+
+  @override
+  String get localBridgeToolDescClaude => '用于 Claude Code 会话';
+
+  @override
+  String get localBridgeToolDescCodex => '用于 Codex 会话';
+
+  @override
+  String get localBridgeToolDescAntigravity => '用于 Antigravity 会话';
+
+  @override
+  String get localBridgeToolDescGh => '用于显示 GitHub Issue 和 PR';
+
+  @override
+  String get localBridgeToolDescTailscale => '可在外安全连接';
+
+  @override
+  String get localBridgeGroupNetwork => '网络';
+
+  @override
+  String get localBridgeGroupAccess => '访问范围';
+
+  @override
+  String get localBridgeGroupAgents => '代理';
+
+  @override
+  String get localBridgeGroupSecurity => '安全';
+
+  @override
+  String get localBridgeSettingPort => '端口';
+
+  @override
+  String get localBridgeSettingHost => '监听地址';
+
+  @override
+  String get localBridgeSettingPublicWsUrl => '公开 URL';
+
+  @override
+  String get localBridgeSettingPublicWsUrlDesc => '二维码中使用的 ws:// 或 wss:// URL';
+
+  @override
+  String get localBridgeSettingAllowedDirs => '可打开项目的文件夹';
+
+  @override
+  String get localBridgeSettingReadOnlyDirs => '仅允许查看的文件夹';
+
+  @override
+  String get localBridgeSettingFileDownloadAllowAllPaths => '允许共享任何文件';
+
+  @override
+  String get localBridgeSettingFileDownloadAllowAllPathsDesc => '项目之外的文件也可以下载';
+
+  @override
+  String get localBridgeSettingInsecureNoAuth => '关闭认证';
+
+  @override
+  String get localBridgeSettingInsecureNoAuthDesc => '不推荐。任何能访问端口的人都可以操作';
+
+  @override
+  String get localBridgeSettingAllowClaudeOAuth => '使用 Claude 订阅登录';
+
+  @override
+  String get localBridgeSettingCodexAppServerMode => 'Codex app-server 共享';
+
+  @override
+  String get localBridgeSettingCodexSharedAppServerUrl => '共享 app-server URL';
+
+  @override
+  String get localBridgeSettingCodexAssistModel => 'Codex 辅助模型';
+
+  @override
+  String get localBridgeSettingCodexAssistReasoningEffort => 'Codex 辅助推理强度';
+
+  @override
+  String get localBridgeSettingNotifyGoalTurnCompleted => '同时通知 Goal 的中间回合';
+
+  @override
+  String get localBridgeSettingAntigravityApiKey => 'Antigravity API 密钥';
+
+  @override
+  String get localBridgeCodexModePrivate => '不共享';
+
+  @override
+  String get localBridgeCodexModeManaged => '由 Bridge 启动';
+
+  @override
+  String get localBridgeCodexModeExternal => '使用外部 app-server';
+
+  @override
+  String localBridgeSettingLockedByEnv(String env) {
+    return '由环境变量 $env 指定';
+  }
+
+  @override
+  String get localBridgeSettingNotSet => '未设置';
+
+  @override
+  String get localBridgeSettingConfigured => '已设置';
+
+  @override
+  String get localBridgeSettingResetToDefault => '恢复默认';
+
+  @override
+  String get localBridgeAllowedDirsAll => '所有文件夹（不限制）';
+
+  @override
+  String get localBridgeAddFolder => '添加文件夹';
+
+  @override
+  String get localBridgeUnsavedChanges => '有未保存的更改';
+
+  @override
+  String get localBridgeDiscard => '放弃';
+
+  @override
+  String get localBridgeSaved => '已保存';
+
+  @override
+  String get localBridgeLogsTitle => '日志';
+
+  @override
+  String get localBridgeLogsSubtitle => 'Bridge 的最近输出';
+
+  @override
+  String get localBridgeLogsEmpty => '没有日志';
 }

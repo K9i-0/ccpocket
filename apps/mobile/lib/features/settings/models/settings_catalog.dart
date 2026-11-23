@@ -89,6 +89,7 @@ class SettingsEntry {
 
 abstract final class SettingsEntryIds {
   static const bridgeMachine = 'bridge_machine';
+  static const localBridge = 'local_bridge';
   static const localUrl = 'local_url';
   static const bridgeUpdate = 'bridge_update';
   static const promptHistory = 'prompt_history';
@@ -147,6 +148,15 @@ final List<SettingsEntry> settingsEntries = [
     title: (l) => l.settingsBridgeMachine,
     keywords: 'machine host server マシン ホスト サーバー',
     visibleWhen: _activeMachine,
+  ),
+  SettingsEntry(
+    id: SettingsEntryIds.localBridge,
+    category: SettingsCategory.connection,
+    title: (l) => l.localBridgeTitle,
+    keywords:
+        'bridge local localhost mac qr pairing tools install port '
+        'ローカル ペアリング ツール インストール ポート 設定',
+    visibleWhen: (v) => v.isMacOS,
   ),
   SettingsEntry(
     id: SettingsEntryIds.localUrl,

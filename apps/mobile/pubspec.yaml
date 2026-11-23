@@ -103,6 +103,7 @@ dependencies:
   # Runtime for the FFIgen bindings in lib/services/native/.
   ffi: ^2.1.4
   objective_c: ^9.6.4
+  qr_flutter: ^4.1.0
 
 dependency_overrides:
   # Temporary: use 16KB page-aligned fork until irondash/irondash#77 is merged

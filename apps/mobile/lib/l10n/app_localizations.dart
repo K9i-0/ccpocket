@@ -7444,6 +7444,558 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'{agent}への引き継ぎメモを依頼'**
   String handoffCardNoteRequest(String agent);
+
+  /// No description provided for @localBridgeTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'このMacのBridge'**
+  String get localBridgeTitle;
+
+  /// No description provided for @localBridgeSettingsSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'状態・ペアリング・設定'**
+  String get localBridgeSettingsSubtitle;
+
+  /// No description provided for @localBridgeStatusRunning.
+  ///
+  /// In ja, this message translates to:
+  /// **'稼働中'**
+  String get localBridgeStatusRunning;
+
+  /// No description provided for @localBridgeStatusDetail.
+  ///
+  /// In ja, this message translates to:
+  /// **'v{version}・ポート {port}'**
+  String localBridgeStatusDetail(String version, int port);
+
+  /// No description provided for @localBridgeStatusCounts.
+  ///
+  /// In ja, this message translates to:
+  /// **'セッション {sessions}・接続中の端末 {clients}'**
+  String localBridgeStatusCounts(int sessions, int clients);
+
+  /// No description provided for @localBridgeNotRunningTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridgeが起動していません'**
+  String get localBridgeNotRunningTitle;
+
+  /// No description provided for @localBridgeNotRunningBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'ポート {port} で応答がありません。ターミナルで次のコマンドを実行して起動してください。'**
+  String localBridgeNotRunningBody(int port);
+
+  /// No description provided for @localBridgeSecretUnavailableTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'このBridgeは管理できません'**
+  String get localBridgeSecretUnavailableTitle;
+
+  /// No description provided for @localBridgeSecretUnavailableBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridgeは動いていますが、ペアリング情報を読み取れません。別のユーザーが起動しているか、Bridgeが古い可能性があります。'**
+  String get localBridgeSecretUnavailableBody;
+
+  /// No description provided for @localBridgeUpdateRequiredTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridgeの更新が必要です'**
+  String get localBridgeUpdateRequiredTitle;
+
+  /// No description provided for @localBridgeUpdateRequiredBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'このBridgeはアプリからの管理に対応していません。最新版に更新して再起動してください。'**
+  String get localBridgeUpdateRequiredBody;
+
+  /// No description provided for @localBridgeErrorTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridgeの情報を取得できませんでした'**
+  String get localBridgeErrorTitle;
+
+  /// No description provided for @localBridgeRestartRequired.
+  ///
+  /// In ja, this message translates to:
+  /// **'変更は再起動後に反映されます'**
+  String get localBridgeRestartRequired;
+
+  /// No description provided for @localBridgeRestartNow.
+  ///
+  /// In ja, this message translates to:
+  /// **'再起動して反映'**
+  String get localBridgeRestartNow;
+
+  /// No description provided for @localBridgeRestarting.
+  ///
+  /// In ja, this message translates to:
+  /// **'再起動中…'**
+  String get localBridgeRestarting;
+
+  /// No description provided for @localBridgeRestartConfirmTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridgeを再起動しますか？'**
+  String get localBridgeRestartConfirmTitle;
+
+  /// No description provided for @localBridgeRestartConfirmBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'接続中の端末は自動で再接続します。'**
+  String get localBridgeRestartConfirmBody;
+
+  /// No description provided for @localBridgeRestartConfirmSessions.
+  ///
+  /// In ja, this message translates to:
+  /// **'実行中のセッション {count} 件が中断されます。'**
+  String localBridgeRestartConfirmSessions(int count);
+
+  /// No description provided for @localBridgeNotSupervised.
+  ///
+  /// In ja, this message translates to:
+  /// **'このBridgeは手動で起動されているため、アプリから再起動できません。起動したターミナルで再起動してください。'**
+  String get localBridgeNotSupervised;
+
+  /// No description provided for @localBridgeRestartFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridgeが再起動しませんでした'**
+  String get localBridgeRestartFailed;
+
+  /// No description provided for @localBridgeActionFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'操作に失敗しました'**
+  String get localBridgeActionFailed;
+
+  /// No description provided for @localBridgeInvalidSettings.
+  ///
+  /// In ja, this message translates to:
+  /// **'保存できない設定があります'**
+  String get localBridgeInvalidSettings;
+
+  /// No description provided for @localBridgeChangePort.
+  ///
+  /// In ja, this message translates to:
+  /// **'別のポートのBridgeを管理'**
+  String get localBridgeChangePort;
+
+  /// No description provided for @localBridgePairingTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'スマホをつなぐ'**
+  String get localBridgePairingTitle;
+
+  /// No description provided for @localBridgePairingBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'スマホのCC PocketでQRコードを読み取ると接続できます。'**
+  String get localBridgePairingBody;
+
+  /// No description provided for @localBridgePairingSensitive.
+  ///
+  /// In ja, this message translates to:
+  /// **'QRコードにはAPIキーが含まれます。画面共有に注意してください。'**
+  String get localBridgePairingSensitive;
+
+  /// No description provided for @localBridgePairingNoAddress.
+  ///
+  /// In ja, this message translates to:
+  /// **'他の端末から届くアドレスが見つかりません。Wi-FiかTailscaleに接続してください。'**
+  String get localBridgePairingNoAddress;
+
+  /// No description provided for @localBridgeCopyLink.
+  ///
+  /// In ja, this message translates to:
+  /// **'接続リンクをコピー'**
+  String get localBridgeCopyLink;
+
+  /// No description provided for @localBridgeShowQr.
+  ///
+  /// In ja, this message translates to:
+  /// **'QRコードを表示'**
+  String get localBridgeShowQr;
+
+  /// No description provided for @localBridgeHideQr.
+  ///
+  /// In ja, this message translates to:
+  /// **'QRコードを隠す'**
+  String get localBridgeHideQr;
+
+  /// No description provided for @localBridgeRotateKey.
+  ///
+  /// In ja, this message translates to:
+  /// **'APIキーを再生成'**
+  String get localBridgeRotateKey;
+
+  /// No description provided for @localBridgeRotateKeyConfirmBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'再起動後、ペアリング済みの端末はQRコードを読み直す必要があります。'**
+  String get localBridgeRotateKeyConfirmBody;
+
+  /// No description provided for @localBridgeRotateKeyDone.
+  ///
+  /// In ja, this message translates to:
+  /// **'APIキーを再生成しました。再起動後に有効になります。'**
+  String get localBridgeRotateKeyDone;
+
+  /// No description provided for @localBridgeAuthDisabled.
+  ///
+  /// In ja, this message translates to:
+  /// **'認証が無効です。このポートに届く人は誰でもエージェントを操作できます。'**
+  String get localBridgeAuthDisabled;
+
+  /// No description provided for @localBridgeToolsTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'必要なツール'**
+  String get localBridgeToolsTitle;
+
+  /// No description provided for @localBridgeToolsReady.
+  ///
+  /// In ja, this message translates to:
+  /// **'準備ができています'**
+  String get localBridgeToolsReady;
+
+  /// No description provided for @localBridgeToolsNotReady.
+  ///
+  /// In ja, this message translates to:
+  /// **'Node.js・Gitと、エージェントが1つ以上必要です'**
+  String get localBridgeToolsNotReady;
+
+  /// No description provided for @localBridgeToolsUnsupported.
+  ///
+  /// In ja, this message translates to:
+  /// **'ツールの確認にはBridgeの更新が必要です'**
+  String get localBridgeToolsUnsupported;
+
+  /// No description provided for @localBridgeToolReady.
+  ///
+  /// In ja, this message translates to:
+  /// **'利用可能'**
+  String get localBridgeToolReady;
+
+  /// No description provided for @localBridgeToolNotInstalled.
+  ///
+  /// In ja, this message translates to:
+  /// **'未インストール'**
+  String get localBridgeToolNotInstalled;
+
+  /// No description provided for @localBridgeToolNeedsSetup.
+  ///
+  /// In ja, this message translates to:
+  /// **'セットアップが必要'**
+  String get localBridgeToolNeedsSetup;
+
+  /// No description provided for @localBridgeToolInstall.
+  ///
+  /// In ja, this message translates to:
+  /// **'インストール'**
+  String get localBridgeToolInstall;
+
+  /// No description provided for @localBridgeToolSetup.
+  ///
+  /// In ja, this message translates to:
+  /// **'セットアップ'**
+  String get localBridgeToolSetup;
+
+  /// No description provided for @localBridgeToolDocs.
+  ///
+  /// In ja, this message translates to:
+  /// **'公式ガイドを開く'**
+  String get localBridgeToolDocs;
+
+  /// No description provided for @localBridgeToolRecheck.
+  ///
+  /// In ja, this message translates to:
+  /// **'再チェック'**
+  String get localBridgeToolRecheck;
+
+  /// No description provided for @localBridgeToolRunInTerminal.
+  ///
+  /// In ja, this message translates to:
+  /// **'ターミナルで実行してから再チェックしてください。'**
+  String get localBridgeToolRunInTerminal;
+
+  /// No description provided for @localBridgeToolRequired.
+  ///
+  /// In ja, this message translates to:
+  /// **'必須'**
+  String get localBridgeToolRequired;
+
+  /// No description provided for @localBridgeToolAgent.
+  ///
+  /// In ja, this message translates to:
+  /// **'エージェント'**
+  String get localBridgeToolAgent;
+
+  /// No description provided for @localBridgeToolOptional.
+  ///
+  /// In ja, this message translates to:
+  /// **'任意'**
+  String get localBridgeToolOptional;
+
+  /// No description provided for @localBridgeToolDescNode.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridgeの実行に必要です'**
+  String get localBridgeToolDescNode;
+
+  /// No description provided for @localBridgeToolDescGit.
+  ///
+  /// In ja, this message translates to:
+  /// **'差分の表示やブランチ操作に使います'**
+  String get localBridgeToolDescGit;
+
+  /// No description provided for @localBridgeToolDescClaude.
+  ///
+  /// In ja, this message translates to:
+  /// **'Claude Codeのセッションに使います'**
+  String get localBridgeToolDescClaude;
+
+  /// No description provided for @localBridgeToolDescCodex.
+  ///
+  /// In ja, this message translates to:
+  /// **'Codexのセッションに使います'**
+  String get localBridgeToolDescCodex;
+
+  /// No description provided for @localBridgeToolDescAntigravity.
+  ///
+  /// In ja, this message translates to:
+  /// **'Antigravityのセッションに使います'**
+  String get localBridgeToolDescAntigravity;
+
+  /// No description provided for @localBridgeToolDescGh.
+  ///
+  /// In ja, this message translates to:
+  /// **'GitHubのIssue・PRの表示に使います'**
+  String get localBridgeToolDescGh;
+
+  /// No description provided for @localBridgeToolDescTailscale.
+  ///
+  /// In ja, this message translates to:
+  /// **'外出先から安全に接続できます'**
+  String get localBridgeToolDescTailscale;
+
+  /// No description provided for @localBridgeGroupNetwork.
+  ///
+  /// In ja, this message translates to:
+  /// **'ネットワーク'**
+  String get localBridgeGroupNetwork;
+
+  /// No description provided for @localBridgeGroupAccess.
+  ///
+  /// In ja, this message translates to:
+  /// **'アクセス範囲'**
+  String get localBridgeGroupAccess;
+
+  /// No description provided for @localBridgeGroupAgents.
+  ///
+  /// In ja, this message translates to:
+  /// **'エージェント'**
+  String get localBridgeGroupAgents;
+
+  /// No description provided for @localBridgeGroupSecurity.
+  ///
+  /// In ja, this message translates to:
+  /// **'セキュリティ'**
+  String get localBridgeGroupSecurity;
+
+  /// No description provided for @localBridgeSettingPort.
+  ///
+  /// In ja, this message translates to:
+  /// **'ポート'**
+  String get localBridgeSettingPort;
+
+  /// No description provided for @localBridgeSettingHost.
+  ///
+  /// In ja, this message translates to:
+  /// **'待ち受けアドレス'**
+  String get localBridgeSettingHost;
+
+  /// No description provided for @localBridgeSettingPublicWsUrl.
+  ///
+  /// In ja, this message translates to:
+  /// **'公開URL'**
+  String get localBridgeSettingPublicWsUrl;
+
+  /// No description provided for @localBridgeSettingPublicWsUrlDesc.
+  ///
+  /// In ja, this message translates to:
+  /// **'QRコードに使う ws:// または wss:// のURL'**
+  String get localBridgeSettingPublicWsUrlDesc;
+
+  /// No description provided for @localBridgeSettingAllowedDirs.
+  ///
+  /// In ja, this message translates to:
+  /// **'プロジェクトを開けるフォルダ'**
+  String get localBridgeSettingAllowedDirs;
+
+  /// No description provided for @localBridgeSettingReadOnlyDirs.
+  ///
+  /// In ja, this message translates to:
+  /// **'閲覧のみ許可するフォルダ'**
+  String get localBridgeSettingReadOnlyDirs;
+
+  /// No description provided for @localBridgeSettingFileDownloadAllowAllPaths.
+  ///
+  /// In ja, this message translates to:
+  /// **'すべてのファイルの共有を許可'**
+  String get localBridgeSettingFileDownloadAllowAllPaths;
+
+  /// No description provided for @localBridgeSettingFileDownloadAllowAllPathsDesc.
+  ///
+  /// In ja, this message translates to:
+  /// **'プロジェクト外のファイルもダウンロードできるようになります'**
+  String get localBridgeSettingFileDownloadAllowAllPathsDesc;
+
+  /// No description provided for @localBridgeSettingInsecureNoAuth.
+  ///
+  /// In ja, this message translates to:
+  /// **'認証を無効にする'**
+  String get localBridgeSettingInsecureNoAuth;
+
+  /// No description provided for @localBridgeSettingInsecureNoAuthDesc.
+  ///
+  /// In ja, this message translates to:
+  /// **'非推奨。ポートに届く人は誰でも操作できます'**
+  String get localBridgeSettingInsecureNoAuthDesc;
+
+  /// No description provided for @localBridgeSettingAllowClaudeOAuth.
+  ///
+  /// In ja, this message translates to:
+  /// **'Claudeのサブスクリプションログインを使う'**
+  String get localBridgeSettingAllowClaudeOAuth;
+
+  /// No description provided for @localBridgeSettingCodexAppServerMode.
+  ///
+  /// In ja, this message translates to:
+  /// **'Codex app-serverの共有'**
+  String get localBridgeSettingCodexAppServerMode;
+
+  /// No description provided for @localBridgeSettingCodexSharedAppServerUrl.
+  ///
+  /// In ja, this message translates to:
+  /// **'共有app-serverのURL'**
+  String get localBridgeSettingCodexSharedAppServerUrl;
+
+  /// No description provided for @localBridgeSettingCodexAssistModel.
+  ///
+  /// In ja, this message translates to:
+  /// **'Codexアシストのモデル'**
+  String get localBridgeSettingCodexAssistModel;
+
+  /// No description provided for @localBridgeSettingCodexAssistReasoningEffort.
+  ///
+  /// In ja, this message translates to:
+  /// **'Codexアシストの推論強度'**
+  String get localBridgeSettingCodexAssistReasoningEffort;
+
+  /// No description provided for @localBridgeSettingNotifyGoalTurnCompleted.
+  ///
+  /// In ja, this message translates to:
+  /// **'Goalの途中のターンも通知'**
+  String get localBridgeSettingNotifyGoalTurnCompleted;
+
+  /// No description provided for @localBridgeSettingAntigravityApiKey.
+  ///
+  /// In ja, this message translates to:
+  /// **'AntigravityのAPIキー'**
+  String get localBridgeSettingAntigravityApiKey;
+
+  /// No description provided for @localBridgeCodexModePrivate.
+  ///
+  /// In ja, this message translates to:
+  /// **'共有しない'**
+  String get localBridgeCodexModePrivate;
+
+  /// No description provided for @localBridgeCodexModeManaged.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridgeが起動する'**
+  String get localBridgeCodexModeManaged;
+
+  /// No description provided for @localBridgeCodexModeExternal.
+  ///
+  /// In ja, this message translates to:
+  /// **'外部のapp-serverを使う'**
+  String get localBridgeCodexModeExternal;
+
+  /// No description provided for @localBridgeSettingLockedByEnv.
+  ///
+  /// In ja, this message translates to:
+  /// **'環境変数 {env} で指定されています'**
+  String localBridgeSettingLockedByEnv(String env);
+
+  /// No description provided for @localBridgeSettingNotSet.
+  ///
+  /// In ja, this message translates to:
+  /// **'未設定'**
+  String get localBridgeSettingNotSet;
+
+  /// No description provided for @localBridgeSettingConfigured.
+  ///
+  /// In ja, this message translates to:
+  /// **'設定済み'**
+  String get localBridgeSettingConfigured;
+
+  /// No description provided for @localBridgeSettingResetToDefault.
+  ///
+  /// In ja, this message translates to:
+  /// **'既定に戻す'**
+  String get localBridgeSettingResetToDefault;
+
+  /// No description provided for @localBridgeAllowedDirsAll.
+  ///
+  /// In ja, this message translates to:
+  /// **'すべてのフォルダ（制限なし）'**
+  String get localBridgeAllowedDirsAll;
+
+  /// No description provided for @localBridgeAddFolder.
+  ///
+  /// In ja, this message translates to:
+  /// **'フォルダを追加'**
+  String get localBridgeAddFolder;
+
+  /// No description provided for @localBridgeUnsavedChanges.
+  ///
+  /// In ja, this message translates to:
+  /// **'未保存の変更があります'**
+  String get localBridgeUnsavedChanges;
+
+  /// No description provided for @localBridgeDiscard.
+  ///
+  /// In ja, this message translates to:
+  /// **'破棄'**
+  String get localBridgeDiscard;
+
+  /// No description provided for @localBridgeSaved.
+  ///
+  /// In ja, this message translates to:
+  /// **'保存しました'**
+  String get localBridgeSaved;
+
+  /// No description provided for @localBridgeLogsTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'ログ'**
+  String get localBridgeLogsTitle;
+
+  /// No description provided for @localBridgeLogsSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridgeの最近の出力'**
+  String get localBridgeLogsSubtitle;
+
+  /// No description provided for @localBridgeLogsEmpty.
+  ///
+  /// In ja, this message translates to:
+  /// **'ログはありません'**
+  String get localBridgeLogsEmpty;
 }
 
 class _AppLocalizationsDelegate

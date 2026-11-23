@@ -3983,4 +3983,297 @@ class AppLocalizationsJa extends AppLocalizations {
   String handoffCardNoteRequest(String agent) {
     return '$agentへの引き継ぎメモを依頼';
   }
+
+  @override
+  String get localBridgeTitle => 'このMacのBridge';
+
+  @override
+  String get localBridgeSettingsSubtitle => '状態・ペアリング・設定';
+
+  @override
+  String get localBridgeStatusRunning => '稼働中';
+
+  @override
+  String localBridgeStatusDetail(String version, int port) {
+    return 'v$version・ポート $port';
+  }
+
+  @override
+  String localBridgeStatusCounts(int sessions, int clients) {
+    return 'セッション $sessions・接続中の端末 $clients';
+  }
+
+  @override
+  String get localBridgeNotRunningTitle => 'Bridgeが起動していません';
+
+  @override
+  String localBridgeNotRunningBody(int port) {
+    return 'ポート $port で応答がありません。ターミナルで次のコマンドを実行して起動してください。';
+  }
+
+  @override
+  String get localBridgeSecretUnavailableTitle => 'このBridgeは管理できません';
+
+  @override
+  String get localBridgeSecretUnavailableBody =>
+      'Bridgeは動いていますが、ペアリング情報を読み取れません。別のユーザーが起動しているか、Bridgeが古い可能性があります。';
+
+  @override
+  String get localBridgeUpdateRequiredTitle => 'Bridgeの更新が必要です';
+
+  @override
+  String get localBridgeUpdateRequiredBody =>
+      'このBridgeはアプリからの管理に対応していません。最新版に更新して再起動してください。';
+
+  @override
+  String get localBridgeErrorTitle => 'Bridgeの情報を取得できませんでした';
+
+  @override
+  String get localBridgeRestartRequired => '変更は再起動後に反映されます';
+
+  @override
+  String get localBridgeRestartNow => '再起動して反映';
+
+  @override
+  String get localBridgeRestarting => '再起動中…';
+
+  @override
+  String get localBridgeRestartConfirmTitle => 'Bridgeを再起動しますか？';
+
+  @override
+  String get localBridgeRestartConfirmBody => '接続中の端末は自動で再接続します。';
+
+  @override
+  String localBridgeRestartConfirmSessions(int count) {
+    return '実行中のセッション $count 件が中断されます。';
+  }
+
+  @override
+  String get localBridgeNotSupervised =>
+      'このBridgeは手動で起動されているため、アプリから再起動できません。起動したターミナルで再起動してください。';
+
+  @override
+  String get localBridgeRestartFailed => 'Bridgeが再起動しませんでした';
+
+  @override
+  String get localBridgeActionFailed => '操作に失敗しました';
+
+  @override
+  String get localBridgeInvalidSettings => '保存できない設定があります';
+
+  @override
+  String get localBridgeChangePort => '別のポートのBridgeを管理';
+
+  @override
+  String get localBridgePairingTitle => 'スマホをつなぐ';
+
+  @override
+  String get localBridgePairingBody => 'スマホのCC PocketでQRコードを読み取ると接続できます。';
+
+  @override
+  String get localBridgePairingSensitive => 'QRコードにはAPIキーが含まれます。画面共有に注意してください。';
+
+  @override
+  String get localBridgePairingNoAddress =>
+      '他の端末から届くアドレスが見つかりません。Wi-FiかTailscaleに接続してください。';
+
+  @override
+  String get localBridgeCopyLink => '接続リンクをコピー';
+
+  @override
+  String get localBridgeShowQr => 'QRコードを表示';
+
+  @override
+  String get localBridgeHideQr => 'QRコードを隠す';
+
+  @override
+  String get localBridgeRotateKey => 'APIキーを再生成';
+
+  @override
+  String get localBridgeRotateKeyConfirmBody =>
+      '再起動後、ペアリング済みの端末はQRコードを読み直す必要があります。';
+
+  @override
+  String get localBridgeRotateKeyDone => 'APIキーを再生成しました。再起動後に有効になります。';
+
+  @override
+  String get localBridgeAuthDisabled => '認証が無効です。このポートに届く人は誰でもエージェントを操作できます。';
+
+  @override
+  String get localBridgeToolsTitle => '必要なツール';
+
+  @override
+  String get localBridgeToolsReady => '準備ができています';
+
+  @override
+  String get localBridgeToolsNotReady => 'Node.js・Gitと、エージェントが1つ以上必要です';
+
+  @override
+  String get localBridgeToolsUnsupported => 'ツールの確認にはBridgeの更新が必要です';
+
+  @override
+  String get localBridgeToolReady => '利用可能';
+
+  @override
+  String get localBridgeToolNotInstalled => '未インストール';
+
+  @override
+  String get localBridgeToolNeedsSetup => 'セットアップが必要';
+
+  @override
+  String get localBridgeToolInstall => 'インストール';
+
+  @override
+  String get localBridgeToolSetup => 'セットアップ';
+
+  @override
+  String get localBridgeToolDocs => '公式ガイドを開く';
+
+  @override
+  String get localBridgeToolRecheck => '再チェック';
+
+  @override
+  String get localBridgeToolRunInTerminal => 'ターミナルで実行してから再チェックしてください。';
+
+  @override
+  String get localBridgeToolRequired => '必須';
+
+  @override
+  String get localBridgeToolAgent => 'エージェント';
+
+  @override
+  String get localBridgeToolOptional => '任意';
+
+  @override
+  String get localBridgeToolDescNode => 'Bridgeの実行に必要です';
+
+  @override
+  String get localBridgeToolDescGit => '差分の表示やブランチ操作に使います';
+
+  @override
+  String get localBridgeToolDescClaude => 'Claude Codeのセッションに使います';
+
+  @override
+  String get localBridgeToolDescCodex => 'Codexのセッションに使います';
+
+  @override
+  String get localBridgeToolDescAntigravity => 'Antigravityのセッションに使います';
+
+  @override
+  String get localBridgeToolDescGh => 'GitHubのIssue・PRの表示に使います';
+
+  @override
+  String get localBridgeToolDescTailscale => '外出先から安全に接続できます';
+
+  @override
+  String get localBridgeGroupNetwork => 'ネットワーク';
+
+  @override
+  String get localBridgeGroupAccess => 'アクセス範囲';
+
+  @override
+  String get localBridgeGroupAgents => 'エージェント';
+
+  @override
+  String get localBridgeGroupSecurity => 'セキュリティ';
+
+  @override
+  String get localBridgeSettingPort => 'ポート';
+
+  @override
+  String get localBridgeSettingHost => '待ち受けアドレス';
+
+  @override
+  String get localBridgeSettingPublicWsUrl => '公開URL';
+
+  @override
+  String get localBridgeSettingPublicWsUrlDesc =>
+      'QRコードに使う ws:// または wss:// のURL';
+
+  @override
+  String get localBridgeSettingAllowedDirs => 'プロジェクトを開けるフォルダ';
+
+  @override
+  String get localBridgeSettingReadOnlyDirs => '閲覧のみ許可するフォルダ';
+
+  @override
+  String get localBridgeSettingFileDownloadAllowAllPaths => 'すべてのファイルの共有を許可';
+
+  @override
+  String get localBridgeSettingFileDownloadAllowAllPathsDesc =>
+      'プロジェクト外のファイルもダウンロードできるようになります';
+
+  @override
+  String get localBridgeSettingInsecureNoAuth => '認証を無効にする';
+
+  @override
+  String get localBridgeSettingInsecureNoAuthDesc => '非推奨。ポートに届く人は誰でも操作できます';
+
+  @override
+  String get localBridgeSettingAllowClaudeOAuth => 'Claudeのサブスクリプションログインを使う';
+
+  @override
+  String get localBridgeSettingCodexAppServerMode => 'Codex app-serverの共有';
+
+  @override
+  String get localBridgeSettingCodexSharedAppServerUrl => '共有app-serverのURL';
+
+  @override
+  String get localBridgeSettingCodexAssistModel => 'Codexアシストのモデル';
+
+  @override
+  String get localBridgeSettingCodexAssistReasoningEffort => 'Codexアシストの推論強度';
+
+  @override
+  String get localBridgeSettingNotifyGoalTurnCompleted => 'Goalの途中のターンも通知';
+
+  @override
+  String get localBridgeSettingAntigravityApiKey => 'AntigravityのAPIキー';
+
+  @override
+  String get localBridgeCodexModePrivate => '共有しない';
+
+  @override
+  String get localBridgeCodexModeManaged => 'Bridgeが起動する';
+
+  @override
+  String get localBridgeCodexModeExternal => '外部のapp-serverを使う';
+
+  @override
+  String localBridgeSettingLockedByEnv(String env) {
+    return '環境変数 $env で指定されています';
+  }
+
+  @override
+  String get localBridgeSettingNotSet => '未設定';
+
+  @override
+  String get localBridgeSettingConfigured => '設定済み';
+
+  @override
+  String get localBridgeSettingResetToDefault => '既定に戻す';
+
+  @override
+  String get localBridgeAllowedDirsAll => 'すべてのフォルダ（制限なし）';
+
+  @override
+  String get localBridgeAddFolder => 'フォルダを追加';
+
+  @override
+  String get localBridgeUnsavedChanges => '未保存の変更があります';
+
+  @override
+  String get localBridgeDiscard => '破棄';
+
+  @override
+  String get localBridgeSaved => '保存しました';
+
+  @override
+  String get localBridgeLogsTitle => 'ログ';
+
+  @override
+  String get localBridgeLogsSubtitle => 'Bridgeの最近の出力';
+
+  @override
+  String get localBridgeLogsEmpty => 'ログはありません';
 }
