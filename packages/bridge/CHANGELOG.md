@@ -2,6 +2,15 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.120.0] - 2026-11-23
+
+### Added
+
+- Config file: settings can be saved in `~/.ccpocket/bridge-config.json` (`BRIDGE_CONFIG_FILE` overrides the path). The precedence is CLI flag > environment variable > config file > default, so existing environment-based setups are unchanged.
+- Local management API (`/admin/*`) for the CC Pocket desktop app on the same machine: status, settings, restart, API key replacement and recent logs. It requires a loopback connection and the per-start pairing secret, and does not accept the API key, so a paired phone cannot change what the Bridge may access.
+- `GET /tools` (API key required): Node.js, Git, Claude Code, Codex, Antigravity, GitHub CLI and Tailscale with their install state and install commands. The report is cached for 30 seconds; `?refresh=1` runs the checks again.
+- Safe mode: with `CCPOCKET_BRIDGE_SAFE_MODE=1` (set by the macOS app's launcher after repeated failed starts) the saved settings are ignored so they can be fixed through the management API.
+
 ## [1.119.0] - 2026-11-22
 
 ### Added
