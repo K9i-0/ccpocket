@@ -1633,5 +1633,7 @@
   "guideLocalBridgeStep3": "휴대폰으로 QR 코드 스캔",
   "guideLocalBridgeStep3Detail": "같은 화면에 표시되는 QR 코드를 휴대폰의 CC Pocket으로 스캔합니다.",
   "guideLocalBridgeOpen": "Bridge 관리 열기",
-  "guideBridgeMacAppNote": "Mac을 사용 중이라면 macOS용 CC Pocket에서 Bridge를 시작할 수 있어 아래 명령이 필요 없습니다."
+  "guideBridgeMacAppNote": "Mac을 사용 중이라면 macOS용 CC Pocket에서 Bridge를 시작할 수 있어 아래 명령이 필요 없습니다.",
+  "bridgeAuthRequiredLocalBody": "{host}의 Bridge에 API 키가 필요합니다. 이 Mac의 Bridge 관리 화면에서 이 앱을 연결할 수 있습니다.",
+  "localBridgeUnregister": "자동 시작 해제"
 }

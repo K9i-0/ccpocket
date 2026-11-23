@@ -1720,5 +1720,7 @@
   "guideLocalBridgeStep3": "Scan the QR code with your phone",
   "guideLocalBridgeStep3Detail": "Scan the QR code shown on the same screen with CC Pocket on your phone.",
   "guideLocalBridgeOpen": "Open Bridge management",
-  "guideBridgeMacAppNote": "On a Mac, CC Pocket for macOS can start the Bridge for you, without the commands below."
+  "guideBridgeMacAppNote": "On a Mac, CC Pocket for macOS can start the Bridge for you, without the commands below.",
+  "bridgeAuthRequiredLocalBody": "The Bridge at {host} requires an API key. You can connect this app from the management screen of the Bridge on this Mac.",
+  "localBridgeUnregister": "Stop starting at login"
 }

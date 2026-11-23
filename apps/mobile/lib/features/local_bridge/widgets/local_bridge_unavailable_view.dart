@@ -17,6 +17,7 @@ class LocalBridgeUnavailableView extends StatelessWidget {
     required this.onRetry,
     this.detail,
     this.onStart,
+    this.onUnregister,
     this.busy = LocalBridgeBusy.none,
     this.registration = LauncherRegistration.unavailable,
     this.problem,
@@ -26,6 +27,11 @@ class LocalBridgeUnavailableView extends StatelessWidget {
 
   /// Starts the Bridge from the app; null when this build cannot.
   final VoidCallback? onStart;
+
+  /// Removes the app's LaunchAgent. Offered while it is registered but no
+  /// Bridge of its own is running (waiting for Node, port taken, ...), so the
+  /// user is never left with an agent they cannot turn off here.
+  final VoidCallback? onUnregister;
   final LocalBridgeBusy busy;
   final LauncherRegistration registration;
 
@@ -130,6 +136,17 @@ class LocalBridgeUnavailableView extends StatelessWidget {
                 label: Text(l.retry),
               ),
             ),
+            if (onUnregister != null &&
+                registration == LauncherRegistration.enabled) ...[
+              const SizedBox(height: 8),
+              Center(
+                child: TextButton(
+                  key: const ValueKey('local_bridge_unregister_button'),
+                  onPressed: busy == LocalBridgeBusy.none ? onUnregister : null,
+                  child: Text(l.localBridgeUnregister),
+                ),
+              ),
+            ],
           ],
         ),
       ),

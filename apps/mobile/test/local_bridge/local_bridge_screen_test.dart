@@ -204,6 +204,12 @@ void main() {
     expect(key('local_bridge_start_problem'), findsOneWidget);
     expect(find.text('brew install node'), findsOneWidget);
     expect(key('local_bridge_start_button'), findsNothing);
+
+    // The waiting agent can still be turned off from here.
+    await tester.tap(key('local_bridge_unregister_button'));
+    await tester.pumpAndSettle();
+    expect(launcher.registration, LauncherRegistration.notRegistered);
+    expect(key('local_bridge_unregister_button'), findsNothing);
   });
 
   testWidgets('asks for an update when the Bridge is too old', (tester) async {

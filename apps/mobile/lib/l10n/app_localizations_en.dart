@@ -4541,4 +4541,12 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get guideBridgeMacAppNote =>
       'On a Mac, CC Pocket for macOS can start the Bridge for you, without the commands below.';
+
+  @override
+  String bridgeAuthRequiredLocalBody(String host) {
+    return 'The Bridge at $host requires an API key. You can connect this app from the management screen of the Bridge on this Mac.';
+  }
+
+  @override
+  String get localBridgeUnregister => 'Stop starting at login';
 }

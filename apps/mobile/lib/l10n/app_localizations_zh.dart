@@ -4313,4 +4313,12 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get guideBridgeMacAppNote =>
       '如果使用 Mac，安装 macOS 版 CC Pocket 后可由应用启动 Bridge，无需下面的命令。';
+
+  @override
+  String bridgeAuthRequiredLocalBody(String host) {
+    return '$host 的 Bridge 需要 API 密钥。可以在这台 Mac 的 Bridge 管理界面中连接此应用。';
+  }
+
+  @override
+  String get localBridgeUnregister => '取消自动启动';
 }

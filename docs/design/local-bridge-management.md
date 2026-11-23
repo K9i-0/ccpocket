@@ -146,6 +146,18 @@ Bridge per platform; user-facing texts are localized in the app by tool id.
   The launcher yields when the port is taken, but the app does not migrate a
   `setup` service into its own agent.
 
+## Entry points (macOS)
+
+- Disconnected screen: "Bridge on this Mac" button above "try without
+  connecting".
+- "Bridge requires authentication" card for a loopback address: a button to
+  the management screen replaces the terminal command.
+- Settings home: a tile right below "Connection & Bridge"; also inside that
+  category (so settings search can reveal it).
+- Setup guide, page 2.
+- "Connect from this app" hands `ws://127.0.0.1:<port>` and the token to the
+  session list like a scanned QR code and closes the screen.
+
 ## Compatibility
 
 - No WebSocket message and no protocol version change.

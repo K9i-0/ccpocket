@@ -7,6 +7,7 @@ import '../../../models/messages.dart';
 import '../../../models/protocol_version.dart';
 import '../../../utils/platform_helper.dart';
 import '../../demo/demo_screen.dart';
+import '../../local_bridge/local_bridge_screen.dart';
 import 'bridge_auth_required_card.dart';
 import 'machine_list.dart';
 import 'protocol_incompatibility_card.dart';
@@ -34,6 +35,10 @@ class ConnectForm extends StatelessWidget {
   /// Set when the last Bridge rejected this app's API key.
   final BridgeAuthRejection? authRejection;
 
+  /// Whether to offer the screen that manages the Bridge on this Mac;
+  /// defaults to the platform (tests override it).
+  final bool? showLocalBridge;
+
   const ConnectForm({
     super.key,
     required this.onScanQrCode,
@@ -54,6 +59,7 @@ class ConnectForm extends StatelessWidget {
     this.onRefreshMachines,
     this.protocolCompatibility,
     this.authRejection,
+    this.showLocalBridge,
   });
 
   /// The saved machine the rejected connection belongs to, if any.
@@ -114,6 +120,15 @@ class ConnectForm extends StatelessWidget {
             l.connectToBridgeServer,
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
           ),
+          if (showLocalBridge ?? isMacOSPlatform) ...[
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              key: const ValueKey('connect_local_bridge_button'),
+              onPressed: () => openLocalBridgeScreen(context),
+              icon: const Icon(Icons.dns_rounded),
+              label: Text(l.localBridgeTitle),
+            ),
+          ],
           const SizedBox(height: 16),
           OutlinedButton.icon(
             key: const ValueKey('demo_try_button'),
@@ -129,6 +144,18 @@ class ConnectForm extends StatelessWidget {
             BridgeAuthRequiredCard(
               rejection: rejection,
               onScanQrCode: !kIsWeb && !isDesktopPlatform ? onScanQrCode : null,
+              // A Bridge on this Mac can be paired from its management
+              // screen, without the terminal command.
+              onOpenLocalBridge:
+                  (showLocalBridge ?? isMacOSPlatform) &&
+                      const {
+                        'localhost',
+                        '127.0.0.1',
+                        '::1',
+                        '[::1]',
+                      }.contains(rejection.host.toLowerCase())
+                  ? () => openLocalBridgeScreen(context)
+                  : null,
               onEnterApiKey: switch ((_machineFor(rejection), onEditMachine)) {
                 (final machine?, final onEdit?) => () => onEdit(machine),
                 _ => null,

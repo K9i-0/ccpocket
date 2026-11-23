@@ -76,11 +76,7 @@ class ConnectionSettingsSection extends StatelessWidget {
                   icon: Icons.dns_rounded,
                   title: Text(l.localBridgeTitle),
                   subtitle: l.localBridgeSettingsSubtitle,
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const LocalBridgeScreen(),
-                    ),
-                  ),
+                  onTap: () => openLocalBridgeScreen(context),
                 ),
               ),
             if (visibility.hasBridgeUrl)

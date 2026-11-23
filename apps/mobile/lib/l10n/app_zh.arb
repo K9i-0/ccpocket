@@ -1774,5 +1774,7 @@
   "guideLocalBridgeStep3": "用手机扫描二维码",
   "guideLocalBridgeStep3Detail": "用手机上的 CC Pocket 扫描同一界面显示的二维码。",
   "guideLocalBridgeOpen": "打开 Bridge 管理",
-  "guideBridgeMacAppNote": "如果使用 Mac，安装 macOS 版 CC Pocket 后可由应用启动 Bridge，无需下面的命令。"
+  "guideBridgeMacAppNote": "如果使用 Mac，安装 macOS 版 CC Pocket 后可由应用启动 Bridge，无需下面的命令。",
+  "bridgeAuthRequiredLocalBody": "{host} 的 Bridge 需要 API 密钥。可以在这台 Mac 的 Bridge 管理界面中连接此应用。",
+  "localBridgeUnregister": "取消自动启动"
 }

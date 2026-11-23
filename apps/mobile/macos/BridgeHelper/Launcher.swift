@@ -42,6 +42,10 @@ func waitAndExit(_ state: String, _ extra: [String: Any] = [:]) -> Never {
 }
 
 func configuredPort() -> Int {
+  // Same precedence as the Bridge: an environment variable wins over the file.
+  if let fromEnv = ProcessInfo.processInfo.environment["BRIDGE_PORT"], let port = Int(fromEnv) {
+    return port
+  }
   guard
     let data = fileManager.contents(atPath: dataDir + "/bridge-config.json"),
     let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],

@@ -13,11 +13,16 @@ class BridgeAuthRequiredCard extends StatelessWidget {
   final VoidCallback? onScanQrCode;
   final VoidCallback? onEnterApiKey;
 
+  /// Opens the management screen of the Bridge on this Mac, where the app can
+  /// pair itself; replaces the terminal command when set.
+  final VoidCallback? onOpenLocalBridge;
+
   const BridgeAuthRequiredCard({
     super.key,
     required this.rejection,
     this.onScanQrCode,
     this.onEnterApiKey,
+    this.onOpenLocalBridge,
   });
 
   @override
@@ -49,28 +54,42 @@ class BridgeAuthRequiredCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              l.bridgeAuthRequiredBody(rejection.label),
+              onOpenLocalBridge == null
+                  ? l.bridgeAuthRequiredBody(rejection.label)
+                  : l.bridgeAuthRequiredLocalBody(rejection.label),
               style: TextStyle(color: onCard),
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: SelectableText(
-                    bridgeStableMajorQrCommand,
-                    style: TextStyle(color: onCard, fontFamily: 'monospace'),
-                  ),
+            if (onOpenLocalBridge case final onOpen?)
+              FilledButton.icon(
+                key: const ValueKey('bridge_auth_open_local_bridge_button'),
+                onPressed: onOpen,
+                style: FilledButton.styleFrom(
+                  backgroundColor: onCard,
+                  foregroundColor: colors.errorContainer,
                 ),
-                IconButton(
-                  key: const ValueKey('copy_bridge_qr_command_button'),
-                  onPressed: () => Clipboard.setData(
-                    const ClipboardData(text: bridgeStableMajorQrCommand),
+                icon: const Icon(Icons.dns_rounded),
+                label: Text(l.guideLocalBridgeOpen),
+              )
+            else
+              Row(
+                children: [
+                  Expanded(
+                    child: SelectableText(
+                      bridgeStableMajorQrCommand,
+                      style: TextStyle(color: onCard, fontFamily: 'monospace'),
+                    ),
                   ),
-                  tooltip: l.copy,
-                  icon: Icon(Icons.copy, color: onCard),
-                ),
-              ],
-            ),
+                  IconButton(
+                    key: const ValueKey('copy_bridge_qr_command_button'),
+                    onPressed: () => Clipboard.setData(
+                      const ClipboardData(text: bridgeStableMajorQrCommand),
+                    ),
+                    tooltip: l.copy,
+                    icon: Icon(Icons.copy, color: onCard),
+                  ),
+                ],
+              ),
             if (onScanQrCode != null || onEnterApiKey != null) ...[
               const SizedBox(height: 8),
               Wrap(

@@ -1854,5 +1854,8 @@
   "guideLocalBridgeStep3": "スマホでQRコードを読み取る",
   "guideLocalBridgeStep3Detail": "同じ画面に表示されるQRコードを、スマホのCC Pocketで読み取ります。",
   "guideLocalBridgeOpen": "Bridgeの管理を開く",
-  "guideBridgeMacAppNote": "Macをお使いなら、macOS版CC Pocketを入れるとアプリからBridgeを起動でき、下のコマンドは不要です。"
+  "guideBridgeMacAppNote": "Macをお使いなら、macOS版CC Pocketを入れるとアプリからBridgeを起動でき、下のコマンドは不要です。",
+  "bridgeAuthRequiredLocalBody": "{host} の Bridge が API キーを必要としています。このMacのBridgeの管理画面から、このアプリを接続できます。",
+  "@bridgeAuthRequiredLocalBody": { "placeholders": { "host": { "type": "String" } } },
+  "localBridgeUnregister": "自動起動を解除"
 }

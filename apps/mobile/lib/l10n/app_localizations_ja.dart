@@ -4364,4 +4364,12 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get guideBridgeMacAppNote =>
       'Macをお使いなら、macOS版CC Pocketを入れるとアプリからBridgeを起動でき、下のコマンドは不要です。';
+
+  @override
+  String bridgeAuthRequiredLocalBody(String host) {
+    return '$host の Bridge が API キーを必要としています。このMacのBridgeの管理画面から、このアプリを接続できます。';
+  }
+
+  @override
+  String get localBridgeUnregister => '自動起動を解除';
 }

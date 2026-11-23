@@ -32,11 +32,7 @@ class GuidePageLocalBridge extends StatelessWidget {
           const SizedBox(height: 8),
           FilledButton.icon(
             key: const ValueKey('guide_open_local_bridge_button'),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const LocalBridgeScreen(),
-              ),
-            ),
+            onPressed: () => openLocalBridgeScreen(context),
             icon: const Icon(Icons.play_arrow_rounded),
             label: Text(l.guideLocalBridgeOpen),
           ),

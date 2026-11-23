@@ -16,6 +16,11 @@ import 'widgets/local_bridge_status_card.dart';
 import 'widgets/local_bridge_tools_card.dart';
 import 'widgets/local_bridge_unavailable_view.dart';
 
+/// Opens [LocalBridgeScreen] on top of the current route.
+Future<void> openLocalBridgeScreen(BuildContext context) => Navigator.of(
+  context,
+).push(MaterialPageRoute<void>(builder: (_) => const LocalBridgeScreen()));
+
 /// Manages the Bridge running on this machine: status, pairing QR, required
 /// tools, settings and logs. See docs/design/local-bridge-management.md.
 class LocalBridgeScreen extends StatelessWidget {
@@ -111,6 +116,7 @@ class LocalBridgeView extends StatelessWidget {
               detail: state.errorDetail,
               onRetry: cubit.load,
               onStart: state.canStart ? cubit.start : null,
+              onUnregister: cubit.stop,
               busy: state.busy,
               registration: state.launcherRegistration,
               problem: state.launcherProblem,
@@ -245,10 +251,14 @@ class LocalBridgeReadyBody extends StatelessWidget {
               onStop: state.managedByApp ? () => _confirmStop(context) : null,
               onConnectHere: connectLinks == null || pairing == null
                   ? null
-                  : () => connectLinks.value = ConnectionParams(
-                      serverUrl: 'ws://127.0.0.1:${status.port}',
-                      token: pairing.token,
-                    ),
+                  : () {
+                      connectLinks.value = ConnectionParams(
+                        serverUrl: 'ws://127.0.0.1:${status.port}',
+                        token: pairing.token,
+                      );
+                      // The session list takes over from here.
+                      Navigator.of(context).maybePop();
+                    },
             ),
             if (pairing != null) ...[
               SettingsSectionHeader(title: l.localBridgePairingTitle),

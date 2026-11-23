@@ -8152,6 +8152,18 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'Macをお使いなら、macOS版CC Pocketを入れるとアプリからBridgeを起動でき、下のコマンドは不要です。'**
   String get guideBridgeMacAppNote;
+
+  /// No description provided for @bridgeAuthRequiredLocalBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'{host} の Bridge が API キーを必要としています。このMacのBridgeの管理画面から、このアプリを接続できます。'**
+  String bridgeAuthRequiredLocalBody(String host);
+
+  /// No description provided for @localBridgeUnregister.
+  ///
+  /// In ja, this message translates to:
+  /// **'自動起動を解除'**
+  String get localBridgeUnregister;
 }
 
 class _AppLocalizationsDelegate
