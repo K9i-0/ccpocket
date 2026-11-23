@@ -2,8 +2,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../../providers/machine_manager_cubit.dart';
 import '../../services/connect_deep_link_scope.dart';
 import '../../services/connection_url_parser.dart';
+import '../../widgets/workspace_pane_chrome.dart';
+import '../session_list/workspace_shell_screen.dart';
 import '../settings/widgets/settings_tiles.dart';
 import 'data/local_bridge_client.dart';
 import 'state/local_bridge_cubit.dart';
@@ -21,10 +24,32 @@ Future<void> openLocalBridgeScreen(BuildContext context) => Navigator.of(
   context,
 ).push(MaterialPageRoute<void>(builder: (_) => const LocalBridgeScreen()));
 
+/// Opens [LocalBridgeScreen] from the session list pane: beside the list in
+/// the multi-pane workspace, as a route otherwise.
+void openLocalBridgeFromList(BuildContext context) {
+  final shell = WorkspaceShellScreen.maybeOf(context);
+  if (shell != null && !shell.isSinglePane) {
+    shell.openLocalBridgeCenter();
+  } else {
+    openLocalBridgeScreen(context);
+  }
+}
+
 /// Manages the Bridge running on this machine: status, pairing QR, required
 /// tools, settings and logs. See docs/design/local-bridge-management.md.
 class LocalBridgeScreen extends StatelessWidget {
-  const LocalBridgeScreen({super.key, this.createCubit});
+  const LocalBridgeScreen({
+    super.key,
+    this.createCubit,
+    this.embedded = false,
+    this.onClose,
+  });
+
+  /// Shown in the workspace's center pane rather than as a route.
+  final bool embedded;
+
+  /// Closes the screen; defaults to popping the route.
+  final VoidCallback? onClose;
 
   /// Overrides the cubit (tests).
   final LocalBridgeCubit Function()? createCubit;
@@ -33,13 +58,16 @@ class LocalBridgeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => (createCubit?.call() ?? LocalBridgeCubit())..load(),
-      child: const LocalBridgeView(),
+      child: LocalBridgeView(embedded: embedded, onClose: onClose),
     );
   }
 }
 
 class LocalBridgeView extends StatelessWidget {
-  const LocalBridgeView({super.key});
+  const LocalBridgeView({super.key, this.embedded = false, this.onClose});
+
+  final bool embedded;
+  final VoidCallback? onClose;
 
   Future<void> _changePort(BuildContext context) async {
     final cubit = context.read<LocalBridgeCubit>();
@@ -74,6 +102,26 @@ class LocalBridgeView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final shell = WorkspaceShellScreen.maybeOf(context);
+    final chrome = resolveWorkspacePaneChrome(
+      platform: Theme.of(context).platform,
+      isAdaptiveWorkspace: shell != null && !shell.isSinglePane,
+      isLeftPaneVisible: shell?.isLeftPaneVisible ?? false,
+      slot: WorkspacePaneSlot.center,
+    );
+    void close() =>
+        onClose != null ? onClose!() : Navigator.of(context).maybePop();
+    final leading = embedded
+        ? IconButton(
+            key: const ValueKey('embedded_local_bridge_back_button'),
+            onPressed: close,
+            style: chrome.useMacOSAdaptiveChrome
+                ? chrome.compactButtonStyle()
+                : null,
+            icon: const Icon(Icons.arrow_back),
+            tooltip: l.back,
+          )
+        : null;
     return BlocConsumer<LocalBridgeCubit, LocalBridgeState>(
       listenWhen: (previous, current) =>
           current.actionFailure != null &&
@@ -83,7 +131,25 @@ class LocalBridgeView extends StatelessWidget {
         final cubit = context.read<LocalBridgeCubit>();
         return Scaffold(
           appBar: AppBar(
-            title: Text(l.localBridgeTitle),
+            // In the center pane the chrome leaves room for the macOS window
+            // controls; a pushed route keeps the default back button.
+            toolbarHeight: embedded ? chrome.toolbarHeight : null,
+            automaticallyImplyLeading: !embedded,
+            leading: embedded ? chrome.wrapLeading(leading) : null,
+            leadingWidth: embedded
+                ? chrome.resolveLeadingWidth(
+                    hasLeading: true,
+                    baseWidth: chrome.useMacOSAdaptiveChrome
+                        ? kWorkspaceMacOSToolbarLeadingSlotWidth
+                        : kToolbarHeight,
+                  )
+                : null,
+            titleSpacing: embedded
+                ? chrome.resolveTitleSpacing(hasLeading: true)
+                : null,
+            title: embedded
+                ? chrome.wrapTitle(Text(l.localBridgeTitle))
+                : Text(l.localBridgeTitle),
             actions: [
               IconButton(
                 key: const ValueKey('local_bridge_refresh_button'),
@@ -109,7 +175,10 @@ class LocalBridgeView extends StatelessWidget {
             LocalBridgePhase.loading => const Center(
               child: CircularProgressIndicator(),
             ),
-            LocalBridgePhase.ready => LocalBridgeReadyBody(state: state),
+            LocalBridgePhase.ready => LocalBridgeReadyBody(
+              state: state,
+              onClose: close,
+            ),
             _ => LocalBridgeUnavailableView(
               phase: state.phase,
               port: state.port,
@@ -138,7 +207,13 @@ class LocalBridgeView extends StatelessWidget {
 }
 
 class LocalBridgeReadyBody extends StatelessWidget {
-  const LocalBridgeReadyBody({super.key, required this.state});
+  const LocalBridgeReadyBody({
+    super.key,
+    required this.state,
+    required this.onClose,
+  });
+
+  final VoidCallback onClose;
 
   final LocalBridgeState state;
 
@@ -170,6 +245,21 @@ class LocalBridgeReadyBody extends StatelessWidget {
       ),
     );
     if (confirmed == true) await cubit.restart();
+  }
+
+  /// Reuse the host of a machine already saved for this Bridge
+  /// (`localhost` or `127.0.0.1`) so connecting does not add a duplicate.
+  String _loopbackHost(BuildContext context, int port) {
+    final machines =
+        context.read<MachineManagerCubit?>()?.state.machines ?? const [];
+    for (final entry in machines) {
+      final machine = entry.machine;
+      if (machine.port == port &&
+          const {'localhost', '127.0.0.1'}.contains(machine.host)) {
+        return machine.host;
+      }
+    }
+    return '127.0.0.1';
   }
 
   Future<void> _confirmStop(BuildContext context) async {
@@ -253,11 +343,13 @@ class LocalBridgeReadyBody extends StatelessWidget {
                   ? null
                   : () {
                       connectLinks.value = ConnectionParams(
-                        serverUrl: 'ws://127.0.0.1:${status.port}',
+                        serverUrl:
+                            'ws://${_loopbackHost(context, status.port)}'
+                            ':${status.port}',
                         token: pairing.token,
                       );
                       // The session list takes over from here.
-                      Navigator.of(context).maybePop();
+                      onClose();
                     },
             ),
             if (pairing != null) ...[

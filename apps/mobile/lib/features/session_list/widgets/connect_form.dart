@@ -124,7 +124,7 @@ class ConnectForm extends StatelessWidget {
             const SizedBox(height: 16),
             FilledButton.icon(
               key: const ValueKey('connect_local_bridge_button'),
-              onPressed: () => openLocalBridgeScreen(context),
+              onPressed: () => openLocalBridgeFromList(context),
               icon: const Icon(Icons.dns_rounded),
               label: Text(l.localBridgeTitle),
             ),
@@ -154,7 +154,7 @@ class ConnectForm extends StatelessWidget {
                         '::1',
                         '[::1]',
                       }.contains(rejection.host.toLowerCase())
-                  ? () => openLocalBridgeScreen(context)
+                  ? () => openLocalBridgeFromList(context)
                   : null,
               onEnterApiKey: switch ((_machineFor(rejection), onEditMachine)) {
                 (final machine?, final onEdit?) => () => onEdit(machine),

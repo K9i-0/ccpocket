@@ -12,6 +12,7 @@ import '../../features/explore/state/explore_state.dart';
 import '../../features/gallery/gallery_screen.dart';
 import '../../features/git/git_screen.dart';
 import '../../features/github/github_screen.dart';
+import '../../features/local_bridge/local_bridge_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/setup_guide/setup_guide_screen.dart';
 import '../../l10n/app_localizations.dart';
@@ -476,6 +477,13 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
       popCenterOverlay();
     } else {
       _navigation.openOverlay(WorkspaceCenterOverlay.setupGuide);
+    }
+  }
+
+  /// Shows the management screen of the Bridge on this Mac in the center.
+  void openLocalBridgeCenter() {
+    if (_centerOverlay != WorkspaceCenterOverlay.localBridge) {
+      _navigation.openOverlay(WorkspaceCenterOverlay.localBridge);
     }
   }
 
@@ -1234,6 +1242,11 @@ class _WorkspaceContentHost extends StatelessWidget {
         return SetupGuideScreen(
           embedded: true,
           onBack: () => shell?.popCenterOverlay(entry: overlayEntry),
+          onClose: () => shell?.popCenterOverlay(entry: overlayEntry),
+        );
+      case WorkspaceCenterOverlay.localBridge:
+        return LocalBridgeScreen(
+          embedded: true,
           onClose: () => shell?.popCenterOverlay(entry: overlayEntry),
         );
       case WorkspaceCenterOverlay.none:

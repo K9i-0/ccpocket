@@ -6,7 +6,13 @@ part 'workspace_navigation_state.freezed.dart';
 
 enum WorkspaceCenterRoot { session, offline }
 
-enum WorkspaceCenterOverlay { none, settings, globalGallery, setupGuide }
+enum WorkspaceCenterOverlay {
+  none,
+  settings,
+  globalGallery,
+  setupGuide,
+  localBridge,
+}
 
 /// Logical navigation has no window dimensions. Entry identities survive
 /// pending-session resolution and are independent of server session IDs.

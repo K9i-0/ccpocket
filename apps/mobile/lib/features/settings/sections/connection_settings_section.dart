@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../utils/bridge_url_display.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../models/machine.dart';
 import '../../../providers/machine_manager_cubit.dart';
@@ -65,7 +66,8 @@ class ConnectionSettingsSection extends StatelessWidget {
                   title: Text(l.settingsBridgeMachine),
                   subtitle:
                       machine?.displayName ??
-                      (bridge.lastUrl ?? l.settingsNotConnected),
+                      (displayBridgeUrl(bridge.lastUrl) ??
+                          l.settingsNotConnected),
                 ),
               ),
             if (visibility.isMacOS)

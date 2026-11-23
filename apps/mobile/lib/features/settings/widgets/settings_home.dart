@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../utils/bridge_url_display.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../models/git_diff_interaction_mode.dart';
 import '../../../models/input_delivery.dart';
@@ -241,7 +242,8 @@ class _CategoryList extends StatelessWidget {
                       summary: _summary(
                         context,
                         category,
-                        machineName: machineName ?? bridge.lastUrl,
+                        machineName:
+                            machineName ?? displayBridgeUrl(bridge.lastUrl),
                       ),
                       selected: category == selectedCategory,
                       onTap: () => onOpenCategory(category),
