@@ -4227,4 +4227,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get localBridgeLogsEmpty => '没有日志';
+
+  @override
+  String get localBridgeConnectHere => '从此应用连接';
 }

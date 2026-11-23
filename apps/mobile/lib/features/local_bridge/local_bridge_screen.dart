@@ -2,6 +2,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../../services/connect_deep_link_scope.dart';
+import '../../services/connection_url_parser.dart';
 import '../settings/widgets/settings_tiles.dart';
 import 'data/local_bridge_client.dart';
 import 'state/local_bridge_cubit.dart';
@@ -195,6 +197,8 @@ class LocalBridgeReadyBody extends StatelessWidget {
     final status = state.status;
     final pairing = state.pairing;
     if (status == null) return const SizedBox.shrink();
+    // Handled by the session list exactly like a scanned pairing QR code.
+    final connectLinks = ConnectDeepLinkScope.maybeOf(context);
 
     return Center(
       child: ConstrainedBox(
@@ -208,6 +212,12 @@ class LocalBridgeReadyBody extends StatelessWidget {
               restartRequired: state.restartRequired,
               busy: state.busy,
               onRestart: () => _confirmRestart(context),
+              onConnectHere: connectLinks == null || pairing == null
+                  ? null
+                  : () => connectLinks.value = ConnectionParams(
+                      serverUrl: 'ws://127.0.0.1:${status.port}',
+                      token: pairing.token,
+                    ),
             ),
             if (pairing != null) ...[
               SettingsSectionHeader(title: l.localBridgePairingTitle),

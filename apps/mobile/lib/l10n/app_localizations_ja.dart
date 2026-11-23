@@ -4276,4 +4276,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get localBridgeLogsEmpty => 'ログはありません';
+
+  @override
+  String get localBridgeConnectHere => 'このアプリから接続';
 }

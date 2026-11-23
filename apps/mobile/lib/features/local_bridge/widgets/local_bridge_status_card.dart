@@ -13,8 +13,11 @@ class LocalBridgeStatusCard extends StatelessWidget {
     required this.restartRequired,
     required this.busy,
     required this.onRestart,
+    this.onConnectHere,
   });
 
+  /// Connects this app to the Bridge over loopback; null hides the action.
+  final VoidCallback? onConnectHere;
   final LocalBridgeStatus status;
   final bool restartRequired;
   final LocalBridgeBusy busy;
@@ -76,6 +79,18 @@ class LocalBridgeStatusCard extends StatelessWidget {
                 color: cs.onSurfaceVariant,
               ),
             ),
+            if (onConnectHere != null && !restarting) ...[
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FilledButton.tonalIcon(
+                  key: const ValueKey('local_bridge_connect_here_button'),
+                  onPressed: onConnectHere,
+                  icon: const Icon(Icons.login_rounded, size: 18),
+                  label: Text(l.localBridgeConnectHere),
+                ),
+              ),
+            ],
             if (!status.supervised) ...[
               const SizedBox(height: 10),
               Text(

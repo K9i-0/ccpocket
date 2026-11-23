@@ -1694,5 +1694,6 @@
   "localBridgeSaved": "Saved",
   "localBridgeLogsTitle": "Logs",
   "localBridgeLogsSubtitle": "Recent Bridge output",
-  "localBridgeLogsEmpty": "No logs"
+  "localBridgeLogsEmpty": "No logs",
+  "localBridgeConnectHere": "Connect from this app"
 }

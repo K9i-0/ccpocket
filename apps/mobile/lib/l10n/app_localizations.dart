@@ -7996,6 +7996,12 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'ログはありません'**
   String get localBridgeLogsEmpty;
+
+  /// No description provided for @localBridgeConnectHere.
+  ///
+  /// In ja, this message translates to:
+  /// **'このアプリから接続'**
+  String get localBridgeConnectHere;
 }
 
 class _AppLocalizationsDelegate

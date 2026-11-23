@@ -1826,5 +1826,6 @@
   "localBridgeSaved": "保存しました",
   "localBridgeLogsTitle": "ログ",
   "localBridgeLogsSubtitle": "Bridgeの最近の出力",
-  "localBridgeLogsEmpty": "ログはありません"
+  "localBridgeLogsEmpty": "ログはありません",
+  "localBridgeConnectHere": "このアプリから接続"
 }

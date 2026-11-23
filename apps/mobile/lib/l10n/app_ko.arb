@@ -1607,5 +1607,6 @@
   "localBridgeSaved": "저장했습니다",
   "localBridgeLogsTitle": "로그",
   "localBridgeLogsSubtitle": "최근 Bridge 출력",
-  "localBridgeLogsEmpty": "로그가 없습니다"
+  "localBridgeLogsEmpty": "로그가 없습니다",
+  "localBridgeConnectHere": "이 앱에서 연결"
 }

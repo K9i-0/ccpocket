@@ -4446,4 +4446,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get localBridgeLogsEmpty => 'No logs';
+
+  @override
+  String get localBridgeConnectHere => 'Connect from this app';
 }

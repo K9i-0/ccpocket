@@ -4310,4 +4310,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get localBridgeLogsEmpty => '로그가 없습니다';
+
+  @override
+  String get localBridgeConnectHere => '이 앱에서 연결';
 }

@@ -1748,5 +1748,6 @@
   "localBridgeSaved": "已保存",
   "localBridgeLogsTitle": "日志",
   "localBridgeLogsSubtitle": "Bridge 的最近输出",
-  "localBridgeLogsEmpty": "没有日志"
+  "localBridgeLogsEmpty": "没有日志",
+  "localBridgeConnectHere": "从此应用连接"
 }

@@ -1,12 +1,17 @@
 import 'package:ccpocket/features/local_bridge/local_bridge_screen.dart';
 import 'package:ccpocket/features/local_bridge/state/local_bridge_cubit.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
+import 'package:ccpocket/services/connect_deep_link_scope.dart';
+import 'package:ccpocket/services/connection_url_parser.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'local_bridge_fakes.dart';
 
+final connectLinks = ValueNotifier<ConnectionParams?>(null);
+
 Future<void> pumpScreen(WidgetTester tester, FakeLocalBridge bridge) async {
+  connectLinks.value = null;
   tester.view.physicalSize = const Size(900, 3200);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -15,6 +20,8 @@ Future<void> pumpScreen(WidgetTester tester, FakeLocalBridge bridge) async {
       locale: const Locale('en'),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
+      builder: (context, child) =>
+          ConnectDeepLinkScope(notifier: connectLinks, child: child!),
       home: LocalBridgeScreen(
         createCubit: () => LocalBridgeCubit(
           clientFactory: bridge.client,
@@ -125,6 +132,15 @@ void main() {
       'host': '127.0.0.1',
       'allowedDirs': ['/work'],
     });
+  });
+
+  testWidgets('connects this app over loopback with the pairing token', (
+    tester,
+  ) async {
+    await pumpScreen(tester, FakeLocalBridge());
+    await tester.tap(key('local_bridge_connect_here_button'));
+    expect(connectLinks.value?.serverUrl, 'ws://127.0.0.1:8765');
+    expect(connectLinks.value?.token, 'fixture-api-key');
   });
 
   testWidgets('explains a manually started Bridge and hides restart', (

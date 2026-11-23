@@ -42,9 +42,16 @@ app ⇄ Bridge: http://127.0.0.1:<port>/admin/*  (loopback + pairing secret)
   `SMAppService.agent`. launchd starts the launcher, so nothing inherits the
   app sandbox. Start = register, stop = unregister, "launch at login" is the
   same registration. Quitting the app does not stop the Bridge.
-  *Still to verify on a signed build: registration from the sandboxed app.*
-  Fallback if it does not hold: drop the sandbox (needs app-data migration
-  from the container).
+  Verified 2026-11-23 with signed test bundles: `SMAppService.agent`
+  **fails from a sandboxed app** (`SMAppServiceErrorDomain Code=1 "Operation
+  not permitted"`), and works from a non-sandboxed one, whose agent then sees
+  the login-shell `node` / `claude` / `agy` and can write to project folders.
+  The diagram above therefore needs one more hop. Candidates:
+  1. Keep the app sandboxed and bundle a small non-sandboxed helper app that
+     the main app opens (`NSWorkspace.open(_:withApplicationAt:)`) to
+     register/unregister the agent. No app-data migration. *To verify.*
+  2. Drop the sandbox from the main app. Needs migration of preferences,
+     databases and keychain items out of the container, and is hard to undo.
 - **Runtime: the user's Node** through a login shell, like `setup-launchd.ts`.
   The launcher sets `CCPOCKET_BRIDGE_SUPERVISED=1` and reports a missing or
   old Node in a status file under `~/.ccpocket/` (the Bridge cannot report
