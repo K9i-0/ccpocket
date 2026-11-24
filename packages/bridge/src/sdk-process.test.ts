@@ -1028,8 +1028,43 @@ describe("SdkProcess settings", () => {
 });
 
 describe("SdkProcess input dispatch", () => {
-  it("steers into a running turn with next priority and no status change", () => {
+  // Input is only accepted while a query exists.
+  const processWithQuery = () => {
     const proc = new SdkProcess();
+    (proc as any).queryInstance = {
+      close: vi.fn(),
+      interrupt: vi.fn(() => Promise.resolve()),
+    };
+    return proc;
+  };
+
+  it("drops input when no query is running", () => {
+    const proc = new SdkProcess();
+
+    expect(proc.dispatchInput("lost")).toEqual({
+      queued: false,
+      shouldInterrupt: false,
+    });
+    expect(
+      proc.dispatchInputWithImages("lost", [
+        { base64: "aGk=", mimeType: "image/png" },
+      ]),
+    ).toEqual({ queued: false, shouldInterrupt: false });
+    expect(proc.hasInputQueue).toBe(false);
+    expect(proc.status).toBe("idle");
+  });
+
+  it("does not hand input sent after stop to the next start", () => {
+    const proc = processWithQuery();
+    proc.stop();
+
+    proc.dispatchInput("after stop");
+
+    expect(proc.hasInputQueue).toBe(false);
+  });
+
+  it("steers into a running turn with next priority and no status change", () => {
+    const proc = processWithQuery();
     const resolve = vi.fn();
     const internal = proc as any;
     internal._status = "running";
@@ -1046,7 +1081,7 @@ describe("SdkProcess input dispatch", () => {
   });
 
   it("buffers a steer until the stream pulls during the same turn", async () => {
-    const proc = new SdkProcess();
+    const proc = processWithQuery();
     const internal = proc as any;
     internal._status = "running";
     internal.userMessageResolve = null;
@@ -1061,7 +1096,7 @@ describe("SdkProcess input dispatch", () => {
   });
 
   it("sends a buffered steer as a normal prompt when the turn already ended", async () => {
-    const proc = new SdkProcess();
+    const proc = processWithQuery();
     const internal = proc as any;
     internal._status = "running";
     internal.userMessageResolve = null;
@@ -1075,7 +1110,7 @@ describe("SdkProcess input dispatch", () => {
   });
 
   it("sends steer input normally when no turn is active", () => {
-    const proc = new SdkProcess();
+    const proc = processWithQuery();
     const resolve = vi.fn();
     const internal = proc as any;
     internal._status = "idle";
@@ -1088,7 +1123,7 @@ describe("SdkProcess input dispatch", () => {
   });
 
   it("queues and requests interrupt while a turn is running", () => {
-    const proc = new SdkProcess();
+    const proc = processWithQuery();
     const resolve = vi.fn();
     const internal = proc as any;
     internal._status = "running";
@@ -1103,7 +1138,7 @@ describe("SdkProcess input dispatch", () => {
   });
 
   it("queues without interrupting while approval is pending", () => {
-    const proc = new SdkProcess();
+    const proc = processWithQuery();
     const resolve = vi.fn();
     const internal = proc as any;
     internal._status = "waiting_approval";
@@ -1119,7 +1154,7 @@ describe("SdkProcess input dispatch", () => {
   it.each(["starting", "idle"])(
     "delivers directly through the ready resolver while %s",
     (status) => {
-      const proc = new SdkProcess();
+      const proc = processWithQuery();
       const resolve = vi.fn();
       const internal = proc as any;
       internal._status = status;
@@ -1136,7 +1171,7 @@ describe("SdkProcess input dispatch", () => {
   );
 
   it("applies the running policy to image input", () => {
-    const proc = new SdkProcess();
+    const proc = processWithQuery();
     const resolve = vi.fn();
     const internal = proc as any;
     internal._status = "running";
@@ -1151,7 +1186,7 @@ describe("SdkProcess input dispatch", () => {
   });
 
   it("marks directly delivered image input as running", () => {
-    const proc = new SdkProcess();
+    const proc = processWithQuery();
     const resolve = vi.fn();
     const internal = proc as any;
     internal._status = "idle";
@@ -1167,7 +1202,7 @@ describe("SdkProcess input dispatch", () => {
   });
 
   it("drains queued input FIFO one item per result when a consumer is waiting", () => {
-    const proc = new SdkProcess();
+    const proc = processWithQuery();
     const internal = proc as any;
     const firstResolve = vi.fn();
     internal._status = "running";
@@ -1199,7 +1234,7 @@ describe("SdkProcess input dispatch", () => {
   });
 
   it("keeps queued input until a consumer is waiting", () => {
-    const proc = new SdkProcess();
+    const proc = processWithQuery();
     const internal = proc as any;
     internal._status = "running";
     internal.userMessageResolve = null;
@@ -1211,7 +1246,7 @@ describe("SdkProcess input dispatch", () => {
   });
 
   it("drains only one queued item per result with a greedy stream consumer", async () => {
-    const proc = new SdkProcess();
+    const proc = processWithQuery();
     const internal = proc as any;
     internal._status = "running";
 

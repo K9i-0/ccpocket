@@ -194,10 +194,12 @@ module permflow {
 
   // dispatchInput (:1445) と、handleInput がその直後に呼ぶ interrupt
   // (websocket/handlers/session-input.ts:446-450)。delivery 指定なしの旧来の経路。
+  // 動いていないプロセスは入力を受け取らない (dispatchInput 冒頭の isRunning の確認)。
   pure def inputP(st: State): State = {
     pure val shouldInterrupt = st.status == "running" or st.status == "compacting"
     pure val mustQueue = shouldInterrupt or st.status == "waiting_approval"
-    if (mustQueue or st.waiter == -1) {
+    if (not(st.queryAlive)) st
+    else if (mustQueue or st.waiter == -1) {
       pure val s1 = { ...st, queueLen: st.queueLen + 1 }
       if (shouldInterrupt) interruptP(s1) else s1
     } else deliverToSdk(setStatus({ ...st, waiter: -1 }, "running"), st.waiter)

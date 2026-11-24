@@ -8,6 +8,9 @@
 #    violated; every other property must hold)
 # 3. traces generated from the model, replayed on the real SdkProcess
 #
+# After a deliberate change of behaviour: UPDATE=1 bash .../check.sh, then
+# review the diff of expected-violations.tsv.
+#
 # Simulation is sampling, not proof: "holds" here means "no violation in
 # $SAMPLES runs". The exhaustive check is run.sh (needs Java).
 set -u
@@ -39,6 +42,31 @@ sim() { # instance, log, invariant names...
   local inst=$1 log=$2; shift 2
   q run --main "$inst" --invariants "$@" --max-samples "$SAMPLES" --max-steps $STEPS --seed $SEED $F > "$log" 2>&1
 }
+# UPDATE=1 rewrites the expected results from a fresh simulation of every cell.
+# Review the diff: a line that disappears is a fix, a new line is a regression.
+if [ -n "${UPDATE:-}" ]; then
+  : > "$TMP/expected.tsv"
+  for inst in $INSTANCES; do
+    rest=$SAFETY
+    while [ -n "${rest// /}" ]; do
+      # shellcheck disable=SC2086
+      sim "$inst" "$TMP/u.txt" $rest
+      grep -q '^\[ok\]' "$TMP/u.txt" && break
+      # One violating trace names the properties it breaks; drop them and look again.
+      broken=$(sed -nE 's/^ *❌ +([A-Za-z0-9_]+).*/\1/p' "$TMP/u.txt" | tr '\n' ' ')
+      [ -n "${broken// /}" ] || { echo "simulator error: $inst"; tail -3 "$TMP/u.txt"; exit 1; }
+      next=""
+      for p in $rest; do
+        case " $broken " in *" $p "*) printf '%s\t%s\n' "$inst" "$p" >> "$TMP/expected.tsv" ;; *) next="$next $p" ;; esac
+      done
+      rest=$next
+    done
+  done
+  sort "$TMP/expected.tsv" > $EXPECTED
+  echo "rewrote $EXPECTED ($(wc -l < $EXPECTED | tr -d ' ') expected violations)"
+  exit 0
+fi
+
 runs=0
 for inst in $INSTANCES; do
   known=$(awk -F'\t' -v i="$inst" '$1==i{print $2}' $EXPECTED | tr '\n' ' ')

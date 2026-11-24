@@ -180,6 +180,21 @@ export async function handleInput(
     return;
   }
 
+  if (session.provider === "claude" && session.process.isRunning === false) {
+    // The query ended (for example after an SDK error) but the session is
+    // still listed. Nothing would read this input, so say so instead of
+    // acknowledging it. Rejected before it reaches history.
+    const message = "Claude session is not running. Start it again.";
+    server.send(ws, {
+      type: "input_rejected",
+      sessionId: session.id,
+      ...(clientMessageId ? { clientMessageId } : {}),
+      reason: message,
+    });
+    server.send(ws, { type: "error", sessionId: session.id, message });
+    return;
+  }
+
   if (session.process instanceof AntigravityProcess) {
     if (!session.process.isRunning) {
       // Rejected before it reaches history, so no ghost turn is left.

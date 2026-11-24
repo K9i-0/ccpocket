@@ -1443,6 +1443,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   }
 
   dispatchInput(text: string): { queued: boolean; shouldInterrupt: boolean } {
+    if (!this.queryInstance) return this.dropInputWithoutQuery();
     const shouldInterrupt =
       this._status === "running" || this._status === "compacting";
     const mustQueue = shouldInterrupt || this._status === "waiting_approval";
@@ -1460,6 +1461,15 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     return { queued: false, shouldInterrupt: false };
   }
 
+  /**
+   * Nothing reads the input stream once the query is gone. Queueing here
+   * would report the input as accepted and hand it to the next start().
+   */
+  private dropInputWithoutQuery(): { queued: boolean; shouldInterrupt: boolean } {
+    console.log("[sdk-process] Dropped input: no running query");
+    return { queued: false, shouldInterrupt: false };
+  }
+
   sendInput(text: string): boolean {
     return this.dispatchInput(text).queued;
   }
@@ -1473,6 +1483,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     text: string,
     images: Array<{ base64: string; mimeType: string }>,
   ): { queued: boolean; shouldInterrupt: boolean } {
+    if (!this.queryInstance) return this.dropInputWithoutQuery();
     const shouldInterrupt =
       this._status === "running" || this._status === "compacting";
     const mustQueue = shouldInterrupt || this._status === "waiting_approval";

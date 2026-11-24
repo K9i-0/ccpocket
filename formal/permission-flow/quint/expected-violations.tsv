@@ -21,7 +21,6 @@ cur_dead	P1b
 cur_dead	P4_app
 cur_dead	P4_resolved
 cur_dead	P4_view
-cur_dead	P5_state
 cur_end	P1b
 cur_end	P4_app
 cur_end	P4_resolved
@@ -42,7 +41,6 @@ cur_plaus	P3
 cur_plaus	P4_app
 cur_plaus	P4_resolved
 cur_plaus	P4_view
-cur_plaus	P5_state
 cur_reab	P1b
 cur_reab	P3
 cur_reab	P4_app
@@ -58,7 +56,6 @@ cur_U	P3
 cur_U	P4_app
 cur_U	P4_resolved
 cur_U	P4_view
-cur_U	P5_state
 cur_U	P8_noLostInput
 m1_min	P1b
 m1_min	P2
@@ -71,7 +68,6 @@ m1_U	P3
 m1_U	P4_app
 m1_U	P4_resolved
 m1_U	P4_view
-m1_U	P5_state
 m1_U	P8_noLostInput
 m2_min	P1b
 m2_min	P4_app
@@ -86,7 +82,6 @@ m2_U	P4_aux_registered
 m2_U	P4_resolved
 m2_U	P4_userDecision
 m2_U	P4_view
-m2_U	P5_state
 m2_U	P8_noLostInput
 m3_min	P1b
 m3_min	P4_app
@@ -99,6 +94,5 @@ m3_U	P3
 m3_U	P4_app
 m3_U	P4_resolved
 m3_U	P4_view
-m3_U	P5_state
 m3_U	P6
 m3_U	P8_noLostInput

@@ -11778,6 +11778,55 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("rejects input for a Claude session whose query has ended", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-a",
+        provider: "claude",
+      },
+      ws,
+    );
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const session = (bridge as any).sessionManager.get(sessionId);
+    session.process.isRunning = false;
+    const revisionBefore = session.historyRevision;
+
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      {
+        type: "input",
+        sessionId,
+        text: "into the void",
+        clientMessageId: "cm-dead",
+      },
+      ws,
+    );
+
+    const sent = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(sent.find((m: any) => m.type === "input_rejected")).toMatchObject({
+      sessionId,
+      clientMessageId: "cm-dead",
+    });
+    expect(sent.find((m: any) => m.type === "input_ack")).toBeUndefined();
+    expect(session.historyRevision).toBe(revisionBefore);
+
+    bridge.close();
+  });
+
   it("rejects strict input when another user input exists after baseSeq", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
