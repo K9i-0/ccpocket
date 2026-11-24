@@ -11,6 +11,7 @@ import {
   buildModelOptions,
   getAntigravityConfig,
   parseAcpSessionState,
+  todosFromUpdateSteps,
   type AntigravityCatalog,
   type AntigravityConfig,
 } from "./antigravity-process.js";
@@ -443,6 +444,17 @@ export async function readAntigravityTranscriptFile(
             : isRecord(call.input)
               ? call.input
               : {};
+          // The step checklist is drawn as a todo list, as in a live session.
+          const todos =
+            name === "update_steps"
+              ? todosFromUpdateSteps(
+                  (isRecord(call.args) ? call.args : input).steps,
+                )
+              : [];
+          if (todos.length > 0) {
+            blocks.push({ type: "tool_use", id, name: "TodoWrite", input: { todos } });
+            continue;
+          }
           blocks.push({ type: "tool_use", id, name, input });
         }
       }

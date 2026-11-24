@@ -298,13 +298,13 @@ Bridge はこの **2ファイルだけ** を読み取り専用で読む。各メ
 - **ACP で選べるのは計画役だけ。** 上の 3 つは計画役の違い。実行役と、計画役・実行役それぞれの思考レベルを選ぶ項目は ACP にない。Orchestrator を選ぶと `configOptions` から `thought_level` が消え、`session/set_config_option` の `thought_level` は `-32602`（`Thinking level "high" is not offered for model "Orchestrator (Argon)"`）、`executor` / `planner` / `orchestrator` などの項目は `Unknown config option`。`agy acp` に `--settings` はない。
 - **CLI の `/model` で選べる組み合わせ**（Google AI Ultra、画面で確認）: 計画役は Gemini 4 Neon / Carbon / Argon / Claude Opus 5.5 の 4 つ、実行役は Gemini 4 Hydrogen / Claude Sonnet 5.5 の 2 つ。思考レベルはそれぞれ選べる（Neon と Hydrogen は low〜xhigh、ほかは low〜high）。実行役に Neon は選べない。計画役が Claude Opus 5.5 の Orchestrator は ACP の一覧に出ない。
 - **設定の保存先**: `/model` で確定すると、プロファイルの `settings.json` に `"model": "Orchestrator (Neon)"` と `"orchestrator": {"executor": "Claude Sonnet 5.5 (Low)"}` が書かれる（既定から変えた役だけが入る）。
-- **`agy acp` は `settings.json` の `"orchestrator"` を使わなかった。** 実行役を `Claude Sonnet 5.5 (Low)` にした状態で ccpocket から `Orchestrator (Neon)` のセッションを動かしても、実行役は既定のままだった（会話の記録 `transcript.jsonl` の `model` が、設定前と同じ `gemini-flash-worker-agy`。計画役は `gemini-pro-orchestrator-neon`）。CLI で実行役を Sonnet にしたときの記録名は確かめていない（エージェントが CLI にプロンプトを送ることになるため）。
+- **`settings.json` の `"orchestrator"` が `agy acp` に効いた形跡は確認できなかった（未確定）。** 実行役を `Claude Sonnet 5.5 (Low)` にしたあとで ccpocket から `Orchestrator (Neon)` のセッションを新しく始めても（`agy acp` はセッションごとに起動する）、会話の記録 `transcript.jsonl` の `model` は、実行役のステップが設定前と同じ `gemini-flash-worker-agy`、計画役が `gemini-pro-orchestrator-neon` だった。ただし `gemini-flash-worker-agy` がモデルを表す名前なのか、実行役という役割の名前なのかは分かっていない（手元の過去の記録に、実行役のほかの名前はない）。CLI で実行役を Sonnet にしたときの記録名も確かめていない（エージェントが CLI にプロンプトを送ることになるため）。決着には、人間が CLI で実行役を Sonnet にして 1 通送り、その会話の `transcript.jsonl` の `model` を見る。
 - **動き方**: 計画役が調査して `exit_plan_mode`（`rawInput.plan` に計画の本文）を呼び、そのあと実行役が同じ会話の中でツールを呼ぶ。サブエージェントや別の会話にはならないので、ツール呼び出し・承認・本文はこれまでどおり届く。plan モードではないので承認リクエストは出ず、計画はそのまま実行に進む。
 
 ccpocket での状態:
 
 - 新規セッション画面のモデル一覧に `Orchestrator (Neon / Carbon / Argon)` が出て、選んで動かせる（一覧は `agy` の値をそのまま出している。思考レベルのスライダーは出ない）。チャット画面のモデルのチップにも `Orchestrator (Neon)` と出る。既定の承認モードで、コマンドとファイル編集の承認を返しながら最後まで動いた。
-- 実行役と思考レベルは選べず、`agy` の既定で動く。ACP に項目が増えるまで対応しない（`settings.json` を Bridge が書き換えることはしない。書いても `agy acp` は読まなかった）。
+- 実行役と思考レベルは ccpocket からは選べない。CLI の `/model` で選んだ値が ccpocket のセッションに効くかは未確定（上記）。ACP に項目が増えるまで対応しない（`settings.json` を Bridge が書き換えることはしない）。
 - `exit_plan_mode` は汎用のツール行（`exit_plan_mode` / `Done`）として出る。計画の本文をカードで見せる対応はしていない。
 
 ### ステップのチェックリスト（`update_steps`）
@@ -312,7 +312,7 @@ ccpocket での状態:
 - ACP 標準の `plan` 更新（`sessionUpdate: "plan"`）ではなく、ツール呼び出しとして届く: `name: "update_steps"`、`kind: "other"`、`title: "Run update_steps"`、`rawInput.steps`（`{title, status}` の配列）。`tool_call`（`in_progress`）の直後に `tool_call_update`（`completed`）が届き、出力はない。承認は求めない。
 - 毎回リスト全体が届く（差分ではない）。`status` は `pending` / `in_progress` / `done` を観測した。changelog には skipped と failed の表示もあるが、値は観測していない。
 - `session/load` のリプレイにも含まれる（APIキーで確認）。APIキーの単体モデル（Gemini 3.8 Flash）でも、Google ログインの Orchestrator でも届いた。
-- Bridge は `update_steps` を Claude と同じ `TodoWrite`（`input.todos` の `content` / `status` / `activeForm`）に変換する（`describeAcpTool`）。`done` は `completed` にする。`pending` / `in_progress` / `done` 以外の値は、終わったステップとして `completed` にし、タイトルの末尾に `(skipped)` のように状態を付ける。アプリは既存のチェックリスト（`TodoWriteWidget`）で表示する。
+- Bridge は `update_steps` を Claude と同じ `TodoWrite`（`input.todos` の `content` / `status` / `activeForm`）に変換する（`describeAcpTool`）。未ロードの過去セッションを記録ファイルから読む経路（`readAntigravityTranscriptFile`）でも同じ変換をする（記録では `args.steps` が JSON 文字列）。`done` は `completed` にする。`pending` / `in_progress` / `done` 以外の値は、終わったステップとして `completed` にし、タイトルの末尾に `(skipped)` のように状態を付ける。アプリは既存のチェックリスト（`TodoWriteWidget`）で表示する。
 - 出力のない結果行（`TodoWrite` / `Done`）はアプリで隠す。
 
 互換性:
@@ -322,7 +322,7 @@ ccpocket での状態:
 ### 確認したこと
 
 - APIキー: プローブで 4 ステップの作業を 1 通。`update_steps` の形とリプレイを確認。
-- Google ログイン（「例外」の手順。`--antigravity-login` のテスト用 Bridge に、シミュレーターのアプリ画面から 2 通）: 1 通目で `Orchestrator (Neon)` のセッション開始、承認、チェックリストの表示（0/4 → 4/4）、完了までを確認。2 通目は `settings.json` の実行役の指定が効くかの確認（効かなかった）。APIキーでは Orchestrator が出ないため。
+- Google ログイン（「例外」の手順。`--antigravity-login` のテスト用 Bridge に、シミュレーターのアプリ画面から 2 通）: 1 通目で `Orchestrator (Neon)` のセッション開始、承認、チェックリストの表示（0/4 → 4/4）、完了までを確認。2 通目は `settings.json` の実行役の指定が効くかの確認（効いた形跡はなく、未確定）。APIキーでは Orchestrator が出ないため。
 - `settings.json` は確認のあいだだけ `/model` で変更し、終了後に元へ戻した。
 
 ### 1.5.15 / 1.5.16 の変更で、前提が変わったかもしれない箇所（未確認）
@@ -441,7 +441,7 @@ changelog にあり、今回は確かめていない。該当箇所を触ると�
 | セッションの改名・削除 | `session/set_title`、`session/delete` が `-32601`。名前はいま Bridge が `~/.ccpocket/antigravity-sessions.json` に持つ | メソッドを直接呼ぶ | `renameSession`、`antigravity-store.ts` |
 | APIキーでの `auto` モード | APIキー認証では `auto` が一覧に出ない（OS のターミナルサンドボックスが必要） | APIキーのプロファイルで `session/new` の `modes` を見る | 対応不要（一覧に出れば自動で選べる） |
 | swarm の worker 一覧とボード | `swarm` ツールの結果が ACP に載らず、worker の会話IDが取れない。いまは swarm のファイル2つを読んでいる（上の「Swarm」） | `swarm add` の `tool_call_update` に `rawOutput` が付くか。worker の承認要求が coordinator の接続に届くか（`--attach-swarm` なしのプローブで） | `antigravity-swarm.ts` のファイル読みを ACP の値に置き換える |
-| Orchestrator の実行役と思考レベル | ACP に選ぶ項目がない。`settings.json` の `"orchestrator"` も `agy acp` は使わなかった | Google ログインの `session/new` の `configOptions` に、実行役や Orchestrator の思考レベルの項目が増えていないか | 設定オブジェクトと `set_antigravity_settings` に項目を足し、アプリのモデルのシートに出す |
+| Orchestrator の実行役と思考レベル | ACP に選ぶ項目がない。`settings.json` の `"orchestrator"` が `agy acp` に効くかは未確定 | Google ログインの `session/new` の `configOptions` に、実行役や Orchestrator の思考レベルの項目が増えていないか | 設定オブジェクトと `set_antigravity_settings` に項目を足し、アプリのモデルのシートに出す |
 | `run_workflow` の子エージェントの承認 | 子エージェントの承認要求が届かず、会話IDも取れない | 既定モードで `/run-workflow` の子エージェントにファイルを書かせる | swarm と同じく子の会話を `session/resume` する |
 
 確認には `scripts/antigravity-acp-probe.mjs`（APIキー）を使う。プロンプトを送らない確認（`initialize`、`session/new`、メソッドの有無）は既定プロファイルでもよい。

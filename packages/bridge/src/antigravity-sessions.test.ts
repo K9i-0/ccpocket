@@ -426,6 +426,50 @@ describe("readAntigravityTranscriptFile", () => {
   });
 });
 
+describe("readAntigravityTranscriptFile step checklist", () => {
+  it("reads update_steps as a todo list", async () => {
+    const profileDir = mkdtempSync(join(tmpdir(), "ccpocket-agy-transcript-"));
+    try {
+      const logsDir = join(profileDir, "brain", "conv-1", ".system_generated", "logs");
+      mkdirSync(logsDir, { recursive: true });
+      // The transcript keeps arguments under `args`, the list as a JSON string.
+      const line = JSON.stringify({
+        step_index: 7,
+        type: "PLANNER_RESPONSE",
+        tool_calls: [
+          {
+            name: "update_steps",
+            args: {
+              steps: JSON.stringify([
+                { status: "done", title: "Create a.txt" },
+                { status: "in_progress", title: "Create b.txt" },
+              ]),
+            },
+          },
+        ],
+      });
+      writeFileSync(join(logsDir, "transcript_full.jsonl"), line + "\n");
+
+      const messages = await readAntigravityTranscriptFile("conv-1", { profileDir });
+      expect(messages).toHaveLength(1);
+      expect(messages[0]?.content).toMatchObject([
+        {
+          type: "tool_use",
+          name: "TodoWrite",
+          input: {
+            todos: [
+              { content: "Create a.txt", status: "completed", activeForm: "" },
+              { content: "Create b.txt", status: "in_progress", activeForm: "" },
+            ],
+          },
+        },
+      ]);
+    } finally {
+      rmSync(profileDir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("antigravityRecentSessions worktree normalization", () => {
   it("normalizes worktree path and populates gitBranch", () => {
     const entries = [

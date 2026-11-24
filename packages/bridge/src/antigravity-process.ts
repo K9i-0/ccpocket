@@ -1088,9 +1088,17 @@ export function extractGeneratedImagePaths(
  * Claude sessions send, so clients draw it with the same checklist. Every call
  * carries the whole list.
  */
-function todosFromUpdateSteps(
+export function todosFromUpdateSteps(
   steps: unknown,
 ): Array<{ content: string; status: string; activeForm: string }> {
+  // The transcript on disk keeps the list as a JSON string.
+  if (typeof steps === "string") {
+    try {
+      steps = JSON.parse(steps);
+    } catch {
+      return [];
+    }
+  }
   if (!Array.isArray(steps)) return [];
   return steps.filter(isRecord).map((step, index) => {
     const title = stringOr(step.title).trim() || `Step ${index + 1}`;
