@@ -2,6 +2,18 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.120.1] - 2026-11-24
+
+### Changed
+
+- Updated `@anthropic-ai/claude-agent-sdk` to 0.3.330, plus `socks`, `undici` and the test tooling.
+
+### Fixed
+
+- Claude sessions: a status update from Claude no longer takes a session out of "waiting for approval" while a request is still pending.
+- Claude sessions: an approval request that Claude withdraws, an interrupt, and a stream that ends by itself now settle the pending requests, so the status moves on and clients are told the request is resolved.
+- Claude sessions: input sent to a session whose query has ended after an error is rejected (`input_rejected`) instead of being acknowledged and never delivered.
+
 ## [1.120.0] - 2026-11-23
 
 ### Added
