@@ -104,8 +104,13 @@ else
   replay() { # instance, trace count -> prints the vitest "Tests" line
     mkdir -p "$TMP/itf-$1"
     q run --main "$1" --invariant true --mbt --n-traces "$2" --max-samples "$2" --max-steps 30 --seed 11 \
-      --out-itf "$TMP/itf-$1/t_{seq}.itf.json" $F > /dev/null 2>&1
+      --out-itf "$TMP/itf-$1/t_{seq}.itf.json" $F > "$TMP/gen-$1.txt" 2>&1
+    ls "$TMP/itf-$1" | grep -q . || { echo "no traces generated for $1:" >&2; tail -15 "$TMP/gen-$1.txt" >&2; }
     ITF_DIR="$TMP/itf-$1" "$VITEST" run --config repro/vitest.config.mjs > "$TMP/replay-$1.txt" 2>&1
+    if ! grep -qE '^ +Tests ' "$TMP/replay-$1.txt"; then
+      # vitest did not get as far as running tests: show why.
+      tail -25 "$TMP/replay-$1.txt" >&2
+    fi
     grep -E '^ +Tests ' "$TMP/replay-$1.txt" | sed -E 's/\x1b\[[0-9;]*m//g; s/^ +Tests +//'
   }
   r=$(replay cur_U 300)
