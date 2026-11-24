@@ -25,6 +25,10 @@ import 'bubbles/user_bubble.dart';
 
 export 'bubbles/ask_user_question_widget.dart';
 
+/// Result text the Bridge gives the Orchestrator's plan hand-off
+/// (`exit_plan_mode`); the plan card already shows the plan.
+const antigravityPlanHandOffResult = 'Plan handed to the executor';
+
 class ChatEntryWidget extends StatelessWidget {
   final ChatEntry entry;
   final ChatEntry? previous;
@@ -259,7 +263,10 @@ class ServerMessageWidget extends StatelessWidget {
             !((toolName == 'Read' || toolName == 'TodoWrite') &&
                 content.trim() == 'Done' &&
                 images.isEmpty &&
-                permissionOutcome == null),
+                permissionOutcome == null) &&
+            // The Orchestrator's hand-off is the plan card above it.
+            !(toolName == 'ExitPlanMode' &&
+                content.trim() == antigravityPlanHandOffResult),
       PermissionRequestMessage(:final toolName) =>
         toolName != 'ExitPlanMode' &&
             toolName != 'AskUserQuestion' &&

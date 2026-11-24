@@ -305,12 +305,12 @@ ccpocket での状態:
 
 - 新規セッション画面のモデル一覧に `Orchestrator (Neon / Carbon / Argon)` が出て、選んで動かせる（一覧は `agy` の値をそのまま出している。思考レベルのスライダーは出ない）。チャット画面のモデルのチップにも `Orchestrator (Neon)` と出る。既定の承認モードで、コマンドとファイル編集の承認を返しながら最後まで動いた。
 - 実行役と思考レベルは ccpocket からは選べない。CLI の `/model` で選んだ値が ccpocket のセッションに効くかは未確定（上記）。ACP に項目が増えるまで対応しない（`settings.json` を Bridge が書き換えることはしない）。
-- `exit_plan_mode` は、計画の本文を入れた `ExitPlanMode`（`tool_use` のみ。承認リクエストは出さない）に変換し、既存のプランカードで表示する。結果行は `Plan handed to the executor`。plan モードの計画（文書を書いて承認を待つ流れ）は 1.5.16 でも変わっていない。
+- `exit_plan_mode` は、計画の本文を入れた `ExitPlanMode`（`tool_use` のみ。承認リクエストは出さない）に変換し、既存のプランカードで表示する。結果行は `Plan handed to the executor` で、アプリはこの行を隠す。plan モードの計画（文書を書いて承認を待つ流れ）は 1.5.16 でも変わっていない。
 
 ### ステップのチェックリスト（`update_steps`）
 
 - ACP 標準の `plan` 更新（`sessionUpdate: "plan"`）ではなく、ツール呼び出しとして届く: `name: "update_steps"`、`kind: "other"`、`title: "Run update_steps"`、`rawInput.steps`（`{title, status}` の配列）。`tool_call`（`in_progress`）の直後に `tool_call_update`（`completed`）が届き、出力はない。承認は求めない。
-- 毎回リスト全体が届く（差分ではない）。`status` は `pending` / `in_progress` / `done` / `skipped` / `failed` の 5 つ（ツールの定義。`skipped` 以外は実際に届くのを見た）。
+- 毎回リスト全体が届く（差分ではない）。`status` は `pending` / `in_progress` / `done` / `skipped` / `failed` の 5 つ（ツールの定義。5 つとも実際に届くのを見た）。
 - `session/load` のリプレイにも含まれる（APIキーで確認）。APIキーの単体モデル（Gemini 3.8 Flash）でも、Google ログインの Orchestrator でも届いた。
 - Bridge は `update_steps` を Claude と同じ `TodoWrite`（`input.todos` の `content` / `status` / `activeForm`）に変換する（`describeAcpTool`）。未ロードの過去セッションを記録ファイルから読む経路（`readAntigravityTranscriptFile`）でも同じ変換をする（記録では `args.steps` が JSON 文字列）。`done` は `completed` にする。`skipped` と `failed` は、終わったステップとして `completed` にし、タイトルの末尾に `(skipped)` のように状態を付けたうえで、任意フィールド `outcome`（`skipped` / `failed`）を足す。アプリは既存のチェックリスト（`TodoWriteWidget`）で表示し、`outcome` があればアイコンを変えて（失敗は赤の ×、スキップは灰色の −）タイトルから接尾辞を外す。
 - 出力のない結果行（`TodoWrite` / `Done`）はアプリで隠す。
@@ -322,6 +322,8 @@ ccpocket での状態:
 ### 確認したこと
 
 - APIキー: プローブで 4 ステップの作業を 1 通。`update_steps` の形とリプレイを確認。
+- シミュレーターのアプリ（APIキーのテスト用 Bridge）: タイマーを待つ前後で返事が別の吹き出しになること、失敗（赤の ×）とスキップ（灰色の −）のステップの表示を確認。
+- シミュレーターのアプリ（`--antigravity-login` のテスト用 Bridge、プロンプトは送らない）: 上の Orchestrator の会話を最近のセッションから開き直し、モデルが `Orchestrator (Neon)` に戻ること、計画がプランカードで出ること、チェックリストがリプレイされることを確認。
 - Google ログイン（「例外」の手順。`--antigravity-login` のテスト用 Bridge に、シミュレーターのアプリ画面から 2 通）: 1 通目で `Orchestrator (Neon)` のセッション開始、承認、チェックリストの表示（0/4 → 4/4）、完了までを確認。2 通目は `settings.json` の実行役の指定が効くかの確認（効いた形跡はなく、未確定）。APIキーでは Orchestrator が出ないため。
 - `settings.json` は確認のあいだだけ `/model` で変更し、終了後に元へ戻した。
 

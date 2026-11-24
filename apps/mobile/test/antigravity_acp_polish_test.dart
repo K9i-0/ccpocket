@@ -551,6 +551,32 @@ void main() {
     );
   });
   group('ToolResultMessage rendering', () {
+    testWidgets('hides the result of the Orchestrator plan hand-off', (
+      tester,
+    ) async {
+      expect(
+        ServerMessageWidget.isVisible(
+          const ToolResultMessage(
+            toolUseId: 'p1',
+            toolName: 'ExitPlanMode',
+            content: 'Plan handed to the executor',
+          ),
+        ),
+        isFalse,
+      );
+      // A plan the user approved keeps its result.
+      expect(
+        ServerMessageWidget.isVisible(
+          const ToolResultMessage(
+            toolUseId: 'p2',
+            toolName: 'ExitPlanMode',
+            content: 'Plan approved',
+          ),
+        ),
+        isTrue,
+      );
+    });
+
     testWidgets('hides the empty result of a step checklist', (tester) async {
       expect(
         ServerMessageWidget.isVisible(
