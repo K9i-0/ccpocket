@@ -14,7 +14,7 @@ OUT=out
 F=instances.qnt
 STAGE=${1:-all}
 
-q() { npx -y @informalsystems/quint@0.34.0 "$@"; }
+q() { bash "$(dirname "${BASH_SOURCE[0]}")/../../quint.sh" "$@"; }
 
 # RESUME=1 を付けると、ログが残っている検査は飛ばして続きから回す (既定は最初からやり直す)
 # (itf / deep / replay は短いので RESUME でも毎回やり直す)

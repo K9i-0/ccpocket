@@ -9,7 +9,7 @@ ROOT=../../..
 OUT=out/replay
 SUMMARY=out/summary.tsv
 VITEST=$ROOT/packages/bridge/node_modules/.bin/vitest
-q() { npx -y @informalsystems/quint@0.34.0 "$@"; }
+q() { bash "$(dirname "${BASH_SOURCE[0]}")/../../quint.sh" "$@"; }
 
 rm -rf "$OUT"
 mkdir -p "$OUT"
