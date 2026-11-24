@@ -454,6 +454,12 @@ describe("readAntigravityTranscriptFile with entries as agy writes them", () => 
               args: { ServerName: "dart-mcp", ToolName: "dtd", Arguments: { command: "connect" } },
             },
             { name: "swarm", args: { action: "status" } },
+            // Nothing closes these in a transcript: no open question, no image "generating".
+            { name: "ask_question", args: { questions: [{ question: "Color?", options: ["Red"] }] } },
+            {
+              name: "invoke_subagent",
+              args: { TypeName: "image-generator", Prompt: "Red circle" },
+            },
           ],
         },
       ];
@@ -480,6 +486,14 @@ describe("readAntigravityTranscriptFile with entries as agy writes them", () => 
         { name: "Read", input: { file_path: "a.txt" } },
         { name: "mcp__dart-mcp__dtd", input: { command: "connect" } },
         { name: "swarm", input: { action: "status" } },
+        {
+          name: "ask_question",
+          input: { questions: [{ question: "Color?", options: ["Red"] }] },
+        },
+        {
+          name: "ImageGeneration",
+          input: { status: "completed", revisedPrompt: "Red circle" },
+        },
       ]);
     } finally {
       rmSync(profileDir, { recursive: true, force: true });

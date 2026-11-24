@@ -1289,7 +1289,19 @@ export function describeStoredToolCall(
       },
     };
   }
-  return describeAcpTool(update, cwd) ?? { toolName: name, input: rawInput };
+  const described = describeAcpTool(update, cwd);
+  // The transcript has no results, so nothing would ever close these: a
+  // question stays a plain call, an image generation is shown as finished.
+  if (!described || described.toolName === "AskUserQuestion") {
+    return { toolName: name, input: rawInput };
+  }
+  if (described.toolName === "ImageGeneration") {
+    return {
+      toolName: described.toolName,
+      input: { ...described.input, status: "completed" },
+    };
+  }
+  return described;
 }
 
 /** The user's own words in a stored `USER_INPUT` entry, without the wrapper agy adds. */
