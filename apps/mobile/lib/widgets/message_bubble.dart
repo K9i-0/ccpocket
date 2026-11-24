@@ -255,7 +255,8 @@ class ServerMessageWidget extends StatelessWidget {
         !hiddenToolUseIds.contains(toolUseId) &&
             // The post is the card itself; its result only repeats the text.
             toolName != swarmPostToolName &&
-            !(toolName == 'Read' &&
+            // Antigravity's step checklist is the card; it has no output.
+            !((toolName == 'Read' || toolName == 'TodoWrite') &&
                 content.trim() == 'Done' &&
                 images.isEmpty &&
                 permissionOutcome == null),

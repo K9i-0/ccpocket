@@ -1749,6 +1749,37 @@ describe("AntigravityProcess plan review", () => {
 });
 
 describe("describeAcpTool", () => {
+  it("turns the step checklist into a todo list", () => {
+    expect(
+      describeAcpTool({
+        kind: "other",
+        name: "update_steps",
+        title: "Run update_steps",
+        rawInput: {
+          steps: [
+            { status: "done", title: "Create a.txt" },
+            { status: "in_progress", title: "Create b.txt" },
+            { status: "pending", title: "Run cat command" },
+            { status: "skipped", title: "Commit" },
+          ],
+        },
+      }),
+    ).toEqual({
+      toolName: "TodoWrite",
+      input: {
+        todos: [
+          { content: "Create a.txt", status: "completed", activeForm: "" },
+          { content: "Create b.txt", status: "in_progress", activeForm: "" },
+          { content: "Run cat command", status: "pending", activeForm: "" },
+          { content: "Commit (skipped)", status: "completed", activeForm: "" },
+        ],
+      },
+    });
+    expect(
+      describeAcpTool({ kind: "other", name: "update_steps", rawInput: {} }),
+    ).toBeUndefined();
+  });
+
   it("names Antigravity tools the way clients render them", () => {
     expect(
       describeAcpTool({ kind: "read", name: "read_file", rawInput: { Path: "/a/b.txt" } }),

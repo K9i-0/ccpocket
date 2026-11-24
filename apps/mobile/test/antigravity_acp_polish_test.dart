@@ -551,6 +551,30 @@ void main() {
     );
   });
   group('ToolResultMessage rendering', () {
+    testWidgets('hides the empty result of a step checklist', (tester) async {
+      expect(
+        ServerMessageWidget.isVisible(
+          const ToolResultMessage(
+            toolUseId: 't1',
+            toolName: 'TodoWrite',
+            content: 'Done',
+          ),
+        ),
+        isFalse,
+      );
+      // Claude's own result text stays.
+      expect(
+        ServerMessageWidget.isVisible(
+          const ToolResultMessage(
+            toolUseId: 't2',
+            toolName: 'TodoWrite',
+            content: 'Todos have been modified successfully.',
+          ),
+        ),
+        isTrue,
+      );
+    });
+
     testWidgets('hides redundant Read Done result bubble', (tester) async {
       expect(
         ServerMessageWidget.isVisible(

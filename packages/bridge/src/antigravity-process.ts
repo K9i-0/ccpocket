@@ -1083,6 +1083,33 @@ export function extractGeneratedImagePaths(
   return existing;
 }
 
+/**
+ * Antigravity's step checklist (`update_steps`, agy 1.5.16) as the todo list
+ * Claude sessions send, so clients draw it with the same checklist. Every call
+ * carries the whole list.
+ */
+function todosFromUpdateSteps(
+  steps: unknown,
+): Array<{ content: string; status: string; activeForm: string }> {
+  if (!Array.isArray(steps)) return [];
+  return steps.filter(isRecord).map((step, index) => {
+    const title = stringOr(step.title).trim() || `Step ${index + 1}`;
+    const raw = stringOr(step.status);
+    if (raw === "pending" || raw === "in_progress") {
+      return { content: title, status: raw, activeForm: "" };
+    }
+    // Skipped and failed steps are finished too; the todo list has no state
+    // for them, so the title says how they ended.
+    if (!raw) return { content: title, status: "pending", activeForm: "" };
+    const done = raw === "done" || raw === "completed";
+    return {
+      content: done ? title : `${title} (${raw})`,
+      status: "completed",
+      activeForm: "",
+    };
+  });
+}
+
 export function describeAcpTool(
   update: Record<string, unknown>,
   cwd = "",
@@ -1107,6 +1134,10 @@ export function describeAcpTool(
       toolName: "AskUserQuestion",
       input: { questions: questionsFromAskQuestion(rawInput) },
     };
+  }
+  if (name === "update_steps") {
+    const todos = todosFromUpdateSteps(rawInput.steps);
+    if (todos.length > 0) return { toolName: "TodoWrite", input: { todos } };
   }
   if (kind === "read") {
     const rawPath =
