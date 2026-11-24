@@ -2,6 +2,24 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.121.0] - 2026-11-24
+
+### Added
+
+- Antigravity sessions: the step checklist (`update_steps`, agy 1.5.16) is sent as a todo list, with skipped and failed steps marked.
+- Antigravity sessions: the plan the Orchestrator hands to its executor (`exit_plan_mode`) is sent as a plan card.
+- Antigravity sessions: timers and background commands are listed as background work while their turn stays open (agy 1.5.15 and later), and the text written before and after the wait are separate messages.
+- Antigravity swarms: an approval that agy forwards to the coordinator's session (agy 1.5.16) names the worker and is kept when the coordinator's turn ends.
+
+### Changed
+
+- Antigravity sessions: a command agy marks as a daemon (a dev server) no longer holds the completion notification back, and stays in the background list when a later turn is cancelled.
+
+### Fixed
+
+- Antigravity sessions: an image generation card stayed on "generating" with agy 1.5.15 and later, because the turn now stays open until the image is done.
+- Antigravity sessions: the history of a session that is not loaded showed the user's prompt with agy's wrapper tags and tools without their input; tools now have the same names and inputs as in a live session.
+
 ## [1.120.1] - 2026-11-24
 
 ### Changed
