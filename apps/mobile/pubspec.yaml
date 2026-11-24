@@ -98,7 +98,7 @@ dependencies:
   vector_math: ^2.4.4
   audio_service: ^0.18.19
   audio_session: ^0.2.4
-  pdfrx: ^2.11.0
+  pdfrx: ^3.1.0
   duo_kit: ^0.2.0
   # Runtime for the FFIgen bindings in lib/services/native/.
   ffi: ^2.1.4
