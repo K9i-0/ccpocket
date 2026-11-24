@@ -68,8 +68,8 @@ dependencies:
   flutter_secure_storage: ^10.0.0
   uuid: ^4.5.1
   super_clipboard: ^0.9.1
-  firebase_core: ^4.15.2
-  firebase_messaging: ^16.1.1
+  firebase_core: ^5.2.0
+  firebase_messaging: ^17.1.0
   # 10.2.3 includes RevenueCat iOS 5.78.0, which fixes Xcode 27 compilation.
   purchases_flutter: ^11.0.4
   package_info_plus: ^9.0.0
