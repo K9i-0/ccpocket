@@ -1825,6 +1825,17 @@ describe("AntigravityProcess plan review", () => {
 });
 
 describe("describeAcpTool", () => {
+  it("shows the Orchestrator's hand-off as a plan", () => {
+    expect(
+      describeAcpTool({
+        kind: "other",
+        name: "exit_plan_mode",
+        title: "Run exit_plan_mode",
+        rawInput: { plan: "1. Create a.txt\n2. Verify" },
+      }),
+    ).toEqual({ toolName: "ExitPlanMode", input: { plan: "1. Create a.txt\n2. Verify" } });
+  });
+
   it("turns the step checklist into a todo list", () => {
     expect(
       describeAcpTool({
@@ -1847,7 +1858,12 @@ describe("describeAcpTool", () => {
           { content: "Create a.txt", status: "completed", activeForm: "" },
           { content: "Create b.txt", status: "in_progress", activeForm: "" },
           { content: "Run cat command", status: "pending", activeForm: "" },
-          { content: "Commit (skipped)", status: "completed", activeForm: "" },
+          {
+            content: "Commit (skipped)",
+            status: "completed",
+            activeForm: "",
+            outcome: "skipped",
+          },
         ],
       },
     });
@@ -2005,6 +2021,42 @@ describe("AntigravityProcess image-generator subagent", () => {
     kind: "other",
     title: "Run invoke_subagent",
     rawInput: { TypeName: "image-generator", Role: "Image Generator", Prompt },
+  });
+
+  it("resolves in the same turn when agy keeps it open until the image is done (agy 1.5.15+)", async () => {
+    const generated = "/home/u/.gemini/antigravity-cli/brain/s1/red_circle.jpg";
+    const { proc, messages, update, endTurn } = await startSession(
+      {},
+      {},
+      (p) => p === generated,
+    );
+    proc.sendInput("赤い丸の画像を作って");
+    update({ sessionUpdate: "usage_update", used: 100, size: 1000 });
+    update({ sessionUpdate: "tool_call", status: "in_progress", ...imageGenCall("img1", "Red circle") });
+    update({ sessionUpdate: "tool_call_update", status: "completed", ...imageGenCall("img1", "Red circle") });
+    // The model is called again while the subagent works: the call runs beside the turn.
+    update({ sessionUpdate: "usage_update", used: 200, size: 1000 });
+    expect(ofType(messages, "background_tasks").at(-1)?.tasks).toEqual([
+      {
+        taskId: "img1",
+        taskType: "antigravity_agent",
+        subagentType: "image-generator",
+        description: "Red circle",
+      },
+    ]);
+    update({
+      sessionUpdate: "agent_message_chunk",
+      content: { type: "text", text: `生成しました。\n\n![赤い丸](${generated})` },
+    });
+    endTurn();
+    await until(() => proc.status === "idle", "turn done");
+
+    expect(ofType(messages, "tool_result").find((m) => m.toolUseId === "img1")).toMatchObject({
+      toolName: "ImageGeneration",
+      content: `status: completed\nrevisedPrompt: Red circle\nsavedPath: ${generated}`,
+    });
+    expect(ofType(messages, "background_tasks").at(-1)?.tasks).toEqual([]);
+    expect(proc.expectsFollowUp).toBe(false);
   });
 
   it("maps image-generator to ImageGeneration and resolves when the follow-up turn reports the file", async () => {

@@ -302,6 +302,42 @@ describe("AntigravityProcess with a swarm", () => {
     proc.stop();
   });
 
+  it("names the worker of a request agy forwards to the coordinator's session (agy 1.5.16)", async () => {
+    const { proc, transport, messages, update } = await startSwarm(appDataDir());
+    const toolCall = {
+      toolCallId: `${WRITER_A}:call_9`,
+      name: "run_command",
+      kind: "execute",
+      title: "echo a > a.txt",
+      rawInput: { CommandLine: "echo a > a.txt" },
+    };
+    update({ sessionUpdate: "tool_call", status: "pending", ...toolCall });
+    transport.emit("message", {
+      jsonrpc: "2.0",
+      id: 79,
+      method: "session/request_permission",
+      params: {
+        sessionId: COORDINATOR,
+        toolCall,
+        options: [
+          { optionId: "allow", kind: "allow_once" },
+          { optionId: "reject", kind: "reject_once" },
+        ],
+      },
+    });
+    expect(toolUses(messages).at(-1)).toMatchObject({
+      id: `${WRITER_A}:call_9`,
+      name: "Bash",
+      input: { command: "echo a > a.txt", swarmWorker: "writer_a" },
+    });
+    expect(ofType(messages, "permission_request")).toHaveLength(1);
+    expect(ofType(messages, "permission_request").at(-1)).toMatchObject({
+      toolUseId: `${WRITER_A}:call_9`,
+      input: { command: "echo a > a.txt", swarmWorker: "writer_a" },
+    });
+    proc.stop();
+  });
+
   it("keeps a worker's request when the coordinator's turn ends or is interrupted", async () => {
     const { proc, transport, endTurn } = await startSwarm(appDataDir());
     transport.emit("message", {

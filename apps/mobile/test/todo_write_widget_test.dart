@@ -225,4 +225,28 @@ void main() {
       expect(find.text('Task 6'), findsOneWidget);
     });
   });
+  group('TodoWriteWidget - steps that ended without being done', () {
+    testWidgets('shows a skipped and a failed step with their own icons', (
+      tester,
+    ) async {
+      final input = _buildInput([
+        _todo('Create x.txt', 'completed'),
+        {
+          ..._todo('Run the command (failed)', 'completed'),
+          'outcome': 'failed',
+        },
+        {..._todo('Push (skipped)', 'completed'), 'outcome': 'skipped'},
+      ]);
+      await tester.pumpWidget(_wrap(TodoWriteWidget(input: input)));
+
+      // The outcome is shown by the icon, not repeated in the title.
+      expect(find.text('Run the command'), findsOneWidget);
+      expect(find.text('Push'), findsOneWidget);
+      expect(find.byIcon(Icons.cancel), findsOneWidget);
+      expect(find.byIcon(Icons.remove_circle_outline), findsOneWidget);
+      expect(find.byIcon(Icons.check_circle), findsOneWidget);
+      // All three are finished.
+      expect(find.textContaining('3/3'), findsOneWidget);
+    });
+  });
 }

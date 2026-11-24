@@ -544,7 +544,7 @@ interface ToolCallState {
   /** Shown another way (a board post), so no tool card. */
   hidden?: boolean;
   /** Built-in `image-generator` subagent call; resolves once the image path arrives. */
-  imageGeneration?: { prompt: string };
+  imageGeneration?: { prompt: string; startedAt: number };
 }
 
 interface ElicitationField {
@@ -1092,9 +1092,9 @@ export function extractGeneratedImagePaths(
  * Claude sessions send, so clients draw it with the same checklist. Every call
  * carries the whole list.
  */
-export function todosFromUpdateSteps(
+function todosFromUpdateSteps(
   steps: unknown,
-): Array<{ content: string; status: string; activeForm: string }> {
+): Array<{ content: string; status: string; activeForm: string; outcome?: string }> {
   // The transcript on disk keeps the list as a JSON string.
   if (typeof steps === "string") {
     try {
@@ -1118,6 +1118,8 @@ export function todosFromUpdateSteps(
       content: done ? title : `${title} (${raw})`,
       status: "completed",
       activeForm: "",
+      // How it ended, for clients that can show it; others read the title.
+      ...(done ? {} : { outcome: raw }),
     };
   });
 }
@@ -1146,6 +1148,12 @@ export function describeAcpTool(
       toolName: "AskUserQuestion",
       input: { questions: questionsFromAskQuestion(rawInput) },
     };
+  }
+  // The Orchestrator's planner hands its plan to the executor with this call.
+  // It asks nothing, so it is the plan card without an approval.
+  if (name === "exit_plan_mode") {
+    const plan = stringOr(rawInput.plan).trim();
+    if (plan) return { toolName: "ExitPlanMode", input: { plan } };
   }
   if (name === "update_steps") {
     const todos = todosFromUpdateSteps(rawInput.steps);
@@ -1219,6 +1227,75 @@ function schemaOptions(schema: Record<string, unknown>): Array<{ value: unknown;
     }));
   }
   return [];
+}
+
+const STORED_TOOL_KINDS: Record<string, string> = {
+  run_command: "execute",
+  write_file: "edit",
+  edit_file: "edit",
+  read_file: "read",
+  search_web: "search",
+  read_url_content: "fetch",
+};
+
+/**
+ * Some transcripts keep every argument as a JSON string (`"\"ls\""`,
+ * `"[{...}]"`); read those back so the tool input looks as it did live.
+ */
+function decodeStoredArgs(args: Record<string, unknown>): Record<string, unknown> {
+  const decoded: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(args)) {
+    decoded[key] = value;
+    if (typeof value !== "string" || !/^["[{]/.test(value)) continue;
+    try {
+      decoded[key] = JSON.parse(value);
+    } catch {
+      // A plain string that only looks like JSON.
+    }
+  }
+  return decoded;
+}
+
+/**
+ * A tool call from the transcript Antigravity keeps on disk
+ * (`{name, args}`), named and shaped like the same call in a live session.
+ */
+export function describeStoredToolCall(
+  name: string,
+  args: Record<string, unknown>,
+  cwd = "",
+): { toolName: string; input: Record<string, unknown> } {
+  const rawInput = decodeStoredArgs(args);
+  const kind = STORED_TOOL_KINDS[name] ?? "other";
+  const update = { name, kind, rawInput };
+  const mcp = mcpToolFromAcp(update);
+  if (mcp) return { toolName: mcp.toolName, input: mcp.input };
+  if (kind === "execute") {
+    const summary = stringOr(rawInput.toolSummary);
+    return {
+      toolName: "Bash",
+      input: {
+        command: stringOr(rawInput.CommandLine),
+        ...(summary ? { description: summary } : {}),
+      },
+    };
+  }
+  if (kind === "edit") {
+    const path = firstString(rawInput, ["Path", "TargetFile", "AbsolutePath"]);
+    return {
+      toolName: "FileChange",
+      input: {
+        changes: path ? [{ path: displayPath(path, cwd), kind: "update", diff: "" }] : [],
+      },
+    };
+  }
+  return describeAcpTool(update, cwd) ?? { toolName: name, input: rawInput };
+}
+
+/** The user's own words in a stored `USER_INPUT` entry, without the wrapper agy adds. */
+export function storedUserInputText(content: string): string {
+  const match = /<USER_REQUEST>\n?([\s\S]*?)\n?<\/USER_REQUEST>/.exec(content);
+  return match ? (match[1] ?? "") : content;
 }
 
 /** Turns an ACP elicitation form schema into the questions clients render. */
@@ -2876,6 +2953,18 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     }
   }
 
+  /**
+   * Since agy 1.5.16 a child agent's call that needs approval is forwarded to
+   * the parent's session with `<child conversation id>:<call id>`. This
+   * happens for a swarm worker whose conversation is not open here yet (or
+   * could not be opened); name it so the approval says whose it is.
+   */
+  private forwardedWorkerName(toolUseId: string): string | undefined {
+    const separator = toolUseId.indexOf(":");
+    if (separator <= 0) return undefined;
+    return this.swarmWorkers.get(toolUseId.slice(0, separator))?.name;
+  }
+
   private noteSwarmWorkerUpdate(
     conversationId: string,
     update: Record<string, unknown>,
@@ -3213,6 +3302,8 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
         toolName = stringOr(update.name) || title || kind;
         input = { ...rawInput };
       }
+      const forwardedFrom = this.forwardedWorkerName(toolUseId);
+      if (forwardedFrom) input = { ...input, swarmWorker: forwardedFrom };
       if (!this.replaying) this.turnToolCalls++;
       const timer = stringOr(update.name) === "schedule";
       const swarmTool = SWARM_TOOL_NAMES.has(stringOr(update.name));
@@ -3240,7 +3331,9 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
         timer,
         background: false,
         ...(rawInput.IsDaemon === true ? { daemon: true } : {}),
-        ...(imageGen ? { imageGeneration: { prompt: imagePrompt } } : {}),
+        ...(imageGen
+          ? { imageGeneration: { prompt: imagePrompt, startedAt: Date.now() } }
+          : {}),
         ...(hidden ? { hidden } : {}),
       };
       this.toolCalls.set(toolUseId, call);
@@ -3312,7 +3405,9 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
           ? `exit code: ${exitCode}`
           : status === "failed"
             ? "Failed"
-            : "Done");
+            : call.toolName === "ExitPlanMode"
+              ? "Plan handed to the executor"
+              : "Done");
     }
     const rawContentBlocks = imageBlocksFromToolContent(update.content);
     this.emitMessage({
@@ -3512,6 +3607,8 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       });
       return;
     }
+    const forwardedFrom = this.forwardedWorkerName(toolUseId);
+    if (forwardedFrom) input = { ...input, swarmWorker: forwardedFrom };
     this.pendingPermissions.set(toolUseId, {
       requestId,
       toolUseId,
@@ -3636,10 +3733,30 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
    * execution, the turn that launched `invoke_subagent` has not yet yielded
    * any generated file (it may still mention input reference images), so only
    * calls that outlived their launch turn (`call.background`) can match.
+   * Since agy 1.5.15 that turn stays open until the image is done, so a call
+   * the model has moved on from (`call.detached`) can match too; there, only
+   * a file written after the launch counts (see `isNewForPendingImages`).
    */
   private resolvableImageGenerationCalls(): Array<[string, ToolCallState]> {
     const all = this.allPendingImageGenerationCalls();
-    return this.replaying ? all : all.filter(([, call]) => call.background);
+    return this.replaying
+      ? all
+      : all.filter(([, call]) => call.background || call.detached);
+  }
+
+  /** Whether an image can be the output of the pending calls, not their input. */
+  private isNewForPendingImages(filePath: string): boolean {
+    if (this.replaying) return true;
+    const inTurn = this.resolvableImageGenerationCalls()
+      .filter(([, call]) => !call.background)
+      .map(([, call]) => call.imageGeneration?.startedAt ?? 0);
+    if (inTurn.length === 0) return true;
+    try {
+      return statSync(filePath).mtimeMs >= Math.min(...inTurn) - 2000;
+    } catch {
+      // Not on disk (unit tests use made-up paths).
+      return true;
+    }
   }
 
   /**
@@ -3697,8 +3814,9 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
           ? imagePaths.slice(i)
           : [imagePaths[i]];
       call.finished = true;
-      if (call.background) {
+      if (call.background || call.detached) {
         call.background = false;
+        call.detached = false;
         backgroundChanged = true;
       }
       this.emitMessage({
@@ -3726,8 +3844,9 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     let backgroundChanged = false;
     for (const [toolUseId, call] of pending) {
       call.finished = true;
-      if (call.background) {
+      if (call.background || call.detached) {
         call.background = false;
+        call.detached = false;
         backgroundChanged = true;
       }
       this.emitMessage({
@@ -3796,7 +3915,8 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
             this.cwd,
             (candidate) =>
               this.isAllowedGeneratedImagePath(candidate) &&
-              this.isImageFile(candidate),
+              this.isImageFile(candidate) &&
+              this.isNewForPendingImages(candidate),
           )
         : [];
     this.emitMessage({

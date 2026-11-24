@@ -196,6 +196,7 @@ class _TodoWriteWidgetState extends State<TodoWriteWidget> {
             content: item['content'] as String? ?? '',
             status: item['status'] as String? ?? 'pending',
             activeForm: item['activeForm'] as String? ?? '',
+            outcome: item['outcome'] as String?,
           );
         })
         .whereType<_TodoItem>()
@@ -215,11 +216,27 @@ class _TodoItem {
   final String status;
   final String activeForm;
 
+  /// How a finished step ended when it was not done: `skipped` or `failed`
+  /// (Antigravity's step checklist). The Bridge also appends it to the title
+  /// for apps that do not know this field.
+  final String? outcome;
+
   const _TodoItem({
     required this.content,
     required this.status,
     required this.activeForm,
+    this.outcome,
   });
+
+  bool get failed => outcome == 'failed';
+
+  /// The title without the outcome the Bridge appended for older apps.
+  String get title {
+    final suffix = ' ($outcome)';
+    return outcome != null && content.endsWith(suffix)
+        ? content.substring(0, content.length - suffix.length)
+        : content;
+  }
 }
 
 class _TodoItemTile extends StatelessWidget {
@@ -251,7 +268,7 @@ class _TodoItemTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  item.content,
+                  item.title,
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: isHighlighted
@@ -260,7 +277,8 @@ class _TodoItemTile extends StatelessWidget {
                     color: item.status == 'completed'
                         ? appColors.subtleText
                         : Theme.of(context).colorScheme.onSurface,
-                    decoration: item.status == 'completed'
+                    // A failed step was not done: leave it readable.
+                    decoration: item.status == 'completed' && !item.failed
                         ? TextDecoration.lineThrough
                         : null,
                   ),
@@ -288,6 +306,11 @@ class _TodoItemTile extends StatelessWidget {
   (IconData, Color) _getStatusIcon(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
 
+    if (item.status == 'completed' && item.outcome != null) {
+      return item.failed
+          ? (Icons.cancel, Theme.of(context).colorScheme.error)
+          : (Icons.remove_circle_outline, appColors.subtleText);
+    }
     return switch (item.status) {
       'completed' => (Icons.check_circle, appColors.statusIdle),
       'in_progress' => (Icons.timelapse, Theme.of(context).colorScheme.primary),
