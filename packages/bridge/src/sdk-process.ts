@@ -1418,7 +1418,17 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       this.queryInstance.interrupt().catch((err) => {
         console.error("[sdk-process] Interrupt error:", err);
       });
+      // Unlike result, stop and restart, an interrupt does not move the
+      // session to idle or starting by itself, so say here that the requests
+      // are gone.
+      const denied = [...this.pendingPermissions.keys()];
       this.denyAllPendingPermissions("Interrupted by user");
+      if (denied.length > 0 && this._status === "waiting_approval") {
+        this.setStatus("running");
+      }
+      for (const toolUseId of denied) {
+        this.emitMessage({ type: "permission_resolved", toolUseId });
+      }
     }
   }
 
@@ -2143,6 +2153,13 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this.authResolutionPending = false;
     this.authResolution = Promise.resolve();
     this.queryInstance = null;
+    // Nothing of the finished query can be answered or delivered any more.
+    // A request left behind is never settled, and a leftover resolver would
+    // feed the next start()'s first input to this dead stream.
+    this.denyAllPendingPermissions("Session ended");
+    this.pendingInputQueue = [];
+    this.pendingSteerQueue = [];
+    this.userMessageResolve = null;
 
     // Emit session_end before exit so listeners can re-persist metadata
     // (e.g. customTitle) that the CLI may have overwritten during shutdown.
@@ -2199,6 +2216,13 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     input: Record<string, unknown>,
     signal: AbortSignal,
   ): Promise<PermissionResult> {
+    // Already cancelled: answer without announcing a request nobody can act on.
+    if (signal.aborted) {
+      return Promise.resolve({
+        behavior: "deny",
+        message: "Permission request aborted",
+      });
+    }
     return new Promise<PermissionResult>((resolve) => {
       const pending: PendingPermission = {
         resolve,
@@ -2221,18 +2245,13 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         this.emitMessage(event);
       }
 
-      // Handle abort (timeout)
-      if (signal.aborted) {
-        this.pendingPermissions.delete(toolUseId);
-        resolve({ behavior: "deny", message: "Permission request aborted" });
-        return;
-      }
-
+      // The SDK withdrew the request. Settle it the same way as a user
+      // decision so the status and the client's card follow.
       signal.addEventListener("abort", () => {
-        if (this.pendingPermissions.has(toolUseId)) {
-          this.pendingPermissions.delete(toolUseId);
-          resolve({ behavior: "deny", message: "Permission request timed out" });
-        }
+        this.resolvePendingPermission(toolUseId, pending, {
+          behavior: "deny",
+          message: "Permission request timed out",
+        });
       }, { once: true });
     });
   }
@@ -2240,8 +2259,9 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   /**
    * Settle every outstanding canUseTool promise with a deny and forget it.
    * The SDK awaits these promises without racing an abort, so dropping them
-   * would leak the request. Intentionally emits no messages or status
-   * changes: callers already move the session to its next state.
+   * would leak the request. Emits no messages or status changes: result,
+   * stop and restart move the session to idle or starting, which clears the
+   * requests on clients, and interrupt() reports them itself.
    */
   private denyAllPendingPermissions(message: string): void {
     if (this.pendingPermissions.size === 0) return;
@@ -2678,7 +2698,10 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     switch (msg.type) {
       case "system": {
         const system = msg as Record<string, unknown>;
-        if (system.subtype === "status") {
+        // Like assistant and user frames, a status frame must not take the
+        // session out of waiting_approval: clients drop a request they are
+        // not told is still waiting.
+        if (system.subtype === "status" && this.pendingPermissions.size === 0) {
           if (system.status === "compacting") {
             this.setStatus("compacting");
           } else if (system.status === "requesting") {

@@ -166,9 +166,16 @@ module permflow {
     }
   }
 
-  // interrupt (:1403)。バックグラウンドタスクの分岐 (:1404-1413) は対象外。
+  // interrupt。バックグラウンドタスクの分岐は対象外。
+  // 保留を拒否し、クライアントに permission_resolved を送り、承認待ちを抜ける。
   pure def interruptP(st: State): State =
-    if (st.queryAlive) denyAll(st) else st
+    if (not(st.queryAlive) or st.pending == Set()) st
+    else {
+      pure val ids = st.pending
+      pure val s1 = denyAll(st)
+      pure val s2 = if (M2) s1 else ids.fold(s1, (acc, i) => emitResolved(acc, i))
+      if (s2.status == "waiting_approval") setStatus(s2, "running") else s2
+    }
 
   // ジェネレーター w が yield した入力が SDK に届く。
   // w が今の query のものでなければ、誰も読まないストリームに落ちる。
@@ -238,8 +245,13 @@ module permflow {
         sdkPromise: s1.sdkPromise.set(id, "waiting"),
       }
       if (preAborted) settle({ ...s2, pending: s2.pending.exclude(Set(id)) }, Set(id)) else s2
+    } else if (preAborted) {
+      // 呼ばれた時点で中止済みなら、登録も通知もせずに拒否を返す。
+      ...st,
+      sdkPromise: st.sdkPromise.set(id, "settled"),
+      settleCount: st.settleCount.set(id, 1),
     } else {
-      // 現行: 登録 (:2198) → 状態 (:2199) → 送信 (:2202) → 溜めた決着イベント (:2209)
+      // 現行: 登録 → 状態 → 送信 → 溜めた決着イベント
       pure val s1 = setStatus(
         {
           ...st,
@@ -249,29 +261,36 @@ module permflow {
         "waiting_approval"
       )
       pure val s2 = emitRequest(s1, id)
-      pure val s3 = if (reentrant) resolvePending(s2, id) else s2
-      // :2214-2217 は表に残っているかを見ずに delete と resolve をする
-      if (preAborted) settle({ ...s3, pending: s3.pending.exclude(Set(id)) }, Set(id)) else s3
+      if (reentrant) resolvePending(s2, id) else s2
     }
 
-  // AbortSignal のリスナー (:2220-2225)。pending に在るときだけ呼ばれる前提。
-  pure def abortP(st: State, id: str): State =
-    settle({ ...st, pending: st.pending.exclude(Set(id)) }, Set(id))
+  // AbortSignal のリスナー。承認・拒否と同じ経路 (resolvePendingPermission) で決着させる。
+  pure def abortP(st: State, id: str): State = resolvePending(st, id)
 
   pure def assistantOrUserP(st: State): State =
     if (st.pending == Set()) setStatus(st, "running") else st
 
+  // 保留があるあいだは assistant / user と同じく状態を動かさない。
   pure def systemP(st: State, kind: str): State =
-    if (kind == "compacting") setStatus(st, "compacting")
+    if (st.pending != Set()) st
+    else if (kind == "compacting") setStatus(st, "compacting")
     else if (kind == "requesting") setStatus(st, "running")
     else if (st.status == "compacting") setStatus(st, "running")
     else st
 
-  // processMessages が例外なしでループを抜けた後 (:2121-2145)。
-  // 保留表・入力キュー・userMessageResolve・stopped には触らない。
+  // processMessages が例外なしでループを抜けた後。stopped は立てないが、
+  // 終わった query に属するもの (保留・入力キュー・userMessageResolve) は stop() と同じく片付ける。
   pure def naturalEndP(st: State): State =
     setStatus(
-      { ...st, queryAlive: false, sdkTurn: false, sdkBacklog: 0, pullPending: false },
+      {
+        ...denyAll(st),
+        queryAlive: false,
+        sdkTurn: false,
+        sdkBacklog: 0,
+        pullPending: false,
+        queueLen: 0,
+        waiter: -1,
+      },
       "idle"
     )
 

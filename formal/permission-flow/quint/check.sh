@@ -28,7 +28,10 @@ trap 'rm -rf "$TMP"' EXIT
 FAILED=0
 fail() { echo "FAIL: $*"; FAILED=1; }
 
-SAFETY="P1a P1b P2 P3 P4_resolved P4_view P4_userDecision P4_app P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput"
+# P4_resolved and P4_view are left out on purpose: result, stop and restart end
+# requests without permission_resolved, and clients clear them on the status
+# change. P4_app states the client view with that rule.
+SAFETY="P1a P1b P2 P3 P4_userDecision P4_app P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput"
 INSTANCES="cur_U cur_min cur_abort cur_bg cur_msgs cur_bgmsgs cur_end cur_reent cur_reab cur_dead cur_bgend cur_plaus m1_U m1_min m2_U m2_min m3_U m3_min"
 
 # ---- 1. typecheck ----
