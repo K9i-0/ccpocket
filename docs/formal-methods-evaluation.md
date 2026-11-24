@@ -310,9 +310,13 @@ FSL と TLA+ の成果物は `formal/permission-flow/evaluation/` に移し、�
 | 承認 | `waiting_approval` → `permission_request` → `running` → `permission_resolved` → ツール実行 → `idle` |
 | 拒否 | `waiting_approval` → `permission_request` → `running` → `permission_resolved` → `idle` |
 
+アプリの画面（iOS シミュレーター）でも、承認と拒否の2通りを確かめた。どちらも承認バーが消え、セッションが待機状態に戻り、入力欄が使えるようになった。
+
+承認待ち中の中断は、画面では確かめられなかった。Claude の承認待ち中は入力欄が承認バーに置き換わり、停止ボタンが出ないため（`apps/mobile/lib/features/claude_session/claude_session_screen.dart`）。今のアプリからはこの経路に入れないので、`interrupt()` の変更が効くのは、承認待ち中に中断を送るクライアントがある場合に限られる。
+
 ### まだ確かめていないこと
 
 - 終了後の入力の拒否、SDK による要求の取り消し、ストリームの正常終了は、本物の SDK では起こせていない。確認は SDK の `query` を差し替えた単体テストと再生テストまで。
-- `interrupt` で `permission_resolved` が届くようになったことの、アプリ側の見え方。既存のメッセージ型なので受け取れるはずだが、画面では確かめていない。
+- 承認待ち中の中断の、アプリ側の見え方（上記の理由）。
 - Bridge のリリースはしていない。
 
