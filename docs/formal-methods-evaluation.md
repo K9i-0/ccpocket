@@ -4,6 +4,8 @@
 
 目的は、形式手法がこのコードベースで役に立つか、どこで使うべきかを知ること。
 
+> **その後**: この比較を受けて Quint を採用し、見つかった疑いのうち7件を直した。経過は末尾の「[採用後](#採用後)」に書いた。「結論」から「再現方法」までは比較時点（コミット `5d75b6f0`）の記録で、行番号もその時点のもの。
+
 ## 結論
 
 - **効果はあった。** 3,661行の既存テスト（`sdk-process.test.ts`）が通っているコードから、3ツールとも同じ8件の「不具合の疑い」を独立に挙げた。どれも実際の `SdkProcess` クラスに同じイベント列を流して再現できた。
@@ -15,7 +17,7 @@
 
 ## やったこと
 
-1. 検証範囲と、確かめたい性質9つ（P1a〜P8）を先に文書にした（[SCOPE.md](../formal/permission-flow/SCOPE.md)）。性質はコードの現状ではなく意図から書いた。
+1. 検証範囲と、確かめたい性質9つ（P1a〜P8）を先に文書にした（[SCOPE.md](../formal/permission-flow/evaluation/SCOPE.md)）。性質はコードの現状ではなく意図から書いた。
 2. 3つのエージェントに同じ文書だけを渡し、互いの成果物を見せずに、コードを読んで仕様を書かせた。
 3. 仕様が空振りしていないかを確かめるため、過去の不具合2つと現行のガード外し1つ（M1〜M3）をモデルに仕込み、検出できるかを見た。
 4. 出てきた反例を、SDK の `query` だけ差し替えた実際の `SdkProcess` に流して再現を確かめた。
@@ -203,15 +205,19 @@ P1a == Quiet => (pending # {} => status = "waiting_approval")
 - UI、CRUD、文字列の変換、パーサ。状態の組み合わせが問題にならない。
 - 外部サービスのふるまいそのもの（SDK がどのフレームをいつ送るか）。仮定としてしか書けない。
 
-## 次にやるなら
+## 比較時点での提案
 
-1. **疑い4（停止後の入力）を直す。** クライアントから届く経路は、SDK の異常終了のあと。プロセスが `exit` してもセッションは `idle` として残り（`session.ts:1080`）、テキスト入力は実行中かを確かめずに `dispatchInput` を呼ぶ（`websocket/handlers/session-input.ts:422`）。入力は `queued: true` の応答つきでキューに積まれ、送られない。ここまではコードを読んで確かめた。WebSocket を通した再現はしていない。
-2. **疑い1・5・7を本物の SDK で確かめる。** 承認待ち中に status フレームが来るか、保留を残して終了するか、ターン外で承認を求めるか。起きるなら直し、起きないなら仮定としてコメントに残す。
-3. **疑い2・3（中止時に通知と状態更新がない）を直すか決める。** 承認の取り消しは実際に起きるので、アプリに古い承認ボタンが残る可能性がある。
-4. **ツールを常用するかは、上の修正のあとで決める。** 今回の1回の印象では Quint を推す。理由は、ランダム実行が速いこと、トレースを実装に流す仕組みが動いたこと、仕様を関数でまとめられること。FSL は証明と JSON 出力が強みだが、今回の範囲では記述の繰り返しが多く、売りのテスト生成が使えなかった。各ツール1回の試行なので、強い根拠ではない。
-5. **CI には入れない。** まず今回の仕様を手元で回せる状態で残し、次に同じ範囲を触るときに使ってみてから判断する。
+1. 疑い4（停止後の入力）を直す。
+2. 疑い1・5・7を本物の SDK で確かめる。
+3. 疑い2・3（中止時に通知と状態更新がない）を直すか決める。
+4. 常用するなら、今回の1回の印象では Quint。ランダム実行が速いこと、トレースを実装に流す仕組みが動いたこと、仕様を関数でまとめられることが理由。各ツール1回の試行なので、強い根拠ではない。
+5. CI には入れず、手元で回せる状態で残す。
+
+このうち 1〜4 は実施し、5 は方針を変えた（下の「採用後」）。
 
 ## 再現方法
+
+比較時点の成果物は `formal/permission-flow/evaluation/` にある。スクリプトは当時のディレクトリ構成（`formal/permission-flow/{fsl,quint,tlaplus}/`）と当時のコードが前提なので、動かすならコミット `5d75b6f0` をチェックアウトする。
 
 道具は `formal/.tools/`（git の対象外）に置く。
 
@@ -221,7 +227,7 @@ P1a == Quiet => (pending # {} => status = "waiting_approval")
 | TLC 1.7.4 | `gh release download v1.7.4 -R tlaplus/tlaplus -p tla2tools.jar` を `formal/.tools/tla/` に |
 | Quint 0.34.0 | `npx -y @informalsystems/quint@0.34.0`（インストール不要） |
 
-リポジトリのルートから実行する。
+`5d75b6f0` のルートから実行する。
 
 ```bash
 bash formal/permission-flow/fsl/run.sh      # 変異解析を除く。全体の時間は未計測
@@ -235,9 +241,9 @@ FSL のスクリプトは通しでは流していない。生成物（`variants/
 
 | ツール | 仕様 | メモ | 集計 | 実装への再生 |
 |---|---|---|---|---|
-| FSL | [permission_flow.fsl](../formal/permission-flow/fsl/permission_flow.fsl) | [NOTES.md](../formal/permission-flow/fsl/NOTES.md) | [SUMMARY.txt](../formal/permission-flow/fsl/out/SUMMARY.txt) | [counterexamples.test.ts](../formal/permission-flow/fsl/sketch/counterexamples.test.ts) |
-| Quint | [permflow.qnt](../formal/permission-flow/quint/permflow.qnt) | [NOTES.md](../formal/permission-flow/quint/NOTES.md) | [results.md](../formal/permission-flow/quint/out/results.md) | [replay.test.ts](../formal/permission-flow/quint/repro/replay.test.ts) |
-| TLA+ | [PermissionFlow.tla](../formal/permission-flow/tlaplus/PermissionFlow.tla) | [NOTES.md](../formal/permission-flow/tlaplus/NOTES.md) | [SUMMARY.txt](../formal/permission-flow/tlaplus/out/SUMMARY.txt) | [replay.test.ts](../formal/permission-flow/tlaplus/replay/replay.test.ts) |
+| FSL | [permission_flow.fsl](../formal/permission-flow/evaluation/fsl/permission_flow.fsl) | [NOTES.md](../formal/permission-flow/evaluation/fsl/NOTES.md) | [SUMMARY.txt](../formal/permission-flow/evaluation/fsl/out/SUMMARY.txt) | [counterexamples.test.ts](../formal/permission-flow/evaluation/fsl/sketch/counterexamples.test.ts) |
+| Quint | 現行版は [permflow.qnt](../formal/permission-flow/quint/permflow.qnt)。比較時点の版は `5d75b6f0` | [NOTES.md](../formal/permission-flow/evaluation/quint/NOTES.md) | [results.md](../formal/permission-flow/evaluation/quint/results.md) | 現行版は [replay.test.ts](../formal/permission-flow/quint/repro/replay.test.ts) |
+| TLA+ | [PermissionFlow.tla](../formal/permission-flow/evaluation/tlaplus/PermissionFlow.tla) | [NOTES.md](../formal/permission-flow/evaluation/tlaplus/NOTES.md) | [SUMMARY.txt](../formal/permission-flow/evaluation/tlaplus/out/SUMMARY.txt) | [replay.test.ts](../formal/permission-flow/evaluation/tlaplus/replay/replay.test.ts) |
 
 ### 流し直して確認した範囲
 
@@ -253,3 +259,60 @@ FSL の再現テストは「あるべき動作」を表明しているので、�
 
 - エージェントが自分のディレクトリの外に書いたものが3件あった。FSL の初期実行が `~/.cache/fslc/` に結果キャッシュを作り、vitest の実行が `packages/bridge/node_modules/.vite/` の時間計測キャッシュを上書きし、Quint 担当が `node_modules/.vitest-cache/` の1エントリを消した。いずれも git の対象外のキャッシュで、ソースには触れていない。
 - FSL の公式インストーラは `~/.claude/skills` と `~/.local/bin` に書き込むので使わず、バイナリとスキル一式をチェックサム確認のうえ直接取得した。
+
+## 採用後
+
+2026-11-24、Quint を採用した。使い方は [formal/permission-flow/README.md](../formal/permission-flow/README.md) と [formal-check スキル](../.claude/skills/formal-check/SKILL.md) にある。
+
+### 入れたもの
+
+- **速い検査（`check.sh`、約2分）**: 型検査、ランダム実行、モデルから作ったトレース300本の実装への再生。CI の `Formal check` で、`formal/` か `sdk-process.ts` が変わったときに走る。
+- **全探索（`full.sh`、約12分、手元で実行）**: TLC で到達できる全状態の安全性と、活性を調べる。Java が要る。
+- **期待結果の一覧**: 破れることが期待される性質を記録し、増えても減っても検査が失敗する。今は仕込んだ退行だけが載っている。
+- **Quint のバージョン固定**: `formal/quint.sh` の1か所。
+
+FSL と TLA+ の成果物は `formal/permission-flow/evaluation/` に移し、保守していない。
+
+### 直したもの
+
+モデルを意図する動作に直す → 性質が成り立つことを確かめる → 再生テストが実装との食い違いを検出する → 実装を直す、の順で進めた。
+
+| 疑い | 修正 | コミット |
+|---|---|---|
+| 4: 終了後の入力がキューに残る | `SdkProcess` は入力を捨て、入力ハンドラは `input_rejected` を返す | `6cc3f63a` |
+| 1: status フレームが承認待ちを上書きする | 保留があるあいだは status フレームで状態を変えない | `22e1f952` |
+| 2: 中止シグナルで通知も状態更新もない | 承認・拒否と同じ経路で決着させ、`permission_resolved` を送る | `22e1f952` |
+| 3: 中止済みの要求を通知してから捨てる | 通知せずに拒否を返す | `22e1f952` |
+| 5: 正常終了で保留が残る | 保留を拒否し、入力キューと入力待ちの状態を片付ける | `22e1f952` |
+| 6: 正常終了 → 再開始 → 入力が消える | 同上（古い入力待ちが残らなくなった） | `22e1f952` |
+| 8: `interrupt()` が承認待ちを抜けない | 拒否した要求を `permission_resolved` で知らせ、`running` にする | `22e1f952` |
+
+- **疑い1・5は、本物の SDK で確かめずに防御的に直した。** 修正は数行で、SDK がその順で送らないなら何も起きない。
+- **疑い8は既存テストの固定を変えた。** `interrupt` では通知しない、と固定していたテストを、通知する形に直した。`result`・`stop`・再開始は従来どおり通知しない。
+- **疑い7は直していない。** ターンの外で承認要求が来る場合に、承認後の入力が渡らなくなる件。SDK がそう動くかが未確認で、直すには「承認待ちに入る前の状態へ戻す」設計の変更が要る。既知の違反として記録した。
+
+### 直したあとの結果
+
+- **安全性**: SDK の仮定12通りすべてで、11の性質が成立した。ランダム実行に加えて、TLC で全状態（インスタンスごとに約3.9万〜10.7万状態）を調べた。
+- **活性**: 「承認要求はいずれ決着する」は調べた9通りすべてで成立。比較時点では、正常終了を許す仮定で破れていた。「入力はいずれ渡る」は、ターンの外の承認要求を許す3通りでだけ破れる（疑い7）。
+- **仕込んだ退行**: 3つとも引き続き検出される。
+- **実装との一致**: 修正後のモデルから作った300本が、修正後の `SdkProcess` と全ステップで一致した。1件目の修正では、モデルだけを直した段階で実装に流すと、300本中298本が食い違った。再生テストが食い違いを検出できることの確認になった。
+
+出題時の性質のうち、「すべての要求に `permission_resolved` が届く」（P4 の厳しい読み）は検査から外した。`result`・`stop`・再開始は通知なしで要求を終わらせ、クライアントは状態の変化で表示を消す設計のため。代わりに、その規則を含めたクライアントの見え方（`P4_app`）を検査している。
+
+### 本物の Claude セッションでの確認
+
+テスト用 Bridge に WebSocket でつなぎ、ファイル作成の承認要求を出させて3通りを確かめた。届いた順は次のとおりで、どれも期待どおりだった。
+
+| 操作 | 届いた順 |
+|---|---|
+| 承認待ち中に中断 | `waiting_approval` → `permission_request` → `running` → `permission_resolved` → `idle` |
+| 承認 | `waiting_approval` → `permission_request` → `running` → `permission_resolved` → ツール実行 → `idle` |
+| 拒否 | `waiting_approval` → `permission_request` → `running` → `permission_resolved` → `idle` |
+
+### まだ確かめていないこと
+
+- 終了後の入力の拒否、SDK による要求の取り消し、ストリームの正常終了は、本物の SDK では起こせていない。確認は SDK の `query` を差し替えた単体テストと再生テストまで。
+- `interrupt` で `permission_resolved` が届くようになったことの、アプリ側の見え方。既存のメッセージ型なので受け取れるはずだが、画面では確かめていない。
+- Bridge のリリースはしていない。
+

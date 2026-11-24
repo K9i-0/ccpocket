@@ -19,6 +19,7 @@ Claude Code / Codex / Antigravity 対応モバイルクライアント。Bridge 
 
 - Bridge のテスト・型チェック: [.claude/skills/test-bridge/SKILL.md](.claude/skills/test-bridge/SKILL.md)
 - Flutter のテスト・解析・整形: [.claude/skills/test-flutter/SKILL.md](.claude/skills/test-flutter/SKILL.md)
+- Claude 用プロセス（`sdk-process.ts`）の権限承認・状態・入力キュー・権限モードの動作変更: [.claude/skills/formal-check/SKILL.md](.claude/skills/formal-check/SKILL.md)
 - Flutter UI の構成・状態管理: [.claude/skills/flutter-ui-design/SKILL.md](.claude/skills/flutter-ui-design/SKILL.md)
 - UIの実行時検証・Bridgeとの統合検証が必要な場合: [.claude/skills/mobile-automation/SKILL.md](.claude/skills/mobile-automation/SKILL.md)
 - 独立レビューが有効な変更、またはレビュー依頼: [.claude/skills/self-review/SKILL.md](.claude/skills/self-review/SKILL.md)

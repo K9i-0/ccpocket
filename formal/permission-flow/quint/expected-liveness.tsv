@@ -1,0 +1,20 @@
+# instance	property	expected	note
+cur_min	P7_fair	ok	
+cur_min	P8_fair	ok	
+cur_abort	P7_fair	ok	
+cur_abort	P8_fair	ok	
+cur_msgs	P7_fair	ok	
+cur_msgs	P8_fair	ok	
+cur_end	P7_fair	ok	
+cur_end	P8_fair	ok	
+cur_dead	P7_fair	ok	
+cur_dead	P8_fair	ok	
+cur_bg	P7_fair	ok	
+cur_bg	P8_fair	violation	known: approving a request that arrived outside a turn leaves status running with no turn to end it
+cur_bgend	P7_fair	ok	
+cur_bgend	P8_fair	violation	known: approving a request that arrived outside a turn leaves status running with no turn to end it
+cur_plaus	P7_fair	ok	
+cur_plaus	P8_fair	violation	known: approving a request that arrived outside a turn leaves status running with no turn to end it
+cur_U	P7_fair	ok	
+cur_U	P8_fair	ok	
+m1_min	P7_fair	violation	M1 leaves the SDK promise unsettled

@@ -1,13 +1,16 @@
-# Raw checker output and generated variants; `run.sh` in each directory rebuilds them.
-*/out/*
-!fsl/out/SUMMARY.txt
-!quint/out/results.md
-!quint/out/summary.tsv
-!tlaplus/out/SUMMARY.txt
-fsl/variants/
-tlaplus/cfg/
-tlaplus/states/
+# Checker output and caches.
+quint/out/
 quint/_apalache-out/
-fsl/sketch/node_modules
+quint/repro/.cache/
 **/.vite/
 **/.vite-cache/
+
+# The frozen evaluation keeps only its summaries; raw output and generated
+# variants were never committed.
+evaluation/*/out/*
+!evaluation/fsl/out/SUMMARY.txt
+!evaluation/tlaplus/out/SUMMARY.txt
+evaluation/fsl/variants/
+evaluation/tlaplus/cfg/
+evaluation/tlaplus/states/
+evaluation/fsl/sketch/node_modules
