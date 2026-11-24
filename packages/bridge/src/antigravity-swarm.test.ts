@@ -303,7 +303,7 @@ describe("AntigravityProcess with a swarm", () => {
   });
 
   it("names the worker of a request agy forwards to the coordinator's session (agy 1.5.16)", async () => {
-    const { proc, transport, messages, update } = await startSwarm(appDataDir());
+    const { proc, transport, messages, update, endTurn } = await startSwarm(appDataDir());
     const toolCall = {
       toolCallId: `${WRITER_A}:call_9`,
       name: "run_command",
@@ -335,6 +335,11 @@ describe("AntigravityProcess with a swarm", () => {
       toolUseId: `${WRITER_A}:call_9`,
       input: { command: "echo a > a.txt", swarmWorker: "writer_a" },
     });
+    // It is the worker's request: the coordinator's turn ending does not drop it.
+    endTurn();
+    await until(() => !proc.isTurnActive, "coordinator turn done");
+    expect(proc.getPendingPermission(`${WRITER_A}:call_9`)).toBeDefined();
+    expect(proc.status).toBe("waiting_approval");
     proc.stop();
   });
 

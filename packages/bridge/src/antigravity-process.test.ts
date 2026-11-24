@@ -1361,6 +1361,33 @@ describe("AntigravityProcess turns that stay open over background work (agy 1.5.
   });
 });
 
+describe("AntigravityProcess with a server left running", () => {
+  it("keeps listing it when a later turn is interrupted", async () => {
+    const { proc, transport, messages, update, endTurn } = await startSession();
+    proc.sendInput("start the server");
+    update({
+      sessionUpdate: "tool_call",
+      status: "in_progress",
+      toolCallId: "srv",
+      name: "run_command",
+      kind: "execute",
+      title: "npm run dev",
+      rawInput: { CommandLine: "npm run dev", IsDaemon: true },
+    });
+    endTurn();
+    await until(() => proc.status === "idle", "first turn done");
+
+    proc.sendInput("something else");
+    proc.interrupt();
+    const second = transport.written.filter((m) => m.method === "session/prompt").at(-1);
+    transport.emit("message", { jsonrpc: "2.0", id: second?.id, result: { stopReason: "cancelled" } });
+    await until(() => proc.status === "idle", "interrupted");
+    expect(ofType(messages, "background_tasks").at(-1)?.tasks).toEqual([
+      { taskId: "srv", taskType: "antigravity_terminal", description: "npm run dev" },
+    ]);
+  });
+});
+
 describe("AntigravityProcess turns the agent starts itself", () => {
   const timer = {
     toolCallId: "sched",

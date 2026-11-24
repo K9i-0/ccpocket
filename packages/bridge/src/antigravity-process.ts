@@ -1245,12 +1245,13 @@ const STORED_TOOL_KINDS: Record<string, string> = {
 function decodeStoredArgs(args: Record<string, unknown>): Record<string, unknown> {
   const decoded: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(args)) {
-    decoded[key] = value;
-    if (typeof value !== "string" || !/^["[{]/.test(value)) continue;
+    // Encoded transcripts encode every value; one that is not a JSON string
+    // means these are the values themselves.
+    if (typeof value !== "string") return args;
     try {
       decoded[key] = JSON.parse(value);
     } catch {
-      // A plain string that only looks like JSON.
+      return args;
     }
   }
   return decoded;
@@ -2350,7 +2351,11 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
   ): void {
     if (!keepOpen) {
       this.closePendingImageGenerations(closeImageStatus);
-      this.toolCalls.clear();
+      // A server started in an earlier turn keeps running whatever happens
+      // to this one.
+      for (const [id, call] of this.toolCalls) {
+        if (!(call.daemon && call.background)) this.toolCalls.delete(id);
+      }
     } else {
       for (const [id, call] of this.toolCalls) {
         if (call.finished || call.rejected) this.toolCalls.delete(id);
@@ -2390,7 +2395,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     for (const [id, call] of this.toolCalls) {
       if (call.finished || call.rejected || call.hidden) continue;
       if (call.background || call.detached) continue;
-      if (this.pendingPermissions.has(id)) continue;
+      if (this.pendingPermissions.has(id) || this.pendingElicitations.has(id)) continue;
       call.detached = true;
       changed = true;
     }
@@ -3280,8 +3285,11 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       // What the agent said before the wait and what it says after it are
       // two messages, with this result between them.
       this.flushAssistant();
-      call.detached = false;
-      this.emitBackgroundTasks();
+      // An image generation closes at once and goes on until its file is named.
+      if (!call.imageGeneration) {
+        call.detached = false;
+        this.emitBackgroundTasks();
+      }
     }
     if (!call) {
       this.flushAssistant();
@@ -3412,14 +3420,15 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
           : cleanCommandOutput(textFromToolContent(update.content));
       const exitCode = rawOutput.exit_code;
       content =
-        output ||
-        (typeof exitCode === "number"
-          ? `exit code: ${exitCode}`
-          : status === "failed"
-            ? "Failed"
-            : call.toolName === "ExitPlanMode"
-              ? "Plan handed to the executor"
-              : "Done");
+        call.toolName === "ExitPlanMode" && status === "completed"
+          ? // The plan card shows the plan; clients hide this row.
+            "Plan handed to the executor"
+          : output ||
+            (typeof exitCode === "number"
+              ? `exit code: ${exitCode}`
+              : status === "failed"
+                ? "Failed"
+                : "Done");
     }
     const rawContentBlocks = imageBlocksFromToolContent(update.content);
     this.emitMessage({
@@ -3628,6 +3637,9 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       input,
       options,
       ...(sessionGrant ? { sessionGrant } : {}),
+      // The worker's request, like one from its own conversation: it outlives
+      // the coordinator's turn and a denial names the worker.
+      ...(forwardedFrom ? { worker: forwardedFrom } : {}),
     });
     // Status first: the session summary broadcast with the request must
     // already say "waiting_approval", or clients drop the approval again.
