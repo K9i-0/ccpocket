@@ -179,6 +179,8 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
 
 ### 自発的なターンと MCP ツール（2026-11-20、APIキー、agy 1.5.12）
 
+> agy 1.5.15 から、タイマーとデーモンでないバックグラウンドのコマンドではターンが開いたままになり、ここに書いた「プロンプトなしのターン」にはならない（「agy 1.5.15 / 1.5.16 での変化」）。デーモンのコマンドと 1.5.14 以前では、以下のとおり。
+
 本番のセッションで「完了扱いなのにツールが動く」「`auto` なのに承認を求められる」が起きたため調べた。
 
 - **`agy` はプロンプトなしでターンを始める。** `schedule`（タイマー）やバックグラウンドタスクが終わると、`agy` が会話にシステムメッセージを足してモデルを起こす。`session/prompt` はすでに応答済みなので、このターンは `session/update` と `session/request_permission` だけで届く。サブエージェントではなく、同じ会話の続き。
@@ -209,6 +211,8 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
 トレース: [trace-swarm.ndjson](antigravity-acp/trace-swarm.ndjson)（worker 1人。coordinator のターン終了後に worker の会話を `session/resume` し、worker の承認要求と更新が届くところ）
 
 ### ACP で見えるもの・見えないもの
+
+> agy 1.5.16 から、worker の承認は会話を開かなくても coordinator の接続に届き、coordinator のターンは swarm が終わるまで開いたままになる（「agy 1.5.15 / 1.5.16 での変化」）。以下は 1.5.13 での記録。
 
 - coordinator のツール呼び出しは `kind: other`、`title: "Run swarm"` などで届き、`rawInput` に引数が入る。**結果（`rawOutput` / `content`）は付かない**ので、worker の一覧も会話IDもボードの中身も ACP からは分からない。
 - `swarm add` のあと coordinator のターンは `end_turn` で終わる（`swarm_wait` も即 `completed` になり、ターンを保持しない）。worker がボードに投稿すると、`agy` が coordinator を起こして自発ターンが始まる（`schedule` と同じ形。上の「自発的なターン」）。
@@ -363,7 +367,8 @@ Bridge の対応:
 
 ### そのほか
 
-- `session/cancel` は、実行中のツール呼び出しを `failed` で閉じてから `cancelled` を返す。Bridge 経由で、結果が 1 回だけ出て `interrupted` になることを確認した。
+- `session/cancel` で、実行中のツール呼び出しが閉じられるようになった（changelog）。Bridge 経由では、実行中のコマンドの結果が `Failed` で 1 回だけ出て `interrupted` になった（生の ACP の順序は記録していない）。
+- 開いたままのターンへの `steer`（タイマー待ちの間に 2 本目の `session/prompt`）は、これまでと同じ形だった。1 本目がすぐ `end_turn` で返り（今回は `usage` つき）、2 本目がタイマーが切れてモデルが書き終えるまで開いたままになる。
 - 存在しない会話の `session/load` は `-32002`（`Session not found`）。Bridge はエラーコードに依存していない。
 - `session/load` はリプレイが終わってから応答する（changelog）。Bridge は応答までをリプレイとして扱うので、変更は要らない。
 - 「`agy` 側の対応待ち」の表を一巡した。`session/fork` / `rewind` / `truncate` / `delete` / `set_title`、`_antigravity/quota` は `-32601` のまま。承認の選択肢は `allow_once` / `reject_once` のまま。APIキーの `auto` は不可のまま。`sessionCapabilities` に追加はない。
@@ -378,6 +383,10 @@ Bridge の対応:
 
 ## 未検証
 
+- Orchestrator のセッションを plan モードにしたとき、計画の文書と `exit_plan_mode` の両方が出るか（Orchestrator は Google ログインが要る）
+- worker の会話を開いているときの、承認の 60 秒の期限（1.5.16）
+- 画像生成で、返事に画像のパスが出なかった場合（カードはターン終了後 5 分で失敗扱いになる。従来どおり）
+- 記録ファイルから読む履歴には、ツールの結果を出していない。未回答で終わった質問は素の `ask_question` の行、画像生成は完了扱いのカードで出す
 - 無料枠の APIキーで `agy` が動くか
 - 無効なキーでプロンプトを送ったときの挙動（Google ログイン側に落ちないか）。確かめるには禁止側の送信になりうるので、検証しない
 - 既定プロファイルで `authenticate` を送ったときの影響と、`oauth-personal` へ戻す経路
@@ -398,13 +407,13 @@ Bridge の対応:
   - MCP ツール（`call_mcp_tool`）は Claude と同じ `mcp__<サーバー>__<ツール>` の名前で出し、入力は `Arguments` の中身にする。「常に許可」は Bridge がサーバーとツールの組で覚える（引数が違っても効く。セッションの間だけ）。
   - `agy` が自分で始めたターン（タイマーやバックグラウンドタスクでの再開）も実行中として扱う。プロンプトが出ていないときに発言・思考・新しいツール呼び出し・承認リクエストが届いたら `running` にし、`usage_update` のあと 5 秒何も届かなければ `result`（`success`、トークン数なし）と `idle` を出す。拒否したツール呼び出しが失敗で閉じたあとも同じ。承認待ちの間は終わらせない。早く終わらせてしまった場合は、次に届いたメッセージでまた `running` になる（`auto` モードの Google ログインでは未検証）。割り込みは `session/cancel` を送ってその場で `interrupted` にする。この間に送った入力はそのターンに合流し、その `session/prompt` の応答でターンが終わる（単体テストのみ。`agy` では未確認）。
   - 正常に終わったターンで開いたままのツール呼び出し（タイマー、バックグラウンドのコマンド）は覚えておき、あとから届く結果を元の呼び出しに付ける。キャンセルやエラーで終わったターンの呼び出しは捨て、遅れて届いた結果は無視する。
-  - ターンが終わっても閉じていない呼び出しを、バックグラウンドの作業として `background_tasks` で送る（Claude / Codex と同じメッセージ。`taskType` は `antigravity_timer` / `antigravity_terminal`、`description` にタイマーの文かコマンド）。そのターンの中で始まった呼び出しは、ターンが終わるまで載せない。
+  - ターンが終わっても閉じていない呼び出しを、バックグラウンドの作業として `background_tasks` で送る（Claude / Codex と同じメッセージ。`taskType` は `antigravity_timer` / `antigravity_terminal`、`description` にタイマーの文かコマンド）。そのターンの中で始まった呼び出しは、モデルが待たずに先へ進んだと分かった時点（次の `usage_update`）で載せる（agy 1.5.15 以降はターンが開いたままになるため。「agy 1.5.15 / 1.5.16 での変化」）。
   - バックグラウンドの呼び出しが閉じたら、`agy` の出力を待たずに `running` にする（出力が届くまで 2〜8 秒あるため）。30 秒何も届かなければ、`result` を出さずに `idle` へ戻す。
-  - 完了の push 通知は、`agy` が自分で続きを始める見込みがある間は保留する（`AntigravityProcess.expectsFollowUp`。保留と解放は Claude と同じ `BackgroundCompletionGate`）。見込みがあるのは、タイマーが残っている間と、バックグラウンドのコマンドが残っていてターンの終わりから 5 分以内の間。5 分を過ぎたコマンドは終わらないもの（開発サーバーなど）とみなし、保留していた最後の完了を通知する。Claude はシェルでは保留しないが、`agy` はコマンドが終わると必ずモデルを起こすので扱いを変えている。画面の完了表示と状態はこれまでどおり出る。
+  - 完了の push 通知は、`agy` が自分で続きを始める見込みがある間は保留する（`AntigravityProcess.expectsFollowUp`。保留と解放は Claude と同じ `BackgroundCompletionGate`）。見込みがあるのは、タイマーが残っている間と、バックグラウンドのコマンドが残っていてターンの終わりから 5 分以内の間。5 分を過ぎたコマンドは終わらないもの（開発サーバーなど）とみなし、保留していた最後の完了を通知する。`IsDaemon` の付いたコマンドは最初から保留の理由にしない（agy 1.5.15 以降、デーモンでないコマンドはターンを開いたままにするので、この 5 分の待ちが要るのは 1.5.14 以前だけ）。Claude はシェルでは保留しないが、`agy` はコマンドが終わると必ずモデルを起こすので扱いを変えている。画面の完了表示と状態はこれまでどおり出る。
   - 質問は `AskUserQuestion` の承認リクエストにして、回答を elicitation の `content` に変換する。
   - plan モードのターンが計画の文書を書いて終わったら、本文用の `ExitPlanMode`（`assistant` の `tool_use`）と `ExitPlanMode` の承認リクエストを出して `PlanCard` を表示する。承認で plan に入る前のモードへ戻し、上記の固定文を送る。拒否に文が付いていればそれを送り、plan モードのまま続ける。
   - 読み取り・検索・取得のツールは `Read`（`StartLine`/`EndLine` を `offset`/`limit` に変換） / `Grep` / `WebSearch` / `WebFetch` として出す。ワークスペース配下は相対パス、`brain/` 配下の文書はファイル名だけで表示する。
-  - `invoke_subagent`（`TypeName: "image-generator"`）は Codex と同じ `ImageGeneration` として出し、起動直後の `completed` では閉じずにバックグラウンドタスク（`antigravity_agent` / `image-generator`）として完了通知を保留する。後続のアシスタント応答で当該セッションの `brain/<セッションID>/` またはワークスペース配下に実在する画像ファイルパスが届いた時点で `tool_result`（`status` / `revisedPrompt` / `savedPath`）を出してカード表示・ギャラリー登録につなげる（`session/load` 再開時はギャラリーへの重複保存を行わず、同じ応答内の Markdown 埋め込み画像も重複添付しない）。
+  - `invoke_subagent`（`TypeName: "image-generator"`）は Codex と同じ `ImageGeneration` として出し、起動直後の `completed` では閉じずにバックグラウンドタスク（`antigravity_agent` / `image-generator`）として完了通知を保留する。後続のアシスタント応答（agy 1.5.15 以降は同じターンの中の、モデルが先へ進んだあとの発言。起動より後に書かれたファイルに限る）で当該セッションの `brain/<セッションID>/` またはワークスペース配下に実在する画像ファイルパスが届いた時点で `tool_result`（`status` / `revisedPrompt` / `savedPath`）を出してカード表示・ギャラリー登録につなげる（`session/load` 再開時はギャラリーへの重複保存を行わず、同じ応答内の Markdown 埋め込み画像も重複添付しない）。
   - コンテキスト使用量（`usage_update`）は設定オブジェクトの `contextUsage` に入れる。実行中はターンの終わりにまとめて送り、アイドル中（`session/load` 完了直後など）は即時に送る。
   - コンテキスト圧縮は、`/compact` 送信時に `status: "compacting"` を出してターン完了時に `context_compaction`（`trigger: "manual"`）を生成するほか、通常ターン中の `usage_update` の大幅減少から自動圧縮（`trigger: "auto"`）も検知する。記録した圧縮境界は `session/load` 再生時にも同じターン位置で再送する。
   - 過去履歴閲覧（`get_session_transcript` / 「以前のやり取りを見る」）は、稼働中・再開済みセッションでは未トリムの `SessionInfo.antigravityTranscript` から返し、未ロードの過去セッションでは `~/.gemini/<プロファイル>/brain/<セッションID>/.system_generated/logs/transcript_full.jsonl`（なければ `transcript.jsonl`）から読み取る。
