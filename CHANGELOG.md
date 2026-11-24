@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.180.1] - 2026-11-24
+
+### Changed
+
+- Updated dependencies: the PDF viewer (pdfrx 3.1), Firebase (firebase_core 5.2, firebase_messaging 17.1), RevenueCat (purchases_flutter 11.0.4), duo_kit 0.2.0, flutter_svg 2.5 and others.
+
 ## [1.180.0] - 2026-11-23
 
 ### Changed

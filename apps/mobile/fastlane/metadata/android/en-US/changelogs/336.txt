@@ -1,0 +1,5 @@
+• The setup guide is redesigned and shorter: four steps, ending with the QR scanner.
+• For a Mac, it recommends CC Pocket for macOS, which starts the Bridge without terminal commands. "Send to Mac" passes the link along.
+• Terminal steps for Linux and Windows are on a second tab.
+• The guide now covers Antigravity and is easier to read in dark mode.
+• Fixed: Settings showed the API key in the connection address after connecting through a pairing link.
