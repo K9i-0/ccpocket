@@ -1,7 +1,7 @@
 # Antigravity（`agy acp`）連携の対応計画
 
 > 調査日: 2026-11-18 / 対象: Antigravity CLI `agy` 1.5.10（ACP protocol version 1）
-> 状態: Bridge とアプリに実装済み（2026-11-19、agy 1.5.12 で確認）。同日、他プロバイダーとの機能差を埋める改修（`antigravity_v2`）を追加した。
+> 状態: Bridge とアプリに実装済み（2026-11-19、agy 1.5.12 で確認）。同日、他プロバイダーとの機能差を埋める改修（`antigravity_v2`）を追加した。2026-11-24 に agy 1.5.16 で一巡し、挙動が変わった箇所を直した（「agy 1.5.15 / 1.5.16 での変化」）。
 > 公開上の位置づけ: 2026-11-19 からプレビュー機能として公開し、2026-11-20 にプレビュー表記を外して Codex / Claude と並ぶ正式なエージェントにした。`agy` があれば自動で表示する。アプリ内のバッジと注記、README・Bridge の README の preview 表記は削除済みで、ストアの説明文・スクリーンショット・LP にも Antigravity を載せている。
 
 Google Antigravity を ccpocket の3つ目のプロバイダーとして扱うための、判断・検証ルール・実装の要点をまとめる。
@@ -281,7 +281,7 @@ Bridge はこの **2ファイルだけ** を読み取り専用で読む。各メ
 |---|---|---|
 | `swarm`（`native_swarm`） | 複数の会話を並行で動かす | 上のとおり対応 |
 | `swarm_narrator` / `swarm_monitor` / `swarm_pane` | swarm の特定の worker 用。Overview（`view.json` / `view.html`）を作る | 追加対応なし。worker として接続され、承認は届く。Overview の表示は CLI / IDE のペイン専用で、ccpocket には出ない |
-| `run-workflow` | Python スクリプトで複数エージェントを起動する `run_workflow` ツール | **未対応**。`run_workflow` 自体の承認は届くが、既定モードでは起動したエージェントが 100 秒たってもファイルを書けなかった（swarm の worker と同じく、子エージェントの承認が届いていないと見られる）。子の会話IDは swarm の名簿のような形では取れない |
+| `run-workflow` | Python スクリプトで複数エージェントを起動する `run_workflow` ツール | agy 1.5.16 から動く。子エージェントの、承認が要るツール呼び出しと承認要求が親の会話に届く（下の「agy 1.5.15 / 1.5.16 での変化」）。既定モードで子エージェントのファイル書き込みを承認して完走した。子エージェントの名前は届かないので、承認に誰のものかは出ない。agy 1.5.15 以前では子エージェントが承認待ちで止まる |
 | `generative_ui` / `ui-plugin-navigation` / `mcp-app-development` | IDE のチャット内ウィジェットやサイドペイン | クライアント側の画面が要る。ccpocket では文章としての説明だけが出る |
 | `automation` | 定期実行の自動化を対話で作る | 通常の会話として動く（作った自動化の実行は `agy` 側） |
 | `agy-customizations` / `antigravity-guide` / `plugin` / `migrate-agent-settings` / `migrate-workflows` / `permissioned-github` | 説明・設定ファイルの作成 | 通常のツール（読み書き・コマンド）だけで動くので、追加対応は不要 |
@@ -298,26 +298,26 @@ Bridge はこの **2ファイルだけ** を読み取り専用で読む。各メ
 - **ACP で選べるのは計画役だけ。** 上の 3 つは計画役の違い。実行役と、計画役・実行役それぞれの思考レベルを選ぶ項目は ACP にない。Orchestrator を選ぶと `configOptions` から `thought_level` が消え、`session/set_config_option` の `thought_level` は `-32602`（`Thinking level "high" is not offered for model "Orchestrator (Argon)"`）、`executor` / `planner` / `orchestrator` などの項目は `Unknown config option`。`agy acp` に `--settings` はない。
 - **CLI の `/model` で選べる組み合わせ**（Google AI Ultra、画面で確認）: 計画役は Gemini 4 Neon / Carbon / Argon / Claude Opus 5.5 の 4 つ、実行役は Gemini 4 Hydrogen / Claude Sonnet 5.5 の 2 つ。思考レベルはそれぞれ選べる（Neon と Hydrogen は low〜xhigh、ほかは low〜high）。実行役に Neon は選べない。計画役が Claude Opus 5.5 の Orchestrator は ACP の一覧に出ない。
 - **設定の保存先**: `/model` で確定すると、プロファイルの `settings.json` に `"model": "Orchestrator (Neon)"` と `"orchestrator": {"executor": "Claude Sonnet 5.5 (Low)"}` が書かれる（既定から変えた役だけが入る）。
-- **`settings.json` の `"orchestrator"` が `agy acp` に効いた形跡は確認できなかった（未確定）。** 実行役を `Claude Sonnet 5.5 (Low)` にしたあとで ccpocket から `Orchestrator (Neon)` のセッションを新しく始めても（`agy acp` はセッションごとに起動する）、会話の記録 `transcript.jsonl` の `model` は、実行役のステップが設定前と同じ `gemini-flash-worker-agy`、計画役が `gemini-pro-orchestrator-neon` だった。ただし `gemini-flash-worker-agy` がモデルを表す名前なのか、実行役という役割の名前なのかは分かっていない（手元の過去の記録に、実行役のほかの名前はない）。CLI で実行役を Sonnet にしたときの記録名も確かめていない（エージェントが CLI にプロンプトを送ることになるため）。決着には、人間が CLI で実行役を Sonnet にして 1 通送り、その会話の `transcript.jsonl` の `model` を見る。
+- **`settings.json` の `"orchestrator"` は `agy acp` に効いていないと見られる（傍証 2 点。未確定）。** 実行役を `Claude Sonnet 5.5 (Low)` にしたあとで ccpocket から `Orchestrator (Neon)` のセッションを新しく始めても（`agy acp` はセッションごとに起動する）、会話の記録 `transcript.jsonl` の `model` は、実行役のステップが設定前と同じ `gemini-flash-worker-agy`、計画役が `gemini-pro-orchestrator-neon` だった。ただし `gemini-flash-worker-agy` がモデルを表す名前なのか、実行役という役割の名前なのかは分かっていない（手元の過去の記録に、実行役のほかの名前はない）。CLI で実行役を Sonnet にしたときの記録名も確かめていない（エージェントが CLI にプロンプトを送ることになるため）。もう 1 点の傍証として、この送信のあとも利用枠の `Claude and GPT models` は未使用のままだった（`agy -p /usage` で残り 1、リセット時刻なし）。Orchestrator の実行役としての Sonnet がこの枠に計上されるかは確かめていない。決着には、人間が CLI で実行役を Sonnet にして 1 通送り、その会話の `transcript.jsonl` の `model` を見る。
 - **動き方**: 計画役が調査して `exit_plan_mode`（`rawInput.plan` に計画の本文）を呼び、そのあと実行役が同じ会話の中でツールを呼ぶ。サブエージェントや別の会話にはならないので、ツール呼び出し・承認・本文はこれまでどおり届く。plan モードではないので承認リクエストは出ず、計画はそのまま実行に進む。
 
 ccpocket での状態:
 
 - 新規セッション画面のモデル一覧に `Orchestrator (Neon / Carbon / Argon)` が出て、選んで動かせる（一覧は `agy` の値をそのまま出している。思考レベルのスライダーは出ない）。チャット画面のモデルのチップにも `Orchestrator (Neon)` と出る。既定の承認モードで、コマンドとファイル編集の承認を返しながら最後まで動いた。
 - 実行役と思考レベルは ccpocket からは選べない。CLI の `/model` で選んだ値が ccpocket のセッションに効くかは未確定（上記）。ACP に項目が増えるまで対応しない（`settings.json` を Bridge が書き換えることはしない）。
-- `exit_plan_mode` は汎用のツール行（`exit_plan_mode` / `Done`）として出る。計画の本文をカードで見せる対応はしていない。
+- `exit_plan_mode` は、計画の本文を入れた `ExitPlanMode`（`tool_use` のみ。承認リクエストは出さない）に変換し、既存のプランカードで表示する。結果行は `Plan handed to the executor`。plan モードの計画（文書を書いて承認を待つ流れ）は 1.5.16 でも変わっていない。
 
 ### ステップのチェックリスト（`update_steps`）
 
 - ACP 標準の `plan` 更新（`sessionUpdate: "plan"`）ではなく、ツール呼び出しとして届く: `name: "update_steps"`、`kind: "other"`、`title: "Run update_steps"`、`rawInput.steps`（`{title, status}` の配列）。`tool_call`（`in_progress`）の直後に `tool_call_update`（`completed`）が届き、出力はない。承認は求めない。
-- 毎回リスト全体が届く（差分ではない）。`status` は `pending` / `in_progress` / `done` を観測した。changelog には skipped と failed の表示もあるが、値は観測していない。
+- 毎回リスト全体が届く（差分ではない）。`status` は `pending` / `in_progress` / `done` / `skipped` / `failed` の 5 つ（ツールの定義。`skipped` 以外は実際に届くのを見た）。
 - `session/load` のリプレイにも含まれる（APIキーで確認）。APIキーの単体モデル（Gemini 3.8 Flash）でも、Google ログインの Orchestrator でも届いた。
-- Bridge は `update_steps` を Claude と同じ `TodoWrite`（`input.todos` の `content` / `status` / `activeForm`）に変換する（`describeAcpTool`）。未ロードの過去セッションを記録ファイルから読む経路（`readAntigravityTranscriptFile`）でも同じ変換をする（記録では `args.steps` が JSON 文字列）。`done` は `completed` にする。`pending` / `in_progress` / `done` 以外の値は、終わったステップとして `completed` にし、タイトルの末尾に `(skipped)` のように状態を付ける。アプリは既存のチェックリスト（`TodoWriteWidget`）で表示する。
+- Bridge は `update_steps` を Claude と同じ `TodoWrite`（`input.todos` の `content` / `status` / `activeForm`）に変換する（`describeAcpTool`）。未ロードの過去セッションを記録ファイルから読む経路（`readAntigravityTranscriptFile`）でも同じ変換をする（記録では `args.steps` が JSON 文字列）。`done` は `completed` にする。`skipped` と `failed` は、終わったステップとして `completed` にし、タイトルの末尾に `(skipped)` のように状態を付けたうえで、任意フィールド `outcome`（`skipped` / `failed`）を足す。アプリは既存のチェックリスト（`TodoWriteWidget`）で表示し、`outcome` があればアイコンを変えて（失敗は赤の ×、スキップは灰色の −）タイトルから接尾辞を外す。
 - 出力のない結果行（`TodoWrite` / `Done`）はアプリで隠す。
 
 互換性:
 
-- プロトコルの追加はない。**古いアプリ + 新しい Bridge** でも `TodoWrite` はチェックリストで表示される（結果行の `Done` は残る）。**新しいアプリ + 古い Bridge** は、これまでどおり `update_steps` の汎用ツール行になる。
+- プロトコルの追加はない。**古いアプリ + 新しい Bridge** でも `TodoWrite` はチェックリストで表示される（結果行の `Done` は残る。`outcome` は無視され、スキップ・失敗はタイトルの接尾辞で読める）。`ExitPlanMode` のプランカードも古いアプリでそのまま出る。**新しいアプリ + 古い Bridge** は、これまでどおり `update_steps` の汎用ツール行になる。
 
 ### 確認したこと
 
@@ -325,13 +325,54 @@ ccpocket での状態:
 - Google ログイン（「例外」の手順。`--antigravity-login` のテスト用 Bridge に、シミュレーターのアプリ画面から 2 通）: 1 通目で `Orchestrator (Neon)` のセッション開始、承認、チェックリストの表示（0/4 → 4/4）、完了までを確認。2 通目は `settings.json` の実行役の指定が効くかの確認（効いた形跡はなく、未確定）。APIキーでは Orchestrator が出ないため。
 - `settings.json` は確認のあいだだけ `/model` で変更し、終了後に元へ戻した。
 
-### 1.5.15 / 1.5.16 の変更で、前提が変わったかもしれない箇所（未確認）
+## agy 1.5.15 / 1.5.16 での変化（2026-11-24、APIキー、agy 1.5.16）
 
-changelog にあり、今回は確かめていない。該当箇所を触るときに調べる。
+1.5.12〜1.5.13 で記録した上の節のうち、次の点が変わっていた。プローブ（生の ACP）とテスト用 Bridge（WebSocket）の両方で確かめた。
 
-- 1.5.15: バックグラウンドのタスクやサブエージェントが残っている間、`session/prompt` が開いたままになり、合算したトークン数を返すようになった（デーモン扱いのタスクは除く）。上の「自発的なターン」は、プロンプトが応答済みであることを前提にしている。
-- 1.5.15: `session/cancel` で、実行中のツール呼び出しが閉じられるようになった。`session/load` はリプレイが終わってから応答するようになり、存在しないセッションIDは `-32002` を返す。
-- 1.5.16: `default` / `accept-edits` で、サブエージェントと workflow のエージェントの承認・質問がエディタへ転送されるようになった（以前は 60 秒で止まった）。「Swarm」の worker への接続と、`run_workflow` 未対応の前提に関わる。
+トレース: [trace-open-turn-timer.ndjson](antigravity-acp/trace-open-turn-timer.ndjson)（タイマーが切れるまで開いたままのターン）、[trace-swarm-forwarded.ndjson](antigravity-acp/trace-swarm-forwarded.ndjson)（worker の会話を開かずに swarm が完走する）、[trace-workflow.ndjson](antigravity-acp/trace-workflow.ndjson)（`run_workflow` の子エージェントの承認）
+
+### ターンが開いたままになる（1.5.15）
+
+- タイマー（`schedule`）、裏に回ったコマンド、サブエージェント（`image-generator`、swarm、workflow）が残っている間、`session/prompt` は応答しない。作業が終わってモデルが続きを書いたあとで、合算したトークン数つきの `end_turn` が 1 回だけ返る。上の「自発的なターン」の形（プロンプトが先に返り、あとから `session/update` だけが届く）は、この種の作業では起きなくなった。
+- 例外はデーモン扱いのコマンド（開発サーバーなど）。`run_command` の `rawInput.IsDaemon: true` で見分けられ、ターンはすぐ終わり、呼び出しは `in_progress` のまま残る（従来の形）。
+- `usage_update` は、ツールを呼ぶ応答ではツール呼び出しの直前に、本文だけの応答では本文のあとに届く。つまり `usage_update` が届いた時点でまだ開いている呼び出しは、モデルが待たずに先へ進んだもの（裏で動いているもの）。
+- 入力の `queue` はターンの終わりまで保留なので、タイマーや裏のコマンドが終わるまで送られない（`agy` の CLI も同じ扱い）。すぐ届けたいときは `steer`。
+
+Bridge の対応:
+
+- **待っているものを見せる**: プロンプトのターン中に `usage_update` が届いたら、その時点で開いている呼び出し（承認待ちを除く）をバックグラウンドの作業として `background_tasks` に載せる（`taskType` は従来どおり）。以前は「ターンが終わるまで載せない」だったので、開いたままのターンでは何を待っているのか分からなかった。
+- **本文を分ける**: 裏の呼び出しが閉じたら、それまでの本文を先に確定する。待つ前の返事と、終わったあとの返事が 1 つの吹き出しにつながらない。
+- **完了通知**: `IsDaemon` のコマンドは、完了通知を保留する理由にしない（5 分の待ちもしない）。バックグラウンドの一覧には残す。`IsDaemon` のないコマンドがターン終了後も開いている場合（1.5.14 以前）は、従来どおり 5 分まで保留する。
+- **画像生成（不具合の修正）**: `image-generator` の結果は「起動したターンのあとの発言」からだけ拾っていたため、1.5.15 以降はカードが「生成中」のまま閉じなかった（画像は本文の添付としてだけ出ていた）。モデルが先へ進んだあとの発言なら同じターンの中でも拾う。入力の参照画像を取り違えないよう、ターン内で拾うのは起動より後に書かれたファイルだけにする。
+- 自発的なターンの扱い（5 秒 / 30 秒の判定）は、デーモンのコマンドが終わったときと 1.5.14 以前のために残している。
+
+### 子エージェントの承認が親に届く（1.5.16）
+
+- swarm の worker と `run_workflow` の子エージェントの、承認が要るツール呼び出しは、**親の会話の `sessionId`** で届く。`toolCallId` は `<子の会話ID>:<呼び出しID>` になり、`tool_call` は `pending` から始まる。承認要求（`session/request_permission`）も同じ ID で親に届き、答えると子が先へ進む。承認が要らない呼び出しは届かない。
+- クライアントが子の会話を `session/resume` で開いている場合、その子の承認は子の `sessionId` で届いた。同じ承認が親にも届くことはなかった（テスト用 Bridge で worker 1 人、承認 3 回）。
+- これにより、worker の会話を開かなくても swarm は完走する。上の「Swarm」に書いた 60 秒の期限が今どうなっているかは確かめていない。
+- `swarm` ツールの結果（worker の一覧、会話ID）は今も ACP に載らない。
+
+Bridge の対応:
+
+- worker の会話を開く動き（名簿を読んで `session/resume`、モードを揃える、ボードを出す）は変えていない。モードを揃えるのに会話を開く必要があるため。
+- 会話を開く前（または開けなかったとき）に親へ届いた worker の呼び出しと承認には、`toolCallId` の会話ID を名簿と突き合わせて `swarmWorker` を付ける。名簿にない ID（workflow の子など）は名前なしで、通常の承認として出る。
+- テスト用 Bridge で、worker 1 人の swarm（承認が worker 名つきで 1 回ずつ届く）と、`run_workflow`（子のファイル書き込みの承認）が完走することを確認した。
+
+### そのほか
+
+- `session/cancel` は、実行中のツール呼び出しを `failed` で閉じてから `cancelled` を返す。Bridge 経由で、結果が 1 回だけ出て `interrupted` になることを確認した。
+- 存在しない会話の `session/load` は `-32002`（`Session not found`）。Bridge はエラーコードに依存していない。
+- `session/load` はリプレイが終わってから応答する（changelog）。Bridge は応答までをリプレイとして扱うので、変更は要らない。
+- 「`agy` 側の対応待ち」の表を一巡した。`session/fork` / `rewind` / `truncate` / `delete` / `set_title`、`_antigravity/quota` は `-32601` のまま。承認の選択肢は `allow_once` / `reject_once` のまま。APIキーの `auto` は不可のまま。`sessionCapabilities` に追加はない。
+
+### 過去の会話の記録ファイル（`transcript_full.jsonl`）
+
+未ロードの過去セッションの履歴表示で読む記録の、実際の形を確かめて読み取りを直した。
+
+- ツール呼び出しは `tool_calls[].name` と `tool_calls[].args`（`arguments` や `input` ではない）。値がそのまま入っている会話と、すべての値が JSON 文字列になっている会話（`"\"ls -la\""`、`"[{...}]"`）の両方がある。
+- `USER_INPUT` の `content` は `<USER_REQUEST>…</USER_REQUEST>` に続けて `<ADDITIONAL_METADATA>` などが付く。
+- 以前の読み取りは、ツールの入力が空になり、ユーザー発言がタグつきのまま出ていた。いまは `<USER_REQUEST>` の中身だけを出し、ツールはライブと同じ名前と入力（`Bash`、`Read`、`FileChange`、`TodoWrite`、`ExitPlanMode`、MCP の `mcp__…`）にする。ツールの結果（`GENERIC` の行）は出していない。
 
 ## 未検証
 
@@ -440,9 +481,9 @@ changelog にあり、今回は確かめていない。該当箇所を触ると�
 | `agy` 自身の「常に許可」 | 承認の選択肢に `allow_always` が出ない。いまは Bridge がセッション内で代行している | `session/request_permission` の `options` に `allow_always` が出るか | 出れば `approveAlways` がそのまま使う（実装済み） |
 | セッションの改名・削除 | `session/set_title`、`session/delete` が `-32601`。名前はいま Bridge が `~/.ccpocket/antigravity-sessions.json` に持つ | メソッドを直接呼ぶ | `renameSession`、`antigravity-store.ts` |
 | APIキーでの `auto` モード | APIキー認証では `auto` が一覧に出ない（OS のターミナルサンドボックスが必要） | APIキーのプロファイルで `session/new` の `modes` を見る | 対応不要（一覧に出れば自動で選べる） |
-| swarm の worker 一覧とボード | `swarm` ツールの結果が ACP に載らず、worker の会話IDが取れない。いまは swarm のファイル2つを読んでいる（上の「Swarm」） | `swarm add` の `tool_call_update` に `rawOutput` が付くか。worker の承認要求が coordinator の接続に届くか（`--attach-swarm` なしのプローブで） | `antigravity-swarm.ts` のファイル読みを ACP の値に置き換える |
+| swarm の worker 一覧とボード | `swarm` ツールの結果が ACP に載らず、worker の会話IDが取れない。いまは swarm のファイル2つを読んでいる（上の「Swarm」）。1.5.16 で承認は親に届くようになったが、一覧・ボード・モードの引き継ぎはまだない | `swarm add` の `tool_call_update` に `rawOutput` が付くか。worker の承認要求が coordinator の接続に届くか（`--attach-swarm` なしのプローブで） | `antigravity-swarm.ts` のファイル読みを ACP の値に置き換える |
 | Orchestrator の実行役と思考レベル | ACP に選ぶ項目がない。`settings.json` の `"orchestrator"` が `agy acp` に効くかは未確定 | Google ログインの `session/new` の `configOptions` に、実行役や Orchestrator の思考レベルの項目が増えていないか | 設定オブジェクトと `set_antigravity_settings` に項目を足し、アプリのモデルのシートに出す |
-| `run_workflow` の子エージェントの承認 | 子エージェントの承認要求が届かず、会話IDも取れない | 既定モードで `/run-workflow` の子エージェントにファイルを書かせる | swarm と同じく子の会話を `session/resume` する |
+| `run_workflow` の子エージェントの名前 | 承認は 1.5.16 から親に届くが（上の「agy 1.5.15 / 1.5.16 での変化」）、誰の呼び出しかは会話ID しか分からない | 親に届く `tool_call` や承認要求に、子の役割名が付くか | `forwardedWorkerName` で名前を付ける |
 
 確認には `scripts/antigravity-acp-probe.mjs`（APIキー）を使う。プロンプトを送らない確認（`initialize`、`session/new`、メソッドの有無）は既定プロファイルでもよい。
 
