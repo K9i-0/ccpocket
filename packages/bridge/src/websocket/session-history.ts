@@ -61,7 +61,9 @@ export async function sessionTranscriptMessages(
       return session.antigravityTranscript;
     }
     if (!session.claudeSessionId) return [];
-    return readAntigravityTranscriptFile(session.claudeSessionId);
+    return readAntigravityTranscriptFile(session.claudeSessionId, {
+      cwd: session.projectPath,
+    });
   }
   if (!session.claudeSessionId) return [];
   return getSessionHistory(session.claudeSessionId);

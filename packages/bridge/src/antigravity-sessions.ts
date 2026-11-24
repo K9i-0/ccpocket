@@ -10,8 +10,9 @@ import {
   StdioAcpTransport,
   buildModelOptions,
   getAntigravityConfig,
+  describeStoredToolCall,
   parseAcpSessionState,
-  todosFromUpdateSteps,
+  storedUserInputText,
   type AntigravityCatalog,
   type AntigravityConfig,
 } from "./antigravity-process.js";
@@ -369,7 +370,7 @@ export function resolveAntigravityProfileDir(
  */
 export async function readAntigravityTranscriptFile(
   sessionId: string,
-  options?: { profileDir?: string; config?: AntigravityConfig },
+  options?: { profileDir?: string; config?: AntigravityConfig; cwd?: string },
 ): Promise<SessionHistoryMessage[]> {
   if (!sessionId || /[\\/]/.test(sessionId)) return [];
   const profileDir =
@@ -411,7 +412,8 @@ export async function readAntigravityTranscriptFile(
       stepIndex !== undefined ? `antigravity:log:${stepIndex}` : undefined;
 
     if (type === "USER_INPUT") {
-      const content = typeof parsed.content === "string" ? parsed.content : "";
+      const content =
+        typeof parsed.content === "string" ? storedUserInputText(parsed.content) : "";
       if (!content.trim()) continue;
       messages.push({
         role: "user",
@@ -439,23 +441,22 @@ export async function readAntigravityTranscriptFile(
             typeof call.id === "string" && call.id
               ? call.id
               : `agy-call-${messages.length}-${blocks.length}`;
-          const input = isRecord(call.arguments)
-            ? call.arguments
-            : isRecord(call.input)
-              ? call.input
-              : {};
-          // The step checklist is drawn as a todo list, as in a live session.
-          const todos =
-            name === "update_steps"
-              ? todosFromUpdateSteps(
-                  (isRecord(call.args) ? call.args : input).steps,
-                )
-              : [];
-          if (todos.length > 0) {
-            blocks.push({ type: "tool_use", id, name: "TodoWrite", input: { todos } });
-            continue;
-          }
-          blocks.push({ type: "tool_use", id, name, input });
+          // agy writes `args`; the other keys are older guesses kept for safety.
+          const args = isRecord(call.args)
+            ? call.args
+            : isRecord(call.arguments)
+              ? call.arguments
+              : isRecord(call.input)
+                ? call.input
+                : {};
+          // Named and shaped as in a live session (Bash, Read, TodoWrite, ...).
+          const described = describeStoredToolCall(name, args, options?.cwd);
+          blocks.push({
+            type: "tool_use",
+            id,
+            name: described.toolName,
+            input: described.input,
+          });
         }
       }
       if (blocks.length === 0) continue;
