@@ -18,10 +18,10 @@ PODS:
   - Firebase/Messaging (12.19.3):
     - Firebase/CoreOnly
     - FirebaseMessaging (~> 12.19.0)
-  - firebase_core (4.15.2):
+  - firebase_core (5.2.0):
     - Firebase/CoreOnly (~> 12.19.3)
     - FlutterMacOS
-  - firebase_messaging (16.7.1):
+  - firebase_messaging (17.1.0):
     - Firebase/CoreOnly (~> 12.19.3)
     - Firebase/Messaging (~> 12.19.3)
     - firebase_core
@@ -97,16 +97,16 @@ PODS:
   - nanopb/encode (3.30910.0)
   - package_info_plus (0.0.1):
     - FlutterMacOS
-  - pdfium_flutter (0.4.2):
+  - pdfium_flutter (0.4.4):
     - Flutter
     - FlutterMacOS
   - PromisesObjC (2.4.1)
-  - purchases_flutter (11.0.1):
+  - purchases_flutter (11.0.4):
     - FlutterMacOS
-    - PurchasesHybridCommon (= 20.3.0)
-  - PurchasesHybridCommon (20.3.0):
-    - RevenueCat (= 5.100.0)
-  - RevenueCat (5.100.0)
+    - PurchasesHybridCommon (= 20.10.0)
+  - PurchasesHybridCommon (20.10.0):
+    - RevenueCat (= 5.103.1)
+  - RevenueCat (5.103.1)
   - share_plus (0.0.1):
     - FlutterMacOS
   - shared_preferences_foundation (0.0.1):
@@ -239,8 +239,8 @@ SPEC CHECKSUMS:
   device_info_plus: 4fb280989f669696856f8b129e4a5e3cd6c48f76
   file_selector_macos: 3af0fddc391c32a6a3956a7d3898ca3a86057a4f
   Firebase: e3c5ab38229ae085490d02398d97b9f5374bbe6e
-  firebase_core: 5485e8b7b603b68dc2ea8137f392820ba7550274
-  firebase_messaging: e38ff1fabf0861df7525c56cf43d6780031c86f5
+  firebase_core: 0d27202319f742c61e9c066c2b6f563a3a83c29f
+  firebase_messaging: 464966fa4716050dcc20a0774aafe36e9f35fdd7
   FirebaseCore: ab948de5d99e69aeed3cd6f5ace263ce795b2559
   FirebaseCoreInternal: 656b1c2fd5a1c5976183dc54b73deda78fb26ee3
   FirebaseInstallations: f70a49eed611f5602f373e40974b3b01556ac217
@@ -257,11 +257,11 @@ SPEC CHECKSUMS:
   mobile_scanner: 9157936403f5a0644ca3779a38ff8404c5434a93
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   package_info_plus: f0052d280d17aa382b932f399edf32507174e870
-  pdfium_flutter: 0d5445288f185431023e76bce901fe315d2f0602
+  pdfium_flutter: b4d44e8bf29a21472edacd3c64ba13fc5204c6ea
   PromisesObjC: 752c3227f599e3467650e47ea36f433eeb10c273
-  purchases_flutter: 219252ab2173833e5f1a44cf1ce7f4a6ab6fa327
-  PurchasesHybridCommon: 317c3a8f157054d0307c3276dd3bc1c229db0d4e
-  RevenueCat: 534bc736ccf97653e4681b1fb3452eb0a396a842
+  purchases_flutter: 0182edbf276f70156ed3cff3d3279f67922a4fc6
+  PurchasesHybridCommon: 078b06728adb4edd8fbdd029c49dcb7e7a7ed5db
+  RevenueCat: 8ba92be7c408dcfc3864742a82cd3a61514872b3
   share_plus: 510bf0af1a42cd602274b4629920c9649c52f4cc
   shared_preferences_foundation: a7c3904f2dedb3701dd1903cb152ef5e7df92422
   Sparkle: b8c9cf4ced217ffc708a1ca5f988a7ba877658db

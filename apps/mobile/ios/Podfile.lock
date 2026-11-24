@@ -11,6 +11,8 @@ PODS:
   - CwlCatchExceptionSupport (2.2.1)
   - device_info_plus (0.0.1):
     - Flutter
+  - duo_kit (0.2.0):
+    - Flutter
   - file_selector_ios (0.0.1):
     - Flutter
   - Firebase/CoreOnly (12.19.3):
@@ -18,10 +20,10 @@ PODS:
   - Firebase/Messaging (12.19.3):
     - Firebase/CoreOnly
     - FirebaseMessaging (~> 12.19.0)
-  - firebase_core (4.15.2):
+  - firebase_core (5.2.0):
     - Firebase/CoreOnly (= 12.19.3)
     - Flutter
-  - firebase_messaging (16.7.1):
+  - firebase_messaging (17.1.0):
     - Firebase/Messaging (= 12.19.3)
     - firebase_core
     - Flutter
@@ -98,16 +100,16 @@ PODS:
   - nanopb/encode (3.30910.0)
   - package_info_plus (0.4.5):
     - Flutter
-  - pdfium_flutter (0.4.2):
+  - pdfium_flutter (0.4.4):
     - Flutter
     - FlutterMacOS
   - PromisesObjC (2.4.1)
-  - purchases_flutter (11.0.1):
+  - purchases_flutter (11.0.4):
     - Flutter
-    - PurchasesHybridCommon (= 20.3.0)
-  - PurchasesHybridCommon (20.3.0):
-    - RevenueCat (= 5.100.0)
-  - RevenueCat (5.100.0)
+    - PurchasesHybridCommon (= 20.10.0)
+  - PurchasesHybridCommon (20.10.0):
+    - RevenueCat (= 5.103.1)
+  - RevenueCat (5.103.1)
   - share_plus (0.0.1):
     - Flutter
   - shared_preferences_foundation (0.0.1):
@@ -135,6 +137,7 @@ DEPENDENCIES:
   - audio_service (from `.symlinks/plugins/audio_service/darwin`)
   - audio_session (from `.symlinks/plugins/audio_session/ios`)
   - device_info_plus (from `.symlinks/plugins/device_info_plus/ios`)
+  - duo_kit (from `.symlinks/plugins/duo_kit/ios`)
   - file_selector_ios (from `.symlinks/plugins/file_selector_ios/ios`)
   - firebase_core (from `.symlinks/plugins/firebase_core/ios`)
   - firebase_messaging (from `.symlinks/plugins/firebase_messaging/ios`)
@@ -184,6 +187,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/audio_session/ios"
   device_info_plus:
     :path: ".symlinks/plugins/device_info_plus/ios"
+  duo_kit:
+    :path: ".symlinks/plugins/duo_kit/ios"
   file_selector_ios:
     :path: ".symlinks/plugins/file_selector_ios/ios"
   firebase_core:
@@ -238,10 +243,11 @@ SPEC CHECKSUMS:
   CwlCatchException: 7acc161b299a6de7f0a46a6ed741eae2c8b4d75a
   CwlCatchExceptionSupport: 54ccab8d8c78907b57f99717fb19d4cc3bce02dc
   device_info_plus: 21fcca2080fbcd348be798aa36c3e5ed849eefbe
+  duo_kit: 3657a552df1412828980b653f2058b0ca5e649e3
   file_selector_ios: fb1dd93b450e9c1ac595c0c8cf29cc855ea24d61
   Firebase: e3c5ab38229ae085490d02398d97b9f5374bbe6e
-  firebase_core: 4d065e808a89f0eaa0df16660666783f9ea13d38
-  firebase_messaging: d66dd9b68ca259955678628aa4f3e4294d055790
+  firebase_core: 3dfbdbe1869428da5f0f89dc721c4ab9998357ac
+  firebase_messaging: ce26daf5b0a5b59b3819f438a39daf858a361ed5
   FirebaseCore: ab948de5d99e69aeed3cd6f5ace263ce795b2559
   FirebaseCoreInternal: 656b1c2fd5a1c5976183dc54b73deda78fb26ee3
   FirebaseInstallations: f70a49eed611f5602f373e40974b3b01556ac217
@@ -259,11 +265,11 @@ SPEC CHECKSUMS:
   mobile_scanner: 9157936403f5a0644ca3779a38ff8404c5434a93
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   package_info_plus: af8e2ca6888548050f16fa2f1938db7b5a5df499
-  pdfium_flutter: 0d5445288f185431023e76bce901fe315d2f0602
+  pdfium_flutter: b4d44e8bf29a21472edacd3c64ba13fc5204c6ea
   PromisesObjC: 752c3227f599e3467650e47ea36f433eeb10c273
-  purchases_flutter: 30f3d290de5e94b22446cddc119f83f16428bc43
-  PurchasesHybridCommon: 317c3a8f157054d0307c3276dd3bc1c229db0d4e
-  RevenueCat: 534bc736ccf97653e4681b1fb3452eb0a396a842
+  purchases_flutter: 102e5b72842cc2b13cc779c2327f33a569c29115
+  PurchasesHybridCommon: 078b06728adb4edd8fbdd029c49dcb7e7a7ed5db
+  RevenueCat: 8ba92be7c408dcfc3864742a82cd3a61514872b3
   share_plus: 50da8cb520a8f0f65671c6c6a99b3617ed10a58a
   shared_preferences_foundation: a7c3904f2dedb3701dd1903cb152ef5e7df92422
   speech_to_text: 3b313d98516d3d0406cea424782ec25470c59d19
