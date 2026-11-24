@@ -106,12 +106,14 @@ else
     q run --main "$1" --invariant true --mbt --n-traces "$2" --max-samples "$2" --max-steps 30 --seed 11 \
       --out-itf "$TMP/itf-$1/t_{seq}.itf.json" $F > "$TMP/gen-$1.txt" 2>&1
     ls "$TMP/itf-$1" | grep -q . || { echo "no traces generated for $1:" >&2; tail -15 "$TMP/gen-$1.txt" >&2; }
-    ITF_DIR="$TMP/itf-$1" "$VITEST" run --config repro/vitest.config.mjs > "$TMP/replay-$1.txt" 2>&1
+    # Plain output wherever this runs: CI turns on colours and its own reporter.
+    ITF_DIR="$TMP/itf-$1" NO_COLOR=1 FORCE_COLOR=0 "$VITEST" run --reporter=default \
+      --config repro/vitest.config.mjs 2>&1 | sed -E 's/\x1b\[[0-9;]*m//g' > "$TMP/replay-$1.txt"
     if ! grep -qE '^ +Tests ' "$TMP/replay-$1.txt"; then
       # vitest did not get as far as running tests: show why.
       tail -25 "$TMP/replay-$1.txt" >&2
     fi
-    grep -E '^ +Tests ' "$TMP/replay-$1.txt" | sed -E 's/\x1b\[[0-9;]*m//g; s/^ +Tests +//'
+    grep -E '^ +Tests ' "$TMP/replay-$1.txt" | sed -E 's/^ +Tests +//'
   }
   r=$(replay cur_U 300)
   echo "replay cur_U: ${r:-error}"
