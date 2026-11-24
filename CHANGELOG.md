@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.181.0] - 2026-11-24
+
+### Added
+
+- Antigravity sessions: the step checklist (agy 1.5.16) is shown as a task list, with their own icons for skipped and failed steps. Requires Bridge 1.121.0.
+- Antigravity sessions: the plan the Orchestrator hands to its executor is shown as a plan card. Requires Bridge 1.121.0.
+
 ## [1.180.1] - 2026-11-24
 
 ### Changed
