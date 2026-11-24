@@ -6,6 +6,8 @@
 //           [--attach-swarm（プロンプト後に swarm の worker の会話を開く。--attach-method session/load も可）]
 //           [--permission-delay <承認への応答を遅らせるミリ秒>]
 //           [--load <sessionId> | --resume <sessionId>] [--wait <プロンプト完了後に待つミリ秒>] --prompt "..." [--prompt "..."]
+//           [--call <method> <params の JSON>（プロンプトのあとに任意のメソッドを呼ぶ。sessionId は自動で入る。複数可）]
+//           [--queue-after <ms> --queue "..."（プロンプト実行中に送らず、指定ミリ秒後に次のプロンプトとして送る）]
 // APIキー用プロファイルで起動し、authenticate(gemini-api-key) のあとモデル一覧が
 // Gemini のみであることを確認できなければ、プロンプトを送らずに終了する。
 import { spawn } from "node:child_process";
@@ -61,7 +63,7 @@ createInterface({ input: child.stdout }).on("line", (line) => {
   } else if (m.method === "session/request_permission") {
     const want = argv.includes("--allow") ? "allow_once" : "reject_once";
     const pick = (m.params?.options ?? []).find((o) => o.kind === want);
-    console.log(`  [承認リクエスト] (${String(m.params?.sessionId).slice(0, 8)}) ${m.params?.toolCall?.title ?? ""} -> ${want}`);
+    console.log(`  [承認リクエスト] (${String(m.params?.sessionId).slice(0, 8)}) id=${m.id} call=${m.params?.toolCall?.toolCallId ?? ""} ${m.params?.toolCall?.title ?? ""} options=${(m.params?.options ?? []).map((o) => o.kind).join(",")} -> ${want}`);
     // --permission-delay: 応答を遅らせて、agy 側の承認待ちの期限を見る
     setTimeout(() => send({ jsonrpc: "2.0", id: m.id, result: pick ? { outcome: { outcome: "selected", optionId: pick.optionId } } : { outcome: { outcome: "cancelled" } } }), Number(opt("--permission-delay") ?? 0));
   } else if (m.id !== undefined) {
@@ -109,6 +111,13 @@ for (const p of prompts) {
   const r = await request("session/prompt", { sessionId, prompt: [{ type: "text", text: p }] });
   console.log(text.trim());
   console.log(`  [結果] ${JSON.stringify(r.result ?? r.error)}`);
+}
+// 任意のメソッド（対応待ちの機能の有無の確認など）
+for (const [i, v] of argv.entries()) {
+  if (v !== "--call") continue;
+  const method = argv[i + 1];
+  const r = await request(method, { sessionId, ...JSON.parse(argv[i + 2] ?? "{}") }, 30000);
+  console.log(`  [${method}] ${JSON.stringify(r.result ?? r.error).slice(0, 400)}`);
 }
 // swarm の worker は別の会話として動く。同じプロセスでその会話を開けるか（更新や承認要求が届くか）を見る
 if (argv.includes("--attach-swarm")) {

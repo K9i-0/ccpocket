@@ -1285,6 +1285,82 @@ describe("AntigravityProcess MCP tools", () => {
   });
 });
 
+describe("AntigravityProcess turns that stay open over background work (agy 1.5.15+)", () => {
+  const timer = {
+    toolCallId: "sched",
+    name: "schedule",
+    kind: "other",
+    title: "Run schedule",
+    rawInput: { DurationSeconds: 10, Prompt: "check the build" },
+  };
+
+  it("lists a timer as background work while its turn goes on, and splits the text around it", async () => {
+    const { proc, messages, update, endTurn } = await startSession();
+    proc.sendInput("go");
+    update({ sessionUpdate: "usage_update", used: 100, size: 1000 });
+    update({ sessionUpdate: "tool_call", status: "in_progress", ...timer });
+    // Not yet: the model has not been called again since the timer was set.
+    expect(ofType(messages, "background_tasks").at(-1)?.tasks ?? []).toEqual([]);
+    update({ sessionUpdate: "agent_message_chunk", content: { text: "Timer set." } });
+    update({ sessionUpdate: "usage_update", used: 120, size: 1000 });
+    expect(ofType(messages, "background_tasks").at(-1)?.tasks).toEqual([
+      { taskId: "sched", taskType: "antigravity_timer", description: "Timer: check the build" },
+    ]);
+    expect(proc.status).toBe("running");
+
+    update({ sessionUpdate: "tool_call_update", status: "completed", ...timer });
+    expect(ofType(messages, "background_tasks").at(-1)?.tasks).toEqual([]);
+    update({ sessionUpdate: "agent_message_chunk", content: { text: "It rang." } });
+    endTurn();
+    await until(() => proc.status === "idle", "turn done");
+
+    const texts = ofType(messages, "assistant").flatMap((m) =>
+      m.message.content.flatMap((c) => (c.type === "text" ? [c.text] : [])),
+    );
+    expect(texts).toEqual(["Timer set.", "It rang."]);
+    expect(results(messages)).toHaveLength(1);
+    expect(proc.expectsFollowUp).toBe(false);
+  });
+
+  it("does not list a call the turn is still waiting on", async () => {
+    const { proc, messages, update } = await startSession();
+    proc.sendInput("go");
+    update({ sessionUpdate: "usage_update", used: 100, size: 1000 });
+    update({
+      sessionUpdate: "tool_call",
+      status: "in_progress",
+      toolCallId: "c1",
+      name: "run_command",
+      kind: "execute",
+      title: "sleep 5",
+      rawInput: { CommandLine: "sleep 5" },
+    });
+    expect(ofType(messages, "background_tasks").at(-1)?.tasks ?? []).toEqual([]);
+  });
+
+  it("does not hold the completion back for a server left running", async () => {
+    const { proc, messages, update, endTurn } = await startSession();
+    proc.sendInput("start the server");
+    update({
+      sessionUpdate: "tool_call",
+      status: "in_progress",
+      toolCallId: "srv",
+      name: "run_command",
+      kind: "execute",
+      title: "npm run dev",
+      rawInput: { CommandLine: "npm run dev", IsDaemon: true },
+    });
+    update({ sessionUpdate: "agent_message_chunk", content: { text: "started" } });
+    endTurn();
+    await until(() => proc.status === "idle", "turn done");
+    expect(proc.expectsFollowUp).toBe(false);
+    // Still listed as running.
+    expect(ofType(messages, "background_tasks").at(-1)?.tasks).toEqual([
+      { taskId: "srv", taskType: "antigravity_terminal", description: "npm run dev" },
+    ]);
+  });
+});
+
 describe("AntigravityProcess turns the agent starts itself", () => {
   const timer = {
     toolCallId: "sched",

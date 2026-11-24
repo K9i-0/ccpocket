@@ -537,6 +537,10 @@ interface ToolCallState {
   timer: boolean;
   /** Still open when its turn ended. */
   background: boolean;
+  /** Still open while its own turn went on (agy 1.5.15 keeps the turn open). */
+  detached?: boolean;
+  /** A command meant to keep running (`IsDaemon`), such as a dev server. */
+  daemon?: boolean;
   /** Shown another way (a board post), so no tool card. */
   hidden?: boolean;
   /** Built-in `image-generator` subagent call; resolves once the image path arrives. */
@@ -1525,7 +1529,8 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     if (this.activeSwarmWorkers().length > 0) return true;
     let command = false;
     for (const call of this.toolCalls.values()) {
-      if (!call.background) continue;
+      // A server left running says nothing more; the turn that started it is done.
+      if (!call.background || call.daemon) continue;
       if (call.timer) return true;
       command = true;
     }
@@ -2260,13 +2265,16 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     } else {
       for (const [id, call] of this.toolCalls) {
         if (call.finished || call.rejected) this.toolCalls.delete(id);
-        else call.background = true;
+        else {
+          call.background = true;
+          call.detached = false;
+        }
       }
     }
     if (this.followUpTimer) clearTimeout(this.followUpTimer);
     this.followUpTimer = null;
     this.followUpDeadline = 0;
-    if ([...this.toolCalls.values()].some((call) => !call.timer)) {
+    if ([...this.toolCalls.values()].some((call) => !call.timer && !call.daemon)) {
       this.followUpDeadline = Date.now() + FOLLOW_UP_WAIT_MS;
       // Lets whoever holds the completion back look again.
       this.followUpTimer = setTimeout(() => {
@@ -2281,11 +2289,30 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     this.emitBackgroundTasks();
   }
 
+  /**
+   * Since agy 1.5.15 a turn stays open while a timer or a background command
+   * runs. A usage report means the model was called again, so whatever was
+   * started before it and is still open now runs beside the turn: list it as
+   * background work, or the session only looks busy with nothing to show.
+   */
+  private noteDetachedCalls(): void {
+    if (this.replaying || this.outstandingPrompts === 0) return;
+    let changed = false;
+    for (const [id, call] of this.toolCalls) {
+      if (call.finished || call.rejected || call.hidden) continue;
+      if (call.background || call.detached) continue;
+      if (this.pendingPermissions.has(id)) continue;
+      call.detached = true;
+      changed = true;
+    }
+    if (changed) this.emitBackgroundTasks();
+  }
+
   /** Calls that outlived their turn, in the shape Claude and Codex report. */
   private emitBackgroundTasks(force = false): void {
     const tasks: BackgroundTaskInfo[] = [];
     for (const [taskId, call] of this.toolCalls) {
-      if (!call.background) continue;
+      if (!call.background && !call.detached) continue;
       tasks.push({
         taskId,
         taskType: call.timer
@@ -3068,6 +3095,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       }
       case "usage_update": {
         this.armSelfTurnEnd();
+        this.noteDetachedCalls();
         const used = numberOr(update.used);
         const size = numberOr(update.size);
         if (used === undefined || size === undefined || size <= 0) return;
@@ -3147,6 +3175,13 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     // Antigravity says nothing more after a denial, not even a usage report.
     else if (call?.rejected) this.armSelfTurnEnd();
     const endsBackground = closing && !!call?.background && !call.finished;
+    if (closing && call?.detached && !call.finished) {
+      // What the agent said before the wait and what it says after it are
+      // two messages, with this result between them.
+      this.flushAssistant();
+      call.detached = false;
+      this.emitBackgroundTasks();
+    }
     if (!call) {
       this.flushAssistant();
       const kind = stringOr(update.kind, "other");
@@ -3204,6 +3239,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
             : stringOr(rawInput.CommandLine, title),
         timer,
         background: false,
+        ...(rawInput.IsDaemon === true ? { daemon: true } : {}),
         ...(imageGen ? { imageGeneration: { prompt: imagePrompt } } : {}),
         ...(hidden ? { hidden } : {}),
       };
