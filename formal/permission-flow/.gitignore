@@ -1,0 +1,13 @@
+# Raw checker output and generated variants; `run.sh` in each directory rebuilds them.
+*/out/*
+!fsl/out/SUMMARY.txt
+!quint/out/results.md
+!quint/out/summary.tsv
+!tlaplus/out/SUMMARY.txt
+fsl/variants/
+tlaplus/cfg/
+tlaplus/states/
+quint/_apalache-out/
+fsl/sketch/node_modules
+**/.vite/
+**/.vite-cache/

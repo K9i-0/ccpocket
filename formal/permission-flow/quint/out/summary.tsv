@@ -1,0 +1,554 @@
+stage	instance	property	result	detail
+sim	cur_U	P1a	violation	samples<=20000 steps<=25; trace states=12
+sim	cur_U	P1b	violation	samples<=20000 steps<=25; trace states=7
+sim	cur_U	P2	ok	samples<=20000 steps<=25
+sim	cur_U	P3	violation	samples<=20000 steps<=25; trace states=2
+sim	cur_U	P4_resolved	violation	samples<=20000 steps<=25; trace states=7
+sim	cur_U	P4_view	violation	samples<=20000 steps<=25; trace states=7
+sim	cur_U	P4_userDecision	ok	samples<=20000 steps<=25
+sim	cur_U	P4_app	violation	samples<=20000 steps<=25; trace states=7
+sim	cur_U	P4_aux_registered	ok	samples<=20000 steps<=25
+sim	cur_U	P5_state	violation	samples<=20000 steps<=25; trace states=12
+sim	cur_U	P5_noEffect	ok	samples<=20000 steps<=25
+sim	cur_U	P6	ok	samples<=20000 steps<=25
+sim	cur_U	P8_noLostInput	violation	samples<=20000 steps<=25; trace states=11
+sim	cur_min	P1a	ok	samples<=20000 steps<=25
+sim	cur_min	P1b	violation	samples<=20000 steps<=25; trace states=23
+sim	cur_min	P2	ok	samples<=20000 steps<=25
+sim	cur_min	P3	ok	samples<=20000 steps<=25
+sim	cur_min	P4_resolved	violation	samples<=20000 steps<=25; trace states=6
+sim	cur_min	P4_view	violation	samples<=20000 steps<=25; trace states=6
+sim	cur_min	P4_userDecision	ok	samples<=20000 steps<=25
+sim	cur_min	P4_app	violation	samples<=20000 steps<=25; trace states=23
+sim	cur_min	P4_aux_registered	ok	samples<=20000 steps<=25
+sim	cur_min	P5_state	ok	samples<=20000 steps<=25
+sim	cur_min	P5_noEffect	ok	samples<=20000 steps<=25
+sim	cur_min	P6	ok	samples<=20000 steps<=25
+sim	cur_min	P8_noLostInput	ok	samples<=20000 steps<=25
+sim	cur_abort	P1a	ok	samples<=20000 steps<=25
+sim	cur_abort	P1b	violation	samples<=20000 steps<=25; trace states=4
+sim	cur_abort	P2	ok	samples<=20000 steps<=25
+sim	cur_abort	P3	ok	samples<=20000 steps<=25
+sim	cur_abort	P4_resolved	violation	samples<=20000 steps<=25; trace states=4
+sim	cur_abort	P4_view	violation	samples<=20000 steps<=25; trace states=4
+sim	cur_abort	P4_userDecision	ok	samples<=20000 steps<=25
+sim	cur_abort	P4_app	violation	samples<=20000 steps<=25; trace states=4
+sim	cur_abort	P4_aux_registered	ok	samples<=20000 steps<=25
+sim	cur_abort	P5_state	ok	samples<=20000 steps<=25
+sim	cur_abort	P5_noEffect	ok	samples<=20000 steps<=25
+sim	cur_abort	P6	ok	samples<=20000 steps<=25
+sim	cur_abort	P8_noLostInput	ok	samples<=20000 steps<=25
+sim	cur_bg	P1a	ok	samples<=20000 steps<=25
+sim	cur_bg	P1b	violation	samples<=20000 steps<=25; trace states=7
+sim	cur_bg	P2	ok	samples<=20000 steps<=25
+sim	cur_bg	P3	ok	samples<=20000 steps<=25
+sim	cur_bg	P4_resolved	violation	samples<=20000 steps<=25; trace states=5
+sim	cur_bg	P4_view	violation	samples<=20000 steps<=25; trace states=5
+sim	cur_bg	P4_userDecision	ok	samples<=20000 steps<=25
+sim	cur_bg	P4_app	violation	samples<=20000 steps<=25; trace states=7
+sim	cur_bg	P4_aux_registered	ok	samples<=20000 steps<=25
+sim	cur_bg	P5_state	ok	samples<=20000 steps<=25
+sim	cur_bg	P5_noEffect	ok	samples<=20000 steps<=25
+sim	cur_bg	P6	ok	samples<=20000 steps<=25
+sim	cur_bg	P8_noLostInput	ok	samples<=20000 steps<=25
+sim	cur_msgs	P1a	violation	samples<=20000 steps<=25; trace states=17
+sim	cur_msgs	P1b	violation	samples<=20000 steps<=25; trace states=16
+sim	cur_msgs	P2	ok	samples<=20000 steps<=25
+sim	cur_msgs	P3	ok	samples<=20000 steps<=25
+sim	cur_msgs	P4_resolved	violation	samples<=20000 steps<=25; trace states=6
+sim	cur_msgs	P4_view	violation	samples<=20000 steps<=25; trace states=6
+sim	cur_msgs	P4_userDecision	ok	samples<=20000 steps<=25
+sim	cur_msgs	P4_app	violation	samples<=20000 steps<=25; trace states=16
+sim	cur_msgs	P4_aux_registered	ok	samples<=20000 steps<=25
+sim	cur_msgs	P5_state	ok	samples<=20000 steps<=25
+sim	cur_msgs	P5_noEffect	ok	samples<=20000 steps<=25
+sim	cur_msgs	P6	ok	samples<=20000 steps<=25
+sim	cur_msgs	P8_noLostInput	ok	samples<=20000 steps<=25
+sim	cur_bgmsgs	P1a	violation	samples<=20000 steps<=25; trace states=6
+sim	cur_bgmsgs	P1b	violation	samples<=20000 steps<=25; trace states=7
+sim	cur_bgmsgs	P2	ok	samples<=20000 steps<=25
+sim	cur_bgmsgs	P3	ok	samples<=20000 steps<=25
+sim	cur_bgmsgs	P4_resolved	violation	samples<=20000 steps<=25; trace states=5
+sim	cur_bgmsgs	P4_view	violation	samples<=20000 steps<=25; trace states=5
+sim	cur_bgmsgs	P4_userDecision	ok	samples<=20000 steps<=25
+sim	cur_bgmsgs	P4_app	violation	samples<=20000 steps<=25; trace states=7
+sim	cur_bgmsgs	P4_aux_registered	ok	samples<=20000 steps<=25
+sim	cur_bgmsgs	P5_state	ok	samples<=20000 steps<=25
+sim	cur_bgmsgs	P5_noEffect	ok	samples<=20000 steps<=25
+sim	cur_bgmsgs	P6	ok	samples<=20000 steps<=25
+sim	cur_bgmsgs	P8_noLostInput	ok	samples<=20000 steps<=25
+sim	cur_end	P1a	ok	samples<=20000 steps<=25
+sim	cur_end	P1b	violation	samples<=20000 steps<=25; trace states=20
+sim	cur_end	P2	ok	samples<=20000 steps<=25
+sim	cur_end	P3	ok	samples<=20000 steps<=25
+sim	cur_end	P4_resolved	violation	samples<=20000 steps<=25; trace states=6
+sim	cur_end	P4_view	violation	samples<=20000 steps<=25; trace states=6
+sim	cur_end	P4_userDecision	ok	samples<=20000 steps<=25
+sim	cur_end	P4_app	violation	samples<=20000 steps<=25; trace states=20
+sim	cur_end	P4_aux_registered	ok	samples<=20000 steps<=25
+sim	cur_end	P5_state	ok	samples<=20000 steps<=25
+sim	cur_end	P5_noEffect	ok	samples<=20000 steps<=25
+sim	cur_end	P6	ok	samples<=20000 steps<=25
+sim	cur_end	P8_noLostInput	violation	samples<=20000 steps<=25; trace states=10
+sim	cur_reent	P1a	ok	samples<=20000 steps<=25
+sim	cur_reent	P1b	violation	samples<=20000 steps<=25; trace states=14
+sim	cur_reent	P2	ok	samples<=20000 steps<=25
+sim	cur_reent	P3	ok	samples<=20000 steps<=25
+sim	cur_reent	P4_resolved	violation	samples<=20000 steps<=25; trace states=12
+sim	cur_reent	P4_view	violation	samples<=20000 steps<=25; trace states=12
+sim	cur_reent	P4_userDecision	ok	samples<=20000 steps<=25
+sim	cur_reent	P4_app	violation	samples<=20000 steps<=25; trace states=14
+sim	cur_reent	P4_aux_registered	ok	samples<=20000 steps<=25
+sim	cur_reent	P5_state	ok	samples<=20000 steps<=25
+sim	cur_reent	P5_noEffect	ok	samples<=20000 steps<=25
+sim	cur_reent	P6	ok	samples<=20000 steps<=25
+sim	cur_reent	P8_noLostInput	ok	samples<=20000 steps<=25
+sim	cur_reab	P1a	ok	samples<=20000 steps<=25
+sim	cur_reab	P1b	violation	samples<=20000 steps<=25; trace states=13
+sim	cur_reab	P2	ok	samples<=20000 steps<=25
+sim	cur_reab	P3	violation	samples<=20000 steps<=25; trace states=12
+sim	cur_reab	P4_resolved	violation	samples<=20000 steps<=25; trace states=9
+sim	cur_reab	P4_view	violation	samples<=20000 steps<=25; trace states=9
+sim	cur_reab	P4_userDecision	ok	samples<=20000 steps<=25
+sim	cur_reab	P4_app	violation	samples<=20000 steps<=25; trace states=9
+sim	cur_reab	P4_aux_registered	ok	samples<=20000 steps<=25
+sim	cur_reab	P5_state	ok	samples<=20000 steps<=25
+sim	cur_reab	P5_noEffect	ok	samples<=20000 steps<=25
+sim	cur_reab	P6	ok	samples<=20000 steps<=25
+sim	cur_reab	P8_noLostInput	ok	samples<=20000 steps<=25
+sim	cur_dead	P1a	ok	samples<=20000 steps<=25
+sim	cur_dead	P1b	violation	samples<=20000 steps<=25; trace states=9
+sim	cur_dead	P2	ok	samples<=20000 steps<=25
+sim	cur_dead	P3	ok	samples<=20000 steps<=25
+sim	cur_dead	P4_resolved	violation	samples<=20000 steps<=25; trace states=6
+sim	cur_dead	P4_view	violation	samples<=20000 steps<=25; trace states=6
+sim	cur_dead	P4_userDecision	ok	samples<=20000 steps<=25
+sim	cur_dead	P4_app	violation	samples<=20000 steps<=25; trace states=9
+sim	cur_dead	P4_aux_registered	ok	samples<=20000 steps<=25
+sim	cur_dead	P5_state	violation	samples<=20000 steps<=25; trace states=12
+sim	cur_dead	P5_noEffect	ok	samples<=20000 steps<=25
+sim	cur_dead	P6	ok	samples<=20000 steps<=25
+sim	cur_dead	P8_noLostInput	ok	samples<=20000 steps<=25
+sim	cur_bgend	P1a	violation	samples<=20000 steps<=25; trace states=6
+sim	cur_bgend	P1b	violation	samples<=20000 steps<=25; trace states=8
+sim	cur_bgend	P2	ok	samples<=20000 steps<=25
+sim	cur_bgend	P3	ok	samples<=20000 steps<=25
+sim	cur_bgend	P4_resolved	violation	samples<=20000 steps<=25; trace states=5
+sim	cur_bgend	P4_view	violation	samples<=20000 steps<=25; trace states=5
+sim	cur_bgend	P4_userDecision	ok	samples<=20000 steps<=25
+sim	cur_bgend	P4_app	violation	samples<=20000 steps<=25; trace states=6
+sim	cur_bgend	P4_aux_registered	ok	samples<=20000 steps<=25
+sim	cur_bgend	P5_state	ok	samples<=20000 steps<=25
+sim	cur_bgend	P5_noEffect	ok	samples<=20000 steps<=25
+sim	cur_bgend	P6	ok	samples<=20000 steps<=25
+sim	cur_bgend	P8_noLostInput	violation	samples<=20000 steps<=25; trace states=8
+sim	cur_plaus	P1a	violation	samples<=20000 steps<=25; trace states=21
+sim	cur_plaus	P1b	violation	samples<=20000 steps<=25; trace states=3
+sim	cur_plaus	P2	ok	samples<=20000 steps<=25
+sim	cur_plaus	P3	violation	samples<=20000 steps<=25; trace states=5
+sim	cur_plaus	P4_resolved	violation	samples<=20000 steps<=25; trace states=7
+sim	cur_plaus	P4_view	violation	samples<=20000 steps<=25; trace states=7
+sim	cur_plaus	P4_userDecision	ok	samples<=20000 steps<=25
+sim	cur_plaus	P4_app	violation	samples<=20000 steps<=25; trace states=3
+sim	cur_plaus	P4_aux_registered	ok	samples<=20000 steps<=25
+sim	cur_plaus	P5_state	violation	samples<=20000 steps<=25; trace states=12
+sim	cur_plaus	P5_noEffect	ok	samples<=20000 steps<=25
+sim	cur_plaus	P6	ok	samples<=20000 steps<=25
+sim	cur_plaus	P8_noLostInput	ok	samples<=20000 steps<=25
+sim	m1_U	P1a	violation	samples<=20000 steps<=25; trace states=12
+sim	m1_U	P1b	violation	samples<=20000 steps<=25; trace states=7
+sim	m1_U	P2	violation	samples<=20000 steps<=25; trace states=10
+sim	m1_U	P3	violation	samples<=20000 steps<=25; trace states=2
+sim	m1_U	P4_resolved	violation	samples<=20000 steps<=25; trace states=7
+sim	m1_U	P4_view	violation	samples<=20000 steps<=25; trace states=7
+sim	m1_U	P4_userDecision	ok	samples<=20000 steps<=25
+sim	m1_U	P4_app	violation	samples<=20000 steps<=25; trace states=7
+sim	m1_U	P4_aux_registered	ok	samples<=20000 steps<=25
+sim	m1_U	P5_state	violation	samples<=20000 steps<=25; trace states=12
+sim	m1_U	P5_noEffect	ok	samples<=20000 steps<=25
+sim	m1_U	P6	ok	samples<=20000 steps<=25
+sim	m1_U	P8_noLostInput	violation	samples<=20000 steps<=25; trace states=11
+sim	m1_min	P1a	ok	samples<=20000 steps<=25
+sim	m1_min	P1b	violation	samples<=20000 steps<=25; trace states=23
+sim	m1_min	P2	violation	samples<=20000 steps<=25; trace states=6
+sim	m1_min	P3	ok	samples<=20000 steps<=25
+sim	m1_min	P4_resolved	ok	samples<=20000 steps<=25
+sim	m1_min	P4_view	violation	samples<=20000 steps<=25; trace states=6
+sim	m1_min	P4_userDecision	ok	samples<=20000 steps<=25
+sim	m1_min	P4_app	violation	samples<=20000 steps<=25; trace states=23
+sim	m1_min	P4_aux_registered	ok	samples<=20000 steps<=25
+sim	m1_min	P5_state	ok	samples<=20000 steps<=25
+sim	m1_min	P5_noEffect	ok	samples<=20000 steps<=25
+sim	m1_min	P6	ok	samples<=20000 steps<=25
+sim	m1_min	P8_noLostInput	ok	samples<=20000 steps<=25
+sim	m2_U	P1a	violation	samples<=20000 steps<=25; trace states=12
+sim	m2_U	P1b	violation	samples<=20000 steps<=25; trace states=7
+sim	m2_U	P2	ok	samples<=20000 steps<=25
+sim	m2_U	P3	ok	samples<=20000 steps<=25
+sim	m2_U	P4_resolved	violation	samples<=20000 steps<=25; trace states=3
+sim	m2_U	P4_view	violation	samples<=20000 steps<=25; trace states=3
+sim	m2_U	P4_userDecision	violation	samples<=20000 steps<=25; trace states=6
+sim	m2_U	P4_app	violation	samples<=20000 steps<=25; trace states=7
+sim	m2_U	P4_aux_registered	violation	samples<=20000 steps<=25; trace states=2
+sim	m2_U	P5_state	violation	samples<=20000 steps<=25; trace states=12
+sim	m2_U	P5_noEffect	ok	samples<=20000 steps<=25
+sim	m2_U	P6	ok	samples<=20000 steps<=25
+sim	m2_U	P8_noLostInput	violation	samples<=20000 steps<=25; trace states=11
+sim	m2_min	P1a	ok	samples<=20000 steps<=25
+sim	m2_min	P1b	violation	samples<=20000 steps<=25; trace states=23
+sim	m2_min	P2	ok	samples<=20000 steps<=25
+sim	m2_min	P3	ok	samples<=20000 steps<=25
+sim	m2_min	P4_resolved	violation	samples<=20000 steps<=25; trace states=6
+sim	m2_min	P4_view	violation	samples<=20000 steps<=25; trace states=6
+sim	m2_min	P4_userDecision	violation	samples<=20000 steps<=25; trace states=22
+sim	m2_min	P4_app	violation	samples<=20000 steps<=25; trace states=23
+sim	m2_min	P4_aux_registered	violation	samples<=20000 steps<=25; trace states=4
+sim	m2_min	P5_state	ok	samples<=20000 steps<=25
+sim	m2_min	P5_noEffect	ok	samples<=20000 steps<=25
+sim	m2_min	P6	ok	samples<=20000 steps<=25
+sim	m2_min	P8_noLostInput	ok	samples<=20000 steps<=25
+sim	m3_U	P1a	violation	samples<=20000 steps<=25; trace states=12
+sim	m3_U	P1b	violation	samples<=20000 steps<=25; trace states=7
+sim	m3_U	P2	ok	samples<=20000 steps<=25
+sim	m3_U	P3	violation	samples<=20000 steps<=25; trace states=2
+sim	m3_U	P4_resolved	violation	samples<=20000 steps<=25; trace states=7
+sim	m3_U	P4_view	violation	samples<=20000 steps<=25; trace states=7
+sim	m3_U	P4_userDecision	ok	samples<=20000 steps<=25
+sim	m3_U	P4_app	violation	samples<=20000 steps<=25; trace states=7
+sim	m3_U	P4_aux_registered	ok	samples<=20000 steps<=25
+sim	m3_U	P5_state	violation	samples<=20000 steps<=25; trace states=12
+sim	m3_U	P5_noEffect	ok	samples<=20000 steps<=25
+sim	m3_U	P6	violation	samples<=20000 steps<=25; trace states=19
+sim	m3_U	P8_noLostInput	violation	samples<=20000 steps<=25; trace states=11
+sim	m3_min	P1a	ok	samples<=20000 steps<=25
+sim	m3_min	P1b	violation	samples<=20000 steps<=25; trace states=23
+sim	m3_min	P2	ok	samples<=20000 steps<=25
+sim	m3_min	P3	ok	samples<=20000 steps<=25
+sim	m3_min	P4_resolved	violation	samples<=20000 steps<=25; trace states=6
+sim	m3_min	P4_view	violation	samples<=20000 steps<=25; trace states=6
+sim	m3_min	P4_userDecision	ok	samples<=20000 steps<=25
+sim	m3_min	P4_app	violation	samples<=20000 steps<=25; trace states=23
+sim	m3_min	P4_aux_registered	ok	samples<=20000 steps<=25
+sim	m3_min	P5_state	ok	samples<=20000 steps<=25
+sim	m3_min	P5_noEffect	ok	samples<=20000 steps<=25
+sim	m3_min	P6	violation	samples<=20000 steps<=25; trace states=20
+sim	m3_min	P8_noLostInput	ok	samples<=20000 steps<=25
+tlc	cur_U_s	P1a	skipped	simulator already found a counterexample
+tlc	cur_U_s	P1b	skipped	simulator already found a counterexample
+tlc	cur_U_s	P3	skipped	simulator already found a counterexample
+tlc	cur_U_s	P4_resolved	skipped	simulator already found a counterexample
+tlc	cur_U_s	P4_view	skipped	simulator already found a counterexample
+tlc	cur_U_s	P4_app	skipped	simulator already found a counterexample
+tlc	cur_U_s	P5_state	skipped	simulator already found a counterexample
+tlc	cur_U_s	P8_noLostInput	skipped	simulator already found a counterexample
+tlc	cur_U_s	P2	ok	exhaustive (checked together: P2 P4_userDecision P4_aux_registered P5_noEffect P6); 347160 distinct states; depth 19
+tlc	cur_U_s	P4_userDecision	ok	exhaustive (checked together: P2 P4_userDecision P4_aux_registered P5_noEffect P6); 347160 distinct states; depth 19
+tlc	cur_U_s	P4_aux_registered	ok	exhaustive (checked together: P2 P4_userDecision P4_aux_registered P5_noEffect P6); 347160 distinct states; depth 19
+tlc	cur_U_s	P5_noEffect	ok	exhaustive (checked together: P2 P4_userDecision P4_aux_registered P5_noEffect P6); 347160 distinct states; depth 19
+tlc	cur_U_s	P6	ok	exhaustive (checked together: P2 P4_userDecision P4_aux_registered P5_noEffect P6); 347160 distinct states; depth 19
+tlc	cur_min_s	P1b	skipped	simulator already found a counterexample
+tlc	cur_min_s	P4_resolved	skipped	simulator already found a counterexample
+tlc	cur_min_s	P4_view	skipped	simulator already found a counterexample
+tlc	cur_min_s	P4_app	skipped	simulator already found a counterexample
+tlc	cur_min_s	P1a	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 41672 distinct states; depth 18
+tlc	cur_min_s	P2	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 41672 distinct states; depth 18
+tlc	cur_min_s	P3	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 41672 distinct states; depth 18
+tlc	cur_min_s	P4_userDecision	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 41672 distinct states; depth 18
+tlc	cur_min_s	P4_aux_registered	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 41672 distinct states; depth 18
+tlc	cur_min_s	P5_state	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 41672 distinct states; depth 18
+tlc	cur_min_s	P5_noEffect	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 41672 distinct states; depth 18
+tlc	cur_min_s	P6	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 41672 distinct states; depth 18
+tlc	cur_min_s	P8_noLostInput	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 41672 distinct states; depth 18
+tlc	cur_abort_s	P1b	skipped	simulator already found a counterexample
+tlc	cur_abort_s	P4_resolved	skipped	simulator already found a counterexample
+tlc	cur_abort_s	P4_view	skipped	simulator already found a counterexample
+tlc	cur_abort_s	P4_app	skipped	simulator already found a counterexample
+tlc	cur_abort_s	P1a	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 41672 distinct states; depth 18
+tlc	cur_abort_s	P2	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 41672 distinct states; depth 18
+tlc	cur_abort_s	P3	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 41672 distinct states; depth 18
+tlc	cur_abort_s	P4_userDecision	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 41672 distinct states; depth 18
+tlc	cur_abort_s	P4_aux_registered	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 41672 distinct states; depth 18
+tlc	cur_abort_s	P5_state	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 41672 distinct states; depth 18
+tlc	cur_abort_s	P5_noEffect	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 41672 distinct states; depth 18
+tlc	cur_abort_s	P6	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 41672 distinct states; depth 18
+tlc	cur_abort_s	P8_noLostInput	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 41672 distinct states; depth 18
+tlc	cur_bg_s	P1b	skipped	simulator already found a counterexample
+tlc	cur_bg_s	P4_resolved	skipped	simulator already found a counterexample
+tlc	cur_bg_s	P4_view	skipped	simulator already found a counterexample
+tlc	cur_bg_s	P4_app	skipped	simulator already found a counterexample
+tlc	cur_bg_s	P1a	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 58376 distinct states; depth 18
+tlc	cur_bg_s	P2	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 58376 distinct states; depth 18
+tlc	cur_bg_s	P3	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 58376 distinct states; depth 18
+tlc	cur_bg_s	P4_userDecision	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 58376 distinct states; depth 18
+tlc	cur_bg_s	P4_aux_registered	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 58376 distinct states; depth 18
+tlc	cur_bg_s	P5_state	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 58376 distinct states; depth 18
+tlc	cur_bg_s	P5_noEffect	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 58376 distinct states; depth 18
+tlc	cur_bg_s	P6	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 58376 distinct states; depth 18
+tlc	cur_bg_s	P8_noLostInput	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 58376 distinct states; depth 18
+tlc	cur_msgs_s	P1a	skipped	simulator already found a counterexample
+tlc	cur_msgs_s	P1b	skipped	simulator already found a counterexample
+tlc	cur_msgs_s	P4_resolved	skipped	simulator already found a counterexample
+tlc	cur_msgs_s	P4_view	skipped	simulator already found a counterexample
+tlc	cur_msgs_s	P4_app	skipped	simulator already found a counterexample
+tlc	cur_msgs_s	P2	ok	exhaustive (checked together: P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 53192 distinct states; depth 17
+tlc	cur_msgs_s	P3	ok	exhaustive (checked together: P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 53192 distinct states; depth 17
+tlc	cur_msgs_s	P4_userDecision	ok	exhaustive (checked together: P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 53192 distinct states; depth 17
+tlc	cur_msgs_s	P4_aux_registered	ok	exhaustive (checked together: P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 53192 distinct states; depth 17
+tlc	cur_msgs_s	P5_state	ok	exhaustive (checked together: P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 53192 distinct states; depth 17
+tlc	cur_msgs_s	P5_noEffect	ok	exhaustive (checked together: P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 53192 distinct states; depth 17
+tlc	cur_msgs_s	P6	ok	exhaustive (checked together: P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 53192 distinct states; depth 17
+tlc	cur_msgs_s	P8_noLostInput	ok	exhaustive (checked together: P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 53192 distinct states; depth 17
+tlc	cur_bgmsgs_s	P1a	skipped	simulator already found a counterexample
+tlc	cur_bgmsgs_s	P1b	skipped	simulator already found a counterexample
+tlc	cur_bgmsgs_s	P4_resolved	skipped	simulator already found a counterexample
+tlc	cur_bgmsgs_s	P4_view	skipped	simulator already found a counterexample
+tlc	cur_bgmsgs_s	P4_app	skipped	simulator already found a counterexample
+tlc	cur_bgmsgs_s	P2	ok	exhaustive (checked together: P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 69896 distinct states; depth 18
+tlc	cur_bgmsgs_s	P3	ok	exhaustive (checked together: P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 69896 distinct states; depth 18
+tlc	cur_bgmsgs_s	P4_userDecision	ok	exhaustive (checked together: P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 69896 distinct states; depth 18
+tlc	cur_bgmsgs_s	P4_aux_registered	ok	exhaustive (checked together: P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 69896 distinct states; depth 18
+tlc	cur_bgmsgs_s	P5_state	ok	exhaustive (checked together: P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 69896 distinct states; depth 18
+tlc	cur_bgmsgs_s	P5_noEffect	ok	exhaustive (checked together: P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 69896 distinct states; depth 18
+tlc	cur_bgmsgs_s	P6	ok	exhaustive (checked together: P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 69896 distinct states; depth 18
+tlc	cur_bgmsgs_s	P8_noLostInput	ok	exhaustive (checked together: P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 69896 distinct states; depth 18
+tlc	cur_end_s	P1b	skipped	simulator already found a counterexample
+tlc	cur_end_s	P4_resolved	skipped	simulator already found a counterexample
+tlc	cur_end_s	P4_view	skipped	simulator already found a counterexample
+tlc	cur_end_s	P4_app	skipped	simulator already found a counterexample
+tlc	cur_end_s	P8_noLostInput	skipped	simulator already found a counterexample
+tlc	cur_end_s	P1a	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6); 72800 distinct states; depth 19
+tlc	cur_end_s	P2	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6); 72800 distinct states; depth 19
+tlc	cur_end_s	P3	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6); 72800 distinct states; depth 19
+tlc	cur_end_s	P4_userDecision	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6); 72800 distinct states; depth 19
+tlc	cur_end_s	P4_aux_registered	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6); 72800 distinct states; depth 19
+tlc	cur_end_s	P5_state	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6); 72800 distinct states; depth 19
+tlc	cur_end_s	P5_noEffect	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6); 72800 distinct states; depth 19
+tlc	cur_end_s	P6	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6); 72800 distinct states; depth 19
+tlc	cur_reent_s	P1b	skipped	simulator already found a counterexample
+tlc	cur_reent_s	P4_resolved	skipped	simulator already found a counterexample
+tlc	cur_reent_s	P4_view	skipped	simulator already found a counterexample
+tlc	cur_reent_s	P4_app	skipped	simulator already found a counterexample
+tlc	cur_reent_s	P1a	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 41672 distinct states; depth 19
+tlc	cur_reent_s	P2	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 41672 distinct states; depth 19
+tlc	cur_reent_s	P3	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 41672 distinct states; depth 19
+tlc	cur_reent_s	P4_userDecision	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 41672 distinct states; depth 19
+tlc	cur_reent_s	P4_aux_registered	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 41672 distinct states; depth 19
+tlc	cur_reent_s	P5_state	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 41672 distinct states; depth 19
+tlc	cur_reent_s	P5_noEffect	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 41672 distinct states; depth 19
+tlc	cur_reent_s	P6	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 41672 distinct states; depth 19
+tlc	cur_reent_s	P8_noLostInput	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 41672 distinct states; depth 19
+tlc	cur_reab_s	P1b	skipped	simulator already found a counterexample
+tlc	cur_reab_s	P3	skipped	simulator already found a counterexample
+tlc	cur_reab_s	P4_resolved	skipped	simulator already found a counterexample
+tlc	cur_reab_s	P4_view	skipped	simulator already found a counterexample
+tlc	cur_reab_s	P4_app	skipped	simulator already found a counterexample
+tlc	cur_reab_s	P1a	ok	exhaustive (checked together: P1a P2 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 61240 distinct states; depth 18
+tlc	cur_reab_s	P2	ok	exhaustive (checked together: P1a P2 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 61240 distinct states; depth 18
+tlc	cur_reab_s	P4_userDecision	ok	exhaustive (checked together: P1a P2 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 61240 distinct states; depth 18
+tlc	cur_reab_s	P4_aux_registered	ok	exhaustive (checked together: P1a P2 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 61240 distinct states; depth 18
+tlc	cur_reab_s	P5_state	ok	exhaustive (checked together: P1a P2 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 61240 distinct states; depth 18
+tlc	cur_reab_s	P5_noEffect	ok	exhaustive (checked together: P1a P2 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 61240 distinct states; depth 18
+tlc	cur_reab_s	P6	ok	exhaustive (checked together: P1a P2 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 61240 distinct states; depth 18
+tlc	cur_reab_s	P8_noLostInput	ok	exhaustive (checked together: P1a P2 P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 61240 distinct states; depth 18
+tlc	cur_dead_s	P1b	skipped	simulator already found a counterexample
+tlc	cur_dead_s	P4_resolved	skipped	simulator already found a counterexample
+tlc	cur_dead_s	P4_view	skipped	simulator already found a counterexample
+tlc	cur_dead_s	P4_app	skipped	simulator already found a counterexample
+tlc	cur_dead_s	P5_state	skipped	simulator already found a counterexample
+tlc	cur_dead_s	P1a	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_noEffect P6 P8_noLostInput); 43976 distinct states; depth 19
+tlc	cur_dead_s	P2	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_noEffect P6 P8_noLostInput); 43976 distinct states; depth 19
+tlc	cur_dead_s	P3	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_noEffect P6 P8_noLostInput); 43976 distinct states; depth 19
+tlc	cur_dead_s	P4_userDecision	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_noEffect P6 P8_noLostInput); 43976 distinct states; depth 19
+tlc	cur_dead_s	P4_aux_registered	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_noEffect P6 P8_noLostInput); 43976 distinct states; depth 19
+tlc	cur_dead_s	P5_noEffect	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_noEffect P6 P8_noLostInput); 43976 distinct states; depth 19
+tlc	cur_dead_s	P6	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_noEffect P6 P8_noLostInput); 43976 distinct states; depth 19
+tlc	cur_dead_s	P8_noLostInput	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_noEffect P6 P8_noLostInput); 43976 distinct states; depth 19
+tlc	cur_bgend_s	P1a	skipped	simulator already found a counterexample
+tlc	cur_bgend_s	P1b	skipped	simulator already found a counterexample
+tlc	cur_bgend_s	P4_resolved	skipped	simulator already found a counterexample
+tlc	cur_bgend_s	P4_view	skipped	simulator already found a counterexample
+tlc	cur_bgend_s	P4_app	skipped	simulator already found a counterexample
+tlc	cur_bgend_s	P8_noLostInput	skipped	simulator already found a counterexample
+tlc	cur_bgend_s	P2	ok	exhaustive (checked together: P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6); 127148 distinct states; depth 19
+tlc	cur_bgend_s	P3	ok	exhaustive (checked together: P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6); 127148 distinct states; depth 19
+tlc	cur_bgend_s	P4_userDecision	ok	exhaustive (checked together: P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6); 127148 distinct states; depth 19
+tlc	cur_bgend_s	P4_aux_registered	ok	exhaustive (checked together: P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6); 127148 distinct states; depth 19
+tlc	cur_bgend_s	P5_state	ok	exhaustive (checked together: P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6); 127148 distinct states; depth 19
+tlc	cur_bgend_s	P5_noEffect	ok	exhaustive (checked together: P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6); 127148 distinct states; depth 19
+tlc	cur_bgend_s	P6	ok	exhaustive (checked together: P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P6); 127148 distinct states; depth 19
+tlc	cur_plaus_s	P1a	skipped	simulator already found a counterexample
+tlc	cur_plaus_s	P1b	skipped	simulator already found a counterexample
+tlc	cur_plaus_s	P3	skipped	simulator already found a counterexample
+tlc	cur_plaus_s	P4_resolved	skipped	simulator already found a counterexample
+tlc	cur_plaus_s	P4_view	skipped	simulator already found a counterexample
+tlc	cur_plaus_s	P4_app	skipped	simulator already found a counterexample
+tlc	cur_plaus_s	P5_state	skipped	simulator already found a counterexample
+tlc	cur_plaus_s	P2	ok	exhaustive (checked together: P2 P4_userDecision P4_aux_registered P5_noEffect P6 P8_noLostInput); 103672 distinct states; depth 18
+tlc	cur_plaus_s	P4_userDecision	ok	exhaustive (checked together: P2 P4_userDecision P4_aux_registered P5_noEffect P6 P8_noLostInput); 103672 distinct states; depth 18
+tlc	cur_plaus_s	P4_aux_registered	ok	exhaustive (checked together: P2 P4_userDecision P4_aux_registered P5_noEffect P6 P8_noLostInput); 103672 distinct states; depth 18
+tlc	cur_plaus_s	P5_noEffect	ok	exhaustive (checked together: P2 P4_userDecision P4_aux_registered P5_noEffect P6 P8_noLostInput); 103672 distinct states; depth 18
+tlc	cur_plaus_s	P6	ok	exhaustive (checked together: P2 P4_userDecision P4_aux_registered P5_noEffect P6 P8_noLostInput); 103672 distinct states; depth 18
+tlc	cur_plaus_s	P8_noLostInput	ok	exhaustive (checked together: P2 P4_userDecision P4_aux_registered P5_noEffect P6 P8_noLostInput); 103672 distinct states; depth 18
+tlc	m1_U_s	P1a	skipped	simulator already found a counterexample
+tlc	m1_U_s	P1b	skipped	simulator already found a counterexample
+tlc	m1_U_s	P2	skipped	simulator already found a counterexample
+tlc	m1_U_s	P3	skipped	simulator already found a counterexample
+tlc	m1_U_s	P4_resolved	skipped	simulator already found a counterexample
+tlc	m1_U_s	P4_view	skipped	simulator already found a counterexample
+tlc	m1_U_s	P4_app	skipped	simulator already found a counterexample
+tlc	m1_U_s	P5_state	skipped	simulator already found a counterexample
+tlc	m1_U_s	P8_noLostInput	skipped	simulator already found a counterexample
+tlc	m1_U_s	P4_userDecision	ok	exhaustive (checked together: P4_userDecision P4_aux_registered P5_noEffect P6); 578860 distinct states; depth 18
+tlc	m1_U_s	P4_aux_registered	ok	exhaustive (checked together: P4_userDecision P4_aux_registered P5_noEffect P6); 578860 distinct states; depth 18
+tlc	m1_U_s	P5_noEffect	ok	exhaustive (checked together: P4_userDecision P4_aux_registered P5_noEffect P6); 578860 distinct states; depth 18
+tlc	m1_U_s	P6	ok	exhaustive (checked together: P4_userDecision P4_aux_registered P5_noEffect P6); 578860 distinct states; depth 18
+tlc	m1_min_s	P1b	skipped	simulator already found a counterexample
+tlc	m1_min_s	P2	skipped	simulator already found a counterexample
+tlc	m1_min_s	P4_view	skipped	simulator already found a counterexample
+tlc	m1_min_s	P4_app	skipped	simulator already found a counterexample
+tlc	m1_min_s	P1a	ok	exhaustive (checked together: P1a P3 P4_resolved P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 28104 distinct states; depth 16
+tlc	m1_min_s	P3	ok	exhaustive (checked together: P1a P3 P4_resolved P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 28104 distinct states; depth 16
+tlc	m1_min_s	P4_resolved	ok	exhaustive (checked together: P1a P3 P4_resolved P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 28104 distinct states; depth 16
+tlc	m1_min_s	P4_userDecision	ok	exhaustive (checked together: P1a P3 P4_resolved P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 28104 distinct states; depth 16
+tlc	m1_min_s	P4_aux_registered	ok	exhaustive (checked together: P1a P3 P4_resolved P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 28104 distinct states; depth 16
+tlc	m1_min_s	P5_state	ok	exhaustive (checked together: P1a P3 P4_resolved P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 28104 distinct states; depth 16
+tlc	m1_min_s	P5_noEffect	ok	exhaustive (checked together: P1a P3 P4_resolved P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 28104 distinct states; depth 16
+tlc	m1_min_s	P6	ok	exhaustive (checked together: P1a P3 P4_resolved P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 28104 distinct states; depth 16
+tlc	m1_min_s	P8_noLostInput	ok	exhaustive (checked together: P1a P3 P4_resolved P4_userDecision P4_aux_registered P5_state P5_noEffect P6 P8_noLostInput); 28104 distinct states; depth 16
+tlc	m2_U_s	P1a	skipped	simulator already found a counterexample
+tlc	m2_U_s	P1b	skipped	simulator already found a counterexample
+tlc	m2_U_s	P4_resolved	skipped	simulator already found a counterexample
+tlc	m2_U_s	P4_view	skipped	simulator already found a counterexample
+tlc	m2_U_s	P4_userDecision	skipped	simulator already found a counterexample
+tlc	m2_U_s	P4_app	skipped	simulator already found a counterexample
+tlc	m2_U_s	P4_aux_registered	skipped	simulator already found a counterexample
+tlc	m2_U_s	P5_state	skipped	simulator already found a counterexample
+tlc	m2_U_s	P8_noLostInput	skipped	simulator already found a counterexample
+tlc	m2_U_s	P2	ok	exhaustive (checked together: P2 P3 P5_noEffect P6); 343268 distinct states; depth 18
+tlc	m2_U_s	P3	ok	exhaustive (checked together: P2 P3 P5_noEffect P6); 343268 distinct states; depth 18
+tlc	m2_U_s	P5_noEffect	ok	exhaustive (checked together: P2 P3 P5_noEffect P6); 343268 distinct states; depth 18
+tlc	m2_U_s	P6	ok	exhaustive (checked together: P2 P3 P5_noEffect P6); 343268 distinct states; depth 18
+tlc	m2_min_s	P1b	skipped	simulator already found a counterexample
+tlc	m2_min_s	P4_resolved	skipped	simulator already found a counterexample
+tlc	m2_min_s	P4_view	skipped	simulator already found a counterexample
+tlc	m2_min_s	P4_userDecision	skipped	simulator already found a counterexample
+tlc	m2_min_s	P4_app	skipped	simulator already found a counterexample
+tlc	m2_min_s	P4_aux_registered	skipped	simulator already found a counterexample
+tlc	m2_min_s	P1a	ok	exhaustive (checked together: P1a P2 P3 P5_state P5_noEffect P6 P8_noLostInput); 62408 distinct states; depth 19
+tlc	m2_min_s	P2	ok	exhaustive (checked together: P1a P2 P3 P5_state P5_noEffect P6 P8_noLostInput); 62408 distinct states; depth 19
+tlc	m2_min_s	P3	ok	exhaustive (checked together: P1a P2 P3 P5_state P5_noEffect P6 P8_noLostInput); 62408 distinct states; depth 19
+tlc	m2_min_s	P5_state	ok	exhaustive (checked together: P1a P2 P3 P5_state P5_noEffect P6 P8_noLostInput); 62408 distinct states; depth 19
+tlc	m2_min_s	P5_noEffect	ok	exhaustive (checked together: P1a P2 P3 P5_state P5_noEffect P6 P8_noLostInput); 62408 distinct states; depth 19
+tlc	m2_min_s	P6	ok	exhaustive (checked together: P1a P2 P3 P5_state P5_noEffect P6 P8_noLostInput); 62408 distinct states; depth 19
+tlc	m2_min_s	P8_noLostInput	ok	exhaustive (checked together: P1a P2 P3 P5_state P5_noEffect P6 P8_noLostInput); 62408 distinct states; depth 19
+tlc	m3_U_s	P1a	skipped	simulator already found a counterexample
+tlc	m3_U_s	P1b	skipped	simulator already found a counterexample
+tlc	m3_U_s	P3	skipped	simulator already found a counterexample
+tlc	m3_U_s	P4_resolved	skipped	simulator already found a counterexample
+tlc	m3_U_s	P4_view	skipped	simulator already found a counterexample
+tlc	m3_U_s	P4_app	skipped	simulator already found a counterexample
+tlc	m3_U_s	P5_state	skipped	simulator already found a counterexample
+tlc	m3_U_s	P6	skipped	simulator already found a counterexample
+tlc	m3_U_s	P8_noLostInput	skipped	simulator already found a counterexample
+tlc	m3_U_s	P2	ok	exhaustive (checked together: P2 P4_userDecision P4_aux_registered P5_noEffect); 573880 distinct states; depth 21
+tlc	m3_U_s	P4_userDecision	ok	exhaustive (checked together: P2 P4_userDecision P4_aux_registered P5_noEffect); 573880 distinct states; depth 21
+tlc	m3_U_s	P4_aux_registered	ok	exhaustive (checked together: P2 P4_userDecision P4_aux_registered P5_noEffect); 573880 distinct states; depth 21
+tlc	m3_U_s	P5_noEffect	ok	exhaustive (checked together: P2 P4_userDecision P4_aux_registered P5_noEffect); 573880 distinct states; depth 21
+tlc	m3_min_s	P1b	skipped	simulator already found a counterexample
+tlc	m3_min_s	P4_resolved	skipped	simulator already found a counterexample
+tlc	m3_min_s	P4_view	skipped	simulator already found a counterexample
+tlc	m3_min_s	P4_app	skipped	simulator already found a counterexample
+tlc	m3_min_s	P6	skipped	simulator already found a counterexample
+tlc	m3_min_s	P1a	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P8_noLostInput); 64760 distinct states; depth 20
+tlc	m3_min_s	P2	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P8_noLostInput); 64760 distinct states; depth 20
+tlc	m3_min_s	P3	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P8_noLostInput); 64760 distinct states; depth 20
+tlc	m3_min_s	P4_userDecision	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P8_noLostInput); 64760 distinct states; depth 20
+tlc	m3_min_s	P4_aux_registered	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P8_noLostInput); 64760 distinct states; depth 20
+tlc	m3_min_s	P5_state	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P8_noLostInput); 64760 distinct states; depth 20
+tlc	m3_min_s	P5_noEffect	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P8_noLostInput); 64760 distinct states; depth 20
+tlc	m3_min_s	P8_noLostInput	ok	exhaustive (checked together: P1a P2 P3 P4_userDecision P4_aux_registered P5_state P5_noEffect P8_noLostInput); 64760 distinct states; depth 20
+traces	cur_min_s	P1b	violation	trace states=5
+traces	cur_min_s	P4_view	violation	trace states=5
+traces	cur_min_s	P4_app	violation	trace states=6
+traces	cur_abort_s	P1b	violation	trace states=5
+traces	cur_abort_s	P4_app	violation	trace states=6
+traces	cur_msgs_s	P1a	violation	trace states=6
+traces	cur_bg_s	P1b	violation	trace states=4
+traces	cur_bgend_s	P1a	violation	trace states=4
+traces	cur_end_s	P8_noLostInput	violation	trace states=5
+traces	cur_dead_s	P5_state	violation	trace states=4
+traces	cur_reab_s	P3	violation	trace states=5
+traces	cur_plaus_s	P1a	violation	trace states=5
+traces	cur_bg_s	D_runningImpliesTurn	violation	trace states=4
+traces	m1_min_s	P2	violation	trace states=6
+traces	m2_min_s	P4_userDecision	violation	trace states=6
+traces	m2_min_s	P4_aux_registered	violation	trace states=5
+traces	m2_min_s	P4_resolved	violation	trace states=6
+traces	m3_min_s	P6	violation	trace states=6
+live	cur_min_s	P7_sdkFairOnly	violation	lasso; trace states=11; Back to state 10: <cur_min_s_permflow_ModeReturn(0,FALSE) line 892, col 3 to line 902, col 8 of module cur_min_s>
+live	cur_min_s	P7_fair	ok	exhaustive; 41672 distinct states
+live	cur_min_s	P7_table_fair	ok	exhaustive; 41672 distinct states
+live	cur_min_s	P8_sdkFairOnly	violation	lasso; trace states=15; Back to state 12: <cur_min_s_permflow_ClientSetMode("default") line 993, col 3 to line 996, col 91 of module cur_min_s>
+live	cur_min_s	P8_fair	ok	exhaustive; 41672 distinct states
+live	cur_min_s	P8_stoppedOnly_fair	ok	exhaustive; 41672 distinct states
+live	cur_bg_s	P7_sdkFairOnly	violation	lasso; trace states=10; Back to state 9: <cur_bg_s_permflow_ModeReturn(0,FALSE) line 881, col 3 to line 891, col 8 of module cur_bg_s>
+live	cur_bg_s	P7_fair	ok	exhaustive; 58376 distinct states
+live	cur_bg_s	P7_table_fair	ok	exhaustive; 58376 distinct states
+live	cur_bg_s	P8_sdkFairOnly	violation	lasso; trace states=9; Stuttering
+live	cur_bg_s	P8_fair	violation	lasso; trace states=10; Back to state 9: <cur_bg_s_permflow_ModeReturn(0,FALSE) line 890, col 3 to line 900, col 8 of module cur_bg_s>
+live	cur_bg_s	P8_stoppedOnly_fair	violation	lasso; trace states=10; Back to state 9: <cur_bg_s_permflow_ClientSetMode("default") line 976, col 3 to line 979, col 61 of module cur_bg_s>
+live	cur_bgend_s	P7_sdkFairOnly	violation	lasso; trace states=8; Stuttering
+live	cur_bgend_s	P7_fair	violation	lasso; trace states=5; Stuttering
+live	cur_bgend_s	P7_table_fair	violation	lasso; trace states=9; Stuttering
+live	cur_bgend_s	P8_sdkFairOnly	violation	lasso; trace states=8; Back to state 7: <cur_bgend_s_permflow_ModeReturn(0,FALSE) line 918, col 3 to line 929, col 8 of module cur_bgend_s>
+live	cur_bgend_s	P8_fair	violation	lasso; trace states=6; Stuttering
+live	cur_bgend_s	P8_stoppedOnly_fair	violation	lasso; trace states=5; Stuttering
+live	cur_plaus_s	P7_sdkFairOnly	violation	lasso; trace states=8; Back to state 7: <cur_plaus_s_permflow_ClientSetMode("default") line 1004, col 3 to line 1007, col 95 of module cur_plaus_s>
+live	cur_plaus_s	P7_fair	ok	exhaustive; 103672 distinct states
+live	cur_plaus_s	P7_table_fair	ok	exhaustive; 103672 distinct states
+live	cur_plaus_s	P8_sdkFairOnly	violation	lasso; trace states=9; Back to state 8: <cur_plaus_s_permflow_ClientSetMode("default") line 1012, col 3 to line 1015, col 95 of module cur_plaus_s>
+live	cur_plaus_s	P8_fair	violation	lasso; trace states=8; Back to state 7: <cur_plaus_s_permflow_ClientSetMode("default") line 1012, col 3 to line 1015, col 95 of module cur_plaus_s>
+live	cur_plaus_s	P8_stoppedOnly_fair	violation	lasso; trace states=7; Stuttering
+live	cur_U_s	P7_sdkFairOnly	violation	lasso; trace states=7; Back to state 6: <cur_U_s_permflow_ClientSetMode("plan") line 965, col 3 to line 968, col 60 of module cur_U_s>
+live	cur_U_s	P7_fair	violation	lasso; trace states=7; Back to state 6: <cur_U_s_permflow_ClientSetMode("default") line 965, col 3 to line 968, col 60 of module cur_U_s>
+live	cur_U_s	P7_table_fair	violation	lasso; trace states=7; Back to state 6: <cur_U_s_permflow_ClientSetMode("default") line 964, col 3 to line 967, col 60 of module cur_U_s>
+live	cur_U_s	P8_sdkFairOnly	ok	exhaustive; 347160 distinct states
+live	cur_U_s	P8_fair	ok	exhaustive; 347160 distinct states
+live	cur_U_s	P8_stoppedOnly_fair	violation	lasso; trace states=8; Back to state 7: <cur_U_s_permflow_ClientSetMode("plan") line 968, col 3 to line 971, col 60 of module cur_U_s>
+live	m1_min_s	P7_sdkFairOnly	violation	lasso; trace states=6; Back to state 5: <m1_min_s_permflow_ClientSetMode("plan") line 973, col 3 to line 976, col 61 of module m1_min_s>
+live	m1_min_s	P7_fair	violation	lasso; trace states=8; Back to state 7: <m1_min_s_permflow_ClientSetMode("plan") line 973, col 3 to line 976, col 61 of module m1_min_s>
+live	m1_min_s	P7_table_fair	ok	exhaustive; 28104 distinct states
+live	m1_min_s	P8_sdkFairOnly	violation	lasso; trace states=13; Back to state 12: <m1_min_s_permflow_ClientSetMode("plan") line 982, col 3 to line 985, col 61 of module m1_min_s>
+live	m1_min_s	P8_fair	violation	lasso; trace states=14; Stuttering
+live	m1_min_s	P8_stoppedOnly_fair	violation	lasso; trace states=11; Stuttering
+live	cur_abort_s	P7_fair	ok	exhaustive; 41672 distinct states
+live	cur_abort_s	P8_fair	ok	exhaustive; 41672 distinct states
+live	cur_msgs_s	P7_fair	ok	exhaustive; 53192 distinct states
+live	cur_msgs_s	P8_fair	ok	exhaustive; 53192 distinct states
+live	cur_end_s	P7_fair	ok	exhaustive; 72800 distinct states
+live	cur_end_s	P8_fair	violation	lasso; trace states=11; Back to state 8: <cur_end_s_permflow_ClientSetMode("default") line 993, col 3 to line 996, col 91 of module cur_end_s>
+live	m2_min_s	P7_fair	ok	exhaustive; 62408 distinct states
+live	m2_min_s	P8_fair	ok	exhaustive; 62408 distinct states
+live	m3_min_s	P7_fair	ok	exhaustive; 64760 distinct states
+live	m3_min_s	P8_fair	ok	exhaustive; 64760 distinct states
+itf	cur_min	P1b	violation	steps<=5; out/itf/cur_min.P1b.interrupt.itf.json
+itf	cur_abort	P4_app	violation	steps<=5; out/itf/cur_abort.P4_app.abort.itf.json
+itf	cur_msgs	P1a	violation	steps<=5; out/itf/cur_msgs.P1a.system-status.itf.json
+itf	cur_end	P8_noLostInput	violation	steps<=6; out/itf/cur_end.P8_noLostInput.restart-after-end.itf.json
+itf	cur_dead	P5_state	violation	steps<=4; out/itf/cur_dead.P5_state.input-after-error.itf.json
+itf	cur_bgend	P1a	violation	steps<=3; out/itf/cur_bgend.P1a.stream-end-with-pending.itf.json
+itf	cur_reab	P3	violation	steps<=4; out/itf/cur_reab.P3.double-resolve.itf.json
+itf	cur_bg	P1b	violation	steps<=4; out/itf/cur_bg.P1b.itf.json
+itf	cur_bg	D_runningImpliesTurn	violation	steps<=5; out/itf/cur_bg.D_runningImpliesTurn.approve-outside-turn.itf.json
+itf	m1_min	P2	violation	steps<=5; out/itf/m1_min.P2.itf.json
+itf	m2_min	P4_userDecision	violation	steps<=6; out/itf/m2_min.P4_userDecision.itf.json
+itf	m3_min	P6	violation	steps<=7; out/itf/m3_min.P6.itf.json
+deep	cur_U_3	P2 P4_userDecision P4_aux_registered P5_noEffect P6	ok	exhaustive; 2462496 distinct states; depth 20
+apalache	cur_min	P1b	timeout	steps<=4; 902s; stopped after APA_TIMEOUT=900s
+apalache	m1_min	P2	timeout	steps<=4; 902s; stopped after APA_TIMEOUT=900s
+replay	random.cur_U	-	500 passed (500)	500 traces x 30 steps, seed 11
+replay	random.m1_U	-	9 failed | 91 passed (100)	100 traces x 30 steps, seed 11
+replay	random.m2_U	-	24 failed | 76 passed (100)	100 traces x 30 steps, seed 11
+replay	random.m3_U	-	3 failed | 97 passed (100)	100 traces x 30 steps, seed 11
+replay	counterexamples.current	-	9 passed (9)	out/itf/cur_*: 通れば実装でも再現
+replay	counterexamples.mutants	-	2 failed | 1 passed (3)	out/itf/m*: 食い違えば実装は退行していない

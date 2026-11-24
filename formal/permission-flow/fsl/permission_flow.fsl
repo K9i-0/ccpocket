@@ -1,0 +1,750 @@
+fsl 5
+// Permission approval flow of SdkProcess (packages/bridge/src/sdk-process.ts).
+// Model of the CURRENT code. Properties are the intent stated in
+// formal/permission-flow/SCOPE.md (P1a..P8); they are NOT weakened to pass.
+// "SRC:" = line in packages/bridge/src/sdk-process.ts unless another file is named.
+//
+// Assumption ledger (modelling choices, see NOTES.md):
+// ASSUME-1: tool-use IDs are single-use (2 IDs => at most 2 canUseTool calls per run).
+// ASSUME-2: the SDK calls canUseTool and sends main-thread frames (system/assistant/
+//           user/result) only for the live query and only while a main turn is active
+//           (sdkInflight > 0). Background-agent permission prompts are out of scope.
+// ASSUME-3: after close() / restart the old query never pulls the input stream again
+//           and none of its messages are processed (SRC 1926 authGeneration check).
+// ASSUME-4: one JS macrotask/handler = one atomic action. The only intra-handler
+//           window modelled is the synchronous emit of permission_request
+//           (announcing), because the code itself handles re-entrancy there.
+// ASSUME-5: the client view is updated in emission order; "all events delivered"
+//           therefore equals "end of an atomic action" (announcing == none).
+// ASSUME-6: the SDK pulls the next input eagerly whenever the generator is not parked.
+// ASSUME-7: steer queue, background tasks, auth, cost, images are not modelled.
+// ASSUME-8: a chained setPermissionMode callback that is ready to run is a microtask
+//           and runs inside the step that made it ready. Only the await on
+//           queryInstance.setPermissionMode() is an interleaving point.
+// ASSUME-9: two setPermissionMode() calls can be in flight at once (2 slots).
+spec PermissionFlow {
+  // Hypothetical-fix switches. ALL 0 = the current code. They are set to 1 only in
+  // generated variants (variants/fix_*.fsl) to (a) find the next independent cause
+  // after one counterexample is explained and (b) show which change removes it.
+  const H_STATUS_GUARD = 0      // system/status requesting|compacting keep waiting_approval while requests are pending
+  const H_ABORT_NOTIFY = 0      // abort paths also emit permission_resolved and leave waiting_approval
+  const H_ABORT_ONCE = 0        // pre-aborted branch resolves only if the entry is still registered
+  const H_INTERRUPT_NOTIFY = 0  // interrupt() emits permission_resolved and leaves waiting_approval
+  const H_DENYALL_NOTIFY = 0    // result/stop/start emit permission_resolved for each denied request
+  const H_STOPPED_INPUT = 0     // dispatchInput drops input while stopped
+  const H_STREAM_END_CLEANUP = 0 // natural stream end cleans up like stop() (deny, queue, resolver)
+  // Environment relaxations. 0 = ASSUME-2 holds. Set to 1 only in variants/env_*.fsl
+  // to see what the code does if the SDK behaves outside the assumption.
+  const E_PROMPT_OUT_OF_TURN = 0  // canUseTool may arrive while no main turn is active (background agent)
+  const E_PROMPT_AFTER_STOP = 0   // canUseTool may arrive after stop() / after the query ended
+
+  type Tool = 0..1
+  type Inp = 0..1
+  type Slot = 0..1
+  type Cnt = 0..3
+  type Flight = 0..2
+  enum Status { Starting, Idle, Running, WaitingApproval, Compacting }   // SRC: parser.ts:1651
+  enum Promise { Unused, Awaiting, Settled }
+  enum Mode { Default, AcceptEdits, Plan }
+  enum OpPhase { Free, Queued, AwaitingSdk }
+
+  def turnActive(s: Status) = s == Running or s == Compacting or s == WaitingApproval  // SRC: 1129-1135
+
+  state {
+    // ---- Bridge (SdkProcess fields) ----
+    status: Status,                 // SRC: 1025 _status
+    pend: Set<Tool>,                // SRC: 1027 pendingPermissions (keys)
+    announcing: Option<Tool>,       // SRC: 2196-2208 inside emit(permission_request) of this id
+    deferredResolved: Bool,         // SRC: 2263-2264 resolutionEventsPending set
+    annAborted: Bool,               // signal.aborted already true at call time (SRC: 2214)
+    askTool: Map<Tool, Bool>,       // toolName == "AskUserQuestion"
+    hasRule: Bool,                  // SRC: 1539 sessionAllowRules non-empty (abstracted to one rule)
+    queue: Seq<Inp, 2>,             // SRC: 1050 pendingInputQueue
+    parked: Bool,                   // SRC: 1047 userMessageResolve !== null
+    waiterStale: Bool,              // userMessageResolve belongs to a generator of a dead query
+    stopped: Bool,                  // SRC: 1048
+    hasQuery: Bool,                 // SRC: 1024 queryInstance !== null
+    mode: Mode,                     // SRC: 1028 _permissionMode
+    // in-flight setPermissionMode() calls (SRC: 1618-1643)
+    opPhase: Map<Slot, OpPhase>,
+    opMode: Map<Slot, Mode>,
+    opStale: Map<Slot, Bool>,       // captured generation != permissionModeGeneration
+    opQiChanged: Map<Slot, Bool>,   // captured queryInstance !== this.queryInstance
+    opAfter: Map<Slot, Bool>,       // chained behind the other slot via permissionModeUpdates
+    // ---- SDK ground truth ----
+    prom: Map<Tool, Promise>,       // the canUseTool promise the SDK awaits
+    settles: Map<Tool, Cnt>,        // number of times Bridge called resolve() on it
+    sdkInflight: Flight,            // user messages handed to the live SDK without a result yet
+    // ---- client view (built only from permission_request / permission_resolved) ----
+    clientSees: Map<Tool, Bool>,
+    // ---- ghost ----
+    lastModeWriteStale: Bool        // last write by a setPermissionMode() op came from a pre-restart op
+  }
+
+  init {
+    status = Idle
+    pend = Set {}
+    announcing = none
+    deferredResolved = false
+    annAborted = false
+    forall t: Tool { askTool[t] = false }
+    hasRule = false
+    queue = Seq {}
+    parked = false
+    waiterStale = false
+    stopped = false
+    hasQuery = false
+    mode = Default
+    forall s: Slot { opPhase[s] = Free }
+    forall s: Slot { opMode[s] = Default }
+    forall s: Slot { opStale[s] = false }
+    forall s: Slot { opQiChanged[s] = false }
+    forall s: Slot { opAfter[s] = false }
+    forall t: Tool { prom[t] = Unused }
+    forall t: Tool { settles[t] = 0 }
+    sdkInflight = 0
+    forall t: Tool { clientSees[t] = false }
+    lastModeWriteStale = false
+  }
+
+  // ======================= lifecycle =======================
+
+  // SRC: 1176-1246 start(); 1248-1366 startSdkQuery(). Re-callable (session.ts:2387).
+  action start(m: Mode) {
+    requires announcing == none
+    // SRC: 1177-1179 if (queryInstance) stop()  -> 1378 queue cleared, 1386 resolver dropped
+    if hasQuery {
+      queue = Seq {}
+      parked = false
+      waiterStale = false
+    }
+    stopped = false                                     // SRC: 1191
+    // SRC: 1198 denyAllPendingPermissions("Session restarted")
+    forall t: Tool {
+      if pend.contains(t) {
+        prom[t] = Settled
+        settles[t] = settles[t] + 1
+        if H_DENYALL_NOTIFY == 1 { clientSees[t] = false }
+      }
+    }
+    pend = Set {}
+    forall s: Slot { opStale[s] = true }                // SRC: 1199 generation += 1
+    // SRC: 1200 permissionModeUpdates reset: later updates no longer chain behind
+    // pre-restart ones (see client_set_mode); the old chain itself keeps its order.
+    forall s: Slot { opQiChanged[s] = true }            // SRC: 1265 new queryInstance
+    mode = m                                            // SRC: 1201-1204 (m == mode models "keep")
+    hasRule = false                                     // SRC: 1205
+    status = Starting                                   // SRC: 1220
+    hasQuery = true                                     // SRC: 1265
+    sdkInflight = 0
+  }
+
+  // SRC: 1216-1218 start() with options.initialInput
+  action start_with_initial_input(m: Mode, i: Inp) {
+    requires announcing == none
+    requires hasQuery or (queue.size() < 2 and not queue.contains(i))   // model bound
+    if hasQuery {
+      queue = Seq { i }
+      parked = false
+      waiterStale = false
+    } else {
+      queue = queue.push(i)
+    }
+    stopped = false
+    forall t: Tool {
+      if pend.contains(t) {
+        prom[t] = Settled
+        settles[t] = settles[t] + 1
+        if H_DENYALL_NOTIFY == 1 { clientSees[t] = false }
+      }
+    }
+    pend = Set {}
+    forall s: Slot { opStale[s] = true }
+    forall s: Slot { opQiChanged[s] = true }
+    mode = m
+    hasRule = false
+    status = Starting
+    hasQuery = true
+    sdkInflight = 0
+  }
+
+  // SRC: 1368-1401 stop(). Client stop_session (session-catalog.ts:24 -> session.ts:2687)
+  // and internal callers.
+  action stop() {
+    requires announcing == none
+    stopped = true                                      // SRC: 1373
+    queue = Seq {}                                      // SRC: 1378
+    hasQuery = false                                    // SRC: 1380-1384
+    forall s: Slot { opQiChanged[s] = true }
+    // SRC: 1385 denyAllPendingPermissions("Session stopped")
+    forall t: Tool {
+      if pend.contains(t) {
+        prom[t] = Settled
+        settles[t] = settles[t] + 1
+        if H_DENYALL_NOTIFY == 1 { clientSees[t] = false }
+      }
+    }
+    pend = Set {}
+    parked = false                                      // SRC: 1386
+    waiterStale = false
+    status = Idle                                       // SRC: 1400
+    sdkInflight = 0
+  }
+
+  // SRC: 1351-1362 processMessages rejects -> stop() + exit (abnormal end)
+  action sdk_error_exit() {
+    requires announcing == none
+    requires hasQuery and not stopped
+    stopped = true
+    queue = Seq {}
+    hasQuery = false
+    forall s: Slot { opQiChanged[s] = true }
+    forall t: Tool {
+      if pend.contains(t) {
+        prom[t] = Settled
+        settles[t] = settles[t] + 1
+        if H_DENYALL_NOTIFY == 1 { clientSees[t] = false }
+      }
+    }
+    pend = Set {}
+    parked = false
+    waiterStale = false
+    status = Idle
+    sdkInflight = 0
+  }
+
+  // SRC: 2121-2145 the SDK iterator ends without throwing (natural end).
+  // No denyAllPendingPermissions, queue kept, stopped stays false, resolver kept.
+  action sdk_stream_end() {
+    requires announcing == none
+    requires hasQuery and not stopped
+    hasQuery = false                                    // SRC: 2134
+    forall s: Slot { opQiChanged[s] = true }
+    status = Idle                                       // SRC: 2144
+    sdkInflight = 0
+    if H_STREAM_END_CLEANUP == 1 {
+      forall t: Tool {
+        if pend.contains(t) {
+          prom[t] = Settled
+          settles[t] = settles[t] + 1
+          if H_DENYALL_NOTIFY == 1 { clientSees[t] = false }
+        }
+      }
+      pend = Set {}
+      queue = Seq {}
+      parked = false
+    } else {
+      if parked { waiterStale = true }
+    }
+  }
+
+  // SRC: 2093 system/init, and 1256-1262 init timeout
+  action startup_done() {
+    requires announcing == none
+    requires hasQuery and not stopped
+    requires status == Starting
+    status = Idle
+  }
+
+  // ======================= input =======================
+
+  // SRC: 1803-1837 createUserMessageStream(): the SDK asks for the next input.
+  fair action sdk_pull() {
+    requires announcing == none
+    requires hasQuery and not stopped
+    requires not parked or waiterStale
+    requires sdkInflight < 2                             // model bound
+    if queue.size() > 0 and not turnActive(status) {    // SRC: 1824
+      queue = queue.pop()                               // SRC: 1825
+      status = Running                                  // SRC: 1827
+      sdkInflight = sdkInflight + 1                     // SRC: 1828 yield
+    } else {
+      parked = true                                     // SRC: 1831-1833
+      waiterStale = false
+    }
+  }
+
+  // SRC: 1445-1461 dispatchInput(), called from session-input.ts:423; the websocket
+  // handler then calls interrupt() when shouldInterrupt (session-input.ts:446-451).
+  // autoInterrupt=false models callers that only use sendInput().
+  action client_input(i: Inp, autoInterrupt: Bool) {
+    requires announcing == none
+    requires not queue.contains(i)                       // model: fresh input id
+    requires queue.size() < 2                            // model bound
+    requires sdkInflight < 2                             // model bound
+    requires H_STOPPED_INPUT == 0 or not stopped         // hypothetical fix only
+    if turnActive(status) or not parked {               // SRC: 1448-1449
+      queue = queue.push(i)                             // SRC: 1453
+      // SRC: 1414-1422 interrupt(): denyAllPendingPermissions when queryInstance exists
+      if autoInterrupt and (status == Running or status == Compacting) and hasQuery {
+        forall t: Tool {
+          if pend.contains(t) {
+            prom[t] = Settled
+            settles[t] = settles[t] + 1
+            if H_INTERRUPT_NOTIFY == 1 { clientSees[t] = false }
+          }
+        }
+        pend = Set {}
+        if H_INTERRUPT_NOTIFY == 1 and pend.size() > 0 { status = Running }
+      }
+    } else {
+      parked = false                                    // SRC: 1458
+      waiterStale = false
+      status = Running                                  // SRC: 2747
+      // SRC: 2748 resolve(); the message reaches the SDK only if the resolver
+      // belongs to the live query's generator.
+      if hasQuery and not waiterStale { sdkInflight = sdkInflight + 1 }
+    }
+  }
+
+  // SRC: 1403-1423 interrupt() (session-input.ts:580). Background-task branch not modelled.
+  action client_interrupt() {
+    requires announcing == none
+    requires hasQuery                                    // SRC: 1414 (no-op otherwise)
+    forall t: Tool {
+      if pend.contains(t) {
+        prom[t] = Settled
+        settles[t] = settles[t] + 1
+        if H_INTERRUPT_NOTIFY == 1 { clientSees[t] = false }
+      }
+    }
+    pend = Set {}                                       // SRC: 1421; status untouched
+    if H_INTERRUPT_NOTIFY == 1 and pend.size() > 0 { status = Running }
+  }
+
+  // ======================= SDK main-thread frames =======================
+  // SRC: 2666-2701 updateStatusFromMessage()
+
+  action sdk_status_compacting() {
+    requires announcing == none
+    requires hasQuery and not stopped and sdkInflight > 0
+    // SRC: 2671-2672 (the code has no pending check)
+    if H_STATUS_GUARD == 0 or pend.size() == 0 { status = Compacting }
+  }
+
+  action sdk_status_requesting() {
+    requires announcing == none
+    requires hasQuery and not stopped and sdkInflight > 0
+    // SRC: 2673-2674 (the code has no pending check)
+    if H_STATUS_GUARD == 0 or pend.size() == 0 { status = Running }
+  }
+
+  action sdk_status_null() {
+    requires announcing == none
+    requires hasQuery and not stopped and sdkInflight > 0
+    // SRC: 2675-2676
+    if status == Compacting and (H_STATUS_GUARD == 0 or pend.size() == 0) { status = Running }
+  }
+
+  action sdk_assistant_or_user() {
+    requires announcing == none
+    requires hasQuery and not stopped and sdkInflight > 0
+    if pend.size() == 0 { status = Running }            // SRC: 2681-2690
+  }
+
+  // SRC: 2100-2114 system/status carrying permissionMode
+  action sdk_status_mode(m: Mode) {
+    requires announcing == none
+    requires hasQuery and not stopped
+    mode = m
+  }
+
+  // SRC: 2692-2699 result. Fair only when the SDK is not itself blocked on a
+  // canUseTool promise (a blocked SDK cannot be assumed to finish the turn).
+  fair action sdk_result() {
+    requires announcing == none
+    requires hasQuery and not stopped and sdkInflight > 0
+    requires forall t: Tool { prom[t] != Awaiting }
+    // pend can only hold already-settled ids here; denyAll still runs (SRC: 2693)
+    forall t: Tool {
+      if pend.contains(t) {
+        prom[t] = Settled
+        settles[t] = settles[t] + 1
+        if H_DENYALL_NOTIFY == 1 { clientSees[t] = false }
+      }
+    }
+    pend = Set {}
+    // SRC: 2694 idle, then 2695/2729-2737 deliverQueuedInputIfWaiting()
+    if parked and queue.size() > 0 {
+      parked = false
+      waiterStale = false
+      queue = queue.pop()
+      status = Running                                  // SRC: 2747
+      if waiterStale { sdkInflight = sdkInflight - 1 }
+    } else {
+      status = Idle
+      sdkInflight = sdkInflight - 1
+    }
+  }
+
+  // Same handler, turn ends while a canUseTool promise is still awaited (not fair).
+  action sdk_result_while_awaiting() {
+    requires announcing == none
+    requires hasQuery and not stopped and sdkInflight > 0
+    requires exists t: Tool { prom[t] == Awaiting }
+    forall t: Tool {
+      if pend.contains(t) {
+        prom[t] = Settled
+        settles[t] = settles[t] + 1
+        if H_DENYALL_NOTIFY == 1 { clientSees[t] = false }
+      }
+    }
+    pend = Set {}
+    if parked and queue.size() > 0 {
+      parked = false
+      waiterStale = false
+      queue = queue.pop()
+      status = Running
+      if waiterStale { sdkInflight = sdkInflight - 1 }
+    } else {
+      status = Idle
+      sdkInflight = sdkInflight - 1
+    }
+  }
+
+  // ======================= permission requests =======================
+
+  // SRC: 2160-2183 handleCanUseTool -> 2185-2199 waitForPermission (up to the emit)
+  action sdk_can_use_tool(t: Tool, ask: Bool, preAborted: Bool) {
+    requires announcing == none
+    requires (hasQuery and not stopped) or E_PROMPT_AFTER_STOP == 1   // ASSUME-2 (code has no check, SRC: 2160-2199)
+    requires sdkInflight > 0 or E_PROMPT_OUT_OF_TURN == 1 or E_PROMPT_AFTER_STOP == 1   // ASSUME-2
+    requires prom[t] == Unused                               // ASSUME-1
+    requires ask or not hasRule                              // SRC: 2175 rule match => other action
+    prom[t] = Awaiting
+    askTool[t] = ask
+    pend = pend.add(t)                                  // SRC: 2198
+    status = WaitingApproval                            // SRC: 2199
+    announcing = some(t)                                // SRC: 2196, emit starts at 2202
+    deferredResolved = false
+    annAborted = preAborted
+  }
+
+  // SRC: 2175-2177 session allow rule matches: allow without registering
+  action sdk_can_use_tool_auto_allowed(t: Tool) {
+    requires announcing == none
+    requires hasQuery and not stopped and sdkInflight > 0
+    requires prom[t] == Unused
+    requires hasRule
+    prom[t] = Settled
+    settles[t] = settles[t] + 1
+  }
+
+  // A synchronous "message" listener answers while permission_request is still
+  // being emitted (SRC: 2250-2264 with pending.announcingRequest == true).
+  action listener_answers_during_announce() {
+    requires announcing is some(t)
+    requires pend.contains(t)
+    pend = pend.remove(t)                               // SRC: 2252
+    prom[t] = Settled                                   // SRC: 2253
+    settles[t] = settles[t] + 1
+    if pend.remove(t).size() == 0 { status = Running }  // SRC: 2254-2256
+    deferredResolved = true                             // SRC: 2263-2264
+  }
+
+  // SRC: 2202-2218 rest of waitForPermission after the listeners returned
+  action announce_finish() {
+    requires announcing is some(t)
+    // SRC: 2202 permission_request reaches the client, 2209-2211 deferred permission_resolved
+    if deferredResolved or (annAborted and H_ABORT_NOTIFY == 1) {
+      clientSees[t] = false
+    } else {
+      clientSees[t] = true
+    }
+    // SRC: 2214-2217 signal already aborted: delete + resolve(deny) unconditionally,
+    // nothing emitted, status untouched
+    if annAborted and (H_ABORT_ONCE == 0 or pend.contains(t)) {
+      pend = pend.remove(t)
+      prom[t] = Settled
+      settles[t] = settles[t] + 1
+      if H_ABORT_NOTIFY == 1 and pend.contains(t) and pend.remove(t).size() == 0 { status = Running }
+    }
+    announcing = none
+    deferredResolved = false
+    annAborted = false
+  }
+
+  // SRC: 2220-2225 abort listener
+  action sdk_abort(t: Tool) {
+    requires announcing == none
+    requires pend.contains(t)                           // SRC: 2221
+    pend = pend.remove(t)                               // SRC: 2222
+    prom[t] = Settled                                   // SRC: 2223
+    settles[t] = settles[t] + 1
+    // the code emits nothing and leaves status untouched
+    if H_ABORT_NOTIFY == 1 {
+      clientSees[t] = false
+      if pend.remove(t).size() == 0 { status = Running }
+    }
+  }
+
+  // SRC: 1505-1525 approve() -> 2244-2268 resolvePendingPermission.
+  // Fair: the client eventually answers a request it can see.
+  fair action client_approve(t: Tool) {
+    requires announcing == none
+    requires clientSees[t]
+    if pend.contains(t) {
+      pend = pend.remove(t)                             // SRC: 2252
+      prom[t] = Settled                                 // SRC: 2253
+      settles[t] = settles[t] + 1
+      if pend.remove(t).size() == 0 { status = Running }  // SRC: 2254-2256
+      clientSees[t] = false                 // SRC: 2258, 2266 permission_resolved
+    }
+    ensures old(stopped) => (status == old(status) and pend == old(pend) and settles[t] == old(settles[t]))
+  }
+
+  // SRC: 1572-1585 reject()
+  action client_reject(t: Tool) {
+    requires announcing == none
+    requires clientSees[t]
+    if pend.contains(t) {
+      pend = pend.remove(t)
+      prom[t] = Settled
+      settles[t] = settles[t] + 1
+      if pend.remove(t).size() == 0 { status = Running }
+      clientSees[t] = false
+    }
+    ensures old(stopped) => (status == old(status) and pend == old(pend) and settles[t] == old(settles[t]))
+  }
+
+  // SRC: 1530-1566 approveAlways()
+  action client_approve_always(t: Tool, fileEdit: Bool) {
+    requires announcing == none
+    requires clientSees[t]
+    if pend.contains(t) {
+      hasRule = true                                    // SRC: 1539
+      if fileEdit { mode = AcceptEdits }                // SRC: 1544-1546
+      pend = pend.remove(t)
+      prom[t] = Settled
+      settles[t] = settles[t] + 1
+      if pend.remove(t).size() == 0 { status = Running }
+      clientSees[t] = false
+    }
+    ensures old(stopped) => (status == old(status) and pend == old(pend) and settles[t] == old(settles[t]) and mode == old(mode))
+  }
+
+  // SRC: 1591-1612 answer()
+  action client_answer(t: Tool) {
+    requires announcing == none
+    requires clientSees[t]
+    if pend.contains(t) and askTool[t] {                // SRC: 1592-1593
+      pend = pend.remove(t)
+      prom[t] = Settled
+      settles[t] = settles[t] + 1
+      if pend.remove(t).size() == 0 { status = Running }
+      clientSees[t] = false
+    }
+    ensures old(stopped) => (status == old(status) and pend == old(pend) and settles[t] == old(settles[t]))
+  }
+
+  // An approval for a request the client no longer (or never) shows: late,
+  // duplicated or delayed message. Same code path as approve().
+  action client_late_approve(t: Tool) {
+    requires announcing == none
+    requires not clientSees[t]
+    if pend.contains(t) {
+      pend = pend.remove(t)
+      prom[t] = Settled
+      settles[t] = settles[t] + 1
+      if pend.remove(t).size() == 0 { status = Running }
+    }
+    ensures old(stopped) => (status == old(status) and pend == old(pend) and settles[t] == old(settles[t]))
+  }
+
+  // ======================= permission mode =======================
+
+  // SRC: 1618-1643 setPermissionMode(). The update runs as a callback chained on
+  // permissionModeUpdates. A callback that is ready runs as a microtask, i.e. inside
+  // the same atomic step as the event that made it ready (ASSUME-8):
+  //   - not chained behind a live update -> its first part runs here;
+  //   - chained -> it starts in the step in which its predecessor finishes.
+  action client_set_mode(s: Slot, m: Mode) {
+    requires announcing == none
+    requires opPhase[s] == Free
+    // SRC: 1620 chained behind the latest update of the current chain. An update
+    // issued before the last restart is not part of the current chain (SRC: 1200).
+    if opPhase[1 - s] != Free and not opStale[1 - s] {
+      opPhase[s] = Queued
+      opAfter[s] = true
+      opMode[s] = m
+      opStale[s] = false                                // SRC: 1619 generation captured
+    } else {
+      // SRC: 1621 generation unchanged (same step), 1623 queryInstance captured
+      if hasQuery {
+        opPhase[s] = AwaitingSdk                        // SRC: 1625 await
+        opQiChanged[s] = false
+        opMode[s] = m
+        opStale[s] = false
+      } else {
+        mode = m                                        // SRC: 1633 (idle change is retained)
+        lastModeWriteStale = false
+      }
+    }
+  }
+
+  // SRC: 1625-1633 queryInstance.setPermissionMode() resolved; then the update
+  // chained behind it (if any) starts (SRC: 1620-1625).
+  action mode_op_sdk_done(s: Slot) {
+    requires announcing == none
+    requires opPhase[s] == AwaitingSdk
+    let writes = not (opStale[s] or opQiChanged[s])              // SRC: 1626-1631 generation + instance check
+    let chainedNext = opPhase[1 - s] == Queued and opAfter[1 - s]
+    let nextRuns = chainedNext and not opStale[1 - s]            // SRC: 1621 generation check
+    // `writes` means this update saw an unchanged, live queryInstance, so the next
+    // one captures it as well and awaits the SDK (SRC: 1623-1625).
+    let nextAwaits = nextRuns and (writes or hasQuery)
+    let nextWrites = nextRuns and not writes and not hasQuery    // SRC: 1633 without a query
+    let otherPhase = if not chainedNext then opPhase[1 - s] else (if nextAwaits then AwaitingSdk else Free)
+    forall q: Slot { opPhase[q] = if q == s then Free else otherPhase }
+    if chainedNext { opAfter[1 - s] = false }
+    if nextAwaits { opQiChanged[1 - s] = false }
+    if writes {
+      mode = opMode[s]                                  // SRC: 1633
+      lastModeWriteStale = opStale[s]
+    } else {
+      if nextWrites {
+        mode = opMode[1 - s]                            // SRC: 1633
+        lastModeWriteStale = opStale[1 - s]
+      }
+    }
+  }
+
+  // SRC: 1625 the await rejects (1641 keeps the chain alive); the chained update starts.
+  action mode_op_sdk_failed(s: Slot) {
+    requires announcing == none
+    requires opPhase[s] == AwaitingSdk
+    let chainedNext = opPhase[1 - s] == Queued and opAfter[1 - s]
+    let nextRuns = chainedNext and not opStale[1 - s]            // SRC: 1621 generation check
+    let nextAwaits = nextRuns and hasQuery
+    let nextWrites = nextRuns and not hasQuery
+    let otherPhase = if not chainedNext then opPhase[1 - s] else (if nextAwaits then AwaitingSdk else Free)
+    forall q: Slot { opPhase[q] = if q == s then Free else otherPhase }
+    if chainedNext { opAfter[1 - s] = false }
+    if nextAwaits { opQiChanged[1 - s] = false }
+    if nextWrites {
+      mode = opMode[1 - s]                              // SRC: 1633
+      lastModeWriteStale = opStale[1 - s]
+    }
+  }
+
+  // ======================= properties (SCOPE.md) =======================
+
+  @requirement("P1a", "a pending approval request implies status waiting_approval")
+  invariant P1a_PendingImpliesWaiting {
+    (announcing == none and pend.size() > 0) => status == WaitingApproval
+  }
+
+  @requirement("P1b", "status waiting_approval implies at least one pending request")
+  invariant P1b_WaitingImpliesPending {
+    (announcing == none and status == WaitingApproval) => pend.size() > 0
+  }
+
+  @requirement("P2", "a canUseTool promise the SDK awaits is in the Bridge pending table")
+  invariant P2_AwaitedIsTracked {
+    forall t: Tool { prom[t] == Awaiting => pend.contains(t) }
+  }
+
+  @requirement("P3", "a request is settled at most once")
+  invariant P3_SettledAtMostOnce {
+    forall t: Tool { settles[t] <= 1 }
+  }
+
+  @requirement("P4", "a request the client was shown is resolved for the client once it is settled")
+  invariant P4a_ResolvedReachesClient {
+    announcing == none => forall t: Tool { clientSees[t] => prom[t] == Awaiting }
+  }
+
+  @requirement("P4", "after all events are delivered the client view equals the Bridge pending table")
+  invariant P4b_ClientViewMatchesTable {
+    announcing == none => forall t: Tool { clientSees[t] == pend.contains(t) }
+  }
+
+  @requirement("P4", "a request being announced is registered (or already resolved) when listeners see it")
+  invariant P4c_AnnouncedIsRegistered {
+    forall t: Tool { announcing == some(t) => (pend.contains(t) or deferredResolved) }
+  }
+
+  @requirement("P5", "after stop the pending table is empty and status is idle")
+  invariant P5a_StoppedTableEmptyIdle {
+    stopped => (announcing == none and pend.size() == 0 and status == Idle)
+  }
+
+  @requirement("P5", "after stop the input queue is empty")
+  invariant P5b_StoppedQueueEmpty {
+    stopped => queue.size() == 0
+  }
+  // P5c ("an approval arriving after stop does nothing") is the ensures clause of
+  // client_approve / client_reject / client_approve_always / client_answer /
+  // client_late_approve (reported by fslc as violation_kind "ensures").
+
+  @requirement("P6", "a mode change issued before a restart never writes permissionMode after it")
+  invariant P6_NoStaleModeWrite {
+    not lastModeWriteStale
+  }
+
+  @requirement("P7", "every pending approval request is eventually settled")
+  leadsTo P7_PendingEventuallySettled {
+    forall t: Tool { prom[t] == Awaiting ~> prom[t] == Settled }
+  }
+
+  @requirement("P8", "while the session is not stopped, a queued input eventually reaches the SDK")
+  leadsTo P8_QueuedInputDelivered {
+    forall i: Inp { queue.contains(i) ~> (not queue.contains(i) or stopped or not hasQuery) }
+  }
+
+  // ---- Auxiliary invariants (not in SCOPE.md) ----
+  // Facts about the model that hold in the current code. They are needed as
+  // induction hypotheses (fslc --engine induction) and document why the model
+  // bounds (Cnt, Flight) are not binding.
+  @requirement("MODEL-AUX1", "Bridge never hands the SDK a second prompt while one has no result")
+  invariant Aux_OnePromptInFlight {
+    sdkInflight <= 1
+  }
+
+  @requirement("MODEL-AUX2", "Bridge believes no turn is active only when the SDK has no prompt in flight")
+  invariant Aux_IdleMeansNoPrompt {
+    (status == Idle or status == Starting) => sdkInflight == 0
+  }
+
+  @requirement("MODEL-AUX3", "every entry of the pending table is a promise the SDK still awaits (converse of P2)")
+  invariant Aux_TableEntryIsAwaited {
+    forall t: Tool { pend.contains(t) => prom[t] == Awaiting }
+  }
+
+  @requirement("MODEL-AUX4", "resolve() is never called on a promise that is not settled yet in the model")
+  invariant Aux_UnsettledHasNoResolve {
+    forall t: Tool { prom[t] != Settled => settles[t] == 0 }
+  }
+
+  @requirement("MODEL-AUX5", "while a request is announced resolve() was called at most once; never more than twice overall")
+  invariant Aux_ResolveCountBound {
+    forall t: Tool { settles[t] <= 2 and (announcing == some(t) => settles[t] <= 1) }
+  }
+
+  @requirement("MODEL-AUX6", "a stopped process has no query and no parked input resolver")
+  invariant Aux_StoppedHasNoQuery {
+    stopped => (not hasQuery and not parked)
+  }
+
+  @requirement("MODEL-AUX7", "the deferred-resolution flag is set exactly when the announced request was already answered")
+  invariant Aux_DeferredFlag {
+    (announcing == none => (not deferredResolved and not annAborted)) and
+    forall t: Tool { announcing == some(t) => (deferredResolved == (not pend.contains(t))) }
+  }
+
+  // ---- Lemmas that only hold once the hypothetical fixes are switched on ----
+  // In the current-code model (all switches 0) the antecedent is false, so they
+  // state nothing there. They exist so that variants/fix_all.fsl can be proved by
+  // induction (they describe the state in the middle of an announcement).
+  @requirement("MODEL-FIX1", "with the notify fixes, the client view matches the table for every request not being announced")
+  invariant Fix_ViewMatchesOutsideAnnouncement {
+    (H_ABORT_NOTIFY == 1 and H_INTERRUPT_NOTIFY == 1 and H_DENYALL_NOTIFY == 1 and H_STREAM_END_CLEANUP == 1) =>
+      forall u: Tool { (announcing == some(u) and not clientSees[u]) or (announcing != some(u) and clientSees[u] == pend.contains(u)) }
+  }
+
+  @requirement("MODEL-FIX2", "with the status fixes, waiting_approval tracks the table even in the middle of an announcement")
+  invariant Fix_StatusTracksTable {
+    (H_STATUS_GUARD == 1 and H_ABORT_NOTIFY == 1 and H_INTERRUPT_NOTIFY == 1 and H_STREAM_END_CLEANUP == 1) =>
+      ((pend.size() > 0) == (status == WaitingApproval))
+  }
+}
