@@ -141,7 +141,7 @@ void main() {
       await tester.pumpWidget(_buildSummary(UsageDisplayMode.remaining));
       final usageHeight = tester.getSize(find.byType(SectionHeader)).height;
 
-      expect(plainHeight, 40);
+      expect(plainHeight, 37);
       expect(usageHeight, plainHeight);
     });
 
@@ -346,7 +346,7 @@ void main() {
         );
         expect(summary.right, lessThanOrEqualTo(width + 0.1));
         if (scale == 1) {
-          expect(tester.getSize(find.byType(SectionHeader)).height, 40);
+          expect(tester.getSize(find.byType(SectionHeader)).height, 37);
         }
       });
     }

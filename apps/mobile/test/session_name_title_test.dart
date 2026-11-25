@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
+import 'package:ccpocket/theme/provider_style.dart';
 import 'package:ccpocket/widgets/session_name_title.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -166,7 +167,7 @@ void main() {
       for (final sessionName in [null, 'Fix login']) {
         final label = sessionName == null ? 'project name' : 'session name';
 
-        testWidgets('Claude $label uses primary (${brightness.name})', (
+        testWidgets('Claude $label uses provider accent (${brightness.name})', (
           tester,
         ) async {
           final color = await pumpTitle(
@@ -175,13 +176,13 @@ void main() {
             brightness: brightness,
             sessionName: sessionName,
           );
-          final scheme = brightness == Brightness.dark
-              ? AppTheme.darkTheme.colorScheme
-              : AppTheme.lightTheme.colorScheme;
-          expect(color, scheme.primary);
+          final expected = brightness == Brightness.dark
+              ? AppTheme.darkTheme.colorScheme.primary
+              : claudeAccentLight;
+          expect(color, expected);
         });
 
-        testWidgets('Codex $label uses secondary (${brightness.name})', (
+        testWidgets('Codex $label uses provider accent (${brightness.name})', (
           tester,
         ) async {
           final color = await pumpTitle(
@@ -190,10 +191,10 @@ void main() {
             brightness: brightness,
             sessionName: sessionName,
           );
-          final scheme = brightness == Brightness.dark
-              ? AppTheme.darkTheme.colorScheme
-              : AppTheme.lightTheme.colorScheme;
-          expect(color, scheme.secondary);
+          final expected = brightness == Brightness.dark
+              ? codexAccentDark
+              : codexAccentLight;
+          expect(color, expected);
         });
       }
     }
