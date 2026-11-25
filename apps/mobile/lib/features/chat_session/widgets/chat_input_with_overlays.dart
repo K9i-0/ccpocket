@@ -148,6 +148,11 @@ class ChatInputWithOverlays extends HookWidget {
     final filteredFiles = useState<List<String>>(const []);
     final activeCompletion = useState<_CompletionOverlay?>(null);
     final selectedCompletionIndex = useState(0);
+    // Track text edits vs pure cursor/selection movement so clicking or
+    // drag-selecting across existing `/skill`, `$skill`, or `@file` tokens does
+    // not pop up completion overlays.
+    final previousTextRef = useRef(inputController.text);
+    final allowCompletionRef = useRef(false);
 
     // Let a floating composer keep room for the completion options.
     final composerScope = FloatingComposerScope.maybeOf(context);
@@ -316,6 +321,15 @@ class ChatInputWithOverlays extends HookWidget {
       }
     }
 
+    void hideAllCompletions() {
+      allowCompletionRef.value = false;
+      _setPortalVisibility(slashPortalController, visible: false);
+      _setPortalVisibility(dollarPortalController, visible: false);
+      _setPortalVisibility(filePortalController, visible: false);
+      activeCompletion.value = null;
+      selectedCompletionIndex.value = 0;
+    }
+
     // Input change listener
     useEffect(
       () {
@@ -323,6 +337,10 @@ class ChatInputWithOverlays extends HookWidget {
 
         void onChange() {
           final text = inputController.text;
+          final selection = inputController.selection;
+          final textChanged = text != previousTextRef.value;
+          previousTextRef.value = text;
+
           final trimHasText = text.trim().isNotEmpty;
           if (trimHasText != hasInputText.value) {
             hasInputText.value = trimHasText;
@@ -332,15 +350,46 @@ class ChatInputWithOverlays extends HookWidget {
             isInputEmpty.value = empty;
           }
 
-          final slashQuery = _extractTriggerQuery(
-            text,
-            inputController.selection.baseOffset,
-            trigger: '/',
-          );
-          if (slashQuery != null) {
+          // Never keep or open completions while the user has a range
+          // selection (e.g. partial copy/paste across `/skill` or `@file`).
+          if (!selection.isValid || !selection.isCollapsed) {
             if (isInMentionContext.value) {
               isInMentionContext.value = false;
             }
+            hideAllCompletions();
+            return;
+          }
+
+          final cursorPos = selection.baseOffset;
+          final slashQuery = _extractTriggerQuery(
+            text,
+            cursorPos,
+            trigger: '/',
+          );
+          final dollarQuery = slashQuery == null && dollarEnabled
+              ? _extractTriggerQuery(text, cursorPos, trigger: r'$')
+              : null;
+          final mentionQuery = slashQuery == null && dollarQuery == null
+              ? _extractMentionQuery(text, cursorPos)
+              : null;
+
+          // Keep @-mention button state accurate even during cursor movement.
+          final inMention = mentionQuery != null;
+          if (inMention != isInMentionContext.value) {
+            isInMentionContext.value = inMention;
+          }
+
+          if (textChanged) {
+            allowCompletionRef.value =
+                slashQuery != null ||
+                dollarQuery != null ||
+                mentionQuery != null;
+          } else if (!allowCompletionRef.value &&
+              activeCompletion.value == null) {
+            return;
+          }
+
+          if (slashQuery != null) {
             final query = '/${slashQuery.toLowerCase()}';
             final filtered = rankCommandCompletions(
               commands,
@@ -359,88 +408,62 @@ class ChatInputWithOverlays extends HookWidget {
             }
             hideCompletion(_CompletionOverlay.dollar, dollarPortalController);
             hideCompletion(_CompletionOverlay.file, filePortalController);
-          } else {
+          } else if (dollarQuery != null) {
             hideCompletion(_CompletionOverlay.slash, slashPortalController);
-            final dollarQuery = dollarEnabled
-                ? _extractTriggerQuery(
-                    text,
-                    inputController.selection.baseOffset,
-                    trigger: r'$',
-                  )
-                : null;
-            if (dollarQuery != null) {
-              if (isInMentionContext.value) {
-                isInMentionContext.value = false;
-              }
-              final q = '${r'$'}${dollarQuery.toLowerCase()}';
-              final filtered = rankCommandCompletions(
-                dollarEntities,
-                q,
-                (command) => command.command,
-              );
-              if (filtered.isNotEmpty) {
-                filteredDollar.value = filtered;
-                showCompletion(
-                  _CompletionOverlay.dollar,
-                  filtered.length,
-                  dollarPortalController,
-                );
-              } else {
-                hideCompletion(
-                  _CompletionOverlay.dollar,
-                  dollarPortalController,
-                );
-              }
-              hideCompletion(_CompletionOverlay.file, filePortalController);
-              return;
-            }
-            hideCompletion(_CompletionOverlay.dollar, dollarPortalController);
-            // @-mention filtering
-            final mentionQuery = _extractMentionQuery(
-              text,
-              inputController.selection.baseOffset,
+            final q = '${r'$'}${dollarQuery.toLowerCase()}';
+            final filtered = rankCommandCompletions(
+              dollarEntities,
+              q,
+              (command) => command.command,
             );
-            // Track whether cursor is in @-mention context (for button state)
-            final inMention = mentionQuery != null;
-            if (inMention != isInMentionContext.value) {
-              isInMentionContext.value = inMention;
-            }
-            if (mentionQuery != null &&
-                (projectFiles.isNotEmpty || pluginEntities.isNotEmpty)) {
-              final q = mentionQuery.toLowerCase();
-              final filteredPluginItems = rankCommandCompletions(
-                pluginEntities,
-                '@$q',
-                (command) => command.command,
+            if (filtered.isNotEmpty) {
+              filteredDollar.value = filtered;
+              showCompletion(
+                _CompletionOverlay.dollar,
+                filtered.length,
+                dollarPortalController,
               );
-              final scored =
-                  projectFiles
-                      .map((f) => (file: f, score: scoreFileMentionPath(f, q)))
-                      .where((e) => e.score >= 0)
-                      .toList()
-                    ..sort((a, b) {
-                      final cmp = a.score.compareTo(b.score);
-                      return cmp != 0
-                          ? cmp
-                          : a.file.length.compareTo(b.file.length);
-                    });
-              final filtered = scored.take(15).map((e) => e.file).toList();
-              if (filteredPluginItems.isNotEmpty || filtered.isNotEmpty) {
-                filteredPlugins.value = filteredPluginItems;
-                filteredFiles.value = filtered;
-                showCompletion(
-                  _CompletionOverlay.file,
-                  filteredPluginItems.length + filtered.length,
-                  filePortalController,
-                );
-              } else {
-                filteredPlugins.value = const [];
-                hideCompletion(_CompletionOverlay.file, filePortalController);
-              }
+            } else {
+              hideCompletion(_CompletionOverlay.dollar, dollarPortalController);
+            }
+            hideCompletion(_CompletionOverlay.file, filePortalController);
+          } else if (mentionQuery != null &&
+              (projectFiles.isNotEmpty || pluginEntities.isNotEmpty)) {
+            hideCompletion(_CompletionOverlay.slash, slashPortalController);
+            hideCompletion(_CompletionOverlay.dollar, dollarPortalController);
+            final q = mentionQuery.toLowerCase();
+            final filteredPluginItems = rankCommandCompletions(
+              pluginEntities,
+              '@$q',
+              (command) => command.command,
+            );
+            final scored =
+                projectFiles
+                    .map((f) => (file: f, score: scoreFileMentionPath(f, q)))
+                    .where((e) => e.score >= 0)
+                    .toList()
+                  ..sort((a, b) {
+                    final cmp = a.score.compareTo(b.score);
+                    return cmp != 0
+                        ? cmp
+                        : a.file.length.compareTo(b.file.length);
+                  });
+            final filtered = scored.take(15).map((e) => e.file).toList();
+            if (filteredPluginItems.isNotEmpty || filtered.isNotEmpty) {
+              filteredPlugins.value = filteredPluginItems;
+              filteredFiles.value = filtered;
+              showCompletion(
+                _CompletionOverlay.file,
+                filteredPluginItems.length + filtered.length,
+                filePortalController,
+              );
             } else {
               filteredPlugins.value = const [];
               hideCompletion(_CompletionOverlay.file, filePortalController);
             }
+          } else {
+            filteredPlugins.value = const [];
+            hideAllCompletions();
           }
         }
 
@@ -583,14 +606,6 @@ class ChatInputWithOverlays extends HookWidget {
       selectedCompletionIndex.value = count - 1;
     }
 
-    void hideAllCompletions() {
-      _setPortalVisibility(slashPortalController, visible: false);
-      _setPortalVisibility(dollarPortalController, visible: false);
-      _setPortalVisibility(filePortalController, visible: false);
-      activeCompletion.value = null;
-      selectedCompletionIndex.value = 0;
-    }
-
     bool selectActiveCompletion() {
       final active = activeCompletion.value;
       if (active == null) return false;
@@ -618,7 +633,13 @@ class ChatInputWithOverlays extends HookWidget {
 
     KeyEventResult handleCompletionKeyEvent(KeyEvent event) {
       if (activeCompletion.value == null) return KeyEventResult.ignored;
+      if (!inputController.selection.isValid ||
+          !inputController.selection.isCollapsed) {
+        hideAllCompletions();
+        return KeyEventResult.ignored;
+      }
       final key = event.logicalKey;
+      final hardware = HardwareKeyboard.instance;
       if (_isCompletionNextShortcut(event)) {
         moveCompletionSelection(1);
         return KeyEventResult.handled;
@@ -635,17 +656,21 @@ class ChatInputWithOverlays extends HookWidget {
         moveCompletionSelectionToEnd();
         return KeyEventResult.handled;
       }
-      if (key == LogicalKeyboardKey.arrowDown) {
+      final hasArrowModifier =
+          hardware.isShiftPressed ||
+          hardware.isMetaPressed ||
+          hardware.isAltPressed ||
+          hardware.isControlPressed;
+      if (!hasArrowModifier && key == LogicalKeyboardKey.arrowDown) {
         moveCompletionSelection(1);
         return KeyEventResult.handled;
       }
-      if (key == LogicalKeyboardKey.arrowUp) {
+      if (!hasArrowModifier && key == LogicalKeyboardKey.arrowUp) {
         moveCompletionSelection(-1);
         return KeyEventResult.handled;
       }
       if (key == LogicalKeyboardKey.tab ||
-          (key == LogicalKeyboardKey.enter &&
-              !HardwareKeyboard.instance.isShiftPressed)) {
+          (key == LogicalKeyboardKey.enter && !hardware.isShiftPressed)) {
         selectActiveCompletion();
         return KeyEventResult.handled;
       }
@@ -1243,171 +1268,197 @@ class ChatInputWithOverlays extends HookWidget {
       );
     }
 
-    final screenWidth = MediaQuery.of(context).size.width;
+    final screenWidth = MediaQuery.sizeOf(context).width;
 
-    Widget buildFollowerOverlay({required Widget child}) {
-      return CompositedTransformFollower(
-        link: layerLink,
-        targetAnchor: Alignment.topLeft,
-        followerAnchor: Alignment.bottomLeft,
-        child: SizedBox(width: screenWidth - 16, child: child),
-      );
-    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final composerWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : screenWidth;
+        final overlayWidth = (composerWidth - 16).clamp(0.0, screenWidth);
 
-    return OverlayPortal(
-      controller: slashPortalController,
-      overlayChildBuilder: (_) => Positioned(
-        left: 8,
-        child: buildFollowerOverlay(
-          child: SlashCommandOverlay(
-            filteredCommands: filteredSlash.value,
-            selectedIndex: selectedCompletionIndex.value,
-            onSelect: onSlashCommandSelected,
-            onDismiss: () =>
-                hideCompletion(_CompletionOverlay.slash, slashPortalController),
-          ),
-        ),
-      ),
-      child: OverlayPortal(
-        controller: dollarPortalController,
-        overlayChildBuilder: (_) => Positioned(
-          left: 8,
-          child: buildFollowerOverlay(
-            child: SlashCommandOverlay(
-              filteredCommands: filteredDollar.value,
-              selectedIndex: selectedCompletionIndex.value,
-              onSelect: onDollarEntitySelected,
-              onDismiss: () => hideCompletion(
-                _CompletionOverlay.dollar,
-                dollarPortalController,
-              ),
+        Widget buildFollowerOverlay({required Widget child}) {
+          return CompositedTransformFollower(
+            link: layerLink,
+            targetAnchor: Alignment.topLeft,
+            followerAnchor: Alignment.bottomLeft,
+            offset: const Offset(8, 0),
+            child: SizedBox(
+              width: overlayWidth,
+              child: TextFieldTapRegion(child: child),
             ),
-          ),
-        ),
-        child: OverlayPortal(
-          controller: filePortalController,
+          );
+        }
+
+        return OverlayPortal(
+          controller: slashPortalController,
           overlayChildBuilder: (_) => Positioned(
-            left: 8,
+            left: 0,
+            top: 0,
             child: buildFollowerOverlay(
-              child: FileMentionOverlay(
-                filteredPlugins: filteredPlugins.value,
-                filteredFiles: filteredFiles.value,
+              child: SlashCommandOverlay(
+                filteredCommands: filteredSlash.value,
                 selectedIndex: selectedCompletionIndex.value,
-                onSelectPlugin: onPluginMentionSelected,
-                onSelect: onFileMentionSelected,
+                onSelect: onSlashCommandSelected,
                 onDismiss: () => hideCompletion(
-                  _CompletionOverlay.file,
-                  filePortalController,
+                  _CompletionOverlay.slash,
+                  slashPortalController,
                 ),
               ),
             ),
           ),
-          child: CompositedTransformTarget(
-            link: layerLink,
-            child: _wrapWithDropRegion(
-              enabled: isDesktopPlatform,
-              onPerformDrop: handleDroppedItems,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  GitHubSelectionCards(
-                    cubit: githubSelection,
-                    sessionId: sessionId,
+          child: OverlayPortal(
+            controller: dollarPortalController,
+            overlayChildBuilder: (_) => Positioned(
+              left: 0,
+              top: 0,
+              child: buildFollowerOverlay(
+                child: SlashCommandOverlay(
+                  filteredCommands: filteredDollar.value,
+                  selectedIndex: selectedCompletionIndex.value,
+                  onSelect: onDollarEntitySelected,
+                  onDismiss: () => hideCompletion(
+                    _CompletionOverlay.dollar,
+                    dollarPortalController,
                   ),
-                  MediaFeedbackCards(
-                    binding: feedbackBinding,
-                    entries: feedbackEntries,
-                    onOpenCode: onOpenGitScreen == null
-                        ? null
-                        : () => onOpenGitScreen!(attachedDiffSelection.value),
+                ),
+              ),
+            ),
+            child: OverlayPortal(
+              controller: filePortalController,
+              overlayChildBuilder: (_) => Positioned(
+                left: 0,
+                top: 0,
+                child: buildFollowerOverlay(
+                  child: FileMentionOverlay(
+                    filteredPlugins: filteredPlugins.value,
+                    filteredFiles: filteredFiles.value,
+                    selectedIndex: selectedCompletionIndex.value,
+                    onSelectPlugin: onPluginMentionSelected,
+                    onSelect: onFileMentionSelected,
+                    onDismiss: () => hideCompletion(
+                      _CompletionOverlay.file,
+                      filePortalController,
+                    ),
                   ),
-                  ChatInputBar(
-                    inputController: inputController,
-                    status: status,
-                    hasInputText:
-                        !inputBlocked &&
-                        !isSending.value &&
-                        (hasInputText.value ||
-                            attachedImages.value.isNotEmpty ||
-                            attachedDiffSelection.value != null ||
-                            feedbackEntries.isNotEmpty ||
-                            githubItems.isNotEmpty),
-                    isInputEmpty: isInputEmpty.value,
-                    isVoiceAvailable:
-                        !settings.hideVoiceInput && voice.isAvailable,
-                    isRecording: voice.isRecording,
-                    onSend: sendMessage,
-                    busySendDelivery: busyDelivery,
-                    onSendLongPress: busyDelivery == null
-                        ? null
-                        : () async {
-                            HapticFeedback.mediumImpact();
-                            final chosen = await showInputDeliverySheet(
-                              context,
-                              defaultDelivery: busyDelivery,
-                            );
-                            if (chosen != null && context.mounted) {
-                              await sendMessage(delivery: chosen);
-                            }
-                          },
-                    onStop: stopSession,
-                    onInterrupt: interruptSession,
-                    onToggleVoice: voice.toggle,
-                    onIndent: indent,
-                    onDedent: dedent,
-                    canDedent: canDedent.value,
-                    onSlashCommand: insertSlashPrefix,
-                    onMention: insertMention,
-                    onDollarMention:
-                        isCodex ||
-                            (!isAntigravity &&
-                                skillTriggerStyle == SkillTriggerStyle.dollar)
-                        ? insertDollar
-                        : null,
-                    showDollarButton: isCodex,
-                    isInMentionContext: isInMentionContext.value,
-                    onShowPromptHistory: showPromptHistory,
-                    onAttachImage: settings.openGalleryDirectly
-                        ? pickImageFromGallery
-                        : showAttachOptions,
-                    onShowAttachmentOptions: settings.openGalleryDirectly
-                        ? showAttachOptions
-                        : null,
-                    attachedImages: attachedImages.value,
-                    editableSketchIndices: attachedSketchDocuments.value.keys
-                        .toSet(),
-                    onEditSketch: (index) => openSketch(imageIndex: index),
-                    onAnnotateImage: (bytes) {
-                      // The preview can outlive a pending removal or session change.
-                      if (!context.mounted ||
-                          activeSessionId.value != sessionId) {
-                        return;
-                      }
-                      final index = attachedImages.value.indexWhere(
-                        (image) => identical(image.bytes, bytes),
-                      );
-                      if (index >= 0) openSketch(imageIndex: index);
-                    },
-                    onClearImage: clearAttachment,
-                    attachedDiffSelection: attachedDiffSelection.value,
-                    onClearDiffSelection: clearDiffSelection,
-                    onTapDiffPreview: onOpenGitScreen != null
-                        ? () => onOpenGitScreen!(attachedDiffSelection.value)
-                        : null,
-                    hintText: hintText,
-                    onPasteImage: isDesktopPlatform ? tryPasteImage : null,
-                    onPasteImageFromContextMenu: pasteFromClipboard,
-                    onNativePasteImage: addNativePastedImage,
-                    hasImageInClipboard: hasContextMenuClipboardImage,
-                    imagePasteShortcut: settings.imagePasteShortcut,
-                    onCompletionKeyEvent: handleCompletionKeyEvent,
+                ),
+              ),
+              child: CompositedTransformTarget(
+                link: layerLink,
+                child: _wrapWithDropRegion(
+                  enabled: isDesktopPlatform,
+                  onPerformDrop: handleDroppedItems,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      GitHubSelectionCards(
+                        cubit: githubSelection,
+                        sessionId: sessionId,
+                      ),
+                      MediaFeedbackCards(
+                        binding: feedbackBinding,
+                        entries: feedbackEntries,
+                        onOpenCode: onOpenGitScreen == null
+                            ? null
+                            : () =>
+                                  onOpenGitScreen!(attachedDiffSelection.value),
+                      ),
+                      ChatInputBar(
+                        inputController: inputController,
+                        status: status,
+                        hasInputText:
+                            !inputBlocked &&
+                            !isSending.value &&
+                            (hasInputText.value ||
+                                attachedImages.value.isNotEmpty ||
+                                attachedDiffSelection.value != null ||
+                                feedbackEntries.isNotEmpty ||
+                                githubItems.isNotEmpty),
+                        isInputEmpty: isInputEmpty.value,
+                        isVoiceAvailable:
+                            !settings.hideVoiceInput && voice.isAvailable,
+                        isRecording: voice.isRecording,
+                        onSend: sendMessage,
+                        busySendDelivery: busyDelivery,
+                        onSendLongPress: busyDelivery == null
+                            ? null
+                            : () async {
+                                HapticFeedback.mediumImpact();
+                                final chosen = await showInputDeliverySheet(
+                                  context,
+                                  defaultDelivery: busyDelivery,
+                                );
+                                if (chosen != null && context.mounted) {
+                                  await sendMessage(delivery: chosen);
+                                }
+                              },
+                        onStop: stopSession,
+                        onInterrupt: interruptSession,
+                        onToggleVoice: voice.toggle,
+                        onIndent: indent,
+                        onDedent: dedent,
+                        canDedent: canDedent.value,
+                        onSlashCommand: insertSlashPrefix,
+                        onMention: insertMention,
+                        onDollarMention:
+                            isCodex ||
+                                (!isAntigravity &&
+                                    skillTriggerStyle ==
+                                        SkillTriggerStyle.dollar)
+                            ? insertDollar
+                            : null,
+                        showDollarButton: isCodex,
+                        isInMentionContext: isInMentionContext.value,
+                        onShowPromptHistory: showPromptHistory,
+                        onAttachImage: settings.openGalleryDirectly
+                            ? pickImageFromGallery
+                            : showAttachOptions,
+                        onShowAttachmentOptions: settings.openGalleryDirectly
+                            ? showAttachOptions
+                            : null,
+                        attachedImages: attachedImages.value,
+                        editableSketchIndices: attachedSketchDocuments
+                            .value
+                            .keys
+                            .toSet(),
+                        onEditSketch: (index) => openSketch(imageIndex: index),
+                        onAnnotateImage: (bytes) {
+                          // The preview can outlive a pending removal or session change.
+                          if (!context.mounted ||
+                              activeSessionId.value != sessionId) {
+                            return;
+                          }
+                          final index = attachedImages.value.indexWhere(
+                            (image) => identical(image.bytes, bytes),
+                          );
+                          if (index >= 0) openSketch(imageIndex: index);
+                        },
+                        onClearImage: clearAttachment,
+                        attachedDiffSelection: attachedDiffSelection.value,
+                        onClearDiffSelection: clearDiffSelection,
+                        onTapDiffPreview: onOpenGitScreen != null
+                            ? () =>
+                                  onOpenGitScreen!(attachedDiffSelection.value)
+                            : null,
+                        hintText: hintText,
+                        onPasteImage: isDesktopPlatform ? tryPasteImage : null,
+                        onPasteImageFromContextMenu: pasteFromClipboard,
+                        onNativePasteImage: addNativePastedImage,
+                        hasImageInClipboard: hasContextMenuClipboardImage,
+                        imagePasteShortcut: settings.imagePasteShortcut,
+                        onCompletionKeyEvent: handleCompletionKeyEvent,
+                        onFocusChanged: (hasFocus) {
+                          if (!hasFocus) hideAllCompletions();
+                        },
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

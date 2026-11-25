@@ -161,7 +161,34 @@ void main() {
     expect(selectionsOf(tester, target), isNotEmpty);
   });
 
-  testWidgets('dragging the list still dismisses the text input focus', (
+  testWidgets(
+    'dragging the list still dismisses the text input focus on mobile',
+    (tester) async {
+      final inputFocus = FocusNode();
+      addTearDown(inputFocus.dispose);
+      await pumpList(tester, footer: TextField(focusNode: inputFocus));
+
+      inputFocus.requestFocus();
+      await tester.pump();
+      expect(inputFocus.hasFocus, isTrue);
+      expect(isEditableTextFocused(), isTrue);
+
+      await tester.drag(
+        find.byType(ListView),
+        const Offset(0, 40),
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+
+      expect(inputFocus.hasFocus, isFalse);
+    },
+    variant: TargetPlatformVariant({
+      TargetPlatform.android,
+      TargetPlatform.iOS,
+    }),
+  );
+
+  testWidgets('scrolling the list keeps text input focus on desktop', (
     tester,
   ) async {
     final inputFocus = FocusNode();
@@ -180,8 +207,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(inputFocus.hasFocus, isFalse);
-  });
+    expect(inputFocus.hasFocus, isTrue);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 }
 
 class _SelectionTestBridge extends BridgeService {

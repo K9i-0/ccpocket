@@ -3,6 +3,7 @@ import 'dart:async';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart' show kSecondaryMouseButton;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
@@ -88,6 +89,9 @@ class ChatInputBar extends StatelessWidget {
   /// Handles keyboard events while an input completion overlay is open.
   final KeyEventResult Function(KeyEvent event)? onCompletionKeyEvent;
 
+  /// Called when the input text field gains or loses focus.
+  final ValueChanged<bool>? onFocusChanged;
+
   const ChatInputBar({
     super.key,
     required this.inputController,
@@ -128,6 +132,7 @@ class ChatInputBar extends StatelessWidget {
     this.hasImageInClipboard,
     this.imagePasteShortcut = ImagePasteShortcut.ctrlV,
     this.onCompletionKeyEvent,
+    this.onFocusChanged,
   });
 
   @override
@@ -188,6 +193,7 @@ class ChatInputBar extends StatelessWidget {
             hasImageInClipboard: hasImageInClipboard,
             imagePasteShortcut: imagePasteShortcut,
             onCompletionKeyEvent: onCompletionKeyEvent,
+            onFocusChanged: onFocusChanged,
             onIndent: onIndent,
             onDedent: onDedent,
           ),
@@ -795,6 +801,7 @@ class _InputTextField extends StatefulWidget {
     this.hasImageInClipboard,
     required this.imagePasteShortcut,
     this.onCompletionKeyEvent,
+    this.onFocusChanged,
     this.onIndent,
     this.onDedent,
   });
@@ -822,6 +829,9 @@ class _InputTextField extends StatefulWidget {
   /// dismissal, and selection shortcuts.
   final KeyEventResult Function(KeyEvent event)? onCompletionKeyEvent;
 
+  /// Called when the input field gains or loses focus.
+  final ValueChanged<bool>? onFocusChanged;
+
   /// Callback for Tab key (indent).
   final VoidCallback? onIndent;
 
@@ -837,9 +847,12 @@ class _InputTextFieldState extends State<_InputTextField>
   static _InputTextFieldState? _androidImeOwner;
 
   late final FocusNode _focusNode;
+  late final ScrollController _scrollController;
+  late final UndoHistoryController _undoController;
   var _androidImeResetPending = false;
   var _androidImeWasActiveBeforeInactive = false;
   var _clipboardProbeGeneration = 0;
+  var _clipboardProbeFromSecondaryClick = false;
   var _hasImageInClipboard = false;
 
   @override
@@ -847,6 +860,8 @@ class _InputTextFieldState extends State<_InputTextField>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _focusNode = FocusNode(onKeyEvent: _handleKeyEvent);
+    _scrollController = ScrollController();
+    _undoController = UndoHistoryController();
     _focusNode.addListener(_handleFocusChanged);
     FocusManager.instance.addListener(_syncAndroidImeOwner);
   }
@@ -867,6 +882,8 @@ class _InputTextFieldState extends State<_InputTextField>
     NativePasteBridge.instance.deactivate(this);
     _focusNode.removeListener(_handleFocusChanged);
     _focusNode.dispose();
+    _scrollController.dispose();
+    _undoController.dispose();
     super.dispose();
   }
 
@@ -915,6 +932,7 @@ class _InputTextFieldState extends State<_InputTextField>
   void _handleFocusChanged() {
     _syncAndroidImeOwner();
     _syncNativePasteBridge();
+    widget.onFocusChanged?.call(_focusNode.hasFocus);
   }
 
   void _syncAndroidImeOwner() {
@@ -939,12 +957,21 @@ class _InputTextFieldState extends State<_InputTextField>
 
   void _handlePointerDown(PointerDownEvent event) {
     final generation = ++_clipboardProbeGeneration;
+    _clipboardProbeFromSecondaryClick =
+        isDesktopPlatform && (event.buttons & kSecondaryMouseButton) != 0;
     _setHasImageInClipboard(false);
     if (widget.hasImageInClipboard == null) return;
     unawaited(_refreshClipboardImageAvailability(generation));
   }
 
   void _cancelClipboardProbe(PointerEvent event) {
+    // On desktop, right-click fires PointerUp immediately before the context
+    // menu resolves; keep the secondary-click probe alive so "Paste Image" can
+    // appear in the menu.
+    if (event is PointerUpEvent && _clipboardProbeFromSecondaryClick) {
+      return;
+    }
+    _clipboardProbeFromSecondaryClick = false;
     _clipboardProbeGeneration++;
   }
 
@@ -1091,11 +1118,8 @@ class _InputTextFieldState extends State<_InputTextField>
 
     final text = value.text;
     if (!selection.isCollapsed) {
-      widget.controller.value = _replaceRange(
-        value,
-        selection.start,
-        selection.end,
-        '',
+      _applyEditingValue(
+        _replaceRange(value, selection.start, selection.end, ''),
       );
       return;
     }
@@ -1104,7 +1128,7 @@ class _InputTextFieldState extends State<_InputTextField>
     final lineEnd = text.indexOf('\n', cursor);
     final end = lineEnd < 0 ? text.length : lineEnd;
     if (end == cursor) return;
-    widget.controller.value = _replaceRange(value, cursor, end, '');
+    _applyEditingValue(_replaceRange(value, cursor, end, ''));
   }
 
   void _deleteForwardCharacter() {
@@ -1113,11 +1137,8 @@ class _InputTextFieldState extends State<_InputTextField>
     if (!selection.isValid) return;
 
     if (!selection.isCollapsed) {
-      widget.controller.value = _replaceRange(
-        value,
-        selection.start,
-        selection.end,
-        '',
+      _applyEditingValue(
+        _replaceRange(value, selection.start, selection.end, ''),
       );
       return;
     }
@@ -1131,7 +1152,7 @@ class _InputTextFieldState extends State<_InputTextField>
     final end = range.moveNext()
         ? text.length - range.stringAfterLength
         : cursor + 1;
-    widget.controller.value = _replaceRange(value, cursor, end, '');
+    _applyEditingValue(_replaceRange(value, cursor, end, ''));
   }
 
   TextEditingValue _replaceRange(
@@ -1199,6 +1220,9 @@ class _InputTextFieldState extends State<_InputTextField>
   }
 
   void _insertTextAtSelection(String insertedText) {
+    final normalized = insertedText
+        .replaceAll('\r\n', '\n')
+        .replaceAll('\r', '\n');
     final text = widget.controller.text;
     final selection = widget.controller.selection;
     final start = selection.start < 0 ? text.length : selection.start;
@@ -1207,13 +1231,35 @@ class _InputTextFieldState extends State<_InputTextField>
     final normalizedEnd = end.clamp(normalizedStart, text.length);
     final newText =
         text.substring(0, normalizedStart) +
-        insertedText +
+        normalized +
         text.substring(normalizedEnd);
-    final newCursor = normalizedStart + insertedText.length;
-    widget.controller.value = TextEditingValue(
-      text: newText,
-      selection: TextSelection.collapsed(offset: newCursor),
+    final newCursor = normalizedStart + normalized.length;
+    _applyEditingValue(
+      TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: newCursor),
+      ),
     );
+  }
+
+  EditableTextState? _findEditableTextState() {
+    return _focusNode.context?.findAncestorStateOfType<EditableTextState>();
+  }
+
+  /// Applies a user-triggered edit through [EditableTextState] when available
+  /// so undo history (Cmd+Z), macOS IME state, input formatters, and scroll
+  /// position stay in sync.
+  void _applyEditingValue(TextEditingValue nextValue) {
+    final editable = _findEditableTextState();
+    if (editable != null) {
+      editable.userUpdateTextEditingValue(
+        nextValue,
+        SelectionChangedCause.keyboard,
+      );
+      editable.bringIntoView(nextValue.selection.extent);
+    } else {
+      widget.controller.value = nextValue;
+    }
   }
 
   Widget _buildContextMenu(
@@ -1299,42 +1345,47 @@ class _InputTextFieldState extends State<_InputTextField>
       onPointerDown: _handlePointerDown,
       onPointerUp: _cancelClipboardProbe,
       onPointerCancel: _cancelClipboardProbe,
-      child: TextField(
-        key: const ValueKey('message_input'),
-        focusNode: _focusNode,
-        controller: widget.controller,
-        decoration: InputDecoration(
-          hintText: widget.hintText ?? l.messagePlaceholder,
-          filled: true,
-          fillColor: FrostedComposer.fill(context, cs.surfaceContainerLow),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(24),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(24),
-            borderSide: BorderSide(color: cs.outlineVariant, width: 0.5),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(24),
-            borderSide: BorderSide(
-              color: cs.primary.withValues(alpha: 0.5),
-              width: 1.5,
+      child: Scrollbar(
+        controller: _scrollController,
+        child: TextField(
+          key: const ValueKey('message_input'),
+          focusNode: _focusNode,
+          controller: widget.controller,
+          scrollController: _scrollController,
+          undoController: _undoController,
+          decoration: InputDecoration(
+            hintText: widget.hintText ?? l.messagePlaceholder,
+            filled: true,
+            fillColor: FrostedComposer.fill(context, cs.surfaceContainerLow),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(24),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(24),
+              borderSide: BorderSide(color: cs.outlineVariant, width: 0.5),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(24),
+              borderSide: BorderSide(
+                color: cs.primary.withValues(alpha: 0.5),
+                width: 1.5,
+              ),
+            ),
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 10,
             ),
           ),
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 10,
-          ),
+          enabled: widget.status != ProcessStatus.starting,
+          autofillHints: null,
+          maxLines: isDesktopPlatform ? 12 : 6,
+          minLines: 1,
+          keyboardType: TextInputType.multiline,
+          textInputAction: TextInputAction.newline,
+          contextMenuBuilder: _buildContextMenu,
         ),
-        enabled: widget.status != ProcessStatus.starting,
-        autofillHints: null,
-        maxLines: 6,
-        minLines: 1,
-        keyboardType: TextInputType.multiline,
-        textInputAction: TextInputAction.newline,
-        contextMenuBuilder: _buildContextMenu,
       ),
     );
   }

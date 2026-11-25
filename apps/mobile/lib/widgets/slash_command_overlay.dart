@@ -1,6 +1,11 @@
+import 'dart:async';
+
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
+import '../utils/platform_helper.dart';
 import 'slash_command_sheet.dart';
 
 class SlashCommandOverlay extends StatefulWidget {
@@ -89,81 +94,139 @@ class _SlashCommandOverlayState extends State<SlashCommandOverlay> {
               SlashCommandCategory.builtin => appColors.subtleText,
             };
             final isSelected = index == widget.selectedIndex;
-            return InkWell(
-              key: ValueKey('slash_completion_item_$index'),
-              borderRadius: BorderRadius.circular(8),
-              onTap: () => widget.onSelect(cmd),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? cs.primaryContainer.withValues(alpha: 0.55)
-                      : null,
-                  border: Border(
-                    left: BorderSide(
-                      color: isSelected ? cs.primary : Colors.transparent,
-                      width: 3,
+            final tooltipMessage = cmd.description.isNotEmpty
+                ? '${cmd.command}\n${cmd.description}'
+                : cmd.command;
+            return Tooltip(
+              message: tooltipMessage,
+              waitDuration: const Duration(milliseconds: 500),
+              child: InkWell(
+                key: ValueKey('slash_completion_item_$index'),
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => widget.onSelect(cmd),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? cs.primaryContainer.withValues(alpha: 0.55)
+                        : null,
+                    border: Border(
+                      left: BorderSide(
+                        color: isSelected ? cs.primary : Colors.transparent,
+                        width: 3,
+                      ),
                     ),
                   ),
-                ),
-                padding: const EdgeInsets.fromLTRB(9, 8, 12, 8),
-                child: Row(
-                  children: [
-                    Icon(cmd.icon, size: 18, color: iconColor),
-                    const SizedBox(width: 10),
-                    Text(
-                      cmd.command,
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                        color: cs.primary,
+                  padding: const EdgeInsets.fromLTRB(9, 8, 8, 8),
+                  child: Row(
+                    children: [
+                      Icon(cmd.icon, size: 18, color: iconColor),
+                      const SizedBox(width: 10),
+                      Text(
+                        cmd.command,
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: cs.primary,
+                        ),
                       ),
-                    ),
-                    if (cmd.category != SlashCommandCategory.builtin) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 1,
-                        ),
-                        decoration: BoxDecoration(
-                          color: iconColor.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        child: Text(
-                          switch (cmd.category) {
-                            SlashCommandCategory.project => 'project',
-                            SlashCommandCategory.skill => 'skill',
-                            SlashCommandCategory.app => 'app',
-                            SlashCommandCategory.plugin => 'plugin',
-                            SlashCommandCategory.builtin => 'builtin',
-                          },
-                          style: TextStyle(
-                            fontSize: 8,
-                            fontWeight: FontWeight.w600,
-                            color: iconColor,
+                      if (cmd.category != SlashCommandCategory.builtin) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: iconColor.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            switch (cmd.category) {
+                              SlashCommandCategory.project => 'project',
+                              SlashCommandCategory.skill => 'skill',
+                              SlashCommandCategory.app => 'app',
+                              SlashCommandCategory.plugin => 'plugin',
+                              SlashCommandCategory.builtin => 'builtin',
+                            },
+                            style: TextStyle(
+                              fontSize: 8,
+                              fontWeight: FontWeight.w600,
+                              color: iconColor,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        cmd.description,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: appColors.subtleText,
+                      ],
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          cmd.description,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: appColors.subtleText,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
+                      if (isDesktopPlatform)
+                        _OverlayCopyButton(
+                          key: ValueKey('slash_completion_copy_$index'),
+                          textToCopy: cmd.command,
+                        ),
+                    ],
+                  ),
                 ),
               ),
             );
           },
         ),
       ),
+    );
+  }
+}
+
+class _OverlayCopyButton extends StatefulWidget {
+  const _OverlayCopyButton({super.key, required this.textToCopy});
+
+  final String textToCopy;
+
+  @override
+  State<_OverlayCopyButton> createState() => _OverlayCopyButtonState();
+}
+
+class _OverlayCopyButtonState extends State<_OverlayCopyButton> {
+  Timer? _resetTimer;
+  var _copied = false;
+
+  @override
+  void dispose() {
+    _resetTimer?.cancel();
+    super.dispose();
+  }
+
+  void _copy() {
+    unawaited(Clipboard.setData(ClipboardData(text: widget.textToCopy)));
+    _resetTimer?.cancel();
+    setState(() => _copied = true);
+    _resetTimer = Timer(const Duration(milliseconds: 1200), () {
+      if (mounted) setState(() => _copied = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = Localizations.of<AppLocalizations>(context, AppLocalizations);
+    final subtle =
+        Theme.of(context).extension<AppColors>()?.subtleText ??
+        Theme.of(context).colorScheme.onSurfaceVariant;
+    return IconButton(
+      tooltip: _copied ? (l?.copied ?? 'Copied') : (l?.copy ?? 'Copy'),
+      onPressed: _copy,
+      icon: Icon(_copied ? Icons.check : Icons.copy_outlined, size: 14),
+      color: _copied ? Theme.of(context).colorScheme.primary : subtle,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints.tightFor(width: 26, height: 26),
+      visualDensity: VisualDensity.compact,
     );
   }
 }

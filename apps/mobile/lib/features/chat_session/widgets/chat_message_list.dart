@@ -24,6 +24,7 @@ import '../../../theme/app_spacing.dart';
 import '../../../theme/app_theme.dart';
 import '../../../utils/codex_plan_update.dart';
 import '../../../utils/diff_parser.dart';
+import '../../../utils/platform_helper.dart';
 import '../../../widgets/message_bubble.dart';
 import '../../generated_image_preview/generated_image_preview_mapper.dart';
 import '../../generated_image_preview/generated_image_preview_item.dart';
@@ -1046,6 +1047,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
             // chat or swiping the composer down instead).
             if (notification is UserScrollNotification &&
                 notification.direction != ScrollDirection.idle &&
+                !isDesktopPlatform &&
                 isEditableTextFocused() &&
                 !FloatingComposerStatus.isFloatingOf(context)) {
               FocusScope.of(context).unfocus();

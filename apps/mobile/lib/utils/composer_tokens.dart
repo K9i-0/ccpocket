@@ -110,7 +110,6 @@ class ComposerTokenPalette {
 
   factory ComposerTokenPalette.fromTheme(ThemeData theme) {
     final cs = theme.colorScheme;
-    final surface = cs.surfaceContainerHigh;
     const fileTint = Color(0xFF4C9BFF);
     const purpleTint = Color(0xFFA06BFF);
     return ComposerTokenPalette(
@@ -118,38 +117,30 @@ class ComposerTokenPalette {
         purpleTint.withValues(alpha: 0.42),
         cs.onSurfaceVariant,
       ),
-      slashBackground: Color.alphaBlend(
-        purpleTint.withValues(alpha: 0.14),
-        surface,
-      ),
+      slashBackground: purpleTint.withValues(alpha: 0.14),
       fileForeground: Color.alphaBlend(
         fileTint.withValues(alpha: 0.42),
         cs.onSurfaceVariant,
       ),
-      fileBackground: Color.alphaBlend(
-        fileTint.withValues(alpha: 0.14),
-        surface,
-      ),
+      fileBackground: fileTint.withValues(alpha: 0.14),
       skillForeground: Color.alphaBlend(
         purpleTint.withValues(alpha: 0.42),
         cs.onSurfaceVariant,
       ),
-      skillBackground: Color.alphaBlend(
-        purpleTint.withValues(alpha: 0.14),
-        surface,
-      ),
+      skillBackground: purpleTint.withValues(alpha: 0.14),
       appForeground: Color.alphaBlend(
         purpleTint.withValues(alpha: 0.42),
         cs.onSurfaceVariant,
       ),
-      appBackground: Color.alphaBlend(
-        purpleTint.withValues(alpha: 0.14),
-        surface,
-      ),
+      appBackground: purpleTint.withValues(alpha: 0.14),
     );
   }
 
-  TextStyle styleFor(TextStyle baseStyle, ComposerTokenCategory category) {
+  TextStyle styleFor(
+    TextStyle baseStyle,
+    ComposerTokenCategory category, {
+    bool includeBackground = true,
+  }) {
     final (foreground, background) = switch (category) {
       ComposerTokenCategory.slashCommand => (slashForeground, slashBackground),
       ComposerTokenCategory.fileMention => (fileForeground, fileBackground),
@@ -159,7 +150,7 @@ class ComposerTokenPalette {
     };
     return baseStyle.copyWith(
       color: foreground,
-      backgroundColor: background,
+      backgroundColor: includeBackground ? background : null,
       fontWeight: FontWeight.w600,
     );
   }
@@ -298,7 +289,11 @@ class ComposerTextEditingController extends TextEditingController {
       _config,
     ).where((token) => token.isValid).toList();
     if (tokens.isEmpty) {
-      return TextSpan(style: baseStyle, text: text);
+      return super.buildTextSpan(
+        context: context,
+        style: style,
+        withComposing: withComposing,
+      );
     }
 
     final composingRange =
@@ -306,6 +301,13 @@ class ComposerTextEditingController extends TextEditingController {
         ? TextRange(
             start: value.composing.start.clamp(0, text.length),
             end: value.composing.end.clamp(0, text.length),
+          )
+        : null;
+    final selectionRange =
+        value.selection.isValid && !value.selection.isCollapsed
+        ? TextRange(
+            start: value.selection.start.clamp(0, text.length),
+            end: value.selection.end.clamp(0, text.length),
           )
         : null;
 
@@ -320,6 +322,7 @@ class ComposerTextEditingController extends TextEditingController {
             end: token.start,
             style: baseStyle,
             composingRange: composingRange,
+            selectionRange: selectionRange,
           ),
         );
       }
@@ -329,7 +332,13 @@ class ComposerTextEditingController extends TextEditingController {
           start: token.start,
           end: token.end,
           style: _palette!.styleFor(baseStyle, token.category),
+          selectedStyle: _palette!.styleFor(
+            baseStyle,
+            token.category,
+            includeBackground: false,
+          ),
           composingRange: composingRange,
+          selectionRange: selectionRange,
         ),
       );
       cursor = token.end;
@@ -342,6 +351,7 @@ class ComposerTextEditingController extends TextEditingController {
           end: text.length,
           style: baseStyle,
           composingRange: composingRange,
+          selectionRange: selectionRange,
         ),
       );
     }
@@ -354,37 +364,60 @@ List<TextSpan> _buildSegmentSpans({
   required int start,
   required int end,
   required TextStyle style,
+  TextStyle? selectedStyle,
   required TextRange? composingRange,
+  required TextRange? selectionRange,
 }) {
   if (start >= end) return const [];
 
-  if (composingRange == null ||
-      composingRange.isCollapsed ||
-      end <= composingRange.start ||
-      start >= composingRange.end) {
-    return [TextSpan(text: text.substring(start, end), style: style)];
+  final boundaries = <int>{start, end};
+  if (composingRange != null && !composingRange.isCollapsed) {
+    if (composingRange.start > start && composingRange.start < end) {
+      boundaries.add(composingRange.start);
+    }
+    if (composingRange.end > start && composingRange.end < end) {
+      boundaries.add(composingRange.end);
+    }
+  }
+  if (selectedStyle != null &&
+      selectionRange != null &&
+      !selectionRange.isCollapsed) {
+    if (selectionRange.start > start && selectionRange.start < end) {
+      boundaries.add(selectionRange.start);
+    }
+    if (selectionRange.end > start && selectionRange.end < end) {
+      boundaries.add(selectionRange.end);
+    }
   }
 
+  final points = boundaries.toList()..sort();
   final spans = <TextSpan>[];
-  if (start < composingRange.start) {
+  for (var i = 0; i < points.length - 1; i++) {
+    final segStart = points[i];
+    final segEnd = points[i + 1];
+    if (segStart >= segEnd) continue;
+
+    final isSelected =
+        selectedStyle != null &&
+        selectionRange != null &&
+        !selectionRange.isCollapsed &&
+        segStart >= selectionRange.start &&
+        segEnd <= selectionRange.end;
+    final isComposing =
+        composingRange != null &&
+        !composingRange.isCollapsed &&
+        segStart >= composingRange.start &&
+        segEnd <= composingRange.end;
+
+    var segStyle = isSelected ? selectedStyle : style;
+    if (isComposing) {
+      segStyle = segStyle.merge(
+        const TextStyle(decoration: TextDecoration.underline),
+      );
+    }
     spans.add(
-      TextSpan(text: text.substring(start, composingRange.start), style: style),
+      TextSpan(text: text.substring(segStart, segEnd), style: segStyle),
     );
-  }
-
-  final composingStart = start > composingRange.start
-      ? start
-      : composingRange.start;
-  final composingEnd = end < composingRange.end ? end : composingRange.end;
-  spans.add(
-    TextSpan(
-      text: text.substring(composingStart, composingEnd),
-      style: style.merge(const TextStyle(decoration: TextDecoration.underline)),
-    ),
-  );
-
-  if (composingEnd < end) {
-    spans.add(TextSpan(text: text.substring(composingEnd, end), style: style));
   }
 
   return spans;

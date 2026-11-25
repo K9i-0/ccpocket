@@ -23,21 +23,32 @@ void useListAutoComplete(TextEditingController controller) {
     void onChanged() {
       if (isProcessing.value) return;
 
-      final text = controller.text;
+      final value = controller.value;
+      final text = value.text;
       final oldText = previousText.value;
       previousText.value = text;
 
-      // Only act when text grew (not on deletion or programmatic clear).
-      if (text.length <= oldText.length) return;
+      // Never rewrite text while IME composition is active.
+      if (value.composing.isValid && !value.composing.isCollapsed) return;
 
-      final cursorPos = controller.selection.baseOffset;
+      // Only act on a single-character newline insertion (Enter / Shift+Enter).
+      // Pasting multiline markdown ending in '\n' must never be mutated.
+      if (text.length != oldText.length + 1) return;
+
+      final cursorPos = value.selection.baseOffset;
       // Ignore if cursor position is invalid or not collapsed.
-      if (cursorPos < 1 || !controller.selection.isCollapsed) return;
+      if (cursorPos < 1 || !value.selection.isCollapsed) return;
 
-      // Check if a newline was just inserted at the cursor position.
+      // Confirm the single inserted character at cursorPos - 1 is '\n' and all
+      // surrounding text matches oldText unchanged.
       if (text[cursorPos - 1] != '\n') return;
+      if (text.substring(0, cursorPos - 1) !=
+              oldText.substring(0, cursorPos - 1) ||
+          text.substring(cursorPos) != oldText.substring(cursorPos - 1)) {
+        return;
+      }
 
-      final result = completeListAfterNewline(controller.value);
+      final result = completeListAfterNewline(value);
       if (result == null) return;
 
       isProcessing.value = true;

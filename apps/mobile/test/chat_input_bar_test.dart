@@ -1127,14 +1127,27 @@ void main() {
     });
 
     testWidgets('text field supports multiline input', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
       await tester.pumpWidget(buildSubject());
 
-      final textField = tester.widget<TextField>(
+      final mobileField = tester.widget<TextField>(
         find.byKey(const ValueKey('message_input')),
       );
-      expect(textField.maxLines, 6);
-      expect(textField.minLines, 1);
-      expect(textField.keyboardType, TextInputType.multiline);
+      expect(mobileField.maxLines, 6);
+      expect(mobileField.minLines, 1);
+      expect(mobileField.keyboardType, TextInputType.multiline);
+
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      await tester.pumpWidget(buildSubject());
+
+      final desktopField = tester.widget<TextField>(
+        find.byKey(const ValueKey('message_input')),
+      );
+      expect(desktopField.maxLines, 12);
+      expect(desktopField.minLines, 1);
+      expect(desktopField.keyboardType, TextInputType.multiline);
+      debugDefaultTargetPlatformOverride = null;
     });
 
     testWidgets('send button shows when running with text', (tester) async {

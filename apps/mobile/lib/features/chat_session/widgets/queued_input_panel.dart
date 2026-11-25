@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -165,16 +167,26 @@ class QueuedInputPanel extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 3),
-                    Text(
-                      item.text,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: cs.onSurface,
+                    Tooltip(
+                      message: item.text,
+                      waitDuration: const Duration(milliseconds: 500),
+                      child: SelectionArea(
+                        child: Text(
+                          item.text,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: cs.onSurface,
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 ),
+              ),
+              _QueuedInputCopyButton(
+                key: const ValueKey('codex_queue_copy_button'),
+                textToCopy: item.text,
               ),
               if (!isDeliveryPending &&
                   retryAt == null &&
@@ -201,6 +213,45 @@ class QueuedInputPanel extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _QueuedInputCopyButton extends StatefulWidget {
+  const _QueuedInputCopyButton({super.key, required this.textToCopy});
+
+  final String textToCopy;
+
+  @override
+  State<_QueuedInputCopyButton> createState() => _QueuedInputCopyButtonState();
+}
+
+class _QueuedInputCopyButtonState extends State<_QueuedInputCopyButton> {
+  Timer? _resetTimer;
+  var _copied = false;
+
+  @override
+  void dispose() {
+    _resetTimer?.cancel();
+    super.dispose();
+  }
+
+  void _copy() {
+    unawaited(Clipboard.setData(ClipboardData(text: widget.textToCopy)));
+    _resetTimer?.cancel();
+    setState(() => _copied = true);
+    _resetTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted) setState(() => _copied = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return IconButton(
+      tooltip: _copied ? l.copied : l.copy,
+      icon: Icon(_copied ? Icons.check : Icons.copy_outlined, size: 18),
+      onPressed: widget.textToCopy.isEmpty ? null : _copy,
     );
   }
 }
