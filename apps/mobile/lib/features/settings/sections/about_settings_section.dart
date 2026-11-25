@@ -10,11 +10,16 @@ import '../models/settings_catalog.dart';
 import '../widgets/about_tiles.dart';
 import '../widgets/settings_tiles.dart';
 
-class AboutSettingsSection extends StatelessWidget {
+class AboutSettingsSection extends StatefulWidget {
   const AboutSettingsSection({super.key, required this.visibility});
 
   final SettingsVisibility visibility;
 
+  @override
+  State<AboutSettingsSection> createState() => _AboutSettingsSectionState();
+}
+
+class _AboutSettingsSectionState extends State<AboutSettingsSection> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
@@ -36,7 +41,16 @@ class AboutSettingsSection extends StatelessWidget {
               id: SettingsEntryIds.version,
               child: VersionTile(),
             ),
-            if (visibility.isIOSAppOnMac)
+            if (widget.visibility.isMacOS)
+              SettingsItem(
+                id: SettingsEntryIds.checkForUpdates,
+                child: _CheckForUpdatesTile(
+                  onUpdateFound: () {
+                    if (mounted) setState(() {});
+                  },
+                ),
+              ),
+            if (widget.visibility.isIOSAppOnMac)
               const SettingsItem(
                 id: SettingsEntryIds.macosNativeApp,
                 child: MacOSNativeAppTile(),
@@ -99,6 +113,84 @@ class AboutSettingsSection extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _CheckForUpdatesTile extends StatefulWidget {
+  const _CheckForUpdatesTile({required this.onUpdateFound});
+
+  final VoidCallback onUpdateFound;
+
+  @override
+  State<_CheckForUpdatesTile> createState() => _CheckForUpdatesTileState();
+}
+
+class _CheckForUpdatesTileState extends State<_CheckForUpdatesTile> {
+  bool _checking = false;
+
+  Future<void> _check() async {
+    if (_checking) return;
+    setState(() => _checking = true);
+    try {
+      final update = await AppUpdateService.instance.checkForUpdate(
+        force: true,
+      );
+      if (!mounted) return;
+      final l = AppLocalizations.of(context);
+      final messenger = ScaffoldMessenger.of(context);
+      if (update != null) {
+        widget.onUpdateFound();
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(l.appUpdateAvailable(update.latestVersion)),
+              action: SnackBarAction(
+                label: update.canInstallInApp ? l.update : l.download,
+                onPressed: () {
+                  AppUpdateService.instance.performUpdate(update);
+                },
+              ),
+            ),
+          );
+      } else {
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(l.settingsUpToDate)));
+      }
+    } catch (_) {
+      if (!mounted) return;
+      final l = AppLocalizations.of(context);
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(l.settingsUpdateCheckFailed)));
+    } finally {
+      if (mounted) {
+        setState(() => _checking = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return ListTile(
+      key: const ValueKey('settings_check_for_updates_tile'),
+      leading: const SettingsLeadingIcon(Icons.system_update_alt_rounded),
+      title: Text(l.settingsCheckForUpdates),
+      subtitle: _checking ? Text(l.settingsCheckingForUpdates) : null,
+      trailing: _checking
+          ? const SizedBox.square(
+              dimension: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+      onTap: _checking ? null : _check,
     );
   }
 }

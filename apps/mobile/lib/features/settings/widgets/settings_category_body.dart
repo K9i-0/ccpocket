@@ -6,6 +6,8 @@ import '../../../l10n/app_localizations.dart';
 import '../../../models/machine.dart';
 import '../../../services/bridge_service.dart';
 import '../../../widgets/workspace_pane_chrome.dart';
+import '../../local_bridge/local_bridge_screen.dart';
+import '../../local_bridge/state/local_bridge_cubit.dart';
 import '../../session_list/workspace_shell_screen.dart';
 import '../models/settings_catalog.dart';
 import '../sections/about_settings_section.dart';
@@ -15,8 +17,10 @@ import '../sections/connection_settings_section.dart';
 import '../sections/git_settings_section.dart';
 import '../sections/input_settings_section.dart';
 import '../sections/notification_settings_section.dart';
+import '../sections/shortcuts_settings_section.dart';
 import '../sections/support_settings_section.dart';
 import 'settings_category_visuals.dart';
+import 'settings_home.dart';
 import 'settings_tiles.dart';
 import 'settings_visibility_builder.dart';
 import 'usage_section.dart';
@@ -28,6 +32,8 @@ class SettingsCategoryBody extends StatelessWidget {
     required this.category,
     required this.environment,
     required this.onUpdateBridge,
+    this.onOpenCategory,
+    this.createLocalBridgeCubit,
     this.highlight,
     this.showHeader = false,
   });
@@ -35,6 +41,8 @@ class SettingsCategoryBody extends StatelessWidget {
   final SettingsCategory category;
   final ValueListenable<SettingsEnvironment> environment;
   final ValueChanged<MachineWithStatus> onUpdateBridge;
+  final SettingsOpenCategory? onOpenCategory;
+  final LocalBridgeCubit Function()? createLocalBridgeCubit;
   final SettingsHighlightRequest? highlight;
 
   /// Shows a large title, used in the two-pane layout.
@@ -54,12 +62,39 @@ class SettingsCategoryBody extends StatelessWidget {
               // e.g. the Bridge disconnected while this page was open.
               return const _CategoryUnavailable();
             }
+            if (category == SettingsCategory.localBridge) {
+              return Column(
+                key: const PageStorageKey('settings_category_localBridge'),
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (showHeader) _CategoryHeader(category: category),
+                  Expanded(
+                    child: SettingsItem(
+                      id: SettingsEntryIds.localBridgeManage,
+                      framed: true,
+                      child: LocalBridgeScreen(
+                        embedded: true,
+                        showAppBar: false,
+                        createCubit: createLocalBridgeCubit,
+                        onClose: () =>
+                            WorkspaceShellScreen.maybeOf(context)
+                                ?.popCenterOverlay(),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }
             final section = switch (category) {
               SettingsCategory.connection => ConnectionSettingsSection(
                 state: state,
                 visibility: visibility,
                 onUpdateBridge: onUpdateBridge,
+                onOpenLocalBridge: onOpenCategory == null
+                    ? null
+                    : () => onOpenCategory!(SettingsCategory.localBridge),
               ),
+              SettingsCategory.localBridge => const SizedBox.shrink(),
               SettingsCategory.notifications => NotificationSettingsSection(
                 state: state,
                 visibility: visibility,
@@ -89,6 +124,7 @@ class SettingsCategoryBody extends StatelessWidget {
                 visibility: visibility,
               ),
               SettingsCategory.git => GitSettingsSection(state: state),
+              SettingsCategory.shortcuts => const ShortcutsSettingsSection(),
               SettingsCategory.support => SupportSettingsSection(
                 visibility: visibility,
               ),
@@ -186,12 +222,16 @@ class SettingsCategoryPage extends StatelessWidget {
     required this.category,
     required this.environment,
     required this.onUpdateBridge,
+    this.onOpenCategory,
+    this.createLocalBridgeCubit,
     this.highlight,
   });
 
   final SettingsCategory category;
   final ValueListenable<SettingsEnvironment> environment;
   final ValueChanged<MachineWithStatus> onUpdateBridge;
+  final SettingsOpenCategory? onOpenCategory;
+  final LocalBridgeCubit Function()? createLocalBridgeCubit;
   final SettingsHighlightRequest? highlight;
 
   @override
@@ -231,6 +271,8 @@ class SettingsCategoryPage extends StatelessWidget {
         category: category,
         environment: environment,
         onUpdateBridge: onUpdateBridge,
+        onOpenCategory: onOpenCategory,
+        createLocalBridgeCubit: createLocalBridgeCubit,
         highlight: highlight,
       ),
     );

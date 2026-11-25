@@ -42,11 +42,16 @@ class LocalBridgeScreen extends StatelessWidget {
     super.key,
     this.createCubit,
     this.embedded = false,
+    this.showAppBar = true,
     this.onClose,
   });
 
   /// Shown in the workspace's center pane rather than as a route.
   final bool embedded;
+
+  /// When false, renders without an outer Scaffold/AppBar so it can be embedded
+  /// directly inside the Settings detail pane.
+  final bool showAppBar;
 
   /// Closes the screen; defaults to popping the route.
   final VoidCallback? onClose;
@@ -58,15 +63,25 @@ class LocalBridgeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => (createCubit?.call() ?? LocalBridgeCubit())..load(),
-      child: LocalBridgeView(embedded: embedded, onClose: onClose),
+      child: LocalBridgeView(
+        embedded: embedded,
+        showAppBar: showAppBar,
+        onClose: onClose,
+      ),
     );
   }
 }
 
 class LocalBridgeView extends StatelessWidget {
-  const LocalBridgeView({super.key, this.embedded = false, this.onClose});
+  const LocalBridgeView({
+    super.key,
+    this.embedded = false,
+    this.showAppBar = true,
+    this.onClose,
+  });
 
   final bool embedded;
+  final bool showAppBar;
   final VoidCallback? onClose;
 
   Future<void> _changePort(BuildContext context) async {
@@ -129,6 +144,71 @@ class LocalBridgeView extends StatelessWidget {
       listener: (context, state) => _showFailure(context, state.actionFailure!),
       builder: (context, state) {
         final cubit = context.read<LocalBridgeCubit>();
+        final body = switch (state.phase) {
+          LocalBridgePhase.loading => const Center(
+            child: CircularProgressIndicator(),
+          ),
+          LocalBridgePhase.ready => LocalBridgeReadyBody(
+            state: state,
+            onClose: close,
+          ),
+          _ => LocalBridgeUnavailableView(
+            phase: state.phase,
+            port: state.port,
+            detail: state.errorDetail,
+            onRetry: cubit.load,
+            onStart: state.canStart ? cubit.start : null,
+            onUnregister: cubit.stop,
+            busy: state.busy,
+            registration: state.launcherRegistration,
+            problem: state.launcherProblem,
+            problemNodeVersion: state.launcherStatus?.nodeVersion,
+            startFailed: state.startFailed,
+          ),
+        };
+        final unsavedBar = state.hasEdits
+            ? LocalBridgeUnsavedBar(
+                saving: state.busy == LocalBridgeBusy.saving,
+                onSave: cubit.save,
+                onDiscard: cubit.discardEdits,
+              )
+            : null;
+        if (!showAppBar) {
+          return Column(
+            key: const ValueKey('local_bridge_inline_view'),
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      key: const ValueKey('local_bridge_refresh_button'),
+                      tooltip: l.refresh,
+                      onPressed: state.busy == LocalBridgeBusy.none
+                          ? () => cubit.load(showLoading: false)
+                          : null,
+                      icon: const Icon(Icons.refresh_rounded),
+                    ),
+                    PopupMenuButton<void>(
+                      key: const ValueKey('local_bridge_menu_button'),
+                      itemBuilder: (_) => [
+                        PopupMenuItem(
+                          key: const ValueKey('local_bridge_change_port_item'),
+                          onTap: () => _changePort(context),
+                          child: Text(l.localBridgeChangePort),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(child: body),
+              ?unsavedBar,
+            ],
+          );
+        }
         return Scaffold(
           appBar: AppBar(
             // In the center pane the chrome leaves room for the macOS window
@@ -171,35 +251,8 @@ class LocalBridgeView extends StatelessWidget {
               ),
             ],
           ),
-          body: switch (state.phase) {
-            LocalBridgePhase.loading => const Center(
-              child: CircularProgressIndicator(),
-            ),
-            LocalBridgePhase.ready => LocalBridgeReadyBody(
-              state: state,
-              onClose: close,
-            ),
-            _ => LocalBridgeUnavailableView(
-              phase: state.phase,
-              port: state.port,
-              detail: state.errorDetail,
-              onRetry: cubit.load,
-              onStart: state.canStart ? cubit.start : null,
-              onUnregister: cubit.stop,
-              busy: state.busy,
-              registration: state.launcherRegistration,
-              problem: state.launcherProblem,
-              problemNodeVersion: state.launcherStatus?.nodeVersion,
-              startFailed: state.startFailed,
-            ),
-          },
-          bottomNavigationBar: state.hasEdits
-              ? LocalBridgeUnsavedBar(
-                  saving: state.busy == LocalBridgeBusy.saving,
-                  onSave: cubit.save,
-                  onDiscard: cubit.discardEdits,
-                )
-              : null,
+          body: body,
+          bottomNavigationBar: unsavedBar,
         );
       },
     );

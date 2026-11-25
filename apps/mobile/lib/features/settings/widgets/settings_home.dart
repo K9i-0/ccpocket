@@ -15,7 +15,6 @@ import '../sections/appearance_settings_section.dart';
 import '../sections/connection_settings_section.dart';
 import '../state/settings_state.dart';
 import 'app_locale_bottom_sheet.dart';
-import '../../local_bridge/local_bridge_screen.dart';
 import 'settings_category_visuals.dart';
 import 'settings_status_card.dart';
 import 'settings_tiles.dart';
@@ -209,12 +208,17 @@ class _CategoryList extends StatelessWidget {
   final SettingsOpenCategory onOpenCategory;
 
   static const _groups = [
-    [SettingsCategory.connection, SettingsCategory.notifications],
+    [
+      SettingsCategory.connection,
+      SettingsCategory.localBridge,
+      SettingsCategory.notifications,
+    ],
     [
       SettingsCategory.appearance,
       SettingsCategory.input,
       SettingsCategory.agents,
       SettingsCategory.git,
+      SettingsCategory.shortcuts,
     ],
     [SettingsCategory.support, SettingsCategory.about],
   ];
@@ -248,11 +252,6 @@ class _CategoryList extends StatelessWidget {
                       selected: category == selectedCategory,
                       onTap: () => onOpenCategory(category),
                     ),
-                // Used again and again once connected (pairing QR, tools,
-                // restart), so it sits on the home instead of two levels in.
-                if (group.contains(SettingsCategory.connection) &&
-                    visibility.isMacOS)
-                  const _LocalBridgeTile(),
               ],
             ),
       ],
@@ -267,6 +266,7 @@ class _CategoryList extends StatelessWidget {
     final l = AppLocalizations.of(context);
     return switch (category) {
       SettingsCategory.connection => machineName ?? l.settingsNotConnected,
+      SettingsCategory.localBridge => l.localBridgeSettingsSubtitle,
       SettingsCategory.notifications =>
         state.fcmEnabled ? l.settingsOn : l.settingsOff,
       SettingsCategory.usage => l.settingsCategoryUsageSummary,
@@ -291,6 +291,7 @@ class _CategoryList extends StatelessWidget {
         GitDiffInteractionMode.quickActions => l.gitDiffQuickActions,
         GitDiffInteractionMode.scrollFirst => l.gitDiffScrollFirst,
       },
+      SettingsCategory.shortcuts => l.settingsCategoryShortcutsSummary,
       SettingsCategory.support => l.settingsCategorySupportSummary,
       SettingsCategory.about => l.settingsCategoryAboutSummary,
     };
@@ -404,41 +405,6 @@ class _SearchResults extends StatelessWidget {
             },
           ),
       ],
-    );
-  }
-}
-
-/// Shortcut to the management screen of the Bridge on this Mac.
-class _LocalBridgeTile extends StatelessWidget {
-  const _LocalBridgeTile();
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return ListTile(
-      key: const ValueKey('settings_home_local_bridge_tile'),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14),
-      leading: SettingsCategoryBadge(
-        icon: Icons.dns_rounded,
-        color: SettingsCategory.connection.color(theme.brightness),
-      ),
-      title: Text(
-        l.localBridgeTitle,
-        style: theme.textTheme.titleSmall?.copyWith(
-          fontWeight: FontWeight.w600,
-          color: cs.onSurface,
-        ),
-      ),
-      subtitle: Text(
-        l.localBridgeSettingsSubtitle,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-      ),
-      trailing: Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
-      onTap: () => openLocalBridgeScreen(context),
     );
   }
 }

@@ -8440,6 +8440,474 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'この PC の Bridge に接続するときは ws://127.0.0.1:8765 と起動時に表示される API キーを使います。'**
   String get guideDesktopLocalConnectTip;
+
+  /// No description provided for @settingsCategoryLocalBridge.
+  ///
+  /// In ja, this message translates to:
+  /// **'このMacのBridge'**
+  String get settingsCategoryLocalBridge;
+
+  /// No description provided for @settingsCategoryShortcuts.
+  ///
+  /// In ja, this message translates to:
+  /// **'キーボードショートカット'**
+  String get settingsCategoryShortcuts;
+
+  /// No description provided for @settingsCategoryShortcutsSummary.
+  ///
+  /// In ja, this message translates to:
+  /// **'ナビゲーション・セッション・表示のショートカット'**
+  String get settingsCategoryShortcutsSummary;
+
+  /// No description provided for @settingsConnectedBridgeSectionTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'接続中のBridge'**
+  String get settingsConnectedBridgeSectionTitle;
+
+  /// No description provided for @settingsConnectedToThisMacBadge.
+  ///
+  /// In ja, this message translates to:
+  /// **'このMacのローカルBridgeに接続中'**
+  String get settingsConnectedToThisMacBadge;
+
+  /// No description provided for @settingsOpenLocalBridgeAction.
+  ///
+  /// In ja, this message translates to:
+  /// **'このMacのBridge設定を開く'**
+  String get settingsOpenLocalBridgeAction;
+
+  /// No description provided for @settingsEditBridgeMachine.
+  ///
+  /// In ja, this message translates to:
+  /// **'接続設定を編集'**
+  String get settingsEditBridgeMachine;
+
+  /// No description provided for @settingsReconnectBridge.
+  ///
+  /// In ja, this message translates to:
+  /// **'再接続'**
+  String get settingsReconnectBridge;
+
+  /// No description provided for @settingsCopyBridgeUrl.
+  ///
+  /// In ja, this message translates to:
+  /// **'URLをコピー'**
+  String get settingsCopyBridgeUrl;
+
+  /// No description provided for @settingsSwitchBridge.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridgeを切り替え'**
+  String get settingsSwitchBridge;
+
+  /// No description provided for @settingsBridgeDiagnosticsTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'接続中のBridge情報'**
+  String get settingsBridgeDiagnosticsTitle;
+
+  /// No description provided for @settingsBridgeEndpointLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'エンドポイント'**
+  String get settingsBridgeEndpointLabel;
+
+  /// No description provided for @settingsBridgeTransportLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'通信方式'**
+  String get settingsBridgeTransportLabel;
+
+  /// No description provided for @settingsBridgeTransportSecure.
+  ///
+  /// In ja, this message translates to:
+  /// **'WSS（暗号化）'**
+  String get settingsBridgeTransportSecure;
+
+  /// No description provided for @settingsBridgeTransportStandard.
+  ///
+  /// In ja, this message translates to:
+  /// **'WS（標準）'**
+  String get settingsBridgeTransportStandard;
+
+  /// No description provided for @settingsBridgeTransportSshTunnel.
+  ///
+  /// In ja, this message translates to:
+  /// **'SSHトンネル'**
+  String get settingsBridgeTransportSshTunnel;
+
+  /// No description provided for @settingsBridgeProtocolLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'プロトコル'**
+  String get settingsBridgeProtocolLabel;
+
+  /// No description provided for @settingsBridgeAllowedDirsLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'許可されたディレクトリ'**
+  String get settingsBridgeAllowedDirsLabel;
+
+  /// No description provided for @settingsBridgeAllowedDirsAll.
+  ///
+  /// In ja, this message translates to:
+  /// **'制限なし (*)'**
+  String get settingsBridgeAllowedDirsAll;
+
+  /// No description provided for @settingsConnectedBridgeToolsTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'接続先ホストのツール'**
+  String get settingsConnectedBridgeToolsTitle;
+
+  /// No description provided for @settingsConnectedBridgeToolsError.
+  ///
+  /// In ja, this message translates to:
+  /// **'接続先ホストのツール状態を取得できませんでした'**
+  String get settingsConnectedBridgeToolsError;
+
+  /// No description provided for @settingsCheckForUpdates.
+  ///
+  /// In ja, this message translates to:
+  /// **'アップデートを確認…'**
+  String get settingsCheckForUpdates;
+
+  /// No description provided for @settingsCheckingForUpdates.
+  ///
+  /// In ja, this message translates to:
+  /// **'アップデートを確認中…'**
+  String get settingsCheckingForUpdates;
+
+  /// No description provided for @settingsUpToDate.
+  ///
+  /// In ja, this message translates to:
+  /// **'最新バージョンです'**
+  String get settingsUpToDate;
+
+  /// No description provided for @settingsUpdateCheckFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'アップデートの確認に失敗しました'**
+  String get settingsUpdateCheckFailed;
+
+  /// No description provided for @shortcutsDialogTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'キーボードショートカット'**
+  String get shortcutsDialogTitle;
+
+  /// No description provided for @shortcutsGroupApplication.
+  ///
+  /// In ja, this message translates to:
+  /// **'アプリケーション'**
+  String get shortcutsGroupApplication;
+
+  /// No description provided for @shortcutsGroupNavigation.
+  ///
+  /// In ja, this message translates to:
+  /// **'ナビゲーション'**
+  String get shortcutsGroupNavigation;
+
+  /// No description provided for @shortcutsGroupSession.
+  ///
+  /// In ja, this message translates to:
+  /// **'セッション'**
+  String get shortcutsGroupSession;
+
+  /// No description provided for @shortcutsGroupViewPanes.
+  ///
+  /// In ja, this message translates to:
+  /// **'表示とペイン'**
+  String get shortcutsGroupViewPanes;
+
+  /// No description provided for @shortcutsGroupComposer.
+  ///
+  /// In ja, this message translates to:
+  /// **'入力欄と編集'**
+  String get shortcutsGroupComposer;
+
+  /// No description provided for @shortcutOpenSettings.
+  ///
+  /// In ja, this message translates to:
+  /// **'設定を開く'**
+  String get shortcutOpenSettings;
+
+  /// No description provided for @shortcutOpenLocalBridge.
+  ///
+  /// In ja, this message translates to:
+  /// **'このMacのBridge設定'**
+  String get shortcutOpenLocalBridge;
+
+  /// No description provided for @shortcutShowShortcuts.
+  ///
+  /// In ja, this message translates to:
+  /// **'キーボードショートカット一覧'**
+  String get shortcutShowShortcuts;
+
+  /// No description provided for @shortcutNewSession.
+  ///
+  /// In ja, this message translates to:
+  /// **'新しいセッション'**
+  String get shortcutNewSession;
+
+  /// No description provided for @shortcutQuickSearch.
+  ///
+  /// In ja, this message translates to:
+  /// **'クイック検索 / セッション切り替え'**
+  String get shortcutQuickSearch;
+
+  /// No description provided for @shortcutSwitchSessionNumber.
+  ///
+  /// In ja, this message translates to:
+  /// **'1〜9番目のセッションに切り替え'**
+  String get shortcutSwitchSessionNumber;
+
+  /// No description provided for @shortcutCloseActive.
+  ///
+  /// In ja, this message translates to:
+  /// **'現在の画面・セッション・ウィンドウを閉じる'**
+  String get shortcutCloseActive;
+
+  /// No description provided for @shortcutRefresh.
+  ///
+  /// In ja, this message translates to:
+  /// **'セッション一覧・履歴を更新'**
+  String get shortcutRefresh;
+
+  /// No description provided for @shortcutApproveTool.
+  ///
+  /// In ja, this message translates to:
+  /// **'保留中のツール実行を承認'**
+  String get shortcutApproveTool;
+
+  /// No description provided for @shortcutPermissionMode.
+  ///
+  /// In ja, this message translates to:
+  /// **'権限モードメニューを開く'**
+  String get shortcutPermissionMode;
+
+  /// No description provided for @shortcutStopGeneration.
+  ///
+  /// In ja, this message translates to:
+  /// **'生成を中断 / 停止'**
+  String get shortcutStopGeneration;
+
+  /// No description provided for @shortcutToggleSidebar.
+  ///
+  /// In ja, this message translates to:
+  /// **'サイドバーの表示切替'**
+  String get shortcutToggleSidebar;
+
+  /// No description provided for @shortcutToggleGitPane.
+  ///
+  /// In ja, this message translates to:
+  /// **'Git差分ペインの開閉'**
+  String get shortcutToggleGitPane;
+
+  /// No description provided for @shortcutToggleExplorerPane.
+  ///
+  /// In ja, this message translates to:
+  /// **'ファイルエクスプローラーの開閉'**
+  String get shortcutToggleExplorerPane;
+
+  /// No description provided for @shortcutToggleGalleryPane.
+  ///
+  /// In ja, this message translates to:
+  /// **'ギャラリーペインの開閉'**
+  String get shortcutToggleGalleryPane;
+
+  /// No description provided for @shortcutZoomIn.
+  ///
+  /// In ja, this message translates to:
+  /// **'文字サイズを拡大'**
+  String get shortcutZoomIn;
+
+  /// No description provided for @shortcutZoomOut.
+  ///
+  /// In ja, this message translates to:
+  /// **'文字サイズを縮小'**
+  String get shortcutZoomOut;
+
+  /// No description provided for @shortcutZoomReset.
+  ///
+  /// In ja, this message translates to:
+  /// **'文字サイズをリセット'**
+  String get shortcutZoomReset;
+
+  /// No description provided for @shortcutSendMessage.
+  ///
+  /// In ja, this message translates to:
+  /// **'メッセージを送信'**
+  String get shortcutSendMessage;
+
+  /// No description provided for @shortcutInsertNewline.
+  ///
+  /// In ja, this message translates to:
+  /// **'改行を挿入'**
+  String get shortcutInsertNewline;
+
+  /// No description provided for @shortcutFindInBrowser.
+  ///
+  /// In ja, this message translates to:
+  /// **'ファイル内で検索'**
+  String get shortcutFindInBrowser;
+
+  /// No description provided for @shortcutDismissOverlay.
+  ///
+  /// In ja, this message translates to:
+  /// **'ポップアップやシートを閉じる'**
+  String get shortcutDismissOverlay;
+
+  /// No description provided for @menuFile.
+  ///
+  /// In ja, this message translates to:
+  /// **'ファイル'**
+  String get menuFile;
+
+  /// No description provided for @menuView.
+  ///
+  /// In ja, this message translates to:
+  /// **'表示'**
+  String get menuView;
+
+  /// No description provided for @menuSession.
+  ///
+  /// In ja, this message translates to:
+  /// **'セッション'**
+  String get menuSession;
+
+  /// No description provided for @menuNewSession.
+  ///
+  /// In ja, this message translates to:
+  /// **'新しいセッション'**
+  String get menuNewSession;
+
+  /// No description provided for @menuCloseWindow.
+  ///
+  /// In ja, this message translates to:
+  /// **'ウィンドウを閉じる'**
+  String get menuCloseWindow;
+
+  /// No description provided for @menuCloseSession.
+  ///
+  /// In ja, this message translates to:
+  /// **'セッションを閉じる'**
+  String get menuCloseSession;
+
+  /// No description provided for @menuCloseSettings.
+  ///
+  /// In ja, this message translates to:
+  /// **'設定を閉じる'**
+  String get menuCloseSettings;
+
+  /// No description provided for @menuReconnect.
+  ///
+  /// In ja, this message translates to:
+  /// **'再接続 / 更新'**
+  String get menuReconnect;
+
+  /// No description provided for @menuDisconnect.
+  ///
+  /// In ja, this message translates to:
+  /// **'切断'**
+  String get menuDisconnect;
+
+  /// No description provided for @menuToggleSidebar.
+  ///
+  /// In ja, this message translates to:
+  /// **'サイドバーを切り替え'**
+  String get menuToggleSidebar;
+
+  /// No description provided for @menuQuickSearch.
+  ///
+  /// In ja, this message translates to:
+  /// **'クイック検索'**
+  String get menuQuickSearch;
+
+  /// No description provided for @menuGitDiff.
+  ///
+  /// In ja, this message translates to:
+  /// **'Git差分'**
+  String get menuGitDiff;
+
+  /// No description provided for @menuFileExplorer.
+  ///
+  /// In ja, this message translates to:
+  /// **'ファイルエクスプローラー'**
+  String get menuFileExplorer;
+
+  /// No description provided for @menuGallery.
+  ///
+  /// In ja, this message translates to:
+  /// **'ギャラリー'**
+  String get menuGallery;
+
+  /// No description provided for @menuActualSize.
+  ///
+  /// In ja, this message translates to:
+  /// **'実際のサイズ'**
+  String get menuActualSize;
+
+  /// No description provided for @menuZoomIn.
+  ///
+  /// In ja, this message translates to:
+  /// **'拡大'**
+  String get menuZoomIn;
+
+  /// No description provided for @menuZoomOut.
+  ///
+  /// In ja, this message translates to:
+  /// **'縮小'**
+  String get menuZoomOut;
+
+  /// No description provided for @menuStopGeneration.
+  ///
+  /// In ja, this message translates to:
+  /// **'生成を停止'**
+  String get menuStopGeneration;
+
+  /// No description provided for @menuPermissionMode.
+  ///
+  /// In ja, this message translates to:
+  /// **'権限モード…'**
+  String get menuPermissionMode;
+
+  /// No description provided for @menuLocalBridgeSettings.
+  ///
+  /// In ja, this message translates to:
+  /// **'このMacのBridge…'**
+  String get menuLocalBridgeSettings;
+
+  /// No description provided for @menuCheckForUpdates.
+  ///
+  /// In ja, this message translates to:
+  /// **'アップデートを確認…'**
+  String get menuCheckForUpdates;
+
+  /// No description provided for @menuKeyboardShortcuts.
+  ///
+  /// In ja, this message translates to:
+  /// **'キーボードショートカット'**
+  String get menuKeyboardShortcuts;
+
+  /// No description provided for @menuSetupGuide.
+  ///
+  /// In ja, this message translates to:
+  /// **'セットアップガイド'**
+  String get menuSetupGuide;
+
+  /// No description provided for @menuChangelog.
+  ///
+  /// In ja, this message translates to:
+  /// **'変更履歴'**
+  String get menuChangelog;
+
+  /// No description provided for @menuGitHubRepo.
+  ///
+  /// In ja, this message translates to:
+  /// **'GitHubリポジトリ'**
+  String get menuGitHubRepo;
 }
 
 class _AppLocalizationsDelegate

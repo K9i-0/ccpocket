@@ -13,6 +13,7 @@ import '../../services/platform_environment_service.dart';
 import '../../services/revenuecat_service.dart';
 import '../../utils/platform_helper.dart';
 import '../../widgets/workspace_pane_chrome.dart';
+import '../local_bridge/state/local_bridge_cubit.dart';
 import '../session_list/workspace_shell_screen.dart';
 import 'models/settings_catalog.dart';
 import 'state/settings_cubit.dart';
@@ -22,19 +23,24 @@ import 'widgets/settings_tiles.dart';
 import 'widgets/settings_visibility_builder.dart';
 
 /// Width at which settings switches to a category list + detail layout.
-const double kSettingsTwoPaneBreakpoint = 840;
+const double kSettingsTwoPaneBreakpoint = 680;
 
 @RoutePage()
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
     super.key,
+    this.initialCategory,
     this.focusConnection = false,
     this.focusSupport = false,
     this.focusUsage = false,
     this.focusAppUpdate = false,
     this.embedded = false,
     this.onBack,
+    this.createLocalBridgeCubit,
   });
+
+  /// Category to open immediately when the screen loads (e.g. from `⌘,` or `⇧⌘,`).
+  final SettingsCategory? initialCategory;
 
   /// Opens the connection category and highlights the Bridge update row.
   final bool focusConnection;
@@ -49,6 +55,10 @@ class SettingsScreen extends StatefulWidget {
   final bool focusAppUpdate;
   final bool embedded;
   final VoidCallback? onBack;
+
+  /// Optional factory for [LocalBridgeCubit] when rendering the inline Local
+  /// Bridge category (used in tests).
+  final LocalBridgeCubit Function()? createLocalBridgeCubit;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -76,6 +86,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedCategory = widget.initialCategory;
     unawaited(_loadPlatformEnvironment());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -83,6 +94,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
         context.read<MachineManagerCubit>().refreshLatestBridgeVersionIfStale(),
       );
     });
+  }
+
+  @override
+  void didUpdateWidget(SettingsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialCategory != null &&
+        widget.initialCategory != oldWidget.initialCategory) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final visibility = _currentVisibility();
+        if (visibleSettingsCategories(visibility)
+            .contains(widget.initialCategory)) {
+          _openCategory(widget.initialCategory!);
+        }
+      });
+    }
   }
 
   @override
@@ -133,14 +160,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ? (SettingsCategory.usage, SettingsEntryIds.usage)
         : widget.focusSupport
         ? (SettingsCategory.support, SettingsEntryIds.supporter)
+        : widget.initialCategory != null
+        ? (widget.initialCategory, null)
         : (null, null);
     if (category == null) return;
+    if (entryId == null) {
+      if (visibleSettingsCategories(visibility).contains(category)) {
+        _openCategory(category);
+      }
+      return;
+    }
     // Support can appear once the store catalog loads, so it is always opened.
     final canOpen =
         category == SettingsCategory.support ||
         (entryId == SettingsEntryIds.appUpdate &&
             AppUpdateService.instance.cachedUpdate != null) ||
-        (settingsEntryById(entryId!)?.isVisible(visibility) ?? false);
+        (settingsEntryById(entryId)?.isVisible(visibility) ?? false);
     if (!canOpen) return;
     _openCategory(category, entryId: entryId);
   }
@@ -176,6 +211,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         category: category,
         environment: _environment,
         onUpdateBridge: _updateBridgeFromSettings,
+        onOpenCategory: _openCategory,
+        createLocalBridgeCubit: widget.createLocalBridgeCubit,
         highlight: highlight,
       ),
     );
@@ -249,11 +286,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               final selected = categories.contains(_selectedCategory)
                   ? _selectedCategory!
                   : categories.first;
+              final sidebarWidth = constraints.maxWidth >= 960 ? 320.0 : 268.0;
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   SizedBox(
-                    width: 360,
+                    width: sidebarWidth,
                     child: SettingsHome(
                       environment: _environment,
                       highlight: _homeHighlight,
@@ -276,6 +314,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           category: selected,
                           environment: _environment,
                           onUpdateBridge: _updateBridgeFromSettings,
+                          onOpenCategory: _openCategory,
+                          createLocalBridgeCubit: widget.createLocalBridgeCubit,
                           highlight: _highlight,
                           showHeader: true,
                         ),

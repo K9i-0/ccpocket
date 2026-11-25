@@ -4477,4 +4477,238 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get guideDesktopLocalConnectTip =>
       '连接本机 Bridge 时，请使用 ws://127.0.0.1:8765 以及启动时显示的 API 密钥。';
+
+  @override
+  String get settingsCategoryLocalBridge => '此 Mac 上的 Bridge';
+
+  @override
+  String get settingsCategoryShortcuts => '键盘快捷键';
+
+  @override
+  String get settingsCategoryShortcutsSummary => '导航、会话与视图快捷键';
+
+  @override
+  String get settingsConnectedBridgeSectionTitle => '已连接的 Bridge';
+
+  @override
+  String get settingsConnectedToThisMacBadge => '已连接到此 Mac 的本地 Bridge';
+
+  @override
+  String get settingsOpenLocalBridgeAction => '打开此 Mac 的 Bridge 设置';
+
+  @override
+  String get settingsEditBridgeMachine => '编辑连接设置';
+
+  @override
+  String get settingsReconnectBridge => '重新连接';
+
+  @override
+  String get settingsCopyBridgeUrl => '复制 URL';
+
+  @override
+  String get settingsSwitchBridge => '切换 Bridge';
+
+  @override
+  String get settingsBridgeDiagnosticsTitle => '已连接的 Bridge 信息';
+
+  @override
+  String get settingsBridgeEndpointLabel => '端点';
+
+  @override
+  String get settingsBridgeTransportLabel => '传输方式';
+
+  @override
+  String get settingsBridgeTransportSecure => 'WSS（加密）';
+
+  @override
+  String get settingsBridgeTransportStandard => 'WS（标准）';
+
+  @override
+  String get settingsBridgeTransportSshTunnel => 'SSH 隧道';
+
+  @override
+  String get settingsBridgeProtocolLabel => '协议';
+
+  @override
+  String get settingsBridgeAllowedDirsLabel => '允许的目录';
+
+  @override
+  String get settingsBridgeAllowedDirsAll => '无限制 (*)';
+
+  @override
+  String get settingsConnectedBridgeToolsTitle => '已连接主机的工具';
+
+  @override
+  String get settingsConnectedBridgeToolsError => '无法从已连接的主机获取工具状态';
+
+  @override
+  String get settingsCheckForUpdates => '检查更新…';
+
+  @override
+  String get settingsCheckingForUpdates => '正在检查更新…';
+
+  @override
+  String get settingsUpToDate => '已是最新版本';
+
+  @override
+  String get settingsUpdateCheckFailed => '检查更新失败';
+
+  @override
+  String get shortcutsDialogTitle => '键盘快捷键';
+
+  @override
+  String get shortcutsGroupApplication => '应用程序';
+
+  @override
+  String get shortcutsGroupNavigation => '导航';
+
+  @override
+  String get shortcutsGroupSession => '会话';
+
+  @override
+  String get shortcutsGroupViewPanes => '视图与面板';
+
+  @override
+  String get shortcutsGroupComposer => '输入框与编辑';
+
+  @override
+  String get shortcutOpenSettings => '打开设置';
+
+  @override
+  String get shortcutOpenLocalBridge => '此 Mac 上的 Bridge 设置';
+
+  @override
+  String get shortcutShowShortcuts => '显示键盘快捷键';
+
+  @override
+  String get shortcutNewSession => '新建会话';
+
+  @override
+  String get shortcutQuickSearch => '快速搜索 / 切换会话';
+
+  @override
+  String get shortcutSwitchSessionNumber => '切换到第 1–9 个会话';
+
+  @override
+  String get shortcutCloseActive => '关闭当前浮层、会话或窗口';
+
+  @override
+  String get shortcutRefresh => '刷新会话列表 / 历史记录';
+
+  @override
+  String get shortcutApproveTool => '批准待处理的工具调用';
+
+  @override
+  String get shortcutPermissionMode => '打开权限模式菜单';
+
+  @override
+  String get shortcutStopGeneration => '停止生成';
+
+  @override
+  String get shortcutToggleSidebar => '切换侧边栏';
+
+  @override
+  String get shortcutToggleGitPane => '切换 Git 差异面板';
+
+  @override
+  String get shortcutToggleExplorerPane => '切换文件浏览器面板';
+
+  @override
+  String get shortcutToggleGalleryPane => '切换图库面板';
+
+  @override
+  String get shortcutZoomIn => '放大文字';
+
+  @override
+  String get shortcutZoomOut => '缩小文字';
+
+  @override
+  String get shortcutZoomReset => '实际大小';
+
+  @override
+  String get shortcutSendMessage => '发送消息';
+
+  @override
+  String get shortcutInsertNewline => '插入换行';
+
+  @override
+  String get shortcutFindInBrowser => '在文件浏览器中查找';
+
+  @override
+  String get shortcutDismissOverlay => '关闭弹窗或面板';
+
+  @override
+  String get menuFile => '文件';
+
+  @override
+  String get menuView => '视图';
+
+  @override
+  String get menuSession => '会话';
+
+  @override
+  String get menuNewSession => '新建会话';
+
+  @override
+  String get menuCloseWindow => '关闭窗口';
+
+  @override
+  String get menuCloseSession => '关闭会话';
+
+  @override
+  String get menuCloseSettings => '关闭设置';
+
+  @override
+  String get menuReconnect => '重新连接 / 刷新';
+
+  @override
+  String get menuDisconnect => '断开连接';
+
+  @override
+  String get menuToggleSidebar => '切换侧边栏';
+
+  @override
+  String get menuQuickSearch => '快速搜索';
+
+  @override
+  String get menuGitDiff => 'Git 差异';
+
+  @override
+  String get menuFileExplorer => '文件浏览器';
+
+  @override
+  String get menuGallery => '图库';
+
+  @override
+  String get menuActualSize => '实际大小';
+
+  @override
+  String get menuZoomIn => '放大';
+
+  @override
+  String get menuZoomOut => '缩小';
+
+  @override
+  String get menuStopGeneration => '停止生成';
+
+  @override
+  String get menuPermissionMode => '权限模式…';
+
+  @override
+  String get menuLocalBridgeSettings => '此 Mac 上的 Bridge…';
+
+  @override
+  String get menuCheckForUpdates => '检查更新…';
+
+  @override
+  String get menuKeyboardShortcuts => '键盘快捷键';
+
+  @override
+  String get menuSetupGuide => '设置指南';
+
+  @override
+  String get menuChangelog => '更新日志';
+
+  @override
+  String get menuGitHubRepo => 'GitHub 仓库';
 }

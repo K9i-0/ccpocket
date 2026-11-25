@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:ccpocket/features/local_bridge/state/local_bridge_cubit.dart';
 import 'package:ccpocket/features/settings/models/settings_catalog.dart';
 import 'package:ccpocket/features/settings/settings_screen.dart';
 import 'package:ccpocket/features/settings/widgets/settings_home.dart';
@@ -37,6 +38,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'helpers/bridge_version_test_values.dart';
+import 'local_bridge/local_bridge_fakes.dart';
 
 class _FakeBridgeService extends BridgeService {
   final _connectionController =
@@ -335,8 +337,24 @@ Future<Widget> _buildScreen({
   bool focusUsage = false,
   bool focusAppUpdate = false,
   bool embedded = false,
+  bool wide = false,
 }) async {
   final prefs = await SharedPreferences.getInstance();
+  final fakeLocalBridge = FakeLocalBridge()..running = false;
+  final settingsScreen = SettingsScreen(
+    focusConnection: focusConnection,
+    focusSupport: focusSupport,
+    focusUsage: focusUsage,
+    focusAppUpdate: focusAppUpdate,
+    embedded: embedded,
+    createLocalBridgeCubit: () => LocalBridgeCubit(
+      clientFactory: fakeLocalBridge.client,
+      launcher: FakeLauncher(fakeLocalBridge, available: false),
+      startTimeout: const Duration(seconds: 1),
+      restartPollInterval: const Duration(milliseconds: 10),
+      restartTimeout: const Duration(seconds: 1),
+    ),
+  );
   final screen = MultiRepositoryProvider(
     providers: [
       RepositoryProvider<BridgeService>.value(value: bridge),
@@ -357,13 +375,15 @@ Future<Widget> _buildScreen({
         localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('en'),
-        home: SettingsScreen(
-          focusConnection: focusConnection,
-          focusSupport: focusSupport,
-          focusUsage: focusUsage,
-          focusAppUpdate: focusAppUpdate,
-          embedded: embedded,
-        ),
+        home: wide
+            ? settingsScreen
+            : Align(
+                alignment: Alignment.topLeft,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: settingsScreen,
+                ),
+              ),
       ),
     ),
   );
@@ -2179,7 +2199,10 @@ void main() {
       expect(settingsEntries.map((e) => e.id).toSet(), {
         'bridge_machine',
         'local_bridge',
+        'local_bridge_manage',
         'local_url',
+        'bridge_diagnostics',
+        'connected_bridge_tools',
         'bridge_update',
         'prompt_history',
         'push_notifications',
@@ -2213,11 +2236,13 @@ void main() {
         'git_diff_mode',
         'git_diff_auto_landscape',
         'remote_git_status_badge',
+        'keyboard_shortcuts',
         'supporter',
         'rate_app',
         'share_app',
         'star_on_github',
         'version',
+        'check_for_updates',
         'macos_native_app',
         'changelog',
         'setup_guide',
@@ -2443,6 +2468,7 @@ void main() {
           bridge: bridge,
           settingsCubit: settingsCubit,
           machineManagerCubit: machineManagerCubit,
+          wide: true,
         ),
       );
       await tester.pumpAndSettle();

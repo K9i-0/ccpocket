@@ -84,7 +84,14 @@ class SettingsCubit extends Cubit<SettingsState> {
   static const _keyCodeFontSize = 'settings_code_font_size';
   static const _keyCodeFontFamily = 'settings_code_font_family';
   static const minTextScale = 0.8;
-  static const maxTextScale = 1.0;
+  static const mobileMaxTextScale = 1.0;
+  static const desktopMaxTextScale = 1.4;
+  static const textScaleZoomStep = 0.1;
+
+  /// Upper bound for app text scale: compact-only on mobile, zoomable up to
+  /// 140% on desktop.
+  static double get maxTextScale =>
+      isDesktopPlatform ? desktopMaxTextScale : mobileMaxTextScale;
   // Legacy key for migration
   static const _keyIndentSize = 'settings_indent_size';
   // Legacy key for migration
@@ -471,6 +478,16 @@ class SettingsCubit extends Cubit<SettingsState> {
     _prefs.setDouble(_keyTextScale, clamped);
     emit(state.copyWith(textScale: clamped));
   }
+
+  static double _roundTextScale(double value) => (value * 100).round() / 100.0;
+
+  void zoomIn() =>
+      setTextScale(_roundTextScale(state.textScale + textScaleZoomStep));
+
+  void zoomOut() =>
+      setTextScale(_roundTextScale(state.textScale - textScaleZoomStep));
+
+  void resetZoom() => setTextScale(1.0);
 
   void setMultiPaneBreakpoint(double width) {
     final normalized = normalizeWorkspaceMultiPaneBreakpoint(width);

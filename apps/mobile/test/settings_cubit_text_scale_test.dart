@@ -50,7 +50,7 @@ void main() {
 
       expect(cubit.state.textScale, SettingsCubit.minTextScale);
 
-      cubit.setTextScale(1.2);
+      cubit.setTextScale(2.0);
       expect(cubit.state.textScale, SettingsCubit.maxTextScale);
 
       cubit.setTextScale(0.5);

@@ -3,18 +3,21 @@
 // ignore_for_file: altive_lints_plugin/avoid_hardcoded_japanese
 
 import '../../../l10n/app_localizations.dart';
+import '../../../utils/platform_helper.dart';
 
 /// Top-level groups shown on the settings home screen.
 ///
 /// The order here is the display order.
 enum SettingsCategory {
   connection,
+  localBridge,
   notifications,
   usage,
   appearance,
   input,
   agents,
   git,
+  shortcuts,
   support,
   about,
 }
@@ -34,13 +37,14 @@ class SettingsVisibility {
     this.terminalAppEnabled = false,
     this.isMacOS = false,
     this.isMobile = false,
+    bool? isDesktop,
     this.multipleAgents = true,
     this.codexEnabled = true,
     this.claudeEnabled = true,
     this.fcmEnabled = false,
     this.supportAvailable = false,
     this.isIOSAppOnMac = false,
-  });
+  }) : isDesktopOverride = isDesktop;
 
   /// A Bridge machine is selected (`SettingsState.activeMachineId != null`).
   final bool hasActiveMachine;
@@ -54,12 +58,17 @@ class SettingsVisibility {
   final bool terminalAppEnabled;
   final bool isMacOS;
   final bool isMobile;
+  final bool? isDesktopOverride;
   final bool multipleAgents;
   final bool codexEnabled;
   final bool claudeEnabled;
   final bool fcmEnabled;
   final bool supportAvailable;
   final bool isIOSAppOnMac;
+
+  /// Whether the app is running on a desktop platform (macOS, Windows, Linux).
+  bool get isDesktop =>
+      isDesktopOverride ?? (isMacOS || (!isMobile && isDesktopPlatform));
 }
 
 typedef SettingsVisibilityPredicate = bool Function(SettingsVisibility v);
@@ -90,6 +99,9 @@ class SettingsEntry {
 abstract final class SettingsEntryIds {
   static const bridgeMachine = 'bridge_machine';
   static const localBridge = 'local_bridge';
+  static const localBridgeManage = 'local_bridge_manage';
+  static const bridgeDiagnostics = 'bridge_diagnostics';
+  static const connectedBridgeTools = 'connected_bridge_tools';
   static const localUrl = 'local_url';
   static const bridgeUpdate = 'bridge_update';
   static const promptHistory = 'prompt_history';
@@ -120,6 +132,7 @@ abstract final class SettingsEntryIds {
   static const gitDiffMode = 'git_diff_mode';
   static const gitDiffAutoLandscape = 'git_diff_auto_landscape';
   static const remoteGitStatusBadge = 'remote_git_status_badge';
+  static const keyboardShortcuts = 'keyboard_shortcuts';
   static const pushNotifications = 'push_notifications';
   static const pushPrivacy = 'push_privacy';
   static const notificationLanguage = 'notification_language';
@@ -129,6 +142,7 @@ abstract final class SettingsEntryIds {
   static const shareApp = 'share_app';
   static const starOnGithub = 'star_on_github';
   static const version = 'version';
+  static const checkForUpdates = 'check_for_updates';
   static const appUpdate = 'app_update';
   static const macosNativeApp = 'macos_native_app';
   static const changelog = 'changelog';
@@ -166,6 +180,22 @@ final List<SettingsEntry> settingsEntries = [
     visibleWhen: (v) => v.hasActiveMachine && v.hasBridgeUrl,
   ),
   SettingsEntry(
+    id: SettingsEntryIds.bridgeDiagnostics,
+    category: SettingsCategory.connection,
+    title: (l) => l.settingsBridgeDiagnosticsTitle,
+    keywords:
+        'bridge info endpoint transport protocol allowed dirs '
+        '接続 情報 エンドポイント 通信方式 プロトコル ディレクトリ',
+    visibleWhen: (v) => v.bridgeConnected && v.hasBridgeUrl,
+  ),
+  SettingsEntry(
+    id: SettingsEntryIds.connectedBridgeTools,
+    category: SettingsCategory.connection,
+    title: (l) => l.settingsConnectedBridgeToolsTitle,
+    keywords: 'tools cli node git claude codex antigravity ツール 接続先',
+    visibleWhen: (v) => v.bridgeConnected && v.hasBridgeUrl,
+  ),
+  SettingsEntry(
     id: SettingsEntryIds.bridgeUpdate,
     category: SettingsCategory.connection,
     title: (l) => l.updateBridge,
@@ -178,6 +208,17 @@ final List<SettingsEntry> settingsEntries = [
     title: (l) => l.promptHistorySectionTitle,
     keywords: 'prompt history sync 履歴 同期',
     visibleWhen: (v) => v.hasActiveMachine && v.promptHistoryAvailable,
+  ),
+
+  // ── Local Bridge (macOS) ──
+  SettingsEntry(
+    id: SettingsEntryIds.localBridgeManage,
+    category: SettingsCategory.localBridge,
+    title: (l) => l.localBridgeTitle,
+    keywords:
+        'bridge local localhost mac qr pairing tools install port logs launchd '
+        'このMac ローカル ペアリング ツール ポート ログ 起動 停止 再起動',
+    visibleWhen: (v) => v.isMacOS,
   ),
 
   // ── Notifications ──
@@ -390,6 +431,17 @@ final List<SettingsEntry> settingsEntries = [
     keywords: 'git remote badge push pull バッジ',
   ),
 
+  // ── Keyboard Shortcuts (Desktop) ──
+  SettingsEntry(
+    id: SettingsEntryIds.keyboardShortcuts,
+    category: SettingsCategory.shortcuts,
+    title: (l) => l.settingsCategoryShortcuts,
+    keywords:
+        'keyboard shortcut hotkey keybinding command cmd ctrl zoom sidebar search '
+        'キーボード ショートカット キーバインド コマンド ズーム サイドバー 検索',
+    visibleWhen: (v) => v.isDesktop,
+  ),
+
   // ── Support ──
   SettingsEntry(
     id: SettingsEntryIds.supporter,
@@ -426,6 +478,13 @@ final List<SettingsEntry> settingsEntries = [
     category: SettingsCategory.about,
     title: (l) => l.version,
     keywords: 'version build update バージョン',
+  ),
+  SettingsEntry(
+    id: SettingsEntryIds.checkForUpdates,
+    category: SettingsCategory.about,
+    title: (l) => l.settingsCheckForUpdates,
+    keywords: 'update check sparkle latest version アップデート 更新 確認 最新',
+    visibleWhen: (v) => v.isMacOS,
   ),
   SettingsEntry(
     id: SettingsEntryIds.macosNativeApp,

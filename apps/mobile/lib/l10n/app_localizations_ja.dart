@@ -4529,4 +4529,238 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get guideDesktopLocalConnectTip =>
       'この PC の Bridge に接続するときは ws://127.0.0.1:8765 と起動時に表示される API キーを使います。';
+
+  @override
+  String get settingsCategoryLocalBridge => 'このMacのBridge';
+
+  @override
+  String get settingsCategoryShortcuts => 'キーボードショートカット';
+
+  @override
+  String get settingsCategoryShortcutsSummary => 'ナビゲーション・セッション・表示のショートカット';
+
+  @override
+  String get settingsConnectedBridgeSectionTitle => '接続中のBridge';
+
+  @override
+  String get settingsConnectedToThisMacBadge => 'このMacのローカルBridgeに接続中';
+
+  @override
+  String get settingsOpenLocalBridgeAction => 'このMacのBridge設定を開く';
+
+  @override
+  String get settingsEditBridgeMachine => '接続設定を編集';
+
+  @override
+  String get settingsReconnectBridge => '再接続';
+
+  @override
+  String get settingsCopyBridgeUrl => 'URLをコピー';
+
+  @override
+  String get settingsSwitchBridge => 'Bridgeを切り替え';
+
+  @override
+  String get settingsBridgeDiagnosticsTitle => '接続中のBridge情報';
+
+  @override
+  String get settingsBridgeEndpointLabel => 'エンドポイント';
+
+  @override
+  String get settingsBridgeTransportLabel => '通信方式';
+
+  @override
+  String get settingsBridgeTransportSecure => 'WSS（暗号化）';
+
+  @override
+  String get settingsBridgeTransportStandard => 'WS（標準）';
+
+  @override
+  String get settingsBridgeTransportSshTunnel => 'SSHトンネル';
+
+  @override
+  String get settingsBridgeProtocolLabel => 'プロトコル';
+
+  @override
+  String get settingsBridgeAllowedDirsLabel => '許可されたディレクトリ';
+
+  @override
+  String get settingsBridgeAllowedDirsAll => '制限なし (*)';
+
+  @override
+  String get settingsConnectedBridgeToolsTitle => '接続先ホストのツール';
+
+  @override
+  String get settingsConnectedBridgeToolsError => '接続先ホストのツール状態を取得できませんでした';
+
+  @override
+  String get settingsCheckForUpdates => 'アップデートを確認…';
+
+  @override
+  String get settingsCheckingForUpdates => 'アップデートを確認中…';
+
+  @override
+  String get settingsUpToDate => '最新バージョンです';
+
+  @override
+  String get settingsUpdateCheckFailed => 'アップデートの確認に失敗しました';
+
+  @override
+  String get shortcutsDialogTitle => 'キーボードショートカット';
+
+  @override
+  String get shortcutsGroupApplication => 'アプリケーション';
+
+  @override
+  String get shortcutsGroupNavigation => 'ナビゲーション';
+
+  @override
+  String get shortcutsGroupSession => 'セッション';
+
+  @override
+  String get shortcutsGroupViewPanes => '表示とペイン';
+
+  @override
+  String get shortcutsGroupComposer => '入力欄と編集';
+
+  @override
+  String get shortcutOpenSettings => '設定を開く';
+
+  @override
+  String get shortcutOpenLocalBridge => 'このMacのBridge設定';
+
+  @override
+  String get shortcutShowShortcuts => 'キーボードショートカット一覧';
+
+  @override
+  String get shortcutNewSession => '新しいセッション';
+
+  @override
+  String get shortcutQuickSearch => 'クイック検索 / セッション切り替え';
+
+  @override
+  String get shortcutSwitchSessionNumber => '1〜9番目のセッションに切り替え';
+
+  @override
+  String get shortcutCloseActive => '現在の画面・セッション・ウィンドウを閉じる';
+
+  @override
+  String get shortcutRefresh => 'セッション一覧・履歴を更新';
+
+  @override
+  String get shortcutApproveTool => '保留中のツール実行を承認';
+
+  @override
+  String get shortcutPermissionMode => '権限モードメニューを開く';
+
+  @override
+  String get shortcutStopGeneration => '生成を中断 / 停止';
+
+  @override
+  String get shortcutToggleSidebar => 'サイドバーの表示切替';
+
+  @override
+  String get shortcutToggleGitPane => 'Git差分ペインの開閉';
+
+  @override
+  String get shortcutToggleExplorerPane => 'ファイルエクスプローラーの開閉';
+
+  @override
+  String get shortcutToggleGalleryPane => 'ギャラリーペインの開閉';
+
+  @override
+  String get shortcutZoomIn => '文字サイズを拡大';
+
+  @override
+  String get shortcutZoomOut => '文字サイズを縮小';
+
+  @override
+  String get shortcutZoomReset => '文字サイズをリセット';
+
+  @override
+  String get shortcutSendMessage => 'メッセージを送信';
+
+  @override
+  String get shortcutInsertNewline => '改行を挿入';
+
+  @override
+  String get shortcutFindInBrowser => 'ファイル内で検索';
+
+  @override
+  String get shortcutDismissOverlay => 'ポップアップやシートを閉じる';
+
+  @override
+  String get menuFile => 'ファイル';
+
+  @override
+  String get menuView => '表示';
+
+  @override
+  String get menuSession => 'セッション';
+
+  @override
+  String get menuNewSession => '新しいセッション';
+
+  @override
+  String get menuCloseWindow => 'ウィンドウを閉じる';
+
+  @override
+  String get menuCloseSession => 'セッションを閉じる';
+
+  @override
+  String get menuCloseSettings => '設定を閉じる';
+
+  @override
+  String get menuReconnect => '再接続 / 更新';
+
+  @override
+  String get menuDisconnect => '切断';
+
+  @override
+  String get menuToggleSidebar => 'サイドバーを切り替え';
+
+  @override
+  String get menuQuickSearch => 'クイック検索';
+
+  @override
+  String get menuGitDiff => 'Git差分';
+
+  @override
+  String get menuFileExplorer => 'ファイルエクスプローラー';
+
+  @override
+  String get menuGallery => 'ギャラリー';
+
+  @override
+  String get menuActualSize => '実際のサイズ';
+
+  @override
+  String get menuZoomIn => '拡大';
+
+  @override
+  String get menuZoomOut => '縮小';
+
+  @override
+  String get menuStopGeneration => '生成を停止';
+
+  @override
+  String get menuPermissionMode => '権限モード…';
+
+  @override
+  String get menuLocalBridgeSettings => 'このMacのBridge…';
+
+  @override
+  String get menuCheckForUpdates => 'アップデートを確認…';
+
+  @override
+  String get menuKeyboardShortcuts => 'キーボードショートカット';
+
+  @override
+  String get menuSetupGuide => 'セットアップガイド';
+
+  @override
+  String get menuChangelog => '変更履歴';
+
+  @override
+  String get menuGitHubRepo => 'GitHubリポジトリ';
 }

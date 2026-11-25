@@ -4567,4 +4567,238 @@ class AppLocalizationsKo extends AppLocalizations {
   @override
   String get guideDesktopLocalConnectTip =>
       '이 컴퓨터의 Bridge에 연결할 때는 ws://127.0.0.1:8765 와 시작 시 표시되는 API 키를 사용합니다.';
+
+  @override
+  String get settingsCategoryLocalBridge => '이 Mac의 Bridge';
+
+  @override
+  String get settingsCategoryShortcuts => '키보드 단축키';
+
+  @override
+  String get settingsCategoryShortcutsSummary => '탐색, 세션 및 보기 단축키';
+
+  @override
+  String get settingsConnectedBridgeSectionTitle => '연결된 Bridge';
+
+  @override
+  String get settingsConnectedToThisMacBadge => '이 Mac의 로컬 Bridge에 연결됨';
+
+  @override
+  String get settingsOpenLocalBridgeAction => '이 Mac의 Bridge 설정 열기';
+
+  @override
+  String get settingsEditBridgeMachine => '연결 설정 편집';
+
+  @override
+  String get settingsReconnectBridge => '다시 연결';
+
+  @override
+  String get settingsCopyBridgeUrl => 'URL 복사';
+
+  @override
+  String get settingsSwitchBridge => 'Bridge 전환';
+
+  @override
+  String get settingsBridgeDiagnosticsTitle => '연결된 Bridge 정보';
+
+  @override
+  String get settingsBridgeEndpointLabel => '엔드포인트';
+
+  @override
+  String get settingsBridgeTransportLabel => '전송 방식';
+
+  @override
+  String get settingsBridgeTransportSecure => 'WSS (암호화)';
+
+  @override
+  String get settingsBridgeTransportStandard => 'WS (표준)';
+
+  @override
+  String get settingsBridgeTransportSshTunnel => 'SSH 터널';
+
+  @override
+  String get settingsBridgeProtocolLabel => '프로토콜';
+
+  @override
+  String get settingsBridgeAllowedDirsLabel => '허용된 디렉터리';
+
+  @override
+  String get settingsBridgeAllowedDirsAll => '제한 없음 (*)';
+
+  @override
+  String get settingsConnectedBridgeToolsTitle => '연결된 호스트 도구';
+
+  @override
+  String get settingsConnectedBridgeToolsError => '연결된 호스트의 도구 상태를 불러올 수 없습니다';
+
+  @override
+  String get settingsCheckForUpdates => '업데이트 확인…';
+
+  @override
+  String get settingsCheckingForUpdates => '업데이트 확인 중…';
+
+  @override
+  String get settingsUpToDate => '최신 버전입니다';
+
+  @override
+  String get settingsUpdateCheckFailed => '업데이트 확인에 실패했습니다';
+
+  @override
+  String get shortcutsDialogTitle => '키보드 단축키';
+
+  @override
+  String get shortcutsGroupApplication => '애플리케이션';
+
+  @override
+  String get shortcutsGroupNavigation => '탐색';
+
+  @override
+  String get shortcutsGroupSession => '세션';
+
+  @override
+  String get shortcutsGroupViewPanes => '보기 및 패널';
+
+  @override
+  String get shortcutsGroupComposer => '입력창 및 편집';
+
+  @override
+  String get shortcutOpenSettings => '설정 열기';
+
+  @override
+  String get shortcutOpenLocalBridge => '이 Mac의 Bridge 설정';
+
+  @override
+  String get shortcutShowShortcuts => '키보드 단축키 보기';
+
+  @override
+  String get shortcutNewSession => '새 세션';
+
+  @override
+  String get shortcutQuickSearch => '빠른 검색 / 세션 전환';
+
+  @override
+  String get shortcutSwitchSessionNumber => '1~9번 세션으로 전환';
+
+  @override
+  String get shortcutCloseActive => '현재 화면, 세션 또는 창 닫기';
+
+  @override
+  String get shortcutRefresh => '세션 목록 / 기록 새로고침';
+
+  @override
+  String get shortcutApproveTool => '대기 중인 도구 실행 승인';
+
+  @override
+  String get shortcutPermissionMode => '권한 모드 메뉴 열기';
+
+  @override
+  String get shortcutStopGeneration => '생성 중지';
+
+  @override
+  String get shortcutToggleSidebar => '사이드바 표시 전환';
+
+  @override
+  String get shortcutToggleGitPane => 'Git 차이 패널 열기/닫기';
+
+  @override
+  String get shortcutToggleExplorerPane => '파일 탐색기 패널 열기/닫기';
+
+  @override
+  String get shortcutToggleGalleryPane => '갤러리 패널 열기/닫기';
+
+  @override
+  String get shortcutZoomIn => '텍스트 확대';
+
+  @override
+  String get shortcutZoomOut => '텍스트 축소';
+
+  @override
+  String get shortcutZoomReset => '실제 크기';
+
+  @override
+  String get shortcutSendMessage => '메시지 전송';
+
+  @override
+  String get shortcutInsertNewline => '줄바꿈 삽입';
+
+  @override
+  String get shortcutFindInBrowser => '파일 탐색기에서 찾기';
+
+  @override
+  String get shortcutDismissOverlay => '팝업 또는 시트 닫기';
+
+  @override
+  String get menuFile => '파일';
+
+  @override
+  String get menuView => '보기';
+
+  @override
+  String get menuSession => '세션';
+
+  @override
+  String get menuNewSession => '새 세션';
+
+  @override
+  String get menuCloseWindow => '창 닫기';
+
+  @override
+  String get menuCloseSession => '세션 닫기';
+
+  @override
+  String get menuCloseSettings => '설정 닫기';
+
+  @override
+  String get menuReconnect => '다시 연결 / 새로고침';
+
+  @override
+  String get menuDisconnect => '연결 해제';
+
+  @override
+  String get menuToggleSidebar => '사이드바 전환';
+
+  @override
+  String get menuQuickSearch => '빠른 검색';
+
+  @override
+  String get menuGitDiff => 'Git 차이';
+
+  @override
+  String get menuFileExplorer => '파일 탐색기';
+
+  @override
+  String get menuGallery => '갤러리';
+
+  @override
+  String get menuActualSize => '실제 크기';
+
+  @override
+  String get menuZoomIn => '확대';
+
+  @override
+  String get menuZoomOut => '축소';
+
+  @override
+  String get menuStopGeneration => '생성 중지';
+
+  @override
+  String get menuPermissionMode => '권한 모드…';
+
+  @override
+  String get menuLocalBridgeSettings => '이 Mac의 Bridge…';
+
+  @override
+  String get menuCheckForUpdates => '업데이트 확인…';
+
+  @override
+  String get menuKeyboardShortcuts => '키보드 단축키';
+
+  @override
+  String get menuSetupGuide => '설정 가이드';
+
+  @override
+  String get menuChangelog => '변경 기록';
+
+  @override
+  String get menuGitHubRepo => 'GitHub 저장소';
 }

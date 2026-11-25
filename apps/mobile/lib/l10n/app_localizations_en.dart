@@ -4715,4 +4715,241 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get guideDesktopLocalConnectTip =>
       'To connect to a Bridge on this computer, use ws://127.0.0.1:8765 and the API key shown at startup.';
+
+  @override
+  String get settingsCategoryLocalBridge => 'Bridge on this Mac';
+
+  @override
+  String get settingsCategoryShortcuts => 'Keyboard Shortcuts';
+
+  @override
+  String get settingsCategoryShortcutsSummary =>
+      'Navigation, session & view shortcuts';
+
+  @override
+  String get settingsConnectedBridgeSectionTitle => 'Connected Bridge';
+
+  @override
+  String get settingsConnectedToThisMacBadge =>
+      'Connected to this Mac\'s local Bridge';
+
+  @override
+  String get settingsOpenLocalBridgeAction => 'Open Bridge on this Mac';
+
+  @override
+  String get settingsEditBridgeMachine => 'Edit connection';
+
+  @override
+  String get settingsReconnectBridge => 'Reconnect';
+
+  @override
+  String get settingsCopyBridgeUrl => 'Copy URL';
+
+  @override
+  String get settingsSwitchBridge => 'Switch Bridge';
+
+  @override
+  String get settingsBridgeDiagnosticsTitle => 'Connected Bridge Info';
+
+  @override
+  String get settingsBridgeEndpointLabel => 'Endpoint';
+
+  @override
+  String get settingsBridgeTransportLabel => 'Transport';
+
+  @override
+  String get settingsBridgeTransportSecure => 'WSS (Encrypted)';
+
+  @override
+  String get settingsBridgeTransportStandard => 'WS (Standard)';
+
+  @override
+  String get settingsBridgeTransportSshTunnel => 'SSH Tunnel';
+
+  @override
+  String get settingsBridgeProtocolLabel => 'Protocol';
+
+  @override
+  String get settingsBridgeAllowedDirsLabel => 'Allowed directories';
+
+  @override
+  String get settingsBridgeAllowedDirsAll => 'Unrestricted (*)';
+
+  @override
+  String get settingsConnectedBridgeToolsTitle => 'Connected Host Tools';
+
+  @override
+  String get settingsConnectedBridgeToolsError =>
+      'Could not load tool status from the connected host';
+
+  @override
+  String get settingsCheckForUpdates => 'Check for Updates…';
+
+  @override
+  String get settingsCheckingForUpdates => 'Checking for updates…';
+
+  @override
+  String get settingsUpToDate => 'You\'re up to date';
+
+  @override
+  String get settingsUpdateCheckFailed => 'Failed to check for updates';
+
+  @override
+  String get shortcutsDialogTitle => 'Keyboard Shortcuts';
+
+  @override
+  String get shortcutsGroupApplication => 'Application';
+
+  @override
+  String get shortcutsGroupNavigation => 'Navigation';
+
+  @override
+  String get shortcutsGroupSession => 'Session';
+
+  @override
+  String get shortcutsGroupViewPanes => 'View & Panes';
+
+  @override
+  String get shortcutsGroupComposer => 'Composer & Editing';
+
+  @override
+  String get shortcutOpenSettings => 'Open Settings';
+
+  @override
+  String get shortcutOpenLocalBridge => 'Bridge on this Mac Settings';
+
+  @override
+  String get shortcutShowShortcuts => 'Show Keyboard Shortcuts';
+
+  @override
+  String get shortcutNewSession => 'New Session';
+
+  @override
+  String get shortcutQuickSearch => 'Quick Search / Switch Session';
+
+  @override
+  String get shortcutSwitchSessionNumber => 'Switch to Session 1–9';
+
+  @override
+  String get shortcutCloseActive => 'Close Overlay, Session, or Window';
+
+  @override
+  String get shortcutRefresh => 'Refresh Sessions / History';
+
+  @override
+  String get shortcutApproveTool => 'Approve Pending Tool Use';
+
+  @override
+  String get shortcutPermissionMode => 'Open Permission Mode Menu';
+
+  @override
+  String get shortcutStopGeneration => 'Stop Generation';
+
+  @override
+  String get shortcutToggleSidebar => 'Toggle Sidebar';
+
+  @override
+  String get shortcutToggleGitPane => 'Toggle Git Diff Pane';
+
+  @override
+  String get shortcutToggleExplorerPane => 'Toggle File Explorer Pane';
+
+  @override
+  String get shortcutToggleGalleryPane => 'Toggle Gallery Pane';
+
+  @override
+  String get shortcutZoomIn => 'Zoom In';
+
+  @override
+  String get shortcutZoomOut => 'Zoom Out';
+
+  @override
+  String get shortcutZoomReset => 'Actual Size';
+
+  @override
+  String get shortcutSendMessage => 'Send Message';
+
+  @override
+  String get shortcutInsertNewline => 'Insert Newline';
+
+  @override
+  String get shortcutFindInBrowser => 'Find in File Browser';
+
+  @override
+  String get shortcutDismissOverlay => 'Dismiss Popup or Sheet';
+
+  @override
+  String get menuFile => 'File';
+
+  @override
+  String get menuView => 'View';
+
+  @override
+  String get menuSession => 'Session';
+
+  @override
+  String get menuNewSession => 'New Session';
+
+  @override
+  String get menuCloseWindow => 'Close Window';
+
+  @override
+  String get menuCloseSession => 'Close Session';
+
+  @override
+  String get menuCloseSettings => 'Close Settings';
+
+  @override
+  String get menuReconnect => 'Reconnect / Refresh';
+
+  @override
+  String get menuDisconnect => 'Disconnect';
+
+  @override
+  String get menuToggleSidebar => 'Toggle Sidebar';
+
+  @override
+  String get menuQuickSearch => 'Quick Search';
+
+  @override
+  String get menuGitDiff => 'Git Diff';
+
+  @override
+  String get menuFileExplorer => 'File Explorer';
+
+  @override
+  String get menuGallery => 'Gallery';
+
+  @override
+  String get menuActualSize => 'Actual Size';
+
+  @override
+  String get menuZoomIn => 'Zoom In';
+
+  @override
+  String get menuZoomOut => 'Zoom Out';
+
+  @override
+  String get menuStopGeneration => 'Stop Generation';
+
+  @override
+  String get menuPermissionMode => 'Permission Mode…';
+
+  @override
+  String get menuLocalBridgeSettings => 'Bridge on this Mac…';
+
+  @override
+  String get menuCheckForUpdates => 'Check for Updates…';
+
+  @override
+  String get menuKeyboardShortcuts => 'Keyboard Shortcuts';
+
+  @override
+  String get menuSetupGuide => 'Setup Guide';
+
+  @override
+  String get menuChangelog => 'Changelog';
+
+  @override
+  String get menuGitHubRepo => 'GitHub Repository';
 }
