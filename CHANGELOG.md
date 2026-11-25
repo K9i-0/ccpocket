@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.183.0] - 2026-11-25
+
+### Added
+
+- Display mode presets & per-category customization: Settings now includes a dedicated Display mode screen with three presets (**All**, **Recommended**, **Custom**) and individual toggles for Tasks / TODO, Thinking, Subagents & Swarm, Code edits & diffs, Other tool calls, and Tool outputs & screenshots. Toggling any item switches to Custom automatically, and presets animate all toggles together.
+- Bridge `performance_mode_v2` sync: per-category filter preferences reduce network traffic directly on Bridge 1.122.0+, including keeping Tasks/TODO (`TodoWrite` / Antigravity `update_steps`, Codex `UpdatePlan`, Claude `TaskCreate`/`TaskUpdate`) and subagent summaries in the Recommended preset, and suppressing `thinking_delta` streams when Thinking is turned off.
+
+### Fixed
+
+- Desktop Settings: fixed a `PageStorage` scroll crash in the host tools checklist, improved the "Check for Updates…" dialog, and fixed the two-pane Usage view layout.
+
 ## [1.182.0] - 2026-11-25
 
 ### Added
