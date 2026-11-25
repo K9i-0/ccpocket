@@ -111,53 +111,63 @@ void main() {
 
   group('buildMarkdownStyle', () {
     testWidgets(
-      'uses text emphasis without inline code background after package merge',
+      'uses subtle neutral pill background for inline code in light and dark themes',
       (tester) async {
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: AppTheme.lightTheme,
-            home: Builder(
-              builder: (context) {
-                return MarkdownBody(
-                  data: 'before **strong_text** `inline_code` *em_text* after',
-                  selectable: true,
-                  styleSheet: buildMarkdownStyle(context),
-                );
-              },
+        for (final theme in [AppTheme.lightTheme, AppTheme.darkTheme]) {
+          await tester.pumpWidget(
+            MaterialApp(
+              key: UniqueKey(),
+              theme: theme,
+              home: Builder(
+                builder: (context) {
+                  return MarkdownBody(
+                    data:
+                        'before **strong_text** `inline_code` *em_text* after',
+                    selectable: true,
+                    styleSheet: buildMarkdownStyle(context),
+                  );
+                },
+              ),
             ),
-          ),
-        );
+          );
 
-        final selectableText = tester.widget<legacy.SelectableText>(
-          find.byType(legacy.SelectableText).first,
-        );
-        final inlineCodeSpan = _findTextSpan(
-          selectableText.textSpan!,
-          'inline_code',
-        );
+          final selectableText = tester.widget<legacy.SelectableText>(
+            find.byType(legacy.SelectableText).first,
+          );
+          final inlineCodeSpan = _findTextSpan(
+            selectableText.textSpan!,
+            'inline_code',
+          );
 
-        expect(inlineCodeSpan, isNotNull);
-        expect(inlineCodeSpan!.style?.backgroundColor, Colors.transparent);
-        expect(inlineCodeSpan.style?.fontWeight, FontWeight.w600);
+          expect(inlineCodeSpan, isNotNull);
+          final codeBg = inlineCodeSpan!.style?.backgroundColor;
+          expect(codeBg, isNotNull);
+          expect(codeBg!.a, greaterThan(0));
+          expect(codeBg.a, lessThan(0.15));
+          expect(inlineCodeSpan.style?.fontWeight, FontWeight.w500);
 
-        final strongSpan = _findTextSpan(
-          selectableText.textSpan!,
-          'strong_text',
-        );
-        final baseStyle = AppTheme.lightTheme.textTheme.bodyMedium!;
-        final expectedStrongStyle = GoogleFonts.ibmPlexSans(
-          textStyle: baseStyle,
-          fontWeight: FontWeight.w700,
-        );
+          final strongSpan = _findTextSpan(
+            selectableText.textSpan!,
+            'strong_text',
+          );
+          final baseStyle = theme.textTheme.bodyMedium!;
+          final expectedStrongStyle = GoogleFonts.ibmPlexSans(
+            textStyle: baseStyle,
+            fontWeight: FontWeight.w700,
+          );
 
-        expect(strongSpan, isNotNull);
-        expect(strongSpan!.style?.fontWeight, FontWeight.w700);
-        expect(strongSpan.style?.fontFamily, expectedStrongStyle.fontFamily);
-        expect(strongSpan.style?.fontFamily, isNot(baseStyle.fontFamily));
+          expect(strongSpan, isNotNull);
+          expect(strongSpan!.style?.fontWeight, FontWeight.w700);
+          expect(strongSpan.style?.fontFamily, expectedStrongStyle.fontFamily);
+          expect(strongSpan.style?.fontFamily, isNot(baseStyle.fontFamily));
 
-        final emphasisSpan = _findTextSpan(selectableText.textSpan!, 'em_text');
-        expect(emphasisSpan, isNotNull);
-        expect(emphasisSpan!.style?.fontStyle, FontStyle.italic);
+          final emphasisSpan = _findTextSpan(
+            selectableText.textSpan!,
+            'em_text',
+          );
+          expect(emphasisSpan, isNotNull);
+          expect(emphasisSpan!.style?.fontStyle, FontStyle.italic);
+        }
       },
     );
   });

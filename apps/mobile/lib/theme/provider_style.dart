@@ -3,8 +3,18 @@ import 'package:material_ui/material_ui.dart';
 
 import '../models/messages.dart';
 
-/// Antigravity accent (Blue 600 / Blue 400), next to Claude's orange and
-/// Codex's teal.
+/// Claude badge accent in light mode (deep Ember tuned for WCAG AA contrast on
+/// tinted light badges while staying cohesive with `colorScheme.primary`).
+const claudeAccentLight = Color(0xFFB83B08);
+
+/// Codex accent (Emerald 700 / Emerald 400) — refined pine-emerald dedicated to
+/// Codex, distinct from Claude's ember orange, Antigravity's blue, and neutral
+/// tool/status tokens.
+const codexAccentLight = Color(0xFF047857);
+const codexAccentDark = Color(0xFF34D399);
+
+/// Antigravity accent (Blue 600 / Blue 400), next to Claude's ember and
+/// Codex's emerald.
 const antigravityAccentLight = Color(0xFF2563EB);
 const antigravityAccentDark = Color(0xFF60A5FA);
 
@@ -32,20 +42,29 @@ class ProviderStyle {
 
 ProviderStyle providerStyleFor(BuildContext context, Provider provider) {
   final colorScheme = Theme.of(context).colorScheme;
+  final isDark = colorScheme.brightness == Brightness.dark;
   final accent = switch (provider) {
-    Provider.claude => colorScheme.primary,
-    Provider.codex => colorScheme.secondary,
+    Provider.claude => isDark ? colorScheme.primary : claudeAccentLight,
+    Provider.codex => isDark ? codexAccentDark : codexAccentLight,
     // Its own blue: the theme's tertiary is an amber too close to Claude.
     Provider.antigravity =>
-      colorScheme.brightness == Brightness.dark
-          ? antigravityAccentDark
-          : antigravityAccentLight,
+      isDark ? antigravityAccentDark : antigravityAccentLight,
+  };
+
+  // Tune badge tint and border per brightness (and hue where needed) so all
+  // three providers share balanced perceived weight and WCAG AA text contrast
+  // (>= 4.5:1) on both light and dark surfaces.
+  final (bgAlpha, borderAlpha) = switch ((isDark, provider)) {
+    (true, Provider.codex) => (0.14, 0.28),
+    (true, _) => (0.15, 0.30),
+    (false, Provider.antigravity) => (0.08, 0.24),
+    (false, _) => (0.09, 0.24),
   };
 
   return ProviderStyle(
     foreground: accent,
-    background: accent.withValues(alpha: 0.12),
-    border: accent.withValues(alpha: 0.34),
+    background: accent.withValues(alpha: bgAlpha),
+    border: accent.withValues(alpha: borderAlpha),
     iconAsset: providerIconAsset(provider),
   );
 }

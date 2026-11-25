@@ -4,10 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 // ---------------------------------------------------------------------------
 // AppTheme: Graphite & Ember design system (Space Grotesk + IBM Plex Sans)
 //
-// Warm editorial palette. Dominant burnt-orange primary with muted teal
-// accent. Warm stone surfaces instead of cool slates. Inspired by IDE themes
-// and professional developer tools — deliberately avoids the "AI purple
-// gradient on white" cliché.
+// Restrained, modern developer-tool palette. Clean neutral Zinc/Graphite
+// surfaces with subtle hairline borders and focused Ember primary accent —
+// inspired by Linear, Zed, and Claude Desktop.
 // ---------------------------------------------------------------------------
 
 class AppTheme {
@@ -63,7 +62,7 @@ class AppTheme {
       surfaceContainerHigh: const Color(
         0xFF161616,
       ), // near-surface card bg, glow-focused
-      surfaceContainerHighest: const Color(0xFF404040), // Neutral 700
+      surfaceContainerHighest: const Color(0xFF3F3F46), // Zinc 700
       primary: const Color(0xFFF97316), // Orange 500 (brighter for dark)
       onPrimary: Colors.white,
       primaryContainer: const Color(0xFFC2410C),
@@ -76,7 +75,7 @@ class AppTheme {
       onSurface: const Color(0xFFF5F5F5), // Clean white (Neutral 100)
       onSurfaceVariant: const Color(0xFFA3A3A3), // Neutral 400
       outline: const Color(0xFF737373), // Neutral 500
-      outlineVariant: const Color(0xFF404040), // clean border (Neutral 700)
+      outlineVariant: const Color(0xFF27272A), // refined hairline (Zinc 800)
     );
 
     return _buildTheme(
@@ -572,10 +571,10 @@ class AppColors extends ThemeExtension<AppColors> {
     // Neutral so the orange text-selection highlight stays visible.
     userBubble: Color(0xFFE4E4E7), // Zinc 200
     userBubbleText: Color(0xFF18181B), // Zinc 900
-    assistantBubble: Color(0xFFF3F0EE), // warm cream (refined)
-    toolBubble: Color(0xFFF0FDFA), // Teal 50
-    toolBubbleBorder: Color(0xFF5EEAD4), // Teal 300
-    toolIcon: Color(0xFF0F766E), // Teal 700
+    assistantBubble: Color(0xFFF4F4F5), // Zinc 100
+    toolBubble: Color(0xFFFFFFFF), // clean elevated neutral card
+    toolBubbleBorder: Color(0xFFE4E4E7), // Zinc 200 hairline
+    toolIcon: Color(0xFF52525B), // Zinc 600 muted neutral
     errorBubble: Color(0xFFFEF2F2), // Red 50
     errorBubbleBorder: Color(0xFFEF4444), // Red 500
     errorText: Color(0xFFB91C1C), // Red 700
@@ -588,25 +587,27 @@ class AppColors extends ThemeExtension<AppColors> {
     askBubble: Color(0xFFFFF7ED), // Orange 50
     askBubbleBorder: Color(0xFFD97706), // Amber 600
     askIcon: Color(0xFF9A3412), // Orange 800
-    systemChip: Color(0xFFF0FDFA), // Teal 50 (unified)
-    successChip: Color(0xFFF0FDF4), // Green 50
+    systemChip: Color(0xFFF4F4F5), // Zinc 100 subtle neutral
+    successChip: Color(0xFFEEF6F2), // soft muted sage-neutral
     errorChip: Color(0xFFFEE2E2), // Red 100
-    approvalBar: Color(0xFFFFF7ED), // Orange 50
-    approvalBarBorder: Color(0xFFD4450A), // Ember (unified)
+    approvalBar: Color(0xFFFFFFFF), // clean elevated surface
+    approvalBarBorder: Color(0xFFEA8C55), // subtle warm ember accent
     statusStarting: Color(0xFF6F7C8C), // cool grey for light surfaces
     statusRunning: Color(0xFF156FDB), // clear working blue
     statusApproval: Color(0xFFD4450A), // Ember (brighter)
     statusCompacting: Color(0xFF7C3AED), // Violet 600
-    statusIdle: Color(0xFF787068), // warm grey (WCAG AA)
+    statusIdle: Color(0xFF71717A), // Zinc 500 (WCAG AA)
     statusOnline: Color(0xFF16A34A), // green for online/running indicators
     statusPlan: Color(0xFF1F8F4E), // structured plan green
     statusPlanGlow: Color(0xFF7BD89A), // lighter green for glow
-    subtleText: Color(0xFF6B5E54), // warm stone (WCAG AA)
-    codeBackground: Color(0xFFF5F0EB), // warm cream
-    codeBorder: Color(0xFF99D5CF), // Teal accent border
-    toolResultBackground: Color(0xFFF5F0EB),
-    toolResultText: Color(0xFF6B5E54), // warm stone (WCAG AA)
-    toolResultTextExpanded: Color(0xFF44403C), // Stone 700
+    subtleText: Color(
+      0xFF63636B,
+    ), // clean neutral Zinc (WCAG AA on all light surfaces)
+    codeBackground: Color(0xFFF4F4F5), // Zinc 100
+    codeBorder: Color(0xFFE4E4E7), // Zinc 200 hairline
+    toolResultBackground: Color(0xFFF4F4F5), // Zinc 100
+    toolResultText: Color(0xFF52525B), // Zinc 600 (WCAG AA)
+    toolResultTextExpanded: Color(0xFF3F3F46), // Zinc 700
     diffAdditionBackground: Color(0xFFDCFCE7), // Green 100
     diffAdditionText: Color(0xFF166534), // Green 800
     diffDeletionBackground: Color(0xFFFEE2E2), // Red 100
@@ -618,10 +619,10 @@ class AppColors extends ThemeExtension<AppColors> {
     // Neutral so the orange text-selection highlight stays visible.
     userBubble: Color(0xFF2A2A2A), // Neutral 800
     userBubbleText: Color(0xFFF5F5F5), // Neutral 100
-    assistantBubble: Color(0xFF1E1E1E), // neutral dark
-    toolBubble: Color(0xFF0A1F12), // deep green
-    toolBubbleBorder: Color(0xFF1A5C35),
-    toolIcon: Color(0xFF86EFAC), // Green 300
+    assistantBubble: Color(0xFF18181B), // Zinc 900
+    toolBubble: Color(0xFF161618), // clean elevated neutral dark card
+    toolBubbleBorder: Color(0xFF27272A), // Zinc 800 hairline
+    toolIcon: Color(0xFFA1A1AA), // Zinc 400 muted neutral
     errorBubble: Color(0xFF2A1215),
     errorBubbleBorder: Color(0xFF5C2020),
     errorText: Color(0xFFFCA5A5), // Red 300
@@ -634,25 +635,25 @@ class AppColors extends ThemeExtension<AppColors> {
     askBubble: Color(0xFF241A0B), // deep warm
     askBubbleBorder: Color(0xFF5C3D15),
     askIcon: Color(0xFFFDBA74), // Orange 300
-    systemChip: Color(0xFF0F1A16), // dark green
-    successChip: Color(0xFF0A1F12),
+    systemChip: Color(0xFF18181B), // Zinc 900 subtle neutral
+    successChip: Color(0xFF131D18), // subtle muted sage-charcoal
     errorChip: Color(0xFF2A1215),
-    approvalBar: Color(0xFF241A0B),
-    approvalBarBorder: Color(0xFF5C3D15),
+    approvalBar: Color(0xFF18181A), // clean elevated charcoal surface
+    approvalBarBorder: Color(0xFF7C3F1C), // subtle warm ember accent
     statusStarting: Color(0xFFE8EDF3), // cool white
     statusRunning: Color(0xFF4DA3FF), // electric working blue
     statusApproval: Color(0xFFFDBA74), // Orange 300
     statusCompacting: Color(0xFFA78BFA), // Violet 400
-    statusIdle: Color(0xFF6E6E6E), // neutral grey
+    statusIdle: Color(0xFF71717A), // Zinc 500
     statusOnline: Color(0xFF4ADE80), // green for online/running indicators
     statusPlan: Color(0xFF57C779), // natural plan green
     statusPlanGlow: Color(0xFF9AE6B4), // lifted green glow
-    subtleText: Color(0xFFB8B5B0), // neutral-warm stone
-    codeBackground: Color(0xFF1E1E1E), // neutral lifted
-    codeBorder: Color(0xFF3D3D3D), // match outlineVariant
-    toolResultBackground: Color(0xFF1E1E1E),
-    toolResultText: Color(0xFFB8B5B0), // neutral-warm stone
-    toolResultTextExpanded: Color(0xFFD6D3D1), // Stone 300
+    subtleText: Color(0xFFA1A1AA), // Zinc 400
+    codeBackground: Color(0xFF161618), // elevated neutral dark
+    codeBorder: Color(0xFF27272A), // Zinc 800 hairline (match outlineVariant)
+    toolResultBackground: Color(0xFF161618), // elevated neutral dark
+    toolResultText: Color(0xFFA1A1AA), // Zinc 400
+    toolResultTextExpanded: Color(0xFFD4D4D8), // Zinc 300
     diffAdditionBackground: Color(0xFF14532D), // Green 900
     diffAdditionText: Color(0xFF86EFAC), // Green 300
     diffDeletionBackground: Color(0xFF7F1D1D), // Red 900

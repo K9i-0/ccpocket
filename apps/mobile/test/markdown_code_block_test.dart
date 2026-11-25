@@ -166,6 +166,30 @@ void main() {
       );
       expect(find.textContaining('just plain block'), findsOneWidget);
     });
+
+    testWidgets(
+      'renders compact header bar with language on left and copy button on right',
+      (tester) async {
+        const markdown = '```dart\nfinal value = 42;\n```';
+        await tester.pumpWidget(
+          _wrap(AssistantBubble(message: _messageWithText(markdown))),
+        );
+
+        final languageRect = tester.getRect(
+          find.byKey(const ValueKey('code_block_language_dart')),
+        );
+        final copyRect = tester.getRect(
+          find.byKey(const ValueKey('code_block_copy_button_dart')),
+        );
+        final codeRect = tester.getRect(
+          find.textContaining('final value = 42;'),
+        );
+
+        expect(languageRect.left, lessThan(copyRect.left));
+        expect(copyRect.height, lessThanOrEqualTo(34));
+        expect(copyRect.bottom, lessThan(codeRect.top));
+      },
+    );
   });
 
   group('AssistantBubble copy behavior with code blocks', () {

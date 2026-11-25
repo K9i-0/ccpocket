@@ -160,6 +160,10 @@ MarkdownStyleSheet buildMarkdownStyle(BuildContext context) {
   final theme = Theme.of(context);
   final baseStyle = theme.textTheme.bodyMedium ?? const TextStyle();
   final codeSettings = codeTextSettingsOf(context);
+  final isDark = theme.brightness == Brightness.dark;
+  final inlineCodeBackground = theme.colorScheme.onSurface.withValues(
+    alpha: isDark ? 0.09 : 0.07,
+  );
 
   return _baseMarkdownStyle(theme).copyWith(
     p: baseStyle,
@@ -170,8 +174,8 @@ MarkdownStyleSheet buildMarkdownStyle(BuildContext context) {
     em: baseStyle.copyWith(fontStyle: FontStyle.italic),
     code: codeSettings.style(
       color: baseStyle.color,
-      fontWeight: FontWeight.w600,
-      backgroundColor: Colors.transparent,
+      fontWeight: FontWeight.w500,
+      backgroundColor: inlineCodeBackground,
     ),
     codeblockDecoration: BoxDecoration(
       color: appColors.codeBackground,
@@ -318,6 +322,7 @@ class FencedCodeBlockBuilder extends MarkdownElementBuilder {
         'code_block_container_${displayLanguage}_${source.length}_${source.hashCode}',
       ),
       width: double.infinity,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: appColors.codeBackground,
         borderRadius: BorderRadius.circular(8),
@@ -336,7 +341,7 @@ class FencedCodeBlockBuilder extends MarkdownElementBuilder {
           ),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: hasAncestorSelectionArea
                 ? Text.rich(codeSpan)
                 : SelectableText.rich(
@@ -389,38 +394,48 @@ class _CodeBlockToolbarState extends State<_CodeBlockToolbar> {
 
   @override
   Widget build(BuildContext context) {
-    final subtleColor = Theme.of(context).colorScheme.onSurface
-        .withValues(alpha: 0.52);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final appColors = theme.extension<AppColors>()!;
+    final isDark = theme.brightness == Brightness.dark;
+    final headerBackground = colorScheme.onSurface.withValues(
+      alpha: isDark ? 0.035 : 0.03,
+    );
     final l = AppLocalizations.of(context);
-    return SizedBox(
-      height: 44,
+    return Container(
+      height: 32,
+      padding: const EdgeInsets.only(left: 12, right: 4),
+      decoration: BoxDecoration(
+        color: headerBackground,
+        border: Border(bottom: BorderSide(color: appColors.codeBorder)),
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
         children: [
           if (widget.hasExplicitLanguage)
-            Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: Text(
-                widget.displayLanguage,
-                key: ValueKey('code_block_language_${widget.displayLanguage}'),
-                style: widget.baseStyle.copyWith(
-                  fontSize: 10,
-                  letterSpacing: 0.2,
-                  color: subtleColor,
-                ),
+            Text(
+              widget.displayLanguage,
+              key: ValueKey('code_block_language_${widget.displayLanguage}'),
+              style: widget.baseStyle.copyWith(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0.2,
+                height: 1.0,
+                color: appColors.subtleText,
               ),
             ),
+          const Spacer(),
           IconButton(
             key: ValueKey('code_block_copy_button_${widget.displayLanguage}'),
             tooltip: _copied ? l.copied : l.copy,
             onPressed: _handleCopy,
             visualDensity: VisualDensity.compact,
-            constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+            style: const ButtonStyle(
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            constraints: const BoxConstraints.tightFor(width: 28, height: 28),
             padding: EdgeInsets.zero,
-            iconSize: 18,
-            color: _copied
-                ? Theme.of(context).colorScheme.primary
-                : subtleColor,
+            iconSize: 15,
+            color: _copied ? colorScheme.primary : appColors.subtleText,
             icon: Icon(_copied ? Icons.check : Icons.content_copy_rounded),
           ),
         ],
