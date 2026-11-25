@@ -8908,6 +8908,24 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'GitHubリポジトリ'**
   String get menuGitHubRepo;
+
+  /// No description provided for @plainText.
+  ///
+  /// In ja, this message translates to:
+  /// **'プレーンテキスト'**
+  String get plainText;
+
+  /// No description provided for @resizeSidebar.
+  ///
+  /// In ja, this message translates to:
+  /// **'サイドバーの幅を変更'**
+  String get resizeSidebar;
+
+  /// No description provided for @resizeRightPane.
+  ///
+  /// In ja, this message translates to:
+  /// **'右ペインの幅を変更'**
+  String get resizeRightPane;
 }
 
 class _AppLocalizationsDelegate

@@ -80,7 +80,7 @@ class _MessageActionBarState extends State<MessageActionBar> {
           ),
           const SizedBox(width: 16),
           Tooltip(
-            message: widget.isPlainTextMode ? 'Markdown' : 'Plain text',
+            message: widget.isPlainTextMode ? 'Markdown' : l.plainText,
             child: _ActionIcon(
               key: const ValueKey('plain_text_toggle'),
               icon: Icons.text_fields,

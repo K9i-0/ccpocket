@@ -1900,5 +1900,8 @@
   "menuKeyboardShortcuts": "键盘快捷键",
   "menuSetupGuide": "设置指南",
   "menuChangelog": "更新日志",
-  "menuGitHubRepo": "GitHub 仓库"
+  "menuGitHubRepo": "GitHub 仓库",
+  "plainText": "纯文本",
+  "resizeSidebar": "调整侧边栏宽度",
+  "resizeRightPane": "调整右侧面板宽度"
 }

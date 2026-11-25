@@ -2050,7 +2050,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
                   width: resizeHandleHitWidth,
                   child: _WorkspaceResizeHandle(
                     key: const ValueKey('workspace_left_resize_handle'),
-                    semanticsLabel: 'Resize sidebar',
+                    semanticsLabel: AppLocalizations.of(context).resizeSidebar,
                     invertSemanticStep: true,
                     color: Theme.of(context).dividerColor
                         .withValues(alpha: 0.18),
@@ -2085,7 +2085,8 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
                   width: resizeHandleHitWidth,
                   child: _WorkspaceResizeHandle(
                     key: const ValueKey('workspace_right_resize_handle'),
-                    semanticsLabel: 'Resize right pane',
+                    semanticsLabel: AppLocalizations.of(context)
+                        .resizeRightPane,
                     color: Theme.of(context).dividerColor
                         .withValues(alpha: 0.18),
                     onDragUpdate: (delta) => resizeRightPane(
@@ -2197,7 +2198,7 @@ class _WorkspaceResizeHandle extends StatefulWidget {
     required this.onDragUpdate,
     this.onDragEnd,
     this.onSemanticStep,
-    this.semanticsLabel = 'Resize right pane',
+    required this.semanticsLabel,
     this.invertSemanticStep = false,
   });
 

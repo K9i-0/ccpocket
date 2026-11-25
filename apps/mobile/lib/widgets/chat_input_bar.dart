@@ -1017,22 +1017,24 @@ class _InputTextFieldState extends State<_InputTextField>
     }
     if (!isDesktopPlatform) return KeyEventResult.ignored;
 
-    if (_isControlStyleTextShortcut(
-      event,
-      key: LogicalKeyboardKey.keyK,
-      controlCharacter: 0x0b,
-    )) {
-      _deleteToEndOfLine();
-      return KeyEventResult.handled;
-    }
+    if (!isImeComposing) {
+      if (_isControlStyleTextShortcut(
+        event,
+        key: LogicalKeyboardKey.keyK,
+        controlCharacter: 0x0b,
+      )) {
+        _deleteToEndOfLine();
+        return KeyEventResult.handled;
+      }
 
-    if (_isControlStyleTextShortcut(
-      event,
-      key: LogicalKeyboardKey.keyD,
-      controlCharacter: 0x04,
-    )) {
-      _deleteForwardCharacter();
-      return KeyEventResult.handled;
+      if (_isControlStyleTextShortcut(
+        event,
+        key: LogicalKeyboardKey.keyD,
+        controlCharacter: 0x04,
+      )) {
+        _deleteForwardCharacter();
+        return KeyEventResult.handled;
+      }
     }
 
     final isModifier =

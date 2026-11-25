@@ -4801,4 +4801,13 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get menuGitHubRepo => 'GitHub 저장소';
+
+  @override
+  String get plainText => '일반 텍스트';
+
+  @override
+  String get resizeSidebar => '사이드바 크기 조절';
+
+  @override
+  String get resizeRightPane => '오른쪽 패널 크기 조절';
 }

@@ -7,6 +7,7 @@ import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/widgets/bubbles/assistant_bubble.dart';
+import 'package:ccpocket/widgets/google_search_text_selection.dart';
 
 Widget _wrap(Widget child) {
   return MaterialApp(
@@ -204,11 +205,18 @@ void main() {
         await tester.tap(find.byType(InkWell).first);
         await tester.pumpAndSettle();
 
-        // expanded: expand_less icon, SelectableText with full content
+        // expanded: expand_less icon, GoogleSearchSelectionArea with full content
         expect(find.byIcon(Icons.expand_less), findsOneWidget);
-        expect(find.byType(SelectableText), findsOneWidget);
+        expect(find.byType(GoogleSearchSelectionArea), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byType(GoogleSearchSelectionArea),
+            matching: find.text(longCmd),
+          ),
+          findsOneWidget,
+        );
 
-        // Tap header area → collapsed (tap tool name to avoid SelectableText)
+        // Tap header area → collapsed (tap tool name to avoid SelectionArea)
         await tester.tap(find.text('Bash'));
         await tester.pumpAndSettle();
 

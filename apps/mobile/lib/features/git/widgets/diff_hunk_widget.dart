@@ -160,20 +160,30 @@ class _DiffHunkWidgetState extends State<DiffHunkWidget> {
           ..sort();
     final children = <Widget>[];
     var start = 0;
+    final onShowActions = widget.onShowActions;
     for (final end in [...breaks, lines.length - 1]) {
-      children.add(
-        _DiffHunkBody(
-          lines: lines.sublist(start, end + 1),
-          offset: start,
-          maxContentWidth: _maxContentWidth,
-          lineNumberWidth: widget.lineNumberWidth,
-          lineWrapEnabled: widget.lineWrapEnabled,
-          codeSettings: widget.codeSettings,
-          onLongPress: widget.onShowActions == null ? widget.onLongPress : null,
-          onTapLine: widget.onTapLine,
-          selectedLines: widget.selectedLines,
-        ),
+      Widget body = _DiffHunkBody(
+        lines: lines.sublist(start, end + 1),
+        offset: start,
+        maxContentWidth: _maxContentWidth,
+        lineNumberWidth: widget.lineNumberWidth,
+        lineWrapEnabled: widget.lineWrapEnabled,
+        codeSettings: widget.codeSettings,
+        onLongPress: onShowActions == null ? widget.onLongPress : null,
+        onTapLine: widget.onTapLine,
+        selectedLines: widget.selectedLines,
       );
+      if (onShowActions != null) {
+        body = GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onSecondaryTapDown: _hasSelectedText
+              ? null
+              : (details) => onShowActions(details.globalPosition),
+          onLongPressStart: (details) => onShowActions(details.globalPosition),
+          child: body,
+        );
+      }
+      children.add(body);
       children.addAll(widget.belowLines[end] ?? const []);
       start = end + 1;
     }
@@ -182,16 +192,17 @@ class _DiffHunkWidgetState extends State<DiffHunkWidget> {
 
   @override
   Widget build(BuildContext context) {
-    Widget content = Column(
+    final onShowActions = widget.onShowActions;
+    final Widget content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (widget.hunk.header.isNotEmpty)
           _DiffHunkHeader(
             header: widget.hunk.header,
             codeSettings: widget.codeSettings,
-            onLongPress: widget.onShowActions == null
-                ? widget.onLongPress
-                : null,
+            onLongPress: onShowActions == null ? widget.onLongPress : null,
+            onShowActions: onShowActions,
+            hasSelectedText: _hasSelectedText,
           ),
         GoogleSearchSelectionArea(
           onSelectionChanged: _handleSelectionChanged,
@@ -203,18 +214,6 @@ class _DiffHunkWidgetState extends State<DiffHunkWidget> {
         const SizedBox(height: 4),
       ],
     );
-
-    final onShowActions = widget.onShowActions;
-    if (onShowActions != null) {
-      content = GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onSecondaryTapDown: _hasSelectedText
-            ? null
-            : (details) => onShowActions(details.globalPosition),
-        onLongPressStart: (details) => onShowActions(details.globalPosition),
-        child: content,
-      );
-    }
 
     final hasSwipeAction =
         widget.onSwipeStage != null ||
@@ -244,18 +243,28 @@ class _DiffHunkHeader extends StatelessWidget {
   final String header;
   final CodeTextSettings codeSettings;
   final VoidCallback? onLongPress;
+  final ValueChanged<Offset?>? onShowActions;
+  final bool hasSelectedText;
 
   const _DiffHunkHeader({
     required this.header,
     required this.codeSettings,
     this.onLongPress,
+    this.onShowActions,
+    this.hasSelectedText = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
     return GestureDetector(
-      onLongPress: onLongPress,
+      onLongPress: onShowActions == null ? onLongPress : null,
+      onLongPressStart: onShowActions == null
+          ? null
+          : (details) => onShowActions!(details.globalPosition),
+      onSecondaryTapDown: onShowActions == null || hasSelectedText
+          ? null
+          : (details) => onShowActions!(details.globalPosition),
       behavior: HitTestBehavior.opaque,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

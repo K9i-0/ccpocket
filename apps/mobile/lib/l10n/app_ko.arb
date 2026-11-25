@@ -1759,5 +1759,8 @@
   "menuKeyboardShortcuts": "키보드 단축키",
   "menuSetupGuide": "설정 가이드",
   "menuChangelog": "변경 기록",
-  "menuGitHubRepo": "GitHub 저장소"
+  "menuGitHubRepo": "GitHub 저장소",
+  "plainText": "일반 텍스트",
+  "resizeSidebar": "사이드바 크기 조절",
+  "resizeRightPane": "오른쪽 패널 크기 조절"
 }

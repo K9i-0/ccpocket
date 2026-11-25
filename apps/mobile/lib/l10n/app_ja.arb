@@ -1984,5 +1984,8 @@
   "menuKeyboardShortcuts": "キーボードショートカット",
   "menuSetupGuide": "セットアップガイド",
   "menuChangelog": "変更履歴",
-  "menuGitHubRepo": "GitHubリポジトリ"
+  "menuGitHubRepo": "GitHubリポジトリ",
+  "plainText": "プレーンテキスト",
+  "resizeSidebar": "サイドバーの幅を変更",
+  "resizeRightPane": "右ペインの幅を変更"
 }

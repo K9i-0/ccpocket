@@ -576,6 +576,85 @@ void main() {
     );
 
     testWidgets(
+      'does not show local Mac banner for SSH-tunneled loopback remote Bridge',
+      (tester) async {
+        tester.view.physicalSize = const Size(800, 1400);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+
+        SharedPreferences.setMockInitialValues({});
+        final prefs = await SharedPreferences.getInstance();
+        final settingsCubit = _SeededSettingsCubit(
+          prefs,
+          activeMachineId: 'remote-ssh',
+        );
+        final machineService = _StaticMachineManagerService([
+          MachineWithStatus(
+            machine: const Machine(
+              id: 'remote-ssh',
+              name: 'Remote Dev Box',
+              host: 'devbox.example.com',
+              port: 8765,
+              sshEnabled: true,
+              sshUsername: 'dev',
+            ),
+            status: MachineStatus.online,
+            versionInfo: BridgeVersionInfo(version: recommendedBridgeVersion),
+          ),
+        ]);
+        final machineCubit = _createMachineManagerCubit(machineService);
+        final bridge = _TestBridgeService(
+          connected: true,
+          fakeLastUrl: 'ws://127.0.0.1:8765?token=abc',
+          fakeBridgeVersion: recommendedBridgeVersion,
+        );
+        final mockToolsClient = MockClient(
+          (_) async => http.Response('Not Found', 404),
+        );
+
+        await tester.pumpWidget(
+          MultiRepositoryProvider(
+            providers: [RepositoryProvider<BridgeService>.value(value: bridge)],
+            child: MultiBlocProvider(
+              providers: [
+                BlocProvider<SettingsCubit>.value(value: settingsCubit),
+                BlocProvider<MachineManagerCubit>.value(value: machineCubit),
+              ],
+              child: _wrapWithApp(
+                SingleChildScrollView(
+                  child: ConnectionSettingsSection(
+                    state: settingsCubit.state,
+                    visibility: const SettingsVisibility(
+                      hasActiveMachine: true,
+                      bridgeConnected: true,
+                      hasBridgeUrl: true,
+                      isMacOS: true,
+                    ),
+                    onUpdateBridge: (_) {},
+                    toolsHttpClient: mockToolsClient,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const ValueKey('settings_connected_local_bridge_banner')),
+          findsNothing,
+        );
+        expect(find.text('SSH Tunnel'), findsOneWidget);
+
+        await settingsCubit.close();
+        await machineCubit.close();
+        machineService.dispose();
+        bridge.dispose();
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
+
+    testWidgets(
       'ConnectedBridgeToolsCard fetches /tools with Bearer auth and handles 404/error',
       (tester) async {
         final bridge = _TestBridgeService(

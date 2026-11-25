@@ -4711,4 +4711,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get menuGitHubRepo => 'GitHub 仓库';
+
+  @override
+  String get plainText => '纯文本';
+
+  @override
+  String get resizeSidebar => '调整侧边栏宽度';
+
+  @override
+  String get resizeRightPane => '调整右侧面板宽度';
 }

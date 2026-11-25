@@ -1846,5 +1846,8 @@
   "menuKeyboardShortcuts": "Keyboard Shortcuts",
   "menuSetupGuide": "Setup Guide",
   "menuChangelog": "Changelog",
-  "menuGitHubRepo": "GitHub Repository"
+  "menuGitHubRepo": "GitHub Repository",
+  "plainText": "Plain text",
+  "resizeSidebar": "Resize sidebar",
+  "resizeRightPane": "Resize right pane"
 }

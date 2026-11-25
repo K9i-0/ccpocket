@@ -76,9 +76,14 @@ class SettingsCategoryBody extends StatelessWidget {
                         embedded: true,
                         showAppBar: false,
                         createCubit: createLocalBridgeCubit,
-                        onClose: () =>
-                            WorkspaceShellScreen.maybeOf(context)
-                                ?.popCenterOverlay(),
+                        onClose: () {
+                          final shell = WorkspaceShellScreen.maybeOf(context);
+                          if (shell != null) {
+                            shell.popCenterOverlay();
+                          } else {
+                            Navigator.of(context).maybePop();
+                          }
+                        },
                       ),
                     ),
                   ),

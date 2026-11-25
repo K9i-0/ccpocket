@@ -4763,4 +4763,13 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get menuGitHubRepo => 'GitHubリポジトリ';
+
+  @override
+  String get plainText => 'プレーンテキスト';
+
+  @override
+  String get resizeSidebar => 'サイドバーの幅を変更';
+
+  @override
+  String get resizeRightPane => '右ペインの幅を変更';
 }

@@ -771,6 +771,80 @@ void main() {
     );
 
     testWidgets(
+      'DiffHunkWidget handles touch long-press, right-click when unselected, and drag selection',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+        final actionOffsets = <Offset?>[];
+        await tester.pumpWidget(
+          _wrap(
+            DiffHunkWidget(
+              dismissKey: 'h2',
+              lineNumberWidth: 24,
+              onShowActions: actionOffsets.add,
+              hunk: const DiffHunk(
+                header: '@@ -1,2 +1,2 @@',
+                oldStart: 1,
+                newStart: 1,
+                lines: [
+                  DiffLine(
+                    type: DiffLineType.deletion,
+                    oldLineNumber: 1,
+                    content: 'oldCode();',
+                  ),
+                  DiffLine(
+                    type: DiffLineType.addition,
+                    newLineNumber: 1,
+                    content: 'newCode();',
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+
+        // Touch long-press on a diff line opens hunk actions.
+        await tester.longPress(find.text('newCode();'));
+        await tester.pumpAndSettle();
+        expect(actionOffsets, hasLength(1));
+
+        // Right-click on a diff line with no selection opens hunk actions.
+        final lineCenter = tester.getCenter(find.text('newCode();'));
+        final rightClick = await tester.createGesture(
+          kind: PointerDeviceKind.mouse,
+          buttons: kSecondaryMouseButton,
+        );
+        await rightClick.down(lineCenter);
+        await rightClick.up();
+        await tester.pumpAndSettle();
+        expect(actionOffsets, hasLength(2));
+
+        // Desktop mouse drag selects text across the line.
+        final lineRect = tester.getRect(find.text('newCode();'));
+        final drag = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await drag.down(Offset(lineRect.left + 2, lineRect.center.dy));
+        await tester.pump();
+        await drag.moveTo(Offset(lineRect.right - 2, lineRect.center.dy));
+        await tester.pump();
+        await drag.up();
+        await tester.pumpAndSettle();
+
+        // While text is selected, right-click lets SelectionArea show its menu
+        // instead of invoking onShowActions.
+        final selectedRightClick = await tester.createGesture(
+          kind: PointerDeviceKind.mouse,
+          buttons: kSecondaryMouseButton,
+        );
+        await selectedRightClick.down(lineCenter);
+        await selectedRightClick.up();
+        await tester.pumpAndSettle();
+        expect(actionOffsets, hasLength(2));
+        expect(find.text('Search with Google'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
       'FilePathBuilder uses click cursor without breaking SelectionArea',
       (tester) async {
         String? tapped;

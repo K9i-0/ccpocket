@@ -549,6 +549,55 @@ void main() {
       expect(textField.scrollController, isNotNull);
       expect(scrollbar.controller, same(textField.scrollController));
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+    testWidgets(
+      'Ctrl+K and Ctrl+D do not hijack active IME composition on macOS',
+      (tester) async {
+        await tester.pumpWidget(buildBar());
+        await tester.tap(find.byKey(const ValueKey('message_input')));
+        await tester.pump();
+
+        // Active IME composition (e.g. Japanese Katakana conversion with Ctrl+K).
+        inputController.value = const TextEditingValue(
+          text: 'にほんごテスト',
+          selection: TextSelection.collapsed(offset: 4),
+          composing: TextRange(start: 0, end: 4),
+        );
+        await tester.pump();
+
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.keyK);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.keyK);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.keyD);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.keyD);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        await tester.pump();
+
+        expect(inputController.text, 'にほんごテスト');
+
+        // Once composition commits, Ctrl+D and Ctrl+K work normally.
+        inputController.value = const TextEditingValue(
+          text: 'にほんごテスト',
+          selection: TextSelection.collapsed(offset: 4),
+        );
+        await tester.pump();
+
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.keyD);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.keyD);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        await tester.pump();
+        expect(inputController.text, 'にほんごスト');
+
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.keyK);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.keyK);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        await tester.pump();
+        expect(inputController.text, 'にほんご');
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
   });
 
   group('Overlay, Queue & PromptHistory copy polish', () {

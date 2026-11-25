@@ -162,6 +162,7 @@ class ConnectionSettingsSection extends StatelessWidget {
     final isLocalLoopback =
         visibility.isMacOS &&
         visibility.bridgeConnected &&
+        machine?.sshEnabled != true &&
         isLoopbackBridgeUrl(bridge.lastUrl);
 
     return Column(

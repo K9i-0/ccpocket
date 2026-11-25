@@ -4952,4 +4952,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get menuGitHubRepo => 'GitHub Repository';
+
+  @override
+  String get plainText => 'Plain text';
+
+  @override
+  String get resizeSidebar => 'Resize sidebar';
+
+  @override
+  String get resizeRightPane => 'Resize right pane';
 }
