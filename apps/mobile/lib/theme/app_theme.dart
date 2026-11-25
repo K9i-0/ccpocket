@@ -283,6 +283,67 @@ class AppTheme {
       listTileTheme: ListTileThemeData(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
+
+      // Scrollbar (macOS-friendly rounded pill thumb, subtle translucency)
+      scrollbarTheme: ScrollbarThemeData(
+        interactive: true,
+        radius: const Radius.circular(4),
+        crossAxisMargin: 2,
+        mainAxisMargin: 4,
+        minThumbLength: 32,
+        thickness: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.dragged) ||
+              states.contains(WidgetState.hovered)) {
+            return 8.0;
+          }
+          return 6.0;
+        }),
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          final isDark = brightness == Brightness.dark;
+          if (states.contains(WidgetState.dragged)) {
+            return colorScheme.onSurface.withValues(
+              alpha: isDark ? 0.62 : 0.58,
+            );
+          }
+          if (states.contains(WidgetState.hovered)) {
+            return colorScheme.onSurface.withValues(
+              alpha: isDark ? 0.44 : 0.42,
+            );
+          }
+          return colorScheme.onSurface.withValues(alpha: isDark ? 0.24 : 0.22);
+        }),
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.hovered) ||
+              states.contains(WidgetState.dragged)) {
+            return colorScheme.onSurface.withValues(alpha: 0.04);
+          }
+          return Colors.transparent;
+        }),
+        trackBorderColor: WidgetStateProperty.all(Colors.transparent),
+      ),
+
+      // Tooltip (crisp desktop hover styling)
+      tooltipTheme: TooltipThemeData(
+        waitDuration: const Duration(milliseconds: 450),
+        showDuration: const Duration(milliseconds: 1500),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        verticalOffset: 14,
+        decoration: BoxDecoration(
+          color: brightness == Brightness.dark
+              ? const Color(0xFF262626).withValues(alpha: 0.96)
+              : const Color(0xFF18181B).withValues(alpha: 0.94),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: brightness == Brightness.dark
+                ? colorScheme.outlineVariant
+                : Colors.white.withValues(alpha: 0.12),
+          ),
+        ),
+        textStyle: textTheme.labelSmall?.copyWith(
+          color: Colors.white,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
     );
   }
 

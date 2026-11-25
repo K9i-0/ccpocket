@@ -1,4 +1,5 @@
 import 'package:auto_route/auto_route.dart';
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
@@ -17,6 +18,8 @@ import '../../../services/support_banner_service.dart';
 import '../../../theme/app_theme.dart';
 import '../../../theme/provider_style.dart';
 import '../../../router/app_router.dart';
+import '../../../utils/platform_helper.dart';
+import '../../../widgets/adaptive_context_menu.dart';
 import '../../../widgets/pin_toggle_button.dart';
 import '../../../widgets/session_card.dart';
 import '../../../widgets/workspace_pane_chrome.dart';
@@ -529,33 +532,36 @@ class HomeContentState extends State<HomeContent> {
     final colorScheme = theme.colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: colorScheme.outlineVariant),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            children: [
-              Icon(
-                Icons.dns_outlined,
-                size: 14,
-                color: colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
+      child: Tooltip(
+        message: label,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: colorScheme.outlineVariant),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.dns_outlined,
+                  size: 14,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -968,7 +974,9 @@ class HomeContentState extends State<HomeContent> {
                         : appColors.subtleText,
                   ),
                   onPressed: openSearch,
-                  tooltip: l.search,
+                  tooltip: isDesktopPlatform
+                      ? '${l.search} (${isMacOSPlatform ? '⌘K' : 'Ctrl+K'})'
+                      : l.search,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(
                     minWidth: 32,
@@ -1135,11 +1143,16 @@ class HomeContentState extends State<HomeContent> {
                   isSessionPinned: isRecentPinned,
                   highlightQuery: highlightQuery,
                   isPinned: widget.pinnedProjectPaths.contains(group.groupKey),
+                  canToggleCollapsed: widget.onToggleProjectCollapsed != null,
                   onToggleCollapsed: () =>
                       widget.onToggleProjectCollapsed?.call(group.groupKey),
                   onTogglePinned: widget.onToggleProjectPinned == null
                       ? null
                       : () => widget.onToggleProjectPinned!(group.groupKey),
+                  onNewSession: widget.onNewSession,
+                  onFilterProject: widget.currentProjectFilter == group.groupKey
+                      ? null
+                      : () => widget.onSelectProject(group.groupKey),
                   onOpenGitHub: widget.onOpenProjectGitHub,
                   onLoadMore: () =>
                       widget.onLoadMoreProject?.call(group.groupKey),
@@ -1395,8 +1408,11 @@ class _ProjectRecentSessionGroup extends StatelessWidget {
   final bool Function(RecentSession session) isSessionPinned;
   final String? highlightQuery;
   final bool isPinned;
+  final bool canToggleCollapsed;
   final VoidCallback onToggleCollapsed;
   final VoidCallback? onTogglePinned;
+  final VoidCallback? onNewSession;
+  final VoidCallback? onFilterProject;
   final ValueChanged<RecentSession>? onOpenGitHub;
   final VoidCallback onLoadMore;
   final ValueChanged<RecentSession> onArchiveSession;
@@ -1416,8 +1432,11 @@ class _ProjectRecentSessionGroup extends StatelessWidget {
     required this.isSessionPinned,
     this.highlightQuery,
     required this.isPinned,
+    this.canToggleCollapsed = true,
     required this.onToggleCollapsed,
     required this.onTogglePinned,
+    this.onNewSession,
+    this.onFilterProject,
     this.onOpenGitHub,
     required this.onLoadMore,
     required this.onArchiveSession,
@@ -1440,11 +1459,15 @@ class _ProjectRecentSessionGroup extends StatelessWidget {
         children: [
           _ProjectRecentSessionHeader(
             groupKey: group.groupKey,
+            projectPath: group.projectPath,
             projectName: group.projectName,
             isCollapsed: isCollapsed,
             isPinned: isPinned,
+            canToggleCollapsed: canToggleCollapsed,
             onTap: onToggleCollapsed,
             onTogglePinned: onTogglePinned,
+            onNewSession: onNewSession,
+            onFilterProject: onFilterProject,
             onOpenGitHub: onOpenGitHub == null || representative == null
                 ? null
                 : () => onOpenGitHub(representative),
@@ -1484,19 +1507,26 @@ class _ProjectRecentSessionGroup extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 child: Padding(
                   padding: const EdgeInsets.only(left: 28, top: 2, bottom: 4),
-                  child: InkWell(
-                    key: ValueKey('project_show_more_${group.groupKey}'),
-                    borderRadius: BorderRadius.circular(6),
-                    onTap: onLoadMore,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 5,
-                      ),
-                      child: Text(
-                        AppLocalizations.of(context).showMore,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: InkWell(
+                      key: ValueKey('project_show_more_${group.groupKey}'),
+                      borderRadius: BorderRadius.circular(6),
+                      mouseCursor: SystemMouseCursors.click,
+                      onTap: onLoadMore,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 5,
+                        ),
+                        child: Text(
+                          AppLocalizations.of(context).showMore,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                              ),
                         ),
                       ),
                     ),
@@ -1522,88 +1552,186 @@ class _ProjectRecentSessionGroup extends StatelessWidget {
 
 class _ProjectRecentSessionHeader extends StatelessWidget {
   final String groupKey;
+  final String projectPath;
   final String projectName;
   final bool isCollapsed;
   final bool isPinned;
+  final bool canToggleCollapsed;
   final VoidCallback onTap;
   final VoidCallback? onTogglePinned;
+  final VoidCallback? onNewSession;
+  final VoidCallback? onFilterProject;
   final VoidCallback? onOpenGitHub;
 
   const _ProjectRecentSessionHeader({
     required this.groupKey,
+    required this.projectPath,
     required this.projectName,
     required this.isCollapsed,
     required this.isPinned,
+    this.canToggleCollapsed = true,
     required this.onTap,
     required this.onTogglePinned,
+    this.onNewSession,
+    this.onFilterProject,
     this.onOpenGitHub,
   });
+
+  bool get _hasCopyablePath =>
+      projectPath.isNotEmpty && !projectPath.startsWith('project:');
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        key: ValueKey('project_header_$groupKey'),
-        borderRadius: BorderRadius.circular(8),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-          child: Row(
-            children: [
-              AnimatedRotation(
-                turns: isCollapsed ? 0 : 0.25,
-                duration: const Duration(milliseconds: 160),
-                child: Icon(
-                  Icons.chevron_right,
-                  size: 18,
-                  color: colorScheme.onSurfaceVariant,
-                ),
+    final titleText = Text(
+      projectName,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+    );
+    return AdaptiveContextMenuRegion(
+      onOpen: (position) => _openContextMenu(context, position),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            key: ValueKey('project_header_$groupKey'),
+            borderRadius: BorderRadius.circular(8),
+            mouseCursor: SystemMouseCursors.click,
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+              child: Row(
+                children: [
+                  AnimatedRotation(
+                    turns: isCollapsed ? 0 : 0.25,
+                    duration: const Duration(milliseconds: 160),
+                    child: Icon(
+                      Icons.chevron_right,
+                      size: 18,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: isDesktopPlatform && _hasCopyablePath
+                        ? Tooltip(message: projectPath, child: titleText)
+                        : titleText,
+                  ),
+                  if (onOpenGitHub != null)
+                    IconButton(
+                      key: ValueKey('project_github_$groupKey'),
+                      onPressed: onOpenGitHub,
+                      tooltip: AppLocalizations.of(context).githubIssuesAndPrs,
+                      style: IconButton.styleFrom(
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints.tightFor(
+                        width: 28,
+                        height: 18,
+                      ),
+                      icon: Icon(
+                        Icons.fact_check_outlined,
+                        size: 17,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  PinToggleButton(
+                    key: ValueKey('pin_project_$groupKey'),
+                    isPinned: isPinned,
+                    onPressed: onTogglePinned,
+                    pinTooltip: AppLocalizations.of(context).pinProject,
+                    unpinTooltip: AppLocalizations.of(context).unpinProject,
+                  ),
+                ],
               ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  projectName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              if (onOpenGitHub != null)
-                IconButton(
-                  key: ValueKey('project_github_$groupKey'),
-                  onPressed: onOpenGitHub,
-                  tooltip: AppLocalizations.of(context).githubIssuesAndPrs,
-                  style: IconButton.styleFrom(
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints.tightFor(
-                    width: 28,
-                    height: 18,
-                  ),
-                  icon: Icon(
-                    Icons.fact_check_outlined,
-                    size: 17,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              PinToggleButton(
-                key: ValueKey('pin_project_$groupKey'),
-                isPinned: isPinned,
-                onPressed: onTogglePinned,
-                pinTooltip: AppLocalizations.of(context).pinProject,
-                unpinTooltip: AppLocalizations.of(context).unpinProject,
-              ),
-            ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _openContextMenu(BuildContext context, Offset? position) async {
+    final l = AppLocalizations.of(context);
+    final items = <AdaptiveActionMenuItem<String>>[
+      if (onNewSession != null)
+        AdaptiveActionMenuItem(
+          key: const ValueKey('project_context_new_session'),
+          value: 'new_session',
+          icon: Icons.add,
+          label: l.newSession,
+        ),
+      if (canToggleCollapsed)
+        AdaptiveActionMenuItem(
+          key: const ValueKey('project_context_toggle_collapse'),
+          value: 'toggle_collapse',
+          icon: isCollapsed ? Icons.unfold_more : Icons.unfold_less,
+          label: isCollapsed ? l.showMore : l.showLess,
+        ),
+      if (onFilterProject != null)
+        AdaptiveActionMenuItem(
+          key: const ValueKey('project_context_filter'),
+          value: 'filter',
+          icon: Icons.filter_alt_outlined,
+          label: l.tooltipProjectFilter,
+        ),
+      if (onTogglePinned != null)
+        AdaptiveActionMenuItem(
+          key: const ValueKey('project_context_toggle_pin'),
+          value: 'toggle_pin',
+          icon: isPinned ? Icons.push_pin_outlined : Icons.push_pin,
+          label: isPinned ? l.unpinProject : l.pinProject,
+        ),
+      if (onOpenGitHub != null)
+        AdaptiveActionMenuItem(
+          key: const ValueKey('project_context_github'),
+          value: 'github',
+          icon: Icons.fact_check_outlined,
+          label: l.githubIssuesAndPrs,
+        ),
+      if (_hasCopyablePath)
+        AdaptiveActionMenuItem(
+          key: const ValueKey('project_context_copy_path'),
+          value: 'copy_path',
+          icon: Icons.content_copy_outlined,
+          label: l.browserCopyPath,
+          subtitle: projectPath,
+        ),
+    ];
+    if (items.isEmpty) return;
+
+    final action = await showAdaptiveActionMenu<String>(
+      context: context,
+      position: position,
+      items: items,
+    );
+    if (action == null || !context.mounted) return;
+
+    switch (action) {
+      case 'new_session':
+        onNewSession?.call();
+      case 'toggle_collapse':
+        onTap();
+      case 'filter':
+        onFilterProject?.call();
+      case 'toggle_pin':
+        onTogglePinned?.call();
+      case 'github':
+        onOpenGitHub?.call();
+      case 'copy_path':
+        await Clipboard.setData(ClipboardData(text: projectPath));
+        if (!context.mounted) return;
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            content: Text(l.copiedToClipboard),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+    }
   }
 }
 

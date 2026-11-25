@@ -5,6 +5,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../models/machine.dart';
 import '../../../utils/network_endpoint.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/adaptive_context_menu.dart';
 
 /// Card widget for displaying a saved remote machine.
 /// Uses a clean 2-row layout:
@@ -57,99 +58,202 @@ class MachineCard extends StatelessWidget {
         : AppConstants.expectedBridgeVersion;
     final needsUpdate = machineWithStatus.needsUpdate(updateTargetVersion);
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      // Subtle highlight for favorites
-      color: machine.isFavorite
-          ? colorScheme.primaryContainer.withValues(alpha: 0.15)
-          : null,
-      child: InkWell(
-        onTap: status == MachineStatus.online ? onConnect : null,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Row 1: Status + Name + Action button
-              Row(
-                children: [
-                  _StatusDot(status: status),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      machine.displayName,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  _ActionButton(
-                    status: status,
-                    canStartRemotely: machine.canStartRemotely,
-                    isStarting: isStarting,
-                    onConnect: onConnect,
-                    onStart: onStart,
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 6),
-
-              // Row 2: Metadata line + Menu
-              Row(
-                children: [
-                  // Align with name (status dot width + spacing)
-                  const SizedBox(width: 24),
-                  Expanded(
-                    child: _MetadataLine(
-                      machine: machine,
-                      versionInfo: machineWithStatus.versionInfo,
-                      needsUpdate: needsUpdate,
-                      lastError: machineWithStatus.lastError,
-                      status: status,
-                    ),
-                  ),
-                  // Menu button
-                  _MenuButton(
-                    machine: machine,
-                    status: status,
-                    needsUpdate: needsUpdate,
-                    colorScheme: colorScheme,
-                    onEdit: onEdit,
-                    onDelete: onDelete,
-                    onToggleFavorite: onToggleFavorite,
-                    onUpdate: onUpdate,
-                    onStop: onStop,
-                  ),
-                ],
-              ),
-              if (machineWithStatus.needsApiKey) ...[
-                const SizedBox(height: 6),
+    return AdaptiveContextMenuRegion(
+      onOpen: (position) =>
+          _openContextMenu(context, position, needsUpdate: needsUpdate),
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 8),
+        // Subtle highlight for favorites
+        color: machine.isFavorite
+            ? colorScheme.primaryContainer.withValues(alpha: 0.15)
+            : null,
+        child: InkWell(
+          onTap: status == MachineStatus.online ? onConnect : null,
+          mouseCursor: status == MachineStatus.online
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Row 1: Status + Name + Action button
                 Row(
-                  key: const ValueKey('machine_api_key_required'),
                   children: [
-                    const SizedBox(width: 24),
-                    Icon(Icons.key, size: 14, color: colorScheme.error),
-                    const SizedBox(width: 6),
+                    _StatusDot(status: status),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        AppLocalizations.of(context).machineApiKeyRequired,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.error,
+                        machine.displayName,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w500,
                         ),
+                        overflow: TextOverflow.ellipsis,
                       ),
+                    ),
+                    const SizedBox(width: 12),
+                    _ActionButton(
+                      status: status,
+                      canStartRemotely: machine.canStartRemotely,
+                      isStarting: isStarting,
+                      onConnect: onConnect,
+                      onStart: onStart,
                     ),
                   ],
                 ),
+
+                const SizedBox(height: 6),
+
+                // Row 2: Metadata line + Menu
+                Row(
+                  children: [
+                    // Align with name (status dot width + spacing)
+                    const SizedBox(width: 24),
+                    Expanded(
+                      child: _MetadataLine(
+                        machine: machine,
+                        versionInfo: machineWithStatus.versionInfo,
+                        needsUpdate: needsUpdate,
+                        lastError: machineWithStatus.lastError,
+                        status: status,
+                      ),
+                    ),
+                    // Menu button
+                    _MenuButton(
+                      machine: machine,
+                      status: status,
+                      needsUpdate: needsUpdate,
+                      colorScheme: colorScheme,
+                      onEdit: onEdit,
+                      onDelete: onDelete,
+                      onToggleFavorite: onToggleFavorite,
+                      onUpdate: onUpdate,
+                      onStop: onStop,
+                    ),
+                  ],
+                ),
+                if (machineWithStatus.needsApiKey) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    key: const ValueKey('machine_api_key_required'),
+                    children: [
+                      const SizedBox(width: 24),
+                      Icon(Icons.key, size: 14, color: colorScheme.error),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          AppLocalizations.of(context).machineApiKeyRequired,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.error,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _openContextMenu(
+    BuildContext context,
+    Offset? position, {
+    required bool needsUpdate,
+  }) async {
+    final l = AppLocalizations.of(context);
+    final canStart =
+        (status == MachineStatus.offline ||
+            status == MachineStatus.unreachable) &&
+        machine.canStartRemotely &&
+        !isStarting;
+    final canUpdate =
+        status == MachineStatus.online &&
+        needsUpdate &&
+        machine.canStartRemotely &&
+        onUpdate != null;
+    final canStop =
+        status == MachineStatus.online &&
+        machine.canStartRemotely &&
+        onStop != null;
+
+    final action = await showAdaptiveActionMenu<String>(
+      context: context,
+      position: position,
+      items: [
+        if (status == MachineStatus.online)
+          AdaptiveActionMenuItem(
+            key: const ValueKey('machine_context_connect'),
+            value: 'connect',
+            icon: Icons.link,
+            label: l.connect,
+          ),
+        if (canStart)
+          AdaptiveActionMenuItem(
+            key: const ValueKey('machine_context_start'),
+            value: 'start',
+            icon: Icons.play_arrow,
+            label: l.start,
+          ),
+        if (onToggleFavorite != null)
+          AdaptiveActionMenuItem(
+            key: const ValueKey('machine_context_favorite'),
+            value: 'favorite',
+            icon: machine.isFavorite ? Icons.star : Icons.star_border,
+            label: machine.isFavorite ? l.unfavorite : l.favorite,
+          ),
+        AdaptiveActionMenuItem(
+          key: const ValueKey('machine_context_edit'),
+          value: 'edit',
+          icon: Icons.edit_outlined,
+          label: l.edit,
+        ),
+        if (canUpdate)
+          AdaptiveActionMenuItem(
+            key: const ValueKey('machine_context_update'),
+            value: 'update',
+            icon: Icons.system_update,
+            label: l.updateBridge,
+          ),
+        if (canStop)
+          AdaptiveActionMenuItem(
+            key: const ValueKey('machine_context_stop'),
+            value: 'stop',
+            icon: Icons.stop_circle_outlined,
+            label: l.stopServer,
+            destructive: true,
+          ),
+        AdaptiveActionMenuItem(
+          key: const ValueKey('machine_context_delete'),
+          value: 'delete',
+          icon: Icons.delete_outline,
+          label: l.delete,
+          destructive: true,
+        ),
+      ],
+    );
+    if (action == null || !context.mounted) return;
+
+    switch (action) {
+      case 'connect':
+        onConnect();
+      case 'start':
+        onStart();
+      case 'favorite':
+        onToggleFavorite?.call();
+      case 'edit':
+        onEdit();
+      case 'update':
+        onUpdate?.call();
+      case 'stop':
+        onStop?.call();
+      case 'delete':
+        onDelete();
+    }
   }
 }
 
@@ -170,21 +274,32 @@ class _StatusDot extends StatelessWidget {
       MachineStatus.unknown => appColors.statusIdle,
     };
 
-    return Container(
-      width: 12,
-      height: 12,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        boxShadow: status == MachineStatus.online
-            ? [
-                BoxShadow(
-                  color: color.withValues(alpha: 0.4),
-                  blurRadius: 4,
-                  spreadRadius: 1,
-                ),
-              ]
-            : null,
+    final l = AppLocalizations.of(context);
+    final tooltipMessage = switch (status) {
+      MachineStatus.online => l.settingsStatusOnline,
+      MachineStatus.offline => l.offline,
+      MachineStatus.unreachable => l.unreachable,
+      MachineStatus.unknown => l.checking,
+    };
+
+    return Tooltip(
+      message: tooltipMessage,
+      child: Container(
+        width: 12,
+        height: 12,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          boxShadow: status == MachineStatus.online
+              ? [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.4),
+                    blurRadius: 4,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : null,
+        ),
       ),
     );
   }
