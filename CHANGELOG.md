@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.184.1] - 2026-11-25
+
+### Changed
+
+- Theme, provider colors & code blocks: refined light and dark surface hierarchy, updated the Codex accent to an emerald palette harmonized with Claude and Antigravity, and streamlined markdown code block headers and inline code styling.
+- Chat & transcript cards: simplified thinking, tool result, inline diff, task checklist, system, result, and context compaction cards to reduce visual noise and improve readability.
+- Approval controls: redesigned the chat approval bar, permission request bubbles, question prompt options, and session-list approval cards with calmer neutral surfaces and clearer action hierarchy.
+- Composer, session list & settings: refined the message input bar, running/recent session cards, section headers, new-session sheet CTA, and settings status cards and tiles.
+
 ## [1.184.0] - 2026-11-25
 
 ### Changed
