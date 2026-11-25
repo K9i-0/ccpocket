@@ -25,6 +25,7 @@ import '../mock/mock_sessions.dart';
 import '../mock/store_screenshot_data.dart';
 import '../utils/diff_parser.dart';
 import '../models/messages.dart';
+import '../models/new_session_tab.dart';
 import '../providers/bridge_cubits.dart';
 import '../services/bridge_service.dart';
 import '../services/draft_service.dart';
@@ -155,6 +156,12 @@ Route<void>? buildMockScenarioRoute(
     return MaterialPageRoute(
       builder: (_) =>
           _MockNewSession20ProjectsWrapper(draftService: draftService),
+    );
+  } else if (scenario == sessionListNewSessionAllProviders) {
+    final draftService = context.read<DraftService>();
+    return MaterialPageRoute(
+      builder: (_) =>
+          _MockNewSessionAllProvidersWrapper(draftService: draftService),
     );
   } else if (scenario.section == MockScenarioSection.sessionList) {
     return MaterialPageRoute(
@@ -1215,6 +1222,8 @@ class _MockSessionListWrapperState extends State<_MockSessionListWrapper> {
     switch (widget.scenario.name) {
       case 'All Statuses':
         return mockSessionsAllStatuses();
+      case 'Session List (All Providers)':
+        return mockSessionsAllProviders();
       case 'All Approval UIs':
         return mockSessionsAllApprovals();
       case 'Single Question':
@@ -1524,6 +1533,85 @@ class _MockNewSession20ProjectsWrapperState
         value: _sessionListCubit,
         child: Scaffold(
           appBar: AppBar(title: const Text('New Session (20 Projects)')),
+          body: const Center(
+            child: Text('New session sheet opens automatically'),
+          ),
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: _showNewSessionSheet,
+            icon: const Icon(Icons.add),
+            label: const Text('Open Sheet'),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Mock: New Session with all 3 providers & pre-selected project
+// =============================================================================
+
+class _MockNewSessionAllProvidersWrapper extends StatefulWidget {
+  final DraftService draftService;
+  const _MockNewSessionAllProvidersWrapper({required this.draftService});
+
+  @override
+  State<_MockNewSessionAllProvidersWrapper> createState() =>
+      _MockNewSessionAllProvidersWrapperState();
+}
+
+class _MockNewSessionAllProvidersWrapperState
+    extends State<_MockNewSessionAllProvidersWrapper> {
+  late final MockBridgeService _mockBridge;
+  late final SessionListCubit _sessionListCubit;
+
+  @override
+  void initState() {
+    super.initState();
+    _mockBridge = MockBridgeService();
+    _sessionListCubit = SessionListCubit(bridge: _mockBridge);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showNewSessionSheet();
+    });
+  }
+
+  void _showNewSessionSheet() {
+    if (!mounted) return;
+    showNewSessionSheet(
+      context: context,
+      recentProjects: const [
+        (path: '/Users/dev/projects/web-store', name: 'web-store'),
+        (path: '/Users/dev/projects/api-server', name: 'api-server'),
+        (path: '/Users/dev/projects/my-portfolio', name: 'my-portfolio'),
+      ],
+      visibleTabs: const [
+        NewSessionTab.codex,
+        NewSessionTab.claude,
+        NewSessionTab.antigravity,
+      ],
+      initialParams: NewSessionParams(
+        projectPath: '/Users/dev/projects/web-store',
+        provider: Provider.codex,
+      ),
+      bridge: _mockBridge,
+    );
+  }
+
+  @override
+  void dispose() {
+    _sessionListCubit.close();
+    _mockBridge.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RepositoryProvider<DraftService>.value(
+      value: widget.draftService,
+      child: BlocProvider.value(
+        value: _sessionListCubit,
+        child: Scaffold(
+          appBar: AppBar(title: const Text('New Session (All Providers)')),
           body: const Center(
             child: Text('New session sheet opens automatically'),
           ),

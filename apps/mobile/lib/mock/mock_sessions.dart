@@ -804,3 +804,51 @@ SessionInfo mockSessionCodexPlanApproval() => SessionInfo(
     input: {'plan': 'Codex plan approval update'},
   ),
 );
+
+/// Three running sessions covering Claude, Codex, and Antigravity side-by-side
+/// so all three provider accents can be compared above the fold.
+List<SessionInfo> mockSessionsAllProviders() => [
+  SessionInfo(
+    id: 'mock-provider-claude',
+    provider: 'claude',
+    projectPath: '/Users/dev/projects/docs-site',
+    status: 'running',
+    createdAt: DateTime.now()
+        .subtract(const Duration(minutes: 12))
+        .toIso8601String(),
+    lastActivityAt: DateTime.now()
+        .subtract(const Duration(minutes: 1))
+        .toIso8601String(),
+    gitBranch: 'docs/api-refresh',
+    lastMessage: 'Checking the setup guide and updating release copy.',
+  ),
+  SessionInfo(
+    id: 'mock-provider-codex',
+    provider: 'codex',
+    projectPath: '/Users/dev/projects/web-store',
+    status: 'running',
+    createdAt: DateTime.now()
+        .subtract(const Duration(minutes: 9))
+        .toIso8601String(),
+    lastActivityAt: DateTime.now()
+        .subtract(const Duration(minutes: 2))
+        .toIso8601String(),
+    gitBranch: 'feat/checkout-redesign',
+    codexSandboxMode: 'workspace-write',
+    lastMessage: 'Refactoring the checkout flow and running unit tests.',
+  ),
+  SessionInfo(
+    id: 'mock-provider-antigravity',
+    provider: 'antigravity',
+    projectPath: '/Users/dev/projects/mobile-app',
+    status: 'running',
+    createdAt: DateTime.now()
+        .subtract(const Duration(minutes: 6))
+        .toIso8601String(),
+    lastActivityAt: DateTime.now()
+        .subtract(const Duration(seconds: 40))
+        .toIso8601String(),
+    gitBranch: 'fix/ws-reconnect',
+    lastMessage: 'Verifying ACP session reconnect and model options.',
+  ),
+];

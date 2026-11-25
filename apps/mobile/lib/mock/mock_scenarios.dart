@@ -61,6 +61,7 @@ final List<MockScenario> mockScenarios = [
   _longCommandApproval,
   _approvalFlow,
   _multipleApprovalFlow,
+  _permissionHistory,
   _askUserQuestion,
   _askUserQuestionOverflow,
   _askUserSingleMultiSelect,
@@ -99,6 +100,7 @@ final List<MockScenario> mockScenarios = [
   _codexCompacting,
   // Session list scenarios — Claude
   _sessionListAllStatuses,
+  _sessionListAllProviders,
   _sessionListAllApprovals,
   _sessionListSingleQuestion,
   _sessionListMultiQuestion,
@@ -112,6 +114,7 @@ final List<MockScenario> mockScenarios = [
   _sessionListCodexFileChangeApproval,
   _sessionListCodexMcpApproval,
   sessionListNewSession20Projects,
+  sessionListNewSessionAllProviders,
   settingsSupportEntriesPreview,
   supporterPreviewInactive,
   supporterPreviewOneTime,
@@ -502,6 +505,72 @@ final _multipleApprovalFlow = MockScenario(
     ),
     // After user approves tool-bash-1, tool-bash-2 dialog should appear
     // automatically via _emitNextApprovalOrNone
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// 1c. Permission History (approved, approvedForSession, rejected, pending)
+// ---------------------------------------------------------------------------
+final _permissionHistory = MockScenario(
+  name: 'Permission History',
+  icon: Icons.verified_user_outlined,
+  description: 'PermissionRequestBubble states: approved, session-allowed, rejected, pending',
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 100),
+      message: HistoryMessage(
+        messages: [
+          const UserInputMessage(
+            text: 'Check git status, run tests, clean cache, then analyze.',
+          ),
+          const PermissionRequestMessage(
+            toolUseId: 'perm-hist-approved',
+            toolName: 'Bash',
+            input: {'command': 'git status -sb'},
+          ),
+          const ToolResultMessage(
+            toolUseId: 'perm-hist-approved',
+            toolName: 'Bash',
+            content: 'Approved',
+            permissionOutcome: PermissionOutcome.approved,
+          ),
+          const PermissionRequestMessage(
+            toolUseId: 'perm-hist-session',
+            toolName: 'Bash',
+            input: {'command': 'flutter test test/theme_test.dart'},
+          ),
+          const ToolResultMessage(
+            toolUseId: 'perm-hist-session',
+            toolName: 'Bash',
+            content: 'Approved for session',
+            permissionOutcome: PermissionOutcome.approvedForSession,
+          ),
+          const PermissionRequestMessage(
+            toolUseId: 'perm-hist-rejected',
+            toolName: 'Bash',
+            input: {'command': 'rm -rf build/cache'},
+          ),
+          const ToolResultMessage(
+            toolUseId: 'perm-hist-rejected',
+            toolName: 'Bash',
+            content: 'Rejected',
+            permissionOutcome: PermissionOutcome.rejected,
+          ),
+        ],
+      ),
+    ),
+    const MockStep(
+      delay: Duration(milliseconds: 400),
+      message: PermissionRequestMessage(
+        toolUseId: 'perm-hist-pending',
+        toolName: 'Bash',
+        input: {'command': 'dart analyze apps/mobile'},
+      ),
+    ),
+    const MockStep(
+      delay: Duration(milliseconds: 600),
+      message: StatusMessage(status: ProcessStatus.waitingApproval),
+    ),
   ],
 );
 
@@ -3335,6 +3404,17 @@ const _sessionListAllStatuses = MockScenario(
 );
 
 // ---------------------------------------------------------------------------
+// SL-0a2. Session List (All Providers)
+// ---------------------------------------------------------------------------
+const _sessionListAllProviders = MockScenario(
+  name: 'Session List (All Providers)',
+  icon: Icons.workspaces_outlined,
+  description: 'Claude, Codex, and Antigravity running cards side-by-side',
+  section: MockScenarioSection.sessionList,
+  steps: [],
+);
+
+// ---------------------------------------------------------------------------
 // SL-0b. All Approval UIs
 // ---------------------------------------------------------------------------
 const _sessionListAllApprovals = MockScenario(
@@ -3467,6 +3547,17 @@ const sessionListNewSession20Projects = MockScenario(
   name: 'New Session (20 Projects)',
   icon: Icons.folder_copy_outlined,
   description: 'New session sheet with 20 projects to test expandable history',
+  section: MockScenarioSection.sessionList,
+  steps: [],
+);
+
+// ---------------------------------------------------------------------------
+// SL-12. New Session (All Providers)
+// ---------------------------------------------------------------------------
+const sessionListNewSessionAllProviders = MockScenario(
+  name: 'New Session (All Providers)',
+  icon: Icons.add_box_outlined,
+  description: 'New session sheet with Codex, Claude, Antigravity tabs and pre-selected project',
   section: MockScenarioSection.sessionList,
   steps: [],
 );
