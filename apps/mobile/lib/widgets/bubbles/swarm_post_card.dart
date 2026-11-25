@@ -45,18 +45,39 @@ class SwarmPostSummary {
 
   bool get isCoordinator => agent == 'coordinator';
 
-  /// The colour this post's author is shown in everywhere.
+  bool get isCoordinatorTarget => targetMention == '@coordinator';
+
+  bool get hasTargetMember => isCoordinatorTarget || targetIndex != null;
+
+  /// The text colour this post's author is shown in everywhere.
   Color accent(BuildContext context) => swarmMemberColor(
     context,
     isCoordinator: isCoordinator,
     index: agentIndex,
   );
 
-  /// The colour of the member the post addresses, when it is known.
+  /// The icon/accent-strip colour of this post's author (brighter in light
+  /// mode while keeping the same hue as [accent]).
+  Color iconAccent(BuildContext context) => swarmMemberIconColor(
+    context,
+    isCoordinator: isCoordinator,
+    index: agentIndex,
+  );
+
+  /// The text colour of the member the post addresses, when it is known.
   Color? targetAccent(BuildContext context) {
-    final isCoordinatorTarget = targetMention == '@coordinator';
-    if (!isCoordinatorTarget && targetIndex == null) return null;
+    if (!hasTargetMember) return null;
     return swarmMemberColor(
+      context,
+      isCoordinator: isCoordinatorTarget,
+      index: targetIndex,
+    );
+  }
+
+  /// The icon colour of the member the post addresses, when it is known.
+  Color? targetIconAccent(BuildContext context) {
+    if (!hasTargetMember) return null;
+    return swarmMemberIconColor(
       context,
       isCoordinator: isCoordinatorTarget,
       index: targetIndex,
@@ -205,6 +226,7 @@ class _SwarmPostCardState extends State<SwarmPostCard> {
     final summary = parseSwarmPostSummary(widget.input);
     final seq = widget.input['seq'];
     final accent = summary.accent(context);
+    final iconAccent = summary.iconAccent(context);
 
     return Padding(
       key: ValueKey('swarm_post_$seq'),
@@ -213,13 +235,13 @@ class _SwarmPostCardState extends State<SwarmPostCard> {
         vertical: 2,
       ),
       child: Material(
-        color: accent.withValues(alpha: _expanded ? 0.08 : 0.05),
+        color: iconAccent.withValues(alpha: _expanded ? 0.08 : 0.05),
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         clipBehavior: Clip.antiAlias,
         child: Container(
           width: double.infinity,
           decoration: BoxDecoration(
-            border: Border(left: BorderSide(color: accent, width: 2)),
+            border: Border(left: BorderSide(color: iconAccent, width: 2)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -237,6 +259,7 @@ class _SwarmPostCardState extends State<SwarmPostCard> {
                         summary: summary,
                         seq: seq,
                         accent: accent,
+                        iconAccent: iconAccent,
                         expanded: _expanded,
                         onCopy: () => _copyText(summary.fullText),
                         onOpenDetail: () => _openDetailSheet(summary),
@@ -287,6 +310,7 @@ class _SwarmPostHeader extends StatelessWidget {
   final SwarmPostSummary summary;
   final Object? seq;
   final Color accent;
+  final Color iconAccent;
   final bool expanded;
   final VoidCallback onCopy;
   final VoidCallback onOpenDetail;
@@ -295,6 +319,7 @@ class _SwarmPostHeader extends StatelessWidget {
     required this.summary,
     required this.seq,
     required this.accent,
+    required this.iconAccent,
     required this.expanded,
     required this.onCopy,
     required this.onOpenDetail,
@@ -313,7 +338,7 @@ class _SwarmPostHeader extends StatelessWidget {
           isCoordinator: summary.isCoordinator,
           index: summary.agentIndex,
           size: summary.isCoordinator ? 14 : 16,
-          color: accent,
+          color: iconAccent,
         ),
         const SizedBox(width: 5),
         Expanded(
@@ -333,31 +358,17 @@ class _SwarmPostHeader extends StatelessWidget {
               ),
               if (summary.targetMention != null) ...[
                 const SizedBox(width: 5),
-                Container(
+                _SwarmTargetChip(
+                  summary: summary,
+                  seq: seq,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 5,
                     vertical: 1,
                   ),
-                  decoration: swarmTargetChipDecoration(
-                    context,
-                    summary,
-                    radius: 4,
-                    plainColor: cs.surfaceContainerHighest.withValues(
-                      alpha: 0.7,
-                    ),
-                  ),
-                  child: Text(
-                    '→ ${summary.targetMention}',
-                    key: ValueKey('swarm_post_target_$seq'),
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w600,
-                      color:
-                          summary.targetAccent(context) ?? cs.onSurfaceVariant,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  radius: 4,
+                  plainColor: cs.surfaceContainerHighest.withValues(alpha: 0.7),
+                  fontSize: 10.5,
+                  iconSize: summary.isCoordinatorTarget ? 11 : 12.5,
                 ),
               ],
               if (summary.seqLabel != null) ...[
@@ -404,6 +415,81 @@ class _SwarmPostHeader extends StatelessWidget {
           color: appColors.subtleText,
         ),
       ],
+    );
+  }
+}
+
+class _SwarmTargetChip extends StatelessWidget {
+  final SwarmPostSummary summary;
+  final Object? seq;
+  final EdgeInsetsGeometry padding;
+  final double radius;
+  final Color plainColor;
+  final double fontSize;
+  final double iconSize;
+
+  const _SwarmTargetChip({
+    required this.summary,
+    this.seq,
+    required this.padding,
+    required this.radius,
+    required this.plainColor,
+    required this.fontSize,
+    required this.iconSize,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final mention = summary.targetMention!;
+    final textColor = summary.targetAccent(context) ?? cs.onSurfaceVariant;
+    final textStyle = TextStyle(
+      fontSize: fontSize,
+      fontWeight: FontWeight.w600,
+      color: textColor,
+    );
+    final textKey = seq != null ? ValueKey('swarm_post_target_$seq') : null;
+
+    return Container(
+      padding: padding,
+      decoration: swarmTargetChipDecoration(
+        context,
+        summary,
+        radius: radius,
+        plainColor: plainColor,
+      ),
+      child: summary.hasTargetMember
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('→', style: textStyle),
+                const SizedBox(width: 3),
+                SwarmMemberIcon(
+                  key: seq != null
+                      ? ValueKey('swarm_post_target_icon_$seq')
+                      : null,
+                  isCoordinator: summary.isCoordinatorTarget,
+                  index: summary.targetIndex,
+                  size: iconSize,
+                  color: summary.targetIconAccent(context),
+                ),
+                const SizedBox(width: 3),
+                Text(
+                  mention,
+                  key: textKey,
+                  style: textStyle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            )
+          : Text(
+              '→ $mention',
+              key: textKey,
+              style: textStyle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
     );
   }
 }
@@ -511,6 +597,7 @@ class _SwarmPostDetailSheet extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
     final accent = summary.accent(context);
+    final iconAccent = summary.iconAccent(context);
 
     return ConstrainedBox(
       key: const ValueKey('swarm_post_detail_sheet'),
@@ -542,7 +629,7 @@ class _SwarmPostDetailSheet extends StatelessWidget {
                   isCoordinator: summary.isCoordinator,
                   index: summary.agentIndex,
                   size: summary.isCoordinator ? 18 : 20,
-                  color: accent,
+                  color: iconAccent,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -560,27 +647,16 @@ class _SwarmPostDetailSheet extends StatelessWidget {
                         ),
                       ),
                       if (summary.targetMention != null)
-                        Container(
+                        _SwarmTargetChip(
+                          summary: summary,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6,
                             vertical: 2,
                           ),
-                          decoration: swarmTargetChipDecoration(
-                            context,
-                            summary,
-                            radius: 6,
-                            plainColor: cs.surfaceContainerHighest,
-                          ),
-                          child: Text(
-                            '→ ${summary.targetMention}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color:
-                                  summary.targetAccent(context) ??
-                                  cs.onSurfaceVariant,
-                            ),
-                          ),
+                          radius: 6,
+                          plainColor: cs.surfaceContainerHighest,
+                          fontSize: 12,
+                          iconSize: summary.isCoordinatorTarget ? 13 : 14.5,
                         ),
                       if (summary.seqLabel != null)
                         Text(

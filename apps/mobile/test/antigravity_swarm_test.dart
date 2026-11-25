@@ -59,7 +59,14 @@ void main() {
 
       expect(find.byType(SwarmPostCard), findsOneWidget);
       expect(find.text('writer_a'), findsOneWidget);
-      expect(find.text('→ @coordinator'), findsOneWidget);
+      expect(find.text('@coordinator'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('swarm_post_target_icon_2')),
+          matching: find.byIcon(Icons.hub_outlined),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('#2'), findsOneWidget);
       expect(find.text('20:51'), findsOneWidget);
       expect(find.textContaining('[done] wrote a.txt'), findsOneWidget);
@@ -183,6 +190,29 @@ void main() {
         matching: find.byIcon(Icons.smart_toy_outlined),
       ),
       findsOneWidget,
+    );
+
+    // Target @mention chips also show the addressed member's icon when known.
+    expect(
+      (svgOf('swarm_post_target_icon_1').bytesLoader as SvgAssetLoader)
+          .assetName,
+      swarmWorkerIconAssets[1],
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('swarm_post_target_icon_2')),
+        matching: find.byIcon(Icons.hub_outlined),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      (svgOf('swarm_post_target_icon_3').bytesLoader as SvgAssetLoader)
+          .assetName,
+      swarmWorkerIconAssets[0],
+    );
+    expect(
+      find.byKey(const ValueKey('swarm_post_target_icon_4')),
+      findsNothing,
     );
   });
 

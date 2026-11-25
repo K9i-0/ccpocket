@@ -79,6 +79,44 @@ void main() {
 
   test('both themes have the same number of colours, in the same order', () {
     expect(swarmWorkerColorsDark, hasLength(swarmWorkerColorsLight.length));
+    expect(
+      swarmWorkerIconColorsLight,
+      hasLength(swarmWorkerColorsLight.length),
+    );
+  });
+
+  test('light swarm icon colours stay vivid yet distinguishable', () {
+    final scheme = AppTheme.lightTheme.colorScheme;
+    final surface = scheme.surface;
+    for (var i = 0; i < swarmWorkerIconColorsLight.length; i++) {
+      final color = swarmWorkerIconColorsLight[i];
+      final card = Color.alphaBlend(color.withValues(alpha: 0.08), surface);
+      // WCAG 2.1 non-text graphic contrast (>= 3.0).
+      expect(
+        _contrast(color, card),
+        greaterThanOrEqualTo(3.0),
+        reason: 'light icon $i ($color) on $card',
+      );
+      for (var j = i + 1; j < swarmWorkerIconColorsLight.length; j++) {
+        expect(
+          _distance(color, swarmWorkerIconColorsLight[j]),
+          greaterThanOrEqualTo(25),
+          reason: 'light icon colours $i and $j',
+        );
+      }
+      for (final reserved in [scheme.primary, scheme.tertiary, scheme.error]) {
+        expect(
+          _distance(color, reserved),
+          greaterThanOrEqualTo(35),
+          reason: 'light icon colour $i and $reserved',
+        );
+      }
+    }
+    expect(
+      swarmWorkerIconColor(Brightness.light, 0),
+      swarmWorkerIconColorsLight[0],
+    );
+    expect(swarmWorkerIconColor(Brightness.dark, 0), swarmWorkerColorsDark[0]);
   });
 
   test('workers take colours in order and repeat past the palette', () {

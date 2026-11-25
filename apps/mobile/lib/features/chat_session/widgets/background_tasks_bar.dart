@@ -166,7 +166,7 @@ class BackgroundTasksBar extends StatelessWidget {
                     key: const ValueKey('background_tasks_bar_swarm_icon'),
                     index: tasks.first.swarmIndex,
                     size: 15,
-                    color: swarmWorkerColor(
+                    color: swarmWorkerIconColor(
                       Theme.of(context).brightness,
                       tasks.first.swarmIndex!,
                     ),
@@ -303,7 +303,7 @@ class _BackgroundTaskTile extends StatelessWidget {
     final leadingColor = !isSwarm
         ? cs.onSurfaceVariant
         : task.swarmIndex != null
-        ? swarmWorkerColor(
+        ? swarmWorkerIconColor(
             Theme.of(context).brightness,
             task.swarmIndex!,
           ).withValues(alpha: isWaiting ? 0.55 : 1)

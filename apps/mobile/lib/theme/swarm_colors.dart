@@ -15,14 +15,28 @@ import 'package:material_ui/material_ui.dart';
 /// 12px text on the theme's surface (WCAG AA) and keeps its distance from
 /// every other one and from the reserved colours (`swarm_colors_test.dart`).
 const swarmWorkerColorsLight = <Color>[
-  Color(0xFF1D4ED8), // blue
-  Color(0xFF047857), // emerald
-  Color(0xFFBE185D), // pink
-  Color(0xFF6D28D9), // violet
-  Color(0xFF0C6F87), // cyan
-  Color(0xFF3F6212), // lime
-  Color(0xFFA21CAF), // fuchsia
-  Color(0xFF3F3F46), // gray
+  Color(0xFF195CE6), // blue
+  Color(0xFF047954), // emerald
+  Color(0xFFCA1664), // pink
+  Color(0xFF7524EB), // violet
+  Color(0xFF027392), // cyan
+  Color(0xFF447306), // lime
+  Color(0xFFB316C4), // fuchsia
+  Color(0xFF52525B), // gray
+];
+
+/// More vivid light-mode fills for non-text elements (creature icons and card
+/// accent strips). Keeps the same hues as [swarmWorkerColorsLight] while using
+/// WCAG non-text contrast (>= 3.0) so creatures stay bright on light surfaces.
+const swarmWorkerIconColorsLight = <Color>[
+  Color(0xFF2563EB), // blue
+  Color(0xFF059669), // emerald
+  Color(0xFFEC2B7C), // pink
+  Color(0xFF8B3DFF), // violet
+  Color(0xFF0592B5), // cyan
+  Color(0xFF559205), // lime
+  Color(0xFFD22CE0), // fuchsia
+  Color(0xFF63636B), // gray
 ];
 
 const swarmWorkerColorsDark = <Color>[
@@ -44,6 +58,16 @@ Color swarmWorkerColor(Brightness brightness, int index) {
   return palette[index % palette.length];
 }
 
+/// The icon/graphic colour of the worker at [index] (from 0). In dark mode this
+/// matches [swarmWorkerColor]; in light mode it uses the brighter
+/// [swarmWorkerIconColorsLight] palette.
+Color swarmWorkerIconColor(Brightness brightness, int index) {
+  final palette = brightness == Brightness.dark
+      ? swarmWorkerColorsDark
+      : swarmWorkerIconColorsLight;
+  return palette[index % palette.length];
+}
+
 /// The colour of a swarm member: the coordinator's is the theme's primary, a
 /// numbered worker's comes from the palette. A worker without a number (an
 /// older Bridge sends none) keeps the single colour workers had before.
@@ -56,6 +80,18 @@ Color swarmMemberColor(
   if (isCoordinator) return theme.colorScheme.primary;
   if (index == null || index < 0) return theme.colorScheme.tertiary;
   return swarmWorkerColor(theme.brightness, index);
+}
+
+/// The icon/graphic colour of a swarm member.
+Color swarmMemberIconColor(
+  BuildContext context, {
+  required bool isCoordinator,
+  int? index,
+}) {
+  final theme = Theme.of(context);
+  if (isCoordinator) return theme.colorScheme.primary;
+  if (index == null || index < 0) return theme.colorScheme.tertiary;
+  return swarmWorkerIconColor(theme.brightness, index);
 }
 
 /// Asset paths of the monochrome creature marks for numbered swarm workers,
@@ -97,7 +133,11 @@ class SwarmMemberIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     final resolvedColor =
         color ??
-        swarmMemberColor(context, isCoordinator: isCoordinator, index: index);
+        swarmMemberIconColor(
+          context,
+          isCoordinator: isCoordinator,
+          index: index,
+        );
     if (isCoordinator) {
       return Icon(Icons.hub_outlined, size: size, color: resolvedColor);
     }
