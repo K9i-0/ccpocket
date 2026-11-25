@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.122.0] - 2026-11-25
+
+### Added
+
+- Per-category delivery filtering (`performance_mode_v2`): `client_capabilities` now accepts `performanceFilter` and `sessionPerformanceFilters` to independently toggle tasks/TODO checklists (`TodoWrite`/`update_steps`, `UpdatePlan`, `TaskCreate`/`TaskUpdate`), thinking blocks and `thinking_delta` streams, subagent calls/summaries and Swarm conversation, code edit diffs, other tool calls, and non-essential tool outputs/screenshots. Legacy `performanceMode` clients remain fully compatible.
+
 ## [1.121.0] - 2026-11-24
 
 ### Added
