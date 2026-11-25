@@ -98,7 +98,8 @@ class CompactingIndicatorRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appColors = Theme.of(context).extension<AppColors>()!;
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>()!;
     return Padding(
       key: const ValueKey('compacting_indicator'),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -115,8 +116,9 @@ class CompactingIndicatorRow extends StatelessWidget {
           Flexible(
             child: Text(
               AppLocalizations.of(context).contextCompactionInProgress,
-              style: Theme.of(context).textTheme.bodySmall
-                  ?.copyWith(color: appColors.statusCompacting),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
         ],
@@ -126,8 +128,10 @@ class CompactingIndicatorRow extends StatelessWidget {
 }
 
 TextStyle? _detailStyle(BuildContext context) =>
-    Theme.of(context).textTheme.bodySmall
-        ?.copyWith(color: Theme.of(context).extension<AppColors>()!.subtleText);
+    Theme.of(context).textTheme.bodySmall?.copyWith(
+      color: Theme.of(context).extension<AppColors>()!.subtleText,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
 
 class _BoundaryFrame extends StatelessWidget {
   const _BoundaryFrame({
@@ -145,40 +149,49 @@ class _BoundaryFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appColors = Theme.of(context).extension<AppColors>()!;
-    final accent = appColors.statusCompacting;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final appColors = theme.extension<AppColors>()!;
+    final cardBg = isDark ? cs.surfaceContainerLow : cs.surfaceContainerLowest;
+    final borderColor = cs.outlineVariant.withValues(alpha: 0.85);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.06),
-          border: Border.all(color: accent.withValues(alpha: 0.25)),
+          color: cardBg,
+          border: Border.all(color: borderColor),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+          padding: EdgeInsets.fromLTRB(12, 10, 12, children.isEmpty ? 10 : 6),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Icon(icon, size: 16, color: accent),
+                  Icon(icon, size: 15, color: appColors.statusCompacting),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       title,
-                      style: Theme.of(context).textTheme.labelLarge
-                          ?.copyWith(color: accent),
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontSize: 13,
+                        color: cs.onSurface,
+                      ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
-              if (details case final details?)
+              if (details != null) ...[
+                const SizedBox(height: 4),
                 Padding(
-                  padding: const EdgeInsets.only(left: 24, bottom: 4),
+                  padding: const EdgeInsets.only(left: 23, bottom: 4),
                   child: details,
                 ),
+              ] else if (children.isNotEmpty)
+                const SizedBox(height: 4),
               ...children,
             ],
           ),
@@ -263,15 +276,20 @@ class _CardTextButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).extension<AppColors>()!.statusCompacting;
+    final cs = Theme.of(context).colorScheme;
     return TextButton.icon(
       onPressed: onPressed,
-      icon: Icon(icon, size: 16),
-      label: Text(label),
+      icon: Icon(icon, size: 15),
+      label: Text(
+        label,
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+      ),
       style: TextButton.styleFrom(
-        foregroundColor: accent,
+        foregroundColor: cs.onSurfaceVariant,
         visualDensity: VisualDensity.compact,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        minimumSize: const Size(0, 34),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       ),
     );
   }

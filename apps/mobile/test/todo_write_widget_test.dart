@@ -248,5 +248,48 @@ void main() {
       // All three are finished.
       expect(find.textContaining('3/3'), findsOneWidget);
     });
+
+    testWidgets(
+      'uses neutral surface and 3px progress bar in dark and light themes',
+      (tester) async {
+        final input = _buildInput([
+          _todo('Done task', 'completed'),
+          _todo('Active task', 'in_progress', 'Working'),
+        ]);
+        for (final theme in [AppTheme.darkTheme, AppTheme.lightTheme]) {
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: theme,
+              themeAnimationDuration: Duration.zero,
+              home: Scaffold(
+                body: SingleChildScrollView(
+                  child: TodoWriteWidget(input: input),
+                ),
+              ),
+            ),
+          );
+
+          final cs = theme.colorScheme;
+          final expectedBg = theme.brightness == Brightness.dark
+              ? cs.surfaceContainerLow
+              : cs.surfaceContainerLowest;
+          final card = tester.widget<Container>(
+            find
+                .descendant(
+                  of: find.byType(TodoWriteWidget),
+                  matching: find.byType(Container),
+                )
+                .first,
+          );
+          final deco = card.decoration! as BoxDecoration;
+          expect(deco.color, expectedBg);
+
+          final bar = tester.widget<LinearProgressIndicator>(
+            find.byType(LinearProgressIndicator),
+          );
+          expect(bar.minHeight, 3);
+        }
+      },
+    );
   });
 }

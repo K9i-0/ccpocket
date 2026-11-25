@@ -35,6 +35,43 @@ void main() {
       ),
     );
 
-    expect(find.text('Error: boom'), findsOneWidget);
+    final errorText = tester.widget<Text>(find.text('Error: boom'));
+    expect(
+      errorText.style?.color,
+      AppTheme.darkTheme.extension<AppColors>()!.errorText,
+    );
+    expect(find.byType(Chip), findsNothing);
   });
+
+  testWidgets(
+    'success metadata row uses tabular figures without Chip pill or overflow',
+    (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          const SizedBox(
+            width: 240,
+            child: ResultChip(
+              message: ResultMessage(
+                subtype: 'success',
+                cost: 0.0156,
+                duration: 4200,
+                inputTokens: 1200,
+                outputTokens: 300,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(Chip), findsNothing);
+      final label = tester.widget<Text>(
+        find.text('Done (\$0.0156, 4.2s, 1200in/300out tok)'),
+      );
+      expect(
+        label.style?.fontFeatures,
+        contains(const FontFeature.tabularFigures()),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

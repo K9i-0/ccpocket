@@ -1,13 +1,13 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../theme/app_theme.dart';
+import '../../theme/code_text_style.dart';
 import '../../utils/diff_parser.dart';
 import '../google_search_text_selection.dart';
 
 /// Maximum number of diff lines shown inline before truncation.
 const _maxInlineLines = 20;
 
-const _codeFontSize = 11.0;
 const _codeHeight = 1.4;
 
 /// Compact inline diff view for Edit/Write/MultiEdit tool inputs.
@@ -25,7 +25,15 @@ class InlineEditDiff extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appColors = Theme.of(context).extension<AppColors>()!;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final appColors = theme.extension<AppColors>()!;
+    final codeSettings = codeTextSettingsOf(context);
+    final codeFontSize = (codeSettings.fontSize - 1).clamp(
+      minCodeFontSize,
+      maxCodeFontSize,
+    );
+    final borderColor = cs.outlineVariant.withValues(alpha: 0.7);
 
     final totalLines =
         diffFile.hunks.fold<int>(
@@ -56,19 +64,28 @@ class InlineEditDiff extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Diff lines
-        ClipRRect(
-          borderRadius: BorderRadius.circular(6),
-          child: Container(
+        DecoratedBox(
+          decoration: BoxDecoration(
             color: appColors.codeBackground,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: borderColor),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(5),
             child: GoogleSearchSelectionArea(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   for (final entry in visibleLines)
                     if (entry.isSeparator)
-                      _HunkSeparator(appColors: appColors)
+                      _HunkSeparator(color: borderColor)
                     else
-                      _DiffLineRow(line: entry.line, appColors: appColors),
+                      _DiffLineRow(
+                        line: entry.line,
+                        appColors: appColors,
+                        codeSettings: codeSettings,
+                        fontSize: codeFontSize,
+                      ),
                 ],
               ),
             ),
@@ -99,8 +116,15 @@ class InlineEditDiff extends StatelessWidget {
 class _DiffLineRow extends StatelessWidget {
   final DiffLine line;
   final AppColors appColors;
+  final CodeTextSettings codeSettings;
+  final double fontSize;
 
-  const _DiffLineRow({required this.line, required this.appColors});
+  const _DiffLineRow({
+    required this.line,
+    required this.appColors,
+    required this.codeSettings,
+    required this.fontSize,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -127,9 +151,8 @@ class _DiffLineRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 6),
       child: Text(
         '$prefix ${line.content}',
-        style: TextStyle(
-          fontSize: _codeFontSize,
-          fontFamily: 'monospace',
+        style: codeSettings.style(
+          fontSize: fontSize,
           color: textColor,
           height: _codeHeight,
         ),
@@ -141,16 +164,16 @@ class _DiffLineRow extends StatelessWidget {
 }
 
 class _HunkSeparator extends StatelessWidget {
-  final AppColors appColors;
+  final Color color;
 
-  const _HunkSeparator({required this.appColors});
+  const _HunkSeparator({required this.color});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       height: 1,
       margin: const EdgeInsets.symmetric(vertical: 2),
-      color: appColors.codeBorder,
+      color: color,
     );
   }
 }

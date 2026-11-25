@@ -85,4 +85,44 @@ void main() {
     );
     expect(opened, 1);
   });
+
+  testWidgets('uses neutral surface while keeping statusCompacting icon', (
+    tester,
+  ) async {
+    for (final theme in [AppTheme.darkTheme, AppTheme.lightTheme]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          themeAnimationDuration: Duration.zero,
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('en'),
+          home: const Scaffold(
+            body: ContextCompactionCard(
+              message: ContextCompactionMessage(provider: 'claude'),
+            ),
+          ),
+        ),
+      );
+
+      final cs = theme.colorScheme;
+      final appColors = theme.extension<AppColors>()!;
+      final expectedBg = theme.brightness == Brightness.dark
+          ? cs.surfaceContainerLow
+          : cs.surfaceContainerLowest;
+      final decoratedBox = tester.widget<DecoratedBox>(
+        find
+            .descendant(
+              of: find.byKey(const ValueKey('context_compaction_card')),
+              matching: find.byType(DecoratedBox),
+            )
+            .first,
+      );
+      final deco = decoratedBox.decoration as BoxDecoration;
+      expect(deco.color, expectedBg);
+
+      final icon = tester.widget<Icon>(find.byIcon(Icons.compress));
+      expect(icon.color, appColors.statusCompacting);
+    }
+  });
 }

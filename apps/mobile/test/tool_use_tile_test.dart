@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/l10n/app_localizations_delegates.dart';
+import 'package:ccpocket/models/code_font_family.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/widgets/bubbles/assistant_bubble.dart';
@@ -381,5 +382,51 @@ void main() {
       expect(clipboardContent, contains('echo hello'));
       expect(find.text('Copied'), findsOneWidget);
     });
+
+    testWidgets(
+      'uses codeTextSettingsOf font for expanded input and inline diff',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrap(
+            const Column(
+              children: [
+                ToolUseTile(
+                  name: 'Bash',
+                  input: {'command': 'echo font-check'},
+                ),
+                ToolUseTile(
+                  name: 'Edit',
+                  input: {
+                    'file_path': 'lib/main.dart',
+                    'old_string': 'oldCode',
+                    'new_string': 'newCode',
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+
+        await tester.tap(find.text('Bash'));
+        await tester.pumpAndSettle();
+
+        final cmdText = tester.widget<Text>(
+          find.descendant(
+            of: find.byType(GoogleSearchSelectionArea),
+            matching: find.text('echo font-check'),
+          ),
+        );
+        expect(
+          cmdText.style?.fontFamily,
+          CodeFontFamily.jetBrainsMono.fontFamily,
+        );
+
+        final diffText = tester.widget<Text>(find.text('+ newCode'));
+        expect(
+          diffText.style?.fontFamily,
+          CodeFontFamily.jetBrainsMono.fontFamily,
+        );
+      },
+    );
   });
 }

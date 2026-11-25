@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/code_text_style.dart';
 import '../google_search_text_selection.dart';
 
 /// Builds the collapsed preview text for [ThinkingBubble].
@@ -100,28 +102,35 @@ class _ThinkingBubbleState extends State<ThinkingBubble>
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final thinkingColor = cs.tertiary;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final codeSettings = codeTextSettingsOf(context);
     final preview = buildThinkingPreview(
       widget.thinking,
       isStreaming: widget.isStreaming,
     );
     final lineCount = '\n'.allMatches(widget.thinking).length + 1;
 
+    final cardBg = isDark ? cs.surfaceContainerLow : cs.surfaceContainerLowest;
+    final borderColor = cs.outlineVariant.withValues(alpha: 0.85);
+    final dividerColor = cs.outlineVariant.withValues(alpha: 0.6);
+    final badgeBg = cs.onSurface.withValues(alpha: isDark ? 0.06 : 0.05);
+
     final l = Localizations.of<AppLocalizations>(context, AppLocalizations);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.bubbleMarginH,
+        vertical: AppSpacing.bubbleMarginV,
+      ),
       child: Material(
-        color: thinkingColor.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
+        color: cardBg,
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         clipBehavior: Clip.antiAlias,
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: thinkingColor.withValues(alpha: 0.2),
-              width: 1,
-            ),
+            borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+            border: Border.all(color: borderColor),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -129,18 +138,20 @@ class _ThinkingBubbleState extends State<ThinkingBubble>
               InkWell(
                 key: const ValueKey('thinking_bubble_toggle'),
                 borderRadius: BorderRadius.vertical(
-                  top: const Radius.circular(12),
-                  bottom: _expanded ? Radius.zero : const Radius.circular(12),
+                  top: const Radius.circular(AppSpacing.cardRadius),
+                  bottom: _expanded
+                      ? Radius.zero
+                      : const Radius.circular(AppSpacing.cardRadius),
                 ),
                 onTap: () => setState(() => _expanded = !_expanded),
                 child: Padding(
-                  padding: EdgeInsets.fromLTRB(12, 12, 12, _expanded ? 8 : 12),
+                  padding: EdgeInsets.fromLTRB(12, 10, 10, _expanded ? 6 : 10),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          // Animated icon when streaming
+                          // Subtle accent pulse only while streaming; neutral when idle
                           if (widget.isStreaming)
                             AnimatedBuilder(
                               animation: _pulseAnimation,
@@ -149,8 +160,8 @@ class _ThinkingBubbleState extends State<ThinkingBubble>
                                   opacity: _pulseAnimation.value,
                                   child: Icon(
                                     Icons.psychology,
-                                    size: 16,
-                                    color: thinkingColor,
+                                    size: 15,
+                                    color: cs.primary,
                                   ),
                                 );
                               },
@@ -158,8 +169,8 @@ class _ThinkingBubbleState extends State<ThinkingBubble>
                           else
                             Icon(
                               Icons.psychology,
-                              size: 16,
-                              color: thinkingColor,
+                              size: 15,
+                              color: cs.onSurfaceVariant,
                             ),
                           const SizedBox(width: 6),
                           Text(
@@ -167,24 +178,27 @@ class _ThinkingBubbleState extends State<ThinkingBubble>
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: thinkingColor,
+                              color: cs.onSurfaceVariant,
                             ),
                           ),
                           const SizedBox(width: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 6,
-                              vertical: 1,
+                              vertical: 1.5,
                             ),
                             decoration: BoxDecoration(
-                              color: thinkingColor.withValues(alpha: 0.12),
+                              color: badgeBg,
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               '$lineCount lines',
                               style: TextStyle(
                                 fontSize: 10,
-                                color: thinkingColor,
+                                color: cs.onSurfaceVariant,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
                               ),
                             ),
                           ),
@@ -198,9 +212,7 @@ class _ThinkingBubbleState extends State<ThinkingBubble>
                                 _copied ? Icons.check : Icons.copy_outlined,
                                 size: 14,
                               ),
-                              color: _copied
-                                  ? cs.primary
-                                  : thinkingColor.withValues(alpha: 0.7),
+                              color: _copied ? cs.primary : cs.onSurfaceVariant,
                               tooltip: _copied
                                   ? (l?.copied ?? 'Copied')
                                   : (l?.copy ?? 'Copy'),
@@ -214,8 +226,8 @@ class _ThinkingBubbleState extends State<ThinkingBubble>
                             ),
                           Icon(
                             _expanded ? Icons.expand_less : Icons.expand_more,
-                            size: 18,
-                            color: thinkingColor.withValues(alpha: 0.6),
+                            size: 16,
+                            color: cs.onSurfaceVariant,
                           ),
                         ],
                       ),
@@ -223,10 +235,9 @@ class _ThinkingBubbleState extends State<ThinkingBubble>
                         const SizedBox(height: 6),
                         Text(
                           preview,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: cs.onSurface.withValues(alpha: 0.6),
-                            fontFamily: 'monospace',
+                          style: codeSettings.style(
+                            color: cs.onSurfaceVariant,
+                            height: 1.4,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -236,19 +247,18 @@ class _ThinkingBubbleState extends State<ThinkingBubble>
                   ),
                 ),
               ),
-              if (_expanded)
+              if (_expanded) ...[
+                Divider(height: 1, color: dividerColor),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxHeight: 300),
                     child: SingleChildScrollView(
                       child: GoogleSearchSelectionArea(
                         child: Text(
                           widget.thinking,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: cs.onSurface.withValues(alpha: 0.8),
-                            fontFamily: 'monospace',
+                          style: codeSettings.style(
+                            color: cs.onSurface.withValues(alpha: 0.88),
                             height: 1.5,
                           ),
                         ),
@@ -256,6 +266,7 @@ class _ThinkingBubbleState extends State<ThinkingBubble>
                     ),
                   ),
                 ),
+              ],
             ],
           ),
         ),

@@ -60,7 +60,10 @@ class _TodoWriteWidgetState extends State<TodoWriteWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final appColors = Theme.of(context).extension<AppColors>()!;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final appColors = theme.extension<AppColors>()!;
     final todos = _parseTodos();
     final title = _stringInput('title') ?? 'Tasks';
     final explanation = _stringInput('explanation');
@@ -70,6 +73,7 @@ class _TodoWriteWidgetState extends State<TodoWriteWidget> {
     }
 
     final completedCount = todos.where((t) => t.status == 'completed').length;
+    final allCompleted = completedCount == todos.length;
     final inProgressItem = todos
         .where((t) => t.status == 'in_progress')
         .firstOrNull;
@@ -81,16 +85,21 @@ class _TodoWriteWidgetState extends State<TodoWriteWidget> {
         : otherTodos.take(_maxCollapsedItems).toList();
     final hiddenCount = otherTodos.length - _maxCollapsedItems;
 
+    final cardBg = isDark ? cs.surfaceContainerLow : cs.surfaceContainerLowest;
+    final borderColor = cs.outlineVariant.withValues(alpha: 0.85);
+    final dividerColor = cs.outlineVariant.withValues(alpha: 0.6);
+
     return Container(
       margin: const EdgeInsets.symmetric(
         vertical: AppSpacing.bubbleMarginV,
         horizontal: AppSpacing.bubbleMarginH,
       ),
       decoration: BoxDecoration(
-        color: appColors.toolBubble,
+        color: cardBg,
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-        border: Border.all(color: appColors.toolBubbleBorder),
+        border: Border.all(color: borderColor),
       ),
+      clipBehavior: Clip.antiAlias,
       child: GoogleSearchSelectionArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -100,20 +109,28 @@ class _TodoWriteWidgetState extends State<TodoWriteWidget> {
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
               child: Row(
                 children: [
-                  Icon(Icons.checklist, size: 16, color: appColors.toolIcon),
-                  const SizedBox(width: 8),
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.onSurface,
+                  Icon(Icons.checklist, size: 15, color: cs.onSurfaceVariant),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: cs.onSurface,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    '($completedCount/${todos.length})',
-                    style: TextStyle(fontSize: 12, color: appColors.subtleText),
+                    '$completedCount/${todos.length}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: cs.onSurfaceVariant,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
                   ),
                 ],
               ),
@@ -127,22 +144,26 @@ class _TodoWriteWidgetState extends State<TodoWriteWidget> {
                   style: TextStyle(
                     fontSize: 12,
                     color: appColors.subtleText,
-                    height: 1.25,
+                    height: 1.3,
                   ),
                 ),
               ),
 
-            // Progress bar
+            // Slim neutral progress bar
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(2),
                 child: LinearProgressIndicator(
                   value: todos.isEmpty ? 0 : completedCount / todos.length,
-                  minHeight: 4,
-                  backgroundColor: appColors.toolBubbleBorder,
+                  minHeight: 3,
+                  backgroundColor: cs.onSurface.withValues(
+                    alpha: isDark ? 0.08 : 0.07,
+                  ),
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    Theme.of(context).colorScheme.primary,
+                    allCompleted
+                        ? cs.onSurfaceVariant.withValues(alpha: 0.55)
+                        : cs.primary.withValues(alpha: 0.8),
                   ),
                 ),
               ),
@@ -150,13 +171,13 @@ class _TodoWriteWidgetState extends State<TodoWriteWidget> {
 
             const SizedBox(height: 8),
 
-            // Current task (in_progress) - highlighted
+            // Current task (in_progress) - subtle neutral highlight
             if (inProgressItem != null) ...[
               _TodoItemTile(item: inProgressItem, isHighlighted: true),
               if (todos.length > 1)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Divider(height: 1, color: appColors.toolBubbleBorder),
+                  child: Divider(height: 1, color: dividerColor),
                 ),
             ],
 
@@ -170,13 +191,13 @@ class _TodoWriteWidgetState extends State<TodoWriteWidget> {
                   onTap: _toggleExpanded,
                   behavior: HitTestBehavior.opaque,
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                    padding: const EdgeInsets.fromLTRB(12, 2, 12, 8),
                     child: Text(
                       _expanded ? 'Show less' : '... and $hiddenCount more',
                       style: TextStyle(
                         fontSize: 11,
-                        color: appColors.subtleText,
-                        fontStyle: FontStyle.italic,
+                        fontWeight: FontWeight.w500,
+                        color: cs.onSurfaceVariant,
                       ),
                     ),
                   ),
@@ -252,20 +273,23 @@ class _TodoItemTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appColors = Theme.of(context).extension<AppColors>()!;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final appColors = theme.extension<AppColors>()!;
     final (icon, color) = _getStatusIcon(context);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       color: isHighlighted
-          ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.08)
+          ? cs.onSurface.withValues(alpha: isDark ? 0.04 : 0.03)
           : null,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Icon(icon, size: 16, color: color),
+            padding: const EdgeInsets.only(top: 1.5),
+            child: Icon(icon, size: 15, color: color),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -278,10 +302,10 @@ class _TodoItemTile extends StatelessWidget {
                     fontSize: 12,
                     fontWeight: isHighlighted
                         ? FontWeight.w600
-                        : FontWeight.w500,
+                        : FontWeight.w400,
                     color: item.status == 'completed'
                         ? appColors.subtleText
-                        : Theme.of(context).colorScheme.onSurface,
+                        : cs.onSurface,
                     // A failed step was not done: leave it readable.
                     decoration: item.status == 'completed' && !item.failed
                         ? TextDecoration.lineThrough
@@ -296,7 +320,6 @@ class _TodoItemTile extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 11,
                         color: appColors.subtleText,
-                        fontStyle: FontStyle.italic,
                       ),
                     ),
                   ),
@@ -309,16 +332,17 @@ class _TodoItemTile extends StatelessWidget {
   }
 
   (IconData, Color) _getStatusIcon(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final appColors = Theme.of(context).extension<AppColors>()!;
 
     if (item.status == 'completed' && item.outcome != null) {
       return item.failed
-          ? (Icons.cancel, Theme.of(context).colorScheme.error)
+          ? (Icons.cancel, cs.error)
           : (Icons.remove_circle_outline, appColors.subtleText);
     }
     return switch (item.status) {
-      'completed' => (Icons.check_circle, appColors.statusIdle),
-      'in_progress' => (Icons.timelapse, Theme.of(context).colorScheme.primary),
+      'completed' => (Icons.check_circle, appColors.subtleText),
+      'in_progress' => (Icons.timelapse, cs.primary),
       _ => (Icons.radio_button_unchecked, appColors.subtleText),
     };
   }

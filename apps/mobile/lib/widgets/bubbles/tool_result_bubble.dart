@@ -13,6 +13,7 @@ import 'package:auto_route/auto_route.dart';
 import '../../router/app_router.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/code_text_style.dart';
 import '../../utils/diff_parser.dart';
 import '../../utils/tool_categories.dart';
 import '../google_search_text_selection.dart';
@@ -324,6 +325,7 @@ class _CollapsedToolResult extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         onLongPress: onLongPress,
+        borderRadius: BorderRadius.circular(6),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 2),
           child: Row(
@@ -411,7 +413,15 @@ class _ExpandedToolResultState extends State<_ExpandedToolResult> {
 
   @override
   Widget build(BuildContext context) {
-    final appColors = Theme.of(context).extension<AppColors>()!;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final appColors = theme.extension<AppColors>()!;
+    final codeSettings = codeTextSettingsOf(context);
+    final codeFontSize = (codeSettings.fontSize - 1).clamp(
+      minCodeFontSize,
+      maxCodeFontSize,
+    );
     final l = AppLocalizations.of(context);
     final content = widget.message.content;
     final toolName = widget.message.toolName;
@@ -421,6 +431,9 @@ class _ExpandedToolResultState extends State<_ExpandedToolResult> {
     final chevronIcon = widget.expansion == ToolResultExpansion.preview
         ? Icons.expand_more
         : Icons.expand_less;
+    final cardBg = isDark ? cs.surfaceContainerLow : cs.surfaceContainerLowest;
+    final borderColor = cs.outlineVariant.withValues(alpha: 0.85);
+    final dividerColor = cs.outlineVariant.withValues(alpha: 0.6);
 
     return Container(
       margin: const EdgeInsets.symmetric(
@@ -428,8 +441,9 @@ class _ExpandedToolResultState extends State<_ExpandedToolResult> {
         horizontal: AppSpacing.bubbleMarginH,
       ),
       decoration: BoxDecoration(
-        color: appColors.toolResultBackground,
-        borderRadius: BorderRadius.circular(AppSpacing.codeRadius),
+        color: cardBg,
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+        border: Border.all(color: borderColor),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -453,7 +467,7 @@ class _ExpandedToolResultState extends State<_ExpandedToolResult> {
             onTap: widget.onTap,
             onLongPress: widget.onLongPress,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
+              padding: const EdgeInsets.fromLTRB(10, 8, 8, 6),
               child: Row(
                 children: [
                   Icon(
@@ -487,9 +501,7 @@ class _ExpandedToolResultState extends State<_ExpandedToolResult> {
                         _copied ? Icons.check : Icons.copy_outlined,
                         size: 14,
                       ),
-                      color: _copied
-                          ? Theme.of(context).colorScheme.primary
-                          : appColors.subtleText,
+                      color: _copied ? cs.primary : appColors.subtleText,
                       tooltip: _copied ? l.copied : l.copy,
                       onPressed: _handleCopy,
                       padding: EdgeInsets.zero,
@@ -504,10 +516,11 @@ class _ExpandedToolResultState extends State<_ExpandedToolResult> {
               ),
             ),
           ),
+          Divider(height: 1, color: dividerColor),
           // Content
           if (widget.presentation.diffFile case final diffFile?)
             Padding(
-              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
               child: InlineEditDiff(
                 diffFile: diffFile,
                 onTapFullDiff: widget.onTap,
@@ -515,16 +528,15 @@ class _ExpandedToolResultState extends State<_ExpandedToolResult> {
             )
           else if (widget.expansion == ToolResultExpansion.preview)
             Padding(
-              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   GoogleSearchSelectionArea(
                     child: Text(
                       widget.presentation.previewText,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontFamily: 'monospace',
+                      style: codeSettings.style(
+                        fontSize: codeFontSize,
                         color: appColors.toolResultText,
                         height: 1.4,
                       ),
@@ -552,13 +564,12 @@ class _ExpandedToolResultState extends State<_ExpandedToolResult> {
             )
           else if (widget.expansion == ToolResultExpansion.expanded)
             Padding(
-              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
               child: GoogleSearchSelectionArea(
                 child: Text(
                   content,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontFamily: 'monospace',
+                  style: codeSettings.style(
+                    fontSize: codeFontSize,
                     color: appColors.toolResultTextExpanded,
                     height: 1.4,
                   ),

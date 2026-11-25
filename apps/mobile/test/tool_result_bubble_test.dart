@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/l10n/app_localizations_delegates.dart';
+import 'package:ccpocket/models/code_font_family.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/widgets/bubbles/inline_edit_diff.dart';
@@ -388,5 +389,32 @@ void main() {
       expect(find.text('- oldLine'), findsOneWidget);
       expect(find.text('+ newLine'), findsOneWidget);
     });
+
+    testWidgets(
+      'uses codeTextSettingsOf font for preview and expanded output',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrap(ToolResultBubble(message: _msg(content: 'output line'))),
+        );
+
+        await tester.tap(find.byType(InkWell).first);
+        await tester.pumpAndSettle();
+
+        final previewText = tester.widget<Text>(find.text('output line').last);
+        expect(
+          previewText.style?.fontFamily,
+          CodeFontFamily.jetBrainsMono.fontFamily,
+        );
+
+        await tester.tap(find.byKey(const ValueKey('tool_result_header')));
+        await tester.pumpAndSettle();
+
+        final expandedText = tester.widget<Text>(find.text('output line').last);
+        expect(
+          expandedText.style?.fontFamily,
+          CodeFontFamily.jetBrainsMono.fontFamily,
+        );
+      },
+    );
   });
 }

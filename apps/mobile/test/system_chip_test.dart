@@ -44,6 +44,7 @@ void main() {
       await tester.pumpWidget(_wrap(const SystemChip(message: message)));
 
       expect(find.text('System: supported_commands'), findsOneWidget);
+      expect(find.byType(Chip), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );

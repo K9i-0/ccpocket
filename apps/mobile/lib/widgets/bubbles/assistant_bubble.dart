@@ -13,6 +13,7 @@ import '../../models/messages.dart';
 import '../../router/app_router.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/code_text_style.dart';
 import '../../theme/markdown_style.dart';
 import '../../utils/structured_error_inference.dart';
 import '../../utils/diff_parser.dart';
@@ -603,6 +604,7 @@ class _ToolUseCollapsed extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         onLongPress: onLongPress,
+        borderRadius: BorderRadius.circular(6),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 2),
           child: Row(
@@ -690,12 +692,18 @@ class _ToolUseCardState extends State<_ToolUseCard> {
 
   @override
   Widget build(BuildContext context) {
-    final appColors = Theme.of(context).extension<AppColors>()!;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final appColors = theme.extension<AppColors>()!;
     final l = Localizations.of<AppLocalizations>(context, AppLocalizations);
     final diffFile = widget.editDiff;
     final chevronIcon = widget.expansion == ToolUseExpansion.expanded
         ? Icons.expand_less
         : Icons.expand_more;
+    final cardBg = isDark ? cs.surfaceContainerLow : cs.surfaceContainerLowest;
+    final borderColor = cs.outlineVariant.withValues(alpha: 0.85);
+    final dividerColor = cs.outlineVariant.withValues(alpha: 0.6);
 
     return Container(
       margin: const EdgeInsets.symmetric(
@@ -703,9 +711,9 @@ class _ToolUseCardState extends State<_ToolUseCard> {
         horizontal: AppSpacing.bubbleMarginH,
       ),
       decoration: BoxDecoration(
-        color: appColors.toolBubble,
+        color: cardBg,
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-        border: Border.all(color: appColors.toolBubbleBorder),
+        border: Border.all(color: borderColor),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -716,7 +724,7 @@ class _ToolUseCardState extends State<_ToolUseCard> {
             onTap: widget.onTap,
             onLongPress: widget.onLongPress,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
+              padding: const EdgeInsets.fromLTRB(10, 8, 8, 6),
               child: Row(
                 children: [
                   Icon(
@@ -753,9 +761,7 @@ class _ToolUseCardState extends State<_ToolUseCard> {
                       _copied ? Icons.check : Icons.copy_outlined,
                       size: 14,
                     ),
-                    color: _copied
-                        ? Theme.of(context).colorScheme.primary
-                        : appColors.subtleText,
+                    color: _copied ? cs.primary : appColors.subtleText,
                     tooltip: _copied
                         ? (l?.copied ?? 'Copied')
                         : (l?.copy ?? 'Copy'),
@@ -772,32 +778,58 @@ class _ToolUseCardState extends State<_ToolUseCard> {
               ),
             ),
           ),
+          Divider(height: 1, color: dividerColor),
           Padding(
-            padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
             child: diffFile != null
                 ? InlineEditDiff(
                     diffFile: diffFile,
                     onTapFullDiff: widget.onOpenGitScreen,
                   )
-                : _buildInputBody(appColors),
+                : _ToolUseInputBody(
+                    category: widget.category,
+                    input: widget.input,
+                    expansion: widget.expansion,
+                    onTapMore: widget.onTap,
+                  ),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildInputBody(AppColors appColors) {
-    final fullText = getToolFullInput(widget.category, widget.input);
+class _ToolUseInputBody extends StatelessWidget {
+  final ToolCategory category;
+  final Map<String, dynamic> input;
+  final ToolUseExpansion expansion;
+  final VoidCallback onTapMore;
+
+  const _ToolUseInputBody({
+    required this.category,
+    required this.input,
+    required this.expansion,
+    required this.onTapMore,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
+    final codeSettings = codeTextSettingsOf(context);
+    final codeFontSize = (codeSettings.fontSize - 1).clamp(
+      minCodeFontSize,
+      maxCodeFontSize,
+    );
+    final fullText = getToolFullInput(category, input);
     final lines = fullText.split('\n');
     final hasMore = lines.length > _ToolUseCard._previewLines;
 
-    if (widget.expansion == ToolUseExpansion.expanded) {
+    if (expansion == ToolUseExpansion.expanded) {
       return GoogleSearchSelectionArea(
         child: Text(
           fullText,
-          style: TextStyle(
-            fontSize: 11,
-            fontFamily: 'monospace',
+          style: codeSettings.style(
+            fontSize: codeFontSize,
             color: appColors.toolResultTextExpanded,
             height: 1.4,
           ),
@@ -815,9 +847,8 @@ class _ToolUseCardState extends State<_ToolUseCard> {
         GoogleSearchSelectionArea(
           child: Text(
             previewText,
-            style: TextStyle(
-              fontSize: 11,
-              fontFamily: 'monospace',
+            style: codeSettings.style(
+              fontSize: codeFontSize,
               color: appColors.toolResultText,
               height: 1.4,
             ),
@@ -827,7 +858,7 @@ class _ToolUseCardState extends State<_ToolUseCard> {
         ),
         if (hasMore)
           GestureDetector(
-            onTap: widget.onTap,
+            onTap: onTapMore,
             child: Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
@@ -865,6 +896,7 @@ class _DiffStatsMini extends StatelessWidget {
               fontSize: 11,
               fontWeight: FontWeight.w600,
               color: appColors.diffAdditionText,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         if (stats.added > 0 && stats.removed > 0) const SizedBox(width: 3),
@@ -875,6 +907,7 @@ class _DiffStatsMini extends StatelessWidget {
               fontSize: 11,
               fontWeight: FontWeight.w600,
               color: appColors.diffDeletionText,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
       ],
