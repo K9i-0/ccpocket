@@ -1,5 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import '../../settings/models/settings_catalog.dart';
 import 'workspace_destination.dart';
 
 part 'workspace_navigation_state.freezed.dart';
@@ -26,10 +27,12 @@ abstract class WorkspaceNavigationState with _$WorkspaceNavigationState {
     @Default(0) int toolEntry,
     @Default(WorkspaceCenterOverlay.none) WorkspaceCenterOverlay overlay,
     @Default(0) int overlayEntry,
+    SettingsCategory? settingsInitialCategory,
     @Default(false) bool settingsFocusSupport,
     @Default(false) bool settingsFocusConnection,
     @Default(false) bool settingsFocusUsage,
     @Default(false) bool settingsFocusAppUpdate,
+    @Default(false) bool isSidebarCollapsed,
     @Default(false) bool centerInFront,
   }) = _WorkspaceNavigationState;
 }

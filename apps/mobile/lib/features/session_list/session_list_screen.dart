@@ -526,6 +526,7 @@ class _SessionListScreenState extends State<SessionListScreen>
   // data changes behind a covering chat do not rebuild the whole list.
   Widget? _lastVisibleBody;
   Widget? _lastVisibleHomeContent;
+  WorkspaceShellScreenState? _attachedShell;
 
   static const _prefKeyUrl = 'bridge_url';
   static const _prefKeyMacOSNativeAppBannerDismissed =
@@ -1007,6 +1008,15 @@ class _SessionListScreenState extends State<SessionListScreen>
 
   @override
   void dispose() {
+    final shell = _attachedShell;
+    if (shell != null) {
+      shell.newSessionHandler = null;
+      shell.openSearchHandler = null;
+      shell.refreshHandler = null;
+      shell.disconnectHandler = null;
+      shell.selectSessionByIndexHandler = null;
+      _attachedShell = null;
+    }
     _archiveRequests.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _deepLinkNotifier?.removeListener(_onDeepLink);
@@ -1100,6 +1110,92 @@ class _SessionListScreenState extends State<SessionListScreen>
     final machineManagerCubit = context.read<MachineManagerCubit?>();
     if (machineManagerCubit != null) {
       unawaited(machineManagerCubit.refreshLatestBridgeVersionIfStale());
+    }
+  }
+
+  void _handleWorkspaceReload({
+    required bool showConnectedUI,
+    required MachineManagerCubit? machineManagerCubit,
+  }) {
+    final bridge = context.read<BridgeService>();
+    if (showConnectedUI) {
+      _refresh();
+      final liveSessionId = _attachedShell?.liveSessionId;
+      if (liveSessionId != null && bridge.isConnected) {
+        bridge.requestSessionHistory(liveSessionId);
+      }
+      return;
+    }
+    machineManagerCubit?.refreshAll();
+    if (bridge.lastUrl != null && !bridge.isConnected) {
+      bridge.ensureConnected();
+    }
+  }
+
+  void _selectVisibleSessionByIndex(
+    int index, {
+    required List<SessionInfo> sessions,
+    required List<RecentSession> recentSessionsList,
+    required SessionListState slState,
+  }) {
+    if (index < 0) return;
+    final pinnedIdentities = pinIdentitiesOf(slState.pinnedSessionKeys);
+    bool isRunningPinned(SessionInfo session) {
+      final identity = runningSessionPinIdentity(session);
+      return identity != null && pinnedIdentities.contains(identity);
+    }
+
+    final orderedRunning = prioritizePinned(
+      sessions,
+      isPinned: isRunningPinned,
+      isProjectPinned: (session) =>
+          slState.pinnedProjectPaths.contains(session.workspaceGroupKey),
+    );
+    if (index < orderedRunning.length) {
+      final session = orderedRunning[index];
+      _navigateToChat(
+        session.id,
+        projectPath: session.projectPath,
+        workspace: session.workspace,
+        gitBranch: session.worktreePath != null
+            ? session.worktreeBranch
+            : session.gitBranch,
+        worktreePath: session.worktreePath,
+        provider: Provider.fromValue(session.provider),
+        permissionMode: session.permissionMode,
+        sandboxMode: session.codexSandboxMode,
+        approvalPolicy: session.codexApprovalPolicy,
+        approvalsReviewer: session.codexApprovalsReviewer,
+      );
+      return;
+    }
+
+    final runningIds = sessions
+        .expand(
+          (s) => [s.id, if (s.claudeSessionId != null) s.claudeSessionId!],
+        )
+        .toSet();
+    final dedupedRecent = recentSessionsList.where((rs) {
+      if (runningIds.contains(rs.sessionId)) return false;
+      for (final s in sessions) {
+        if (s.provider == rs.provider &&
+            s.projectPath == rs.projectPath &&
+            s.createdAt == rs.created) {
+          return false;
+        }
+      }
+      return true;
+    });
+    final orderedRecent = prioritizePinned(
+      dedupedRecent,
+      isPinned: (session) =>
+          pinnedIdentities.contains(recentSessionPinIdentity(session)),
+      isProjectPinned: (session) =>
+          slState.pinnedProjectPaths.contains(session.workspaceGroupKey),
+    );
+    final recentIndex = index - orderedRunning.length;
+    if (recentIndex >= 0 && recentIndex < orderedRecent.length) {
+      _resumeSession(orderedRecent[recentIndex]);
     }
   }
 
@@ -2110,61 +2206,71 @@ class _SessionListScreenState extends State<SessionListScreen>
       machineState: machineState,
     );
 
+    final canDisconnect =
+        showConnectedUI ||
+        _isAutoConnecting ||
+        connectionState == BridgeConnectionState.connecting;
+    final shell = WorkspaceShellScreen.maybeOf(context);
+    _attachedShell = shell;
+    if (shell != null) {
+      shell.newSessionHandler = showConnectedUI ? _showNewSessionDialog : null;
+      shell.openSearchHandler = showConnectedUI
+          ? () => _homeContentKey.currentState?.openSearch()
+          : null;
+      shell.refreshHandler = () => _handleWorkspaceReload(
+        showConnectedUI: showConnectedUI,
+        machineManagerCubit: machineManagerCubit,
+      );
+      shell.disconnectHandler = canDisconnect ? _disconnect : null;
+      shell.selectSessionByIndexHandler = showConnectedUI
+          ? (index) => _selectVisibleSessionByIndex(
+              index,
+              sessions: sessions,
+              recentSessionsList: recentSessionsList,
+              slState: slState,
+            )
+          : null;
+    }
+
     return BlocProvider<UnseenSessionsCubit>.value(
       value: _unseenCubit,
       child: BlocBuilder<UnseenSessionsCubit, Set<String>>(
-        builder: (context, unseenSessionIds) =>
-            BlocListener<ConnectionCubit, BridgeConnectionState>(
-              listener: (context, nextState) {
-                // Clear auto-connecting spinner once we get any connection state update
-                if (_isAutoConnecting) {
-                  setState(() => _isAutoConnecting = false);
-                }
-                if (nextState == BridgeConnectionState.connected) {
-                  _refresh();
-                  _markConnectedMachineOnline();
-                }
-              },
-              child: _buildVisibleBody(
-                () => CallbackShortcuts(
-                  bindings: <ShortcutActivator, VoidCallback>{
-                    // Cmd+N: New Session
-                    const SingleActivator(
-                      LogicalKeyboardKey.keyN,
-                      meta: true,
-                    ): () {
-                      if (showConnectedUI) _showNewSessionDialog();
-                    },
-                    // Cmd+K: Focus search
-                    const SingleActivator(
-                      LogicalKeyboardKey.keyK,
-                      meta: true,
-                    ): () {
-                      _homeContentKey.currentState?.openSearch();
-                    },
-                  },
-                  child: Focus(
-                    autofocus: true,
-                    child: DismissKeyboardOnUserScroll(
-                      child: _buildScaffoldBody(
-                        context: context,
-                        l: l,
-                        showConnectedUI: showConnectedUI,
-                        connectionState: connectionState,
-                        sessions: sessions,
-                        recentSessionsList: recentSessionsList,
-                        workspaceProjects: workspaceProjects,
-                        slState: slState,
-                        unseenSessionIds: unseenSessionIds,
-                        machineState: machineState,
-                        machineManagerCubit: machineManagerCubit,
-                        connectedBridgeLabel: connectedBridgeLabel,
-                      ),
-                    ),
+        builder: (context, unseenSessionIds) {
+          shell?.updateUnseenSessionIds(unseenSessionIds);
+          return BlocListener<ConnectionCubit, BridgeConnectionState>(
+            listener: (context, nextState) {
+              // Clear auto-connecting spinner once we get any connection state update
+              if (_isAutoConnecting) {
+                setState(() => _isAutoConnecting = false);
+              }
+              if (nextState == BridgeConnectionState.connected) {
+                _refresh();
+                _markConnectedMachineOnline();
+              }
+            },
+            child: _buildVisibleBody(
+              () => Focus(
+                autofocus: true,
+                child: DismissKeyboardOnUserScroll(
+                  child: _buildScaffoldBody(
+                    context: context,
+                    l: l,
+                    showConnectedUI: showConnectedUI,
+                    connectionState: connectionState,
+                    sessions: sessions,
+                    recentSessionsList: recentSessionsList,
+                    workspaceProjects: workspaceProjects,
+                    slState: slState,
+                    unseenSessionIds: unseenSessionIds,
+                    machineState: machineState,
+                    machineManagerCubit: machineManagerCubit,
+                    connectedBridgeLabel: connectedBridgeLabel,
                   ),
                 ),
               ),
             ),
+          );
+        },
       ),
     );
   }
@@ -2217,9 +2323,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     );
 
     final hasStrip = DuoStripScope.hasStrip(context);
-    WorkspaceShellScreen.maybeOf(context)?.newSessionHandler = showConnectedUI
-        ? _showNewSessionDialog
-        : null;
+    final shell = WorkspaceShellScreen.maybeOf(context);
     final showNewSession =
         showConnectedUI && MediaQuery.of(context).viewInsets.bottom == 0;
 
@@ -2291,6 +2395,9 @@ class _SessionListScreenState extends State<SessionListScreen>
                     onOpenSettings: _openSettings,
                     onOpenGallery: showConnectedUI ? _openGallery : null,
                     onDisconnect: canDisconnect ? _disconnect : null,
+                    onToggleSidebar: !hasStrip && shell != null
+                        ? shell.toggleSidebar
+                        : null,
                     bridgeLabel: connectedBridgeLabel,
                     showActions: !hasStrip,
                   ),

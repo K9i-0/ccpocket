@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../router/app_router.dart';
 import '../../../services/app_update_service.dart';
+import '../../../utils/platform_helper.dart';
 import '../../../widgets/workspace_pane_chrome.dart';
 
 /// Floating SliverAppBar for the session list screen.
@@ -120,6 +121,7 @@ class SessionListPaneHeader extends StatelessWidget {
   final VoidCallback onOpenSettings;
   final VoidCallback? onOpenGallery;
   final VoidCallback? onDisconnect;
+  final VoidCallback? onToggleSidebar;
   final String? bridgeLabel;
 
   /// False when the actions live in the iPhone Duo control strip instead.
@@ -131,15 +133,23 @@ class SessionListPaneHeader extends StatelessWidget {
     required this.onOpenSettings,
     this.onOpenGallery,
     this.onDisconnect,
+    this.onToggleSidebar,
     this.bridgeLabel,
     this.showActions = true,
   });
+
+  String _sidebarToggleTooltip(AppLocalizations l) {
+    if (!isDesktopPlatform) return l.menuToggleSidebar;
+    final shortcut = isMacOSPlatform ? r'⌘\' : r'Ctrl+\';
+    return '${l.menuToggleSidebar} ($shortcut)';
+  }
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final openGallery = onOpenGallery;
     final disconnect = onDisconnect;
+    final toggleSidebar = onToggleSidebar;
     final chrome = resolveWorkspacePaneChrome(
       platform: Theme.of(context).platform,
       isAdaptiveWorkspace: true,
@@ -151,15 +161,34 @@ class SessionListPaneHeader extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final narrow = constraints.maxWidth < 300;
+        final tightMacOS =
+            chrome.useMacOSAdaptiveChrome && constraints.maxWidth < 252;
+        final headerPadding = tightMacOS
+            ? EdgeInsets.fromLTRB(
+                chrome.leadingInset + 4,
+                kWorkspacePaneVerticalPadding,
+                4,
+                kWorkspacePaneVerticalPadding,
+              )
+            : chrome.headerPadding(
+                trailing: chrome.useMacOSAdaptiveChrome || !narrow ? 8 : 0,
+              );
 
         return SizedBox(
           height: chrome.toolbarHeight,
           child: Padding(
-            padding: chrome.headerPadding(
-              trailing: chrome.useMacOSAdaptiveChrome || !narrow ? 8 : 0,
-            ),
+            padding: headerPadding,
             child: Row(
               children: [
+                if (toggleSidebar != null && chrome.useMacOSAdaptiveChrome)
+                  _PaneHeaderActionButton(
+                    key: const ValueKey('sidebar_toggle_button'),
+                    tooltip: _sidebarToggleTooltip(l),
+                    onPressed: toggleSidebar,
+                    icon: const Icon(Icons.view_sidebar_outlined),
+                    compact: true,
+                    tight: tightMacOS,
+                  ),
                 if (!showActions) ...[
                   GestureDetector(
                     onTap: onTitleTap,
@@ -195,6 +224,14 @@ class SessionListPaneHeader extends StatelessWidget {
                     child: MacOSWindowDragHandle(child: SizedBox.expand()),
                   ),
                 if (showActions) ...[
+                  if (toggleSidebar != null && !chrome.useMacOSAdaptiveChrome)
+                    _PaneHeaderActionButton(
+                      key: const ValueKey('sidebar_toggle_button'),
+                      tooltip: _sidebarToggleTooltip(l),
+                      onPressed: toggleSidebar,
+                      icon: const Icon(Icons.view_sidebar_outlined),
+                      compact: false,
+                    ),
                   _PaneHeaderActionButton(
                     key: const ValueKey('settings_button'),
                     tooltip: l.settings,
@@ -206,6 +243,7 @@ class SessionListPaneHeader extends StatelessWidget {
                       child: const Icon(Icons.settings),
                     ),
                     compact: chrome.useMacOSAdaptiveChrome,
+                    tight: tightMacOS,
                   ),
                   if (openGallery != null)
                     _PaneHeaderActionButton(
@@ -214,6 +252,7 @@ class SessionListPaneHeader extends StatelessWidget {
                       onPressed: openGallery,
                       icon: const Icon(Icons.collections_outlined),
                       compact: chrome.useMacOSAdaptiveChrome,
+                      tight: tightMacOS,
                     ),
                   if (disconnect != null)
                     _PaneHeaderActionButton(
@@ -222,6 +261,7 @@ class SessionListPaneHeader extends StatelessWidget {
                       onPressed: disconnect,
                       icon: const Icon(Icons.link_off),
                       compact: chrome.useMacOSAdaptiveChrome,
+                      tight: tightMacOS,
                     ),
                 ],
               ],
@@ -290,6 +330,7 @@ class _PaneHeaderActionButton extends StatelessWidget {
   final VoidCallback onPressed;
   final Widget icon;
   final bool compact;
+  final bool tight;
 
   const _PaneHeaderActionButton({
     super.key,
@@ -297,17 +338,31 @@ class _PaneHeaderActionButton extends StatelessWidget {
     required this.onPressed,
     required this.icon,
     this.compact = false,
+    this.tight = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final extent = tight ? 28.0 : 32.0;
     return IconButton(
       // Match the chat AppBar actions in the adjacent pane.
       iconSize: compact ? 18 : null,
       color: compact ? Theme.of(context).colorScheme.onSurfaceVariant : null,
+      style: compact
+          ? IconButton.styleFrom(
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              minimumSize: Size.square(extent),
+              maximumSize: Size.square(extent),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            )
+          : null,
       padding: compact ? EdgeInsets.zero : null,
       constraints: compact
-          ? const BoxConstraints(minWidth: 32, minHeight: 32)
+          ? BoxConstraints.tightFor(width: extent, height: extent)
           : null,
       visualDensity: compact ? null : VisualDensity.compact,
       onPressed: onPressed,

@@ -18,6 +18,7 @@ import 'dart:convert';
 import 'package:app_links/app_links.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -34,11 +35,13 @@ import 'l10n/app_localizations_delegates.dart';
 import 'features/file_peek/playback/background_media_handler.dart';
 import 'features/session_list/state/session_list_cubit.dart';
 import 'features/session_list/state/session_list_reflex.dart';
+import 'features/session_list/workspace_shell_screen.dart';
 import 'features/git/state/git_status_cubit.dart';
 import 'features/git/state/git_view_cache_service.dart';
 import 'features/github/state/github_view_cache_service.dart';
 import 'features/settings/state/settings_cubit.dart';
 import 'features/settings/state/settings_state.dart';
+import 'features/settings/widgets/keyboard_shortcuts_dialog.dart';
 import 'models/messages.dart';
 import 'providers/bridge_cubits.dart';
 import 'providers/machine_manager_cubit.dart';
@@ -51,6 +54,7 @@ import 'services/connect_deep_link_scope.dart';
 import 'services/connection_url_parser.dart';
 import 'services/database_service.dart';
 import 'services/deep_link_dispatcher.dart';
+import 'services/desktop_menu_service.dart';
 import 'services/draft_service.dart';
 import 'services/floating_keyboard_service.dart';
 import 'services/fcm_service.dart';
@@ -72,6 +76,7 @@ import 'services/store_screenshot_extension.dart';
 import 'theme/legacy_material_bridge.dart';
 import 'theme/markdown_style.dart';
 import 'theme/provider_style.dart';
+import 'utils/platform_helper.dart';
 import 'widgets/duo/duo_control_strip.dart';
 import 'widgets/release_error_widget.dart';
 
@@ -602,8 +607,12 @@ class _CcpocketAppState extends State<CcpocketApp> {
             ),
             builder: (context, child) {
               final mediaQuery = MediaQuery.maybeOf(context);
-              final app = LegacyMaterialBridge(
+              final bridged = LegacyMaterialBridge(
                 child: child ?? const SizedBox.shrink(),
+              );
+              final app = _AppDesktopShortcutsHost(
+                appRouter: _appRouter,
+                child: bridged,
               );
               if (mediaQuery == null) return app;
               return MediaQuery(
@@ -620,6 +629,108 @@ class _CcpocketAppState extends State<CcpocketApp> {
           ),
         );
       },
+    );
+  }
+}
+
+class _AppDesktopShortcutsHost extends StatelessWidget {
+  const _AppDesktopShortcutsHost({
+    required this.appRouter,
+    required this.child,
+  });
+
+  final AppRouter appRouter;
+  final Widget child;
+
+  void _dispatch(BuildContext context, DesktopMenuAction action) {
+    final shell = WorkspaceShellScreen.activeShell;
+    if (shell != null && shell.mounted) {
+      shell.handleDesktopMenuAction(action);
+      return;
+    }
+    switch (action) {
+      case DesktopMenuAction.openSettings:
+        appRouter.navigate(SettingsRoute());
+      case DesktopMenuAction.closeActive:
+        final nav = appRouter.navigatorKey.currentState;
+        if (nav != null && nav.canPop()) {
+          unawaited(nav.maybePop());
+        }
+      case DesktopMenuAction.zoomIn:
+        context.read<SettingsCubit>().zoomIn();
+      case DesktopMenuAction.zoomOut:
+        context.read<SettingsCubit>().zoomOut();
+      case DesktopMenuAction.actualSize:
+        context.read<SettingsCubit>().resetZoom();
+      case DesktopMenuAction.showShortcuts:
+        final navContext = appRouter.navigatorKey.currentContext;
+        if (navContext != null) {
+          unawaited(KeyboardShortcutsDialog.show(navContext));
+        }
+      default:
+        break;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // macOS handles menu key equivalents natively via AppMenuBridge.swift
+    // (avoiding double-firing), and WorkspaceShellScreen handles Cmd+1..9.
+    // On non-macOS desktop platforms, handle global app shortcuts even when
+    // focus is inside a modal dialog or a pushed root route.
+    if (!isDesktopPlatform || isMacOSPlatform) {
+      return child;
+    }
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(
+          LogicalKeyboardKey.comma,
+          control: true,
+          includeRepeats: false,
+        ): () =>
+            _dispatch(context, DesktopMenuAction.openSettings),
+        const SingleActivator(
+          LogicalKeyboardKey.keyW,
+          control: true,
+          includeRepeats: false,
+        ): () =>
+            _dispatch(context, DesktopMenuAction.closeActive),
+        const SingleActivator(
+          LogicalKeyboardKey.digit0,
+          control: true,
+          includeRepeats: false,
+        ): () =>
+            _dispatch(context, DesktopMenuAction.actualSize),
+        const SingleActivator(
+          LogicalKeyboardKey.numpad0,
+          control: true,
+          includeRepeats: false,
+        ): () =>
+            _dispatch(context, DesktopMenuAction.actualSize),
+        const SingleActivator(LogicalKeyboardKey.equal, control: true): () =>
+            _dispatch(context, DesktopMenuAction.zoomIn),
+        const SingleActivator(LogicalKeyboardKey.add, control: true): () =>
+            _dispatch(context, DesktopMenuAction.zoomIn),
+        const SingleActivator(
+          LogicalKeyboardKey.numpadAdd,
+          control: true,
+        ): () =>
+            _dispatch(context, DesktopMenuAction.zoomIn),
+        const SingleActivator(LogicalKeyboardKey.minus, control: true): () =>
+            _dispatch(context, DesktopMenuAction.zoomOut),
+        const SingleActivator(
+          LogicalKeyboardKey.numpadSubtract,
+          control: true,
+        ): () =>
+            _dispatch(context, DesktopMenuAction.zoomOut),
+        const SingleActivator(
+          LogicalKeyboardKey.slash,
+          control: true,
+          includeRepeats: false,
+        ): () =>
+            _dispatch(context, DesktopMenuAction.showShortcuts),
+      },
+      child: child,
     );
   }
 }

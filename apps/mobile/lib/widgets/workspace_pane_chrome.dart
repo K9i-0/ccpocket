@@ -9,6 +9,7 @@ const kWorkspaceMacOSToolbarHeight = 52.0;
 const kWorkspaceMacOSLeadingInset = 88.0;
 const kWorkspaceMacOSToolbarButtonExtent = 32.0;
 const kWorkspaceMacOSToolbarLeadingSlotWidth = 44.0;
+const kWorkspaceSidebarToggleSlotWidth = 36.0;
 // Single-pane macOS windows still render traffic lights above the content.
 // Keep a slightly larger clearance so the session status line does not sit
 // under the window controls when the app collapses to the mobile layout.
@@ -17,6 +18,31 @@ const kWorkspacePaneHorizontalPadding = 12.0;
 const kWorkspacePaneVerticalPadding = 10.0;
 const kWorkspacePaneActionGap = 4.0;
 const _windowChromeChannelName = 'ccpocket/window_chrome';
+
+/// Publishes collapsed-sidebar expansion controls to center-pane headers
+/// wrapped by [WorkspacePaneChrome.wrapAppBar].
+class WorkspaceSidebarChromeScope extends InheritedWidget {
+  const WorkspaceSidebarChromeScope({
+    super.key,
+    required this.showExpandSidebarButton,
+    required this.onExpandSidebar,
+    this.tooltip,
+    required super.child,
+  });
+
+  final bool showExpandSidebarButton;
+  final VoidCallback? onExpandSidebar;
+  final String? tooltip;
+
+  static WorkspaceSidebarChromeScope? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<WorkspaceSidebarChromeScope>();
+
+  @override
+  bool updateShouldNotify(WorkspaceSidebarChromeScope oldWidget) =>
+      showExpandSidebarButton != oldWidget.showExpandSidebarButton ||
+      onExpandSidebar != oldWidget.onExpandSidebar ||
+      tooltip != oldWidget.tooltip;
+}
 
 enum WorkspacePaneSlot { left, center, right }
 
@@ -152,12 +178,13 @@ class WorkspacePaneChrome {
   }
 
   PreferredSizeWidget wrapAppBar(PreferredSizeWidget appBar) {
-    if (topInset == 0) return appBar;
+    final baseHeight = appBar.preferredSize.height + topInset;
     return PreferredSize(
-      preferredSize: Size.fromHeight(appBar.preferredSize.height + topInset),
-      child: Padding(
-        padding: EdgeInsets.only(top: topInset),
-        child: appBar,
+      preferredSize: Size.fromHeight(baseHeight),
+      child: _WorkspacePaneChromeAppBar(
+        chrome: this,
+        topInset: topInset,
+        appBar: appBar,
       ),
     );
   }
@@ -165,6 +192,78 @@ class WorkspacePaneChrome {
   Widget wrapTitle(Widget title) {
     if (!useMacOSAdaptiveChrome) return title;
     return MacOSWindowDragHandle(child: title);
+  }
+}
+
+class _WorkspacePaneChromeAppBar extends StatelessWidget {
+  const _WorkspacePaneChromeAppBar({
+    required this.chrome,
+    required this.topInset,
+    required this.appBar,
+  });
+
+  final WorkspacePaneChrome chrome;
+  final double topInset;
+  final PreferredSizeWidget appBar;
+
+  @override
+  Widget build(BuildContext context) {
+    final sidebarScope = WorkspaceSidebarChromeScope.maybeOf(context);
+    final showExpandButton =
+        sidebarScope != null &&
+        sidebarScope.showExpandSidebarButton &&
+        sidebarScope.onExpandSidebar != null;
+
+    Widget child = appBar;
+    if (showExpandButton) {
+      final mediaQuery = MediaQuery.of(context);
+      final slotWidth = chrome.useMacOSAdaptiveChrome
+          ? kWorkspaceSidebarToggleSlotWidth
+          : kWorkspaceMacOSToolbarLeadingSlotWidth;
+      final buttonLeft =
+          mediaQuery.padding.left +
+          (chrome.ownsWindowControls
+              ? kWorkspaceMacOSLeadingInset
+              : kWorkspacePaneHorizontalPadding);
+      child = Stack(
+        children: [
+          MediaQuery(
+            data: mediaQuery.copyWith(
+              padding: mediaQuery.padding.copyWith(
+                left: mediaQuery.padding.left + slotWidth,
+              ),
+            ),
+            child: appBar,
+          ),
+          Positioned(
+            left: buttonLeft,
+            top: mediaQuery.padding.top,
+            bottom: 0,
+            child: Center(
+              child: IconButton(
+                key: const ValueKey('center_sidebar_toggle_button'),
+                iconSize: chrome.useMacOSAdaptiveChrome ? 18 : 20,
+                color: chrome.useMacOSAdaptiveChrome
+                    ? Theme.of(context).colorScheme.onSurfaceVariant
+                    : null,
+                style: chrome.useMacOSAdaptiveChrome
+                    ? chrome.compactButtonStyle()
+                    : null,
+                onPressed: sidebarScope.onExpandSidebar,
+                tooltip: sidebarScope.tooltip,
+                icon: const Icon(Icons.view_sidebar_outlined),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (topInset == 0) return child;
+    return Padding(
+      padding: EdgeInsets.only(top: topInset),
+      child: child,
+    );
   }
 }
 

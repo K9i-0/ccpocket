@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../settings/models/settings_catalog.dart';
 import 'workspace_destination.dart';
 import 'workspace_navigation_state.dart';
 
@@ -73,6 +74,7 @@ class WorkspaceNavigationCubit extends Cubit<WorkspaceNavigationState> {
 
   void openOverlay(
     WorkspaceCenterOverlay overlay, {
+    SettingsCategory? settingsInitialCategory,
     bool focusSupport = false,
     bool focusConnection = false,
     bool focusUsage = false,
@@ -81,6 +83,7 @@ class WorkspaceNavigationCubit extends Cubit<WorkspaceNavigationState> {
     state.copyWith(
       overlay: overlay,
       overlayEntry: state.overlayEntry + 1,
+      settingsInitialCategory: settingsInitialCategory,
       settingsFocusSupport: focusSupport,
       settingsFocusConnection: focusConnection,
       settingsFocusUsage: focusUsage,
@@ -91,8 +94,21 @@ class WorkspaceNavigationCubit extends Cubit<WorkspaceNavigationState> {
 
   void closeOverlay({int? entry}) {
     if (entry != null && entry != state.overlayEntry) return;
-    emit(state.copyWith(overlay: WorkspaceCenterOverlay.none));
+    emit(
+      state.copyWith(
+        overlay: WorkspaceCenterOverlay.none,
+        settingsInitialCategory: null,
+      ),
+    );
   }
+
+  void setSidebarCollapsed(bool collapsed) {
+    if (state.isSidebarCollapsed == collapsed) return;
+    emit(state.copyWith(isSidebarCollapsed: collapsed));
+  }
+
+  void toggleSidebarCollapsed() =>
+      setSidebarCollapsed(!state.isSidebarCollapsed);
 
   void closeSession({int? entry}) {
     if (entry != null && entry != state.sessionEntry) return;
@@ -105,6 +121,7 @@ class WorkspaceNavigationCubit extends Cubit<WorkspaceNavigationState> {
       sessionEntry: state.sessionEntry,
       toolEntry: state.toolEntry,
       overlayEntry: state.overlayEntry,
+      isSidebarCollapsed: state.isSidebarCollapsed,
     ),
   );
 }
