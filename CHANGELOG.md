@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.182.0] - 2026-11-25
+
+### Added
+
+- macOS: native menu bar integration. `Settings…` (`⌘,`), `Bridge on this Mac…` (`⇧⌘,`), `Check for Updates…`, and full `File`, `View`, `Session`, and `Help` menus now work alongside the native `Edit` and `Window` menus, with localized labels and dynamic state.
+- Desktop: global keyboard shortcuts work regardless of which pane has focus — including `⌘,` (Settings), `⇧⌘,` (Local Bridge), `⌘N` (New Session), `⌘K` (Quick Search), `⌘W` (smart close), `⌘\` (Toggle Sidebar), `⇧⌘G`/`⇧⌘E`/`⇧⌘I` (Git/Explorer/Gallery panes), `⌘R` (Refresh), `⌘+`/`⌘-`/`⌘0` (Zoom), `⌘1`–`⌘9` (switch sessions), `⌘.` (Stop), `⇧⌘P` (Permission Mode), and `⌘/` (Keyboard Shortcuts cheatsheet).
+- Desktop: unified two-pane Settings with "Bridge on this Mac" inline on macOS, an editable "Connected Bridge" section (diagnostics, transport, `allowedDirs`, host tools checklist, reconnect/copy URL/switch actions, and loopback badge), a Keyboard Shortcuts section, and a manual "Check for Updates…" action in About.
+- macOS & Desktop: window size/position persistence, minimum window size, Dock icon reopen when the window is closed, window title and Dock badge sync, collapsible and drag-resizable persisted sidebar, macOS-friendly hover scrollbars, right-click context menus for saved machines and project headers, and desktop shortcut tooltips.
+
+### Fixed
+
+- Desktop composer: partial text selection over `/skill`, `$skill`, and `@file` tokens is now clearly visible, Japanese IME composing underlines and `Ctrl+K`/`Ctrl+D` conversions are preserved, completion overlays no longer block drag-selection or `Shift+Up`/`Down`, multiline markdown list paste is no longer mutated, `⌘V` preserves `⌘Z` Undo and image+text clipboards, and scrolling chat history no longer unfocuses the input bar.
+- Markdown, code blocks, diffs, and logs: drag-selection and `⌘A` now cross seamlessly between prose and fenced code blocks without copying language labels; unified text selection across Plan, Result, Swarm, Streaming, File Peek, GitHub, Changelog, and error/tool cards; separated line numbers in File Peek so partial copy never includes line numbers; enabled multi-line selection in local Bridge logs and desktop diff views; and prevented bubble right-click menus from overriding selected text.
+
 ## [1.181.0] - 2026-11-24
 
 ### Added
