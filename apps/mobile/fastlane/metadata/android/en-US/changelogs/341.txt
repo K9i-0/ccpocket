@@ -1,0 +1,4 @@
+• UI refresh: refined light/dark surfaces, emerald Codex accent, cleaner chat/code cards, and redesigned approval bars, composer, and session cards.
+• Display mode presets (All / Recommended / Custom) & per-category filters; syncs with Bridge 1.122.0+ to reduce traffic.
+• Antigravity Swarms: distinct worker icons, inline @agent icons, and brighter light-mode colors.
+• Antigravity task lists & plan cards (Bridge 1.121.0+), plus cleaner text selection across code blocks.

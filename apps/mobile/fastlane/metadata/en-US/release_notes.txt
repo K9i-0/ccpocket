@@ -1,6 +1,5 @@
-• The setup guide is redesigned and shorter: four steps, from what CC Pocket is to scanning the QR code.
-• If your computer is a Mac, the guide recommends CC Pocket for macOS, which starts and manages the Bridge without terminal commands (Apple silicon, macOS 13 or later). It shows the download page and the Homebrew command, and "Send to Mac" passes the link to your Mac.
-• The terminal steps for Linux, Windows and Intel Macs are on a second tab of the same page, with the auto-start and agent sign-in notes. Tailscale is explained on the connection page.
-• The last page of the guide opens the QR scanner directly.
-• The guide now covers Antigravity alongside Codex and Claude, and is easier to read in dark mode.
-• Fixed: Settings showed the API key as part of the connection address after connecting through a pairing link.
+• UI refresh across the app: refined light and dark surfaces, a new emerald accent for Codex harmonized with Claude and Antigravity, streamlined code block headers, calmer chat and transcript cards, redesigned approval bars and session-list approval cards with clearer action hierarchy, and polished composer, session cards, and settings.
+• Display mode presets & per-category filters: choose All, Recommended, or Custom in Settings, with individual toggles for Tasks / TODO, Thinking, Subagents & Swarm, Code edits & diffs, Other tool calls, and Tool outputs & screenshots. With Bridge 1.122.0 or newer, your filter preferences sync directly to the Bridge to cut network traffic.
+• Antigravity Swarms: numbered workers now show distinct creature icons paired with their color palette, inline member icons beside @agent mentions, and brighter light-mode colors for clearer contrast.
+• Antigravity task lists & plan cards: step checklists (agy 1.5.16) now render as task lists with skipped and failed icons, and Orchestrator handoff plans appear as plan cards. Requires Bridge 1.121.0 or newer.
+• Better text selection: select seamlessly across prose and fenced code blocks without copying language labels, and copy from File Peek without including line numbers.
