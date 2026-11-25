@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.184.0] - 2026-11-25
+
+### Changed
+
+- Swarm worker icons: replaced the generic robot icon for numbered Antigravity Swarm workers with 8 fixed monochrome creature silhouettes (shark, turtle, flamingo, bat, cat, dino, fox, hedgehog) paired 1:1 with the worker color palette across board posts, detail sheets, and the background tasks bar/sheet.
+- Swarm mentions & light theme palette: added member icons inline beside `@agent` target mentions without outline boxes, and brightened the light-mode worker text and icon colors for clearer contrast and livelier readability.
+
 ## [1.183.0] - 2026-11-25
 
 ### Added
