@@ -5,6 +5,7 @@ import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/code_text_style.dart';
 import '../google_search_text_selection.dart';
 
 class PermissionRequestBubble extends StatefulWidget {
@@ -28,20 +29,36 @@ class _PermissionRequestBubbleState extends State<PermissionRequestBubble> {
 
   @override
   Widget build(BuildContext context) {
-    final appColors = Theme.of(context).extension<AppColors>()!;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final appColors = theme.extension<AppColors>()!;
+    final codeSettings = codeTextSettingsOf(context);
     final presentation = widget.message.presentation;
     final detailLines = presentation.secondaryDetails;
     final inputStr = presentation.rawDetails;
     final primaryTarget = presentation.primaryTarget;
+    final isPending = widget.status == PermissionTranscriptStatus.pending;
+
+    final cardBackground = isPending
+        ? Color.alphaBlend(
+            appColors.permissionIcon.withValues(alpha: isDark ? 0.06 : 0.04),
+            cs.surfaceContainerHigh,
+          )
+        : cs.surfaceContainerLow;
+    final cardBorder = isPending
+        ? appColors.permissionIcon.withValues(alpha: isDark ? 0.45 : 0.38)
+        : cs.outlineVariant.withValues(alpha: isDark ? 0.65 : 0.8);
+
     return Container(
       margin: const EdgeInsets.symmetric(
         vertical: AppSpacing.bubbleMarginV,
         horizontal: AppSpacing.bubbleMarginH,
       ),
       decoration: BoxDecoration(
-        color: appColors.permissionBubble,
+        color: cardBackground,
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-        border: Border.all(color: appColors.permissionBubbleBorder),
+        border: Border.all(color: cardBorder, width: 1),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -56,33 +73,54 @@ class _PermissionRequestBubbleState extends State<PermissionRequestBubble> {
             ),
             onTap: () => setState(() => _expanded = !_expanded),
             child: Padding(
-              padding: EdgeInsets.fromLTRB(10, 10, 10, _expanded ? 6 : 10),
+              padding: EdgeInsets.fromLTRB(12, 10, 10, _expanded ? 8 : 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Icon(
-                        Icons.security,
-                        size: 16,
-                        color: appColors.permissionIcon,
-                      ),
-                      const SizedBox(width: 6),
+                      if (isPending)
+                        Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: appColors.permissionIcon.withValues(
+                              alpha: isDark ? 0.16 : 0.10,
+                            ),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Icon(
+                            Icons.security,
+                            size: 14,
+                            color: appColors.permissionIcon,
+                          ),
+                        )
+                      else
+                        Icon(
+                          Icons.security,
+                          size: 15,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           presentation.title,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13.5,
+                            color: isPending
+                                ? cs.onSurface
+                                : cs.onSurface.withValues(alpha: 0.86),
                           ),
                         ),
                       ),
+                      const SizedBox(width: 6),
                       _PermissionStatusBadge(status: widget.status),
                       const SizedBox(width: 4),
                       Icon(
                         _expanded ? Icons.expand_less : Icons.expand_more,
                         size: 18,
-                        color: appColors.subtleText,
+                        color: cs.onSurfaceVariant,
                       ),
                     ],
                   ),
@@ -92,10 +130,10 @@ class _PermissionRequestBubbleState extends State<PermissionRequestBubble> {
                       primaryTarget,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontFamily: 'monospace',
-                        color: appColors.subtleText,
+                      style: codeSettings.style(
+                        fontSize: 11.5,
+                        color: cs.onSurfaceVariant,
+                        height: 1.35,
                       ),
                     ),
                   ],
@@ -105,7 +143,7 @@ class _PermissionRequestBubbleState extends State<PermissionRequestBubble> {
           ),
           if (_expanded)
             Padding(
-              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
               child: GoogleSearchSelectionArea(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -114,7 +152,8 @@ class _PermissionRequestBubbleState extends State<PermissionRequestBubble> {
                       presentation.summary,
                       style: TextStyle(
                         fontSize: 12,
-                        color: appColors.subtleText,
+                        color: cs.onSurfaceVariant,
+                        height: 1.35,
                       ),
                     ),
                     if (primaryTarget != null) ...[
@@ -126,22 +165,20 @@ class _PermissionRequestBubbleState extends State<PermissionRequestBubble> {
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: appColors.permissionBubble.withValues(
-                            alpha: 0.35,
-                          ),
-                          borderRadius: BorderRadius.circular(10),
+                          color: appColors.codeBackground,
+                          borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: appColors.permissionBubbleBorder.withValues(
-                              alpha: 0.7,
+                            color: cs.outlineVariant.withValues(
+                              alpha: isDark ? 0.65 : 0.8,
                             ),
                           ),
                         ),
                         child: Text(
                           primaryTarget,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontFamily: 'monospace',
-                            color: appColors.subtleText,
+                          style: codeSettings.style(
+                            fontSize: 11.5,
+                            color: cs.onSurface,
+                            height: 1.4,
                           ),
                         ),
                       ),
@@ -161,16 +198,17 @@ class _PermissionRequestBubbleState extends State<PermissionRequestBubble> {
                                 ),
                                 child: Icon(
                                   Icons.circle,
-                                  size: 5,
-                                  color: appColors.subtleText,
+                                  size: 4,
+                                  color: cs.onSurfaceVariant,
                                 ),
                               ),
                               Expanded(
                                 child: Text(
                                   line,
                                   style: TextStyle(
-                                    fontSize: 11,
-                                    color: appColors.subtleText,
+                                    fontSize: 11.5,
+                                    color: cs.onSurfaceVariant,
+                                    height: 1.35,
                                   ),
                                 ),
                               ),
@@ -181,10 +219,10 @@ class _PermissionRequestBubbleState extends State<PermissionRequestBubble> {
                     const SizedBox(height: 8),
                     Text(
                       inputStr,
-                      style: TextStyle(
+                      style: codeSettings.style(
                         fontSize: 11,
-                        fontFamily: 'monospace',
-                        color: appColors.subtleText,
+                        color: cs.onSurfaceVariant,
+                        height: 1.4,
                       ),
                     ),
                   ],
@@ -204,50 +242,66 @@ class _PermissionStatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appColors = Theme.of(context).extension<AppColors>()!;
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final appColors = theme.extension<AppColors>()!;
+    final colorScheme = theme.colorScheme;
     final l = AppLocalizations.of(context);
+
     final (label, foreground, background) = switch (status) {
       PermissionTranscriptStatus.pending => (
         l.approvalStatusPending,
-        appColors.permissionIcon,
-        appColors.permissionIcon.withValues(alpha: 0.14),
+        isDark ? const Color(0xFFFDBA74) : const Color(0xFF9A3412),
+        (isDark ? const Color(0xFFF97316) : const Color(0xFFEA580C)).withValues(
+          alpha: isDark ? 0.16 : 0.10,
+        ),
       ),
       PermissionTranscriptStatus.approved => (
         l.approvalStatusApproved,
-        colorScheme.primary,
-        appColors.successChip,
+        appColors.diffAdditionText,
+        (isDark ? const Color(0xFF22C55E) : const Color(0xFF16A34A)).withValues(
+          alpha: isDark ? 0.15 : 0.10,
+        ),
       ),
       PermissionTranscriptStatus.approvedForSession => (
         l.approvalStatusApprovedForSession,
-        colorScheme.primary,
-        appColors.successChip,
+        appColors.diffAdditionText,
+        (isDark ? const Color(0xFF22C55E) : const Color(0xFF16A34A)).withValues(
+          alpha: isDark ? 0.15 : 0.10,
+        ),
       ),
       PermissionTranscriptStatus.rejected => (
         l.approvalStatusRejected,
-        colorScheme.error,
-        appColors.errorChip,
+        appColors.diffDeletionText,
+        (isDark ? const Color(0xFFEF4444) : const Color(0xFFDC2626)).withValues(
+          alpha: isDark ? 0.16 : 0.10,
+        ),
       ),
       PermissionTranscriptStatus.answered ||
       PermissionTranscriptStatus.resolved => (
         l.approvalStatusResolved,
-        appColors.subtleText,
-        appColors.subtleText.withValues(alpha: 0.12),
+        colorScheme.onSurfaceVariant,
+        colorScheme.onSurface.withValues(alpha: isDark ? 0.08 : 0.06),
       ),
     };
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: foreground.withValues(alpha: isDark ? 0.22 : 0.18),
+          width: 0.75,
+        ),
       ),
       child: Text(
         label,
         style: TextStyle(
           color: foreground,
-          fontSize: 10,
+          fontSize: 10.5,
           fontWeight: FontWeight.w600,
+          height: 1.2,
         ),
       ),
     );

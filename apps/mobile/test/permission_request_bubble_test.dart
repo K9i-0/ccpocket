@@ -148,4 +148,70 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets(
+    'differentiates pending vs resolved surfaces, badge semantics, and uses code font',
+    (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          const Column(
+            children: [
+              PermissionRequestBubble(
+                key: ValueKey('pending_bubble'),
+                message: permission,
+                status: PermissionTranscriptStatus.pending,
+              ),
+              PermissionRequestBubble(
+                key: ValueKey('approved_bubble'),
+                message: permission,
+                status: PermissionTranscriptStatus.approved,
+              ),
+              PermissionRequestBubble(
+                key: ValueKey('rejected_bubble'),
+                message: permission,
+                status: PermissionTranscriptStatus.rejected,
+              ),
+            ],
+          ),
+        ),
+      );
+
+      final theme = AppTheme.darkTheme;
+      final appColors = theme.extension<AppColors>()!;
+      final pendingContainer = tester.widget<Container>(
+        find
+            .descendant(
+              of: find.byKey(const ValueKey('pending_bubble')),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+      final approvedContainer = tester.widget<Container>(
+        find
+            .descendant(
+              of: find.byKey(const ValueKey('approved_bubble')),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+
+      final pendingDeco = pendingContainer.decoration! as BoxDecoration;
+      final approvedDeco = approvedContainer.decoration! as BoxDecoration;
+      expect(approvedDeco.color, theme.colorScheme.surfaceContainerLow);
+      expect(pendingDeco.color, isNot(approvedDeco.color));
+
+      final approvedBadgeText = tester.widget<Text>(find.text('Approved'));
+      expect(approvedBadgeText.style?.color, appColors.diffAdditionText);
+      expect(approvedBadgeText.style?.color, isNot(theme.colorScheme.primary));
+
+      final rejectedBadgeText = tester.widget<Text>(find.text('Rejected'));
+      expect(rejectedBadgeText.style?.color, appColors.diffDeletionText);
+
+      final targetText = tester
+          .widgetList<Text>(find.text('/bin/zsh -lc "mise ls flutter"'))
+          .first;
+      expect(targetText.style?.fontFamily, 'JetBrainsMono');
+      expect(targetText.style?.fontFamilyFallback, contains('monospace'));
+    },
+  );
 }

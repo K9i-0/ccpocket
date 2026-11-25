@@ -2,8 +2,82 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
+import '../../theme/app_theme.dart';
+import '../../theme/code_text_style.dart';
 import '../expandable_summary_text.dart';
 import 'ask_user_widgets.dart';
+
+class _SessionApprovalSection extends StatelessWidget {
+  final Widget child;
+
+  const _SessionApprovalSection({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+      decoration: BoxDecoration(
+        color: isDark
+            ? cs.onSurface.withValues(alpha: 0.025)
+            : cs.surfaceContainerLow.withValues(alpha: 0.65),
+        border: Border(
+          top: BorderSide(
+            color: cs.outlineVariant.withValues(alpha: isDark ? 0.55 : 0.7),
+            width: 0.75,
+          ),
+          bottom: BorderSide(
+            color: cs.outlineVariant.withValues(alpha: isDark ? 0.75 : 0.85),
+            width: 1,
+          ),
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _SessionPrimaryTargetCodeBlock extends StatelessWidget {
+  final String text;
+
+  const _SessionPrimaryTargetCodeBlock({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final appColors = theme.extension<AppColors>()!;
+    final codeSettings = codeTextSettingsOf(context);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: appColors.codeBackground,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.75 : 0.85),
+          width: 1,
+        ),
+      ),
+      child: Text(
+        text,
+        style: codeSettings.style(
+          fontSize: 11.5,
+          color: cs.onSurface,
+          height: 1.4,
+        ),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+}
 
 class SessionCardToolSuggestionArea extends StatelessWidget {
   final PermissionRequestMessage permission;
@@ -19,26 +93,38 @@ class SessionCardToolSuggestionArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
+    return _SessionApprovalSection(
       key: const ValueKey('session_tool_suggestion_area'),
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      color: statusColor.withValues(alpha: 0.06),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.extension_outlined, size: 17, color: statusColor),
-              const SizedBox(width: 6),
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: isDark ? 0.16 : 0.10),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(
+                  Icons.extension_outlined,
+                  size: 14,
+                  color: statusColor,
+                ),
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   permission.suggestedToolName,
                   style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.onSurface,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: cs.onSurface,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -46,14 +132,18 @@ class SessionCardToolSuggestionArea extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
             permission.toolSuggestionReason,
-            style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+            style: TextStyle(
+              fontSize: 12,
+              color: cs.onSurfaceVariant,
+              height: 1.35,
+            ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           SessionCardOpenButton(onTap: onTap),
         ],
       ),
@@ -82,58 +172,123 @@ class SessionCardToolApprovalArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final l = AppLocalizations.of(context);
     final presentation = permission.presentation;
     final detailLines = presentation.secondaryDetails;
     final canReject = permission.canDecline;
     final canApproveAlways =
         permission.canApproveForSession && onApproveAlways != null;
     final canApprove = permission.canApprove;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      color: statusColor.withValues(alpha: 0.06),
+    final rejectLabel = permission.showsCancelAction ? l.cancel : l.reject;
+    final alwaysMain = isCodex ? l.approveSessionMain : l.approveAlways;
+    final alwaysSub = isCodex ? l.approveSessionSub : l.approveAlwaysSub;
+    final alwaysLabel = isCodex || alwaysSub.isEmpty
+        ? alwaysMain
+        : '$alwaysMain $alwaysSub';
+    final approveLabel = isCodex ? l.approve : l.approveOnce;
+    final sectionBg = isDark
+        ? Color.alphaBlend(
+            cs.onSurface.withValues(alpha: 0.025),
+            cs.surfaceContainerHigh,
+          )
+        : Color.alphaBlend(
+            cs.surfaceContainerLow.withValues(alpha: 0.65),
+            cs.surfaceContainerHigh,
+          );
+    final buttonShape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(10),
+    );
+
+    final buttons = <Widget>[
+      if (canReject)
+        OutlinedButton(
+          key: const ValueKey('reject_button'),
+          onPressed: onReject,
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            minimumSize: const Size(0, 36),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            foregroundColor: cs.onSurfaceVariant,
+            side: BorderSide(
+              color: cs.outlineVariant.withValues(alpha: isDark ? 0.85 : 1.0),
+            ),
+            shape: buttonShape,
+          ),
+          child: Text(
+            rejectLabel,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+          ),
+        ),
+      if (canApproveAlways)
+        FilledButton.tonal(
+          key: const ValueKey('approve_always_button'),
+          onPressed: onApproveAlways,
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            minimumSize: const Size(0, 36),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            backgroundColor: cs.onSurface.withValues(
+              alpha: isDark ? 0.11 : 0.07,
+            ),
+            foregroundColor: cs.onSurface,
+            side: BorderSide(
+              color: cs.outlineVariant.withValues(alpha: isDark ? 0.55 : 0.65),
+            ),
+            shape: buttonShape,
+          ),
+          child: Text(
+            alwaysLabel,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+        ),
+      if (canApprove)
+        FilledButton(
+          key: const ValueKey('approve_button'),
+          onPressed: onApprove,
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            minimumSize: const Size(0, 36),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            backgroundColor: cs.primary,
+            foregroundColor: cs.onPrimary,
+            shape: buttonShape,
+          ),
+          child: Text(
+            approveLabel,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+        ),
+    ];
+
+    return _SessionApprovalSection(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             presentation.title,
             style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: Theme.of(context).colorScheme.onSurface,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: cs.onSurface,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 3),
           ExpandableSummaryText(
             text: presentation.summary,
             style: TextStyle(
               fontSize: 12,
-              color: Theme.of(context).colorScheme.onSurface
-                  .withValues(alpha: 0.8),
+              color: cs.onSurfaceVariant,
+              height: 1.35,
             ),
             maxLines: 2,
+            backgroundColor: sectionBg,
           ),
           if (presentation.primaryTarget != null) ...[
-            const SizedBox(height: 6),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest
-                    .withValues(alpha: 0.45),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                presentation.primaryTarget!,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontFamily: 'monospace',
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
+            const SizedBox(height: 8),
+            _SessionPrimaryTargetCodeBlock(text: presentation.primaryTarget!),
           ],
           if (detailLines.isNotEmpty) ...[
             const SizedBox(height: 6),
@@ -145,9 +300,9 @@ class SessionCardToolApprovalArea extends StatelessWidget {
                     child: Text(
                       line,
                       style: TextStyle(
-                        fontSize: 11,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant
-                            .withValues(alpha: 0.85),
+                        fontSize: 11.5,
+                        color: cs.onSurfaceVariant,
+                        height: 1.35,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -155,128 +310,16 @@ class SessionCardToolApprovalArea extends StatelessWidget {
                   ),
                 ),
           ],
-          const SizedBox(height: 6),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isWide = constraints.maxWidth >= 400;
-              final l = AppLocalizations.of(context);
-              final cs = Theme.of(context).colorScheme;
-              final rejectLabel = permission.showsCancelAction
-                  ? l.cancel
-                  : l.reject;
-              final alwaysMain = isCodex
-                  ? l.approveSessionMain
-                  : l.approveAlways;
-              final alwaysSub = isCodex
-                  ? l.approveSessionSub
-                  : l.approveAlwaysSub;
-              Widget buildApproveLabel() {
-                final approveLabel = isCodex ? l.approve : l.approveOnce;
-                if (isWide || !approveLabel.contains(' ')) {
-                  return Text(
-                    approveLabel,
-                    style: const TextStyle(fontSize: 12),
-                  );
-                }
-                final splitIndex = approveLabel.lastIndexOf(' ');
-                final sub = approveLabel.substring(0, splitIndex);
-                final main = approveLabel.substring(splitIndex + 1);
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      sub,
-                      style: TextStyle(
-                        fontSize: 8,
-                        fontWeight: FontWeight.w400,
-                        color: statusColor.withValues(alpha: 0.7),
-                      ),
-                    ),
-                    Text(main, style: const TextStyle(fontSize: 11)),
-                  ],
-                );
-              }
-
-              final buttons = <Widget>[
-                if (canReject)
-                  SizedBox(
-                    height: 36,
-                    child: OutlinedButton.icon(
-                      key: const ValueKey('reject_button'),
-                      onPressed: onReject,
-                      icon: const Icon(Icons.close, size: 14),
-                      label: Text(rejectLabel),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        textStyle: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                if (canApproveAlways) ...[
-                  if (canReject) const SizedBox(width: 8),
-                  SizedBox(
-                    height: 36,
-                    child: OutlinedButton(
-                      key: const ValueKey('approve_always_button'),
-                      onPressed: onApproveAlways,
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        foregroundColor: cs.error,
-                        side: BorderSide(
-                          color: cs.error.withValues(alpha: 0.5),
-                        ),
-                      ),
-                      child: isWide || alwaysSub.isEmpty
-                          ? Text(
-                              alwaysSub.isEmpty
-                                  ? alwaysMain
-                                  : '$alwaysMain $alwaysSub',
-                              style: const TextStyle(fontSize: 12),
-                            )
-                          : Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  alwaysSub,
-                                  style: TextStyle(
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.w400,
-                                    color: cs.error.withValues(alpha: 0.7),
-                                  ),
-                                ),
-                                Text(
-                                  alwaysMain,
-                                  style: const TextStyle(fontSize: 11),
-                                ),
-                              ],
-                            ),
-                    ),
-                  ),
-                ],
-                if (canApprove) ...[
-                  if (canReject || canApproveAlways) const SizedBox(width: 8),
-                  SizedBox(
-                    height: 36,
-                    child: FilledButton.tonalIcon(
-                      key: const ValueKey('approve_button'),
-                      onPressed: onApprove,
-                      icon: const Icon(Icons.check, size: 14),
-                      label: buildApproveLabel(),
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        textStyle: const TextStyle(fontSize: 11),
-                        backgroundColor: statusColor.withValues(alpha: 0.15),
-                        foregroundColor: statusColor,
-                      ),
-                    ),
-                  ),
-                ],
-              ];
-              return Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: buttons,
-              );
-            },
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              alignment: WrapAlignment.end,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 6,
+              children: buttons,
+            ),
           ),
         ],
       ),
@@ -308,11 +351,14 @@ class SessionCardPlanApprovalArea extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      color: statusColor.withValues(alpha: 0.06),
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final buttonShape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(10),
+    );
+
+    return _SessionApprovalSection(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -321,13 +367,13 @@ class SessionCardPlanApprovalArea extends StatelessWidget {
             children: [
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.only(right: 8.0),
+                  padding: const EdgeInsets.only(right: 8),
                   child: Text(
                     l.planApprovalSummaryCard,
                     style: TextStyle(
-                      fontSize: 13,
-                      color: cs.onSurface.withValues(alpha: 0.8),
-                      height: 1.3,
+                      fontSize: 12.5,
+                      color: cs.onSurfaceVariant,
+                      height: 1.35,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -337,13 +383,13 @@ class SessionCardPlanApprovalArea extends StatelessWidget {
               if (canOpenPlan)
                 IconButton(
                   onPressed: onOpenPlan,
-                  icon: const Icon(Icons.open_in_full, size: 22),
+                  icon: const Icon(Icons.open_in_full, size: 19),
                   color: cs.primary,
                   tooltip: l.viewEditPlan,
                   padding: const EdgeInsets.all(8),
                   constraints: const BoxConstraints(
-                    minWidth: 40,
-                    minHeight: 40,
+                    minWidth: 36,
+                    minHeight: 36,
                   ),
                 ),
             ],
@@ -352,7 +398,7 @@ class SessionCardPlanApprovalArea extends StatelessWidget {
           Text(
             l.keepPlanning,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 11.5,
               fontWeight: FontWeight.w600,
               color: cs.onSurfaceVariant,
             ),
@@ -368,13 +414,32 @@ class SessionCardPlanApprovalArea extends StatelessWidget {
                   onTapOutside: (_) => FocusScope.of(context).unfocus(),
                   decoration: InputDecoration(
                     hintText: l.keepPlanningHint,
+                    hintStyle: TextStyle(
+                      fontSize: 12.5,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.75),
+                    ),
+                    filled: true,
+                    fillColor: isDark ? cs.surface : cs.surfaceContainerHigh,
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 10,
                       vertical: 8,
                     ),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(
+                        color: cs.outlineVariant.withValues(alpha: 0.8),
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(
+                        color: cs.outlineVariant.withValues(alpha: 0.8),
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: cs.primary, width: 1.5),
                     ),
                   ),
                   minLines: 1,
@@ -394,30 +459,37 @@ class SessionCardPlanApprovalArea extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
-                child: SizedBox(
-                  height: 36,
-                  child: OutlinedButton(
-                    key: const ValueKey('approve_clear_context_button'),
-                    onPressed: onApproveClearContext,
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 8,
-                      ),
-                      foregroundColor: statusColor,
-                      side: BorderSide(
-                        color: statusColor.withValues(alpha: 0.5),
+                child: FilledButton.tonal(
+                  key: const ValueKey('approve_clear_context_button'),
+                  onPressed: onApproveClearContext,
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    minimumSize: const Size(0, 36),
+                    backgroundColor: cs.onSurface.withValues(
+                      alpha: isDark ? 0.11 : 0.07,
+                    ),
+                    foregroundColor: cs.onSurface,
+                    side: BorderSide(
+                      color: cs.outlineVariant.withValues(
+                        alpha: isDark ? 0.55 : 0.65,
                       ),
                     ),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        l.acceptAndClear,
-                        style: const TextStyle(fontSize: 12),
+                    shape: buttonShape,
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      l.acceptAndClear,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -425,24 +497,26 @@ class SessionCardPlanApprovalArea extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: SizedBox(
-                  height: 36,
-                  child: FilledButton(
-                    key: const ValueKey('approve_button'),
-                    onPressed: onApprove,
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 8,
-                      ),
-                      backgroundColor: statusColor.withValues(alpha: 0.15),
-                      foregroundColor: statusColor,
+                child: FilledButton(
+                  key: const ValueKey('approve_button'),
+                  onPressed: onApprove,
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
                     ),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        l.acceptPlan,
-                        style: const TextStyle(fontSize: 12),
+                    minimumSize: const Size(0, 36),
+                    backgroundColor: cs.primary,
+                    foregroundColor: cs.onPrimary,
+                    shape: buttonShape,
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      l.acceptPlan,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -476,12 +550,15 @@ class SessionCardCodexPlanApprovalArea extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final cs = Theme.of(context).colorScheme;
-    return Container(
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final buttonShape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(10),
+    );
+
+    return _SessionApprovalSection(
       key: const ValueKey('codex_plan_approval_area'),
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      color: statusColor.withValues(alpha: 0.06),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -490,13 +567,13 @@ class SessionCardCodexPlanApprovalArea extends StatelessWidget {
             children: [
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.only(right: 8.0),
+                  padding: const EdgeInsets.only(right: 8),
                   child: Text(
                     l.planApprovalSummaryCard,
                     style: TextStyle(
-                      fontSize: 13,
-                      color: cs.onSurface.withValues(alpha: 0.8),
-                      height: 1.3,
+                      fontSize: 12.5,
+                      color: cs.onSurfaceVariant,
+                      height: 1.35,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -506,42 +583,45 @@ class SessionCardCodexPlanApprovalArea extends StatelessWidget {
               if (canOpenPlan)
                 IconButton(
                   onPressed: onOpenPlan,
-                  icon: const Icon(Icons.open_in_full, size: 22),
+                  icon: const Icon(Icons.open_in_full, size: 19),
                   color: cs.primary,
                   tooltip: l.viewEditPlan,
                   padding: const EdgeInsets.all(8),
                   constraints: const BoxConstraints(
-                    minWidth: 40,
-                    minHeight: 40,
+                    minWidth: 36,
+                    minHeight: 36,
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
-                child: SizedBox(
-                  height: 36,
-                  child: OutlinedButton(
-                    key: const ValueKey('reject_button'),
-                    onPressed: onReject,
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 8,
-                      ),
-                      foregroundColor: Theme.of(context).colorScheme.error,
-                      side: BorderSide(
-                        color: Theme.of(context).colorScheme.error
-                            .withValues(alpha: 0.5),
+                child: OutlinedButton(
+                  key: const ValueKey('reject_button'),
+                  onPressed: onReject,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    minimumSize: const Size(0, 36),
+                    foregroundColor: cs.onSurfaceVariant,
+                    side: BorderSide(
+                      color: cs.outlineVariant.withValues(
+                        alpha: isDark ? 0.85 : 1.0,
                       ),
                     ),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        l.continuePlanning,
-                        style: const TextStyle(fontSize: 12),
+                    shape: buttonShape,
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      l.continuePlanning,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
@@ -549,24 +629,26 @@ class SessionCardCodexPlanApprovalArea extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: SizedBox(
-                  height: 36,
-                  child: FilledButton(
-                    key: const ValueKey('approve_button'),
-                    onPressed: onApprove,
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 8,
-                      ),
-                      backgroundColor: statusColor.withValues(alpha: 0.15),
-                      foregroundColor: statusColor,
+                child: FilledButton(
+                  key: const ValueKey('approve_button'),
+                  onPressed: onApprove,
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
                     ),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        l.acceptPlan,
-                        style: const TextStyle(fontSize: 12),
+                    minimumSize: const Size(0, 36),
+                    backgroundColor: cs.primary,
+                    foregroundColor: cs.onPrimary,
+                    shape: buttonShape,
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      l.acceptPlan,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -588,6 +670,10 @@ class SessionCardOpenButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
     return Align(
       alignment: Alignment.centerRight,
       child: SizedBox(
@@ -598,7 +684,17 @@ class SessionCardOpenButton extends StatelessWidget {
           label: const Text('Open'),
           style: OutlinedButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            textStyle: const TextStyle(fontSize: 13),
+            foregroundColor: cs.onSurface,
+            side: BorderSide(
+              color: cs.outlineVariant.withValues(alpha: isDark ? 0.85 : 1.0),
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            textStyle: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
       ),

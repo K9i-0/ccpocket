@@ -328,17 +328,20 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final appColors = Theme.of(context).extension<AppColors>()!;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final appColors = theme.extension<AppColors>()!;
     final l = AppLocalizations.of(context);
 
     if (_answered) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: appColors.askBubble.withValues(alpha: 0.5),
+          color: cs.surfaceContainerHigh,
           border: Border(
             top: BorderSide(
-              color: appColors.askBubbleBorder.withValues(alpha: 0.5),
+              color: cs.outlineVariant.withValues(alpha: isDark ? 0.85 : 0.9),
               width: 1,
             ),
           ),
@@ -351,16 +354,12 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
               Icon(
                 Icons.check_circle_outline,
                 size: 16,
-                color: appColors.subtleText,
+                color: cs.onSurfaceVariant,
               ),
               const SizedBox(width: 6),
               Text(
                 l.answered,
-                style: TextStyle(
-                  color: appColors.subtleText,
-                  fontStyle: FontStyle.italic,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12.5),
               ),
             ],
           ),
@@ -378,169 +377,211 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
     final visibleScreenHeight =
         mediaQuery.size.height - mediaQuery.viewInsets.bottom;
     final maxHeight = widget.maxHeight ?? visibleScreenHeight;
+    final accentColor = appColors.permissionIcon;
 
     return Container(
       constraints: BoxConstraints(
         maxHeight: maxHeight.clamp(0, double.infinity),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            appColors.askBubble,
-            appColors.askBubble.withValues(alpha: 0.7),
-          ],
+      decoration: ShapeDecoration(
+        color: cs.surfaceContainerHigh,
+        shape: RoundedRectangleBorder(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+          side: BorderSide(
+            color: cs.outlineVariant.withValues(alpha: isDark ? 0.85 : 0.9),
+            width: 1,
+          ),
         ),
-        border: Border(
-          top: BorderSide(color: appColors.askBubbleBorder, width: 1.5),
-        ),
+        shadows: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.36 : 0.08),
+            blurRadius: 18,
+            offset: const Offset(0, -4),
+          ),
+        ],
       ),
       clipBehavior: Clip.hardEdge,
       child: SafeArea(
         top: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            GestureDetector(
-              onTap: () => FocusScope.of(context).unfocus(),
-              behavior: HitTestBehavior.opaque,
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(
-                      color: appColors.askIcon.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.help_outline,
-                      size: 18,
-                      color: appColors.askIcon,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    l.agentIsAsking(widget.agentName),
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                      color: appColors.askIcon,
-                    ),
-                  ),
-                  const Spacer(),
-                  if (_isMultiQuestion)
-                    Text(
-                      '${_currentPage + 1}/$totalPages',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: appColors.subtleText,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GestureDetector(
+                onTap: () => FocusScope.of(context).unfocus(),
+                behavior: HitTestBehavior.opaque,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: accentColor.withValues(
+                          alpha: isDark ? 0.16 : 0.10,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: accentColor.withValues(
+                            alpha: isDark ? 0.28 : 0.22,
+                          ),
+                          width: 1,
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.help_outline,
+                        size: 16,
+                        color: accentColor,
                       ),
                     ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            if (_isMultiQuestion) ...[
-              LinearProgressIndicator(
-                value: (_currentPage + 1) / totalPages,
-                minHeight: 2,
-                backgroundColor: appColors.askIcon.withValues(alpha: 0.1),
-                valueColor: AlwaysStoppedAnimation<Color>(appColors.askIcon),
+                    const SizedBox(width: 10),
+                    Text(
+                      l.agentIsAsking(widget.agentName),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: cs.onSurface,
+                        letterSpacing: -0.1,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (_isMultiQuestion)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: cs.onSurface.withValues(
+                            alpha: isDark ? 0.08 : 0.05,
+                          ),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          '${_currentPage + 1}/$totalPages',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
               const SizedBox(height: 10),
-              Flexible(
-                child: LayoutBuilder(
-                  builder: (context, constraints) => ExpandablePageView.builder(
-                    controller: _pageController,
-                    itemCount: totalPages,
-                    onPageChanged: _onPageChanged,
-                    itemBuilder: (context, index) {
-                      final child = index == questions.length
-                          ? _AskSummaryPage(
-                              questions: questions,
-                              singleAnswers: _singleAnswers,
-                              onResetAll: _resetAll,
-                              onSubmitAll: _sendAllAnswers,
-                              onGoToPage: _goToPage,
-                            )
-                          : _AskQuestionLayout(
-                              question: questions[index],
-                              questionIndex: index,
-                              isMultiQuestion: true,
-                              allowsCustomInput: true,
-                              singleAnswers: _singleAnswers,
-                              multiAnswers: _multiAnswers,
-                              customInputs: _customInputs,
-                              getOrCreateController: _getOrCreateController,
-                              onAnswerSingle: _onAnswerSingle,
-                              onToggleMultiSelectLabel: _toggleMultiSelectLabel,
-                              onConfirmMultiSelect: _confirmMultiSelect,
-                              onSubmitCustomText: _submitCustomText,
-                              onCustomTextChanged: _onCustomTextChanged,
-                              onShowCustomInput: _showCustomInput,
+              if (_isMultiQuestion) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    value: (_currentPage + 1) / totalPages,
+                    minHeight: 3,
+                    backgroundColor: cs.outlineVariant.withValues(alpha: 0.5),
+                    valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Flexible(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) =>
+                        ExpandablePageView.builder(
+                          controller: _pageController,
+                          itemCount: totalPages,
+                          onPageChanged: _onPageChanged,
+                          itemBuilder: (context, index) {
+                            final child = index == questions.length
+                                ? _AskSummaryPage(
+                                    questions: questions,
+                                    singleAnswers: _singleAnswers,
+                                    onResetAll: _resetAll,
+                                    onSubmitAll: _sendAllAnswers,
+                                    onGoToPage: _goToPage,
+                                  )
+                                : _AskQuestionLayout(
+                                    question: questions[index],
+                                    questionIndex: index,
+                                    isMultiQuestion: true,
+                                    allowsCustomInput: true,
+                                    singleAnswers: _singleAnswers,
+                                    multiAnswers: _multiAnswers,
+                                    customInputs: _customInputs,
+                                    getOrCreateController:
+                                        _getOrCreateController,
+                                    onAnswerSingle: _onAnswerSingle,
+                                    onToggleMultiSelectLabel:
+                                        _toggleMultiSelectLabel,
+                                    onConfirmMultiSelect: _confirmMultiSelect,
+                                    onSubmitCustomText: _submitCustomText,
+                                    onCustomTextChanged: _onCustomTextChanged,
+                                    onShowCustomInput: _showCustomInput,
+                                  );
+                            return _BoundedQuestionScrollView(
+                              key: ValueKey(
+                                index == questions.length
+                                    ? 'ask_summary_scroll_view'
+                                    : 'ask_question_${index}_scroll_view',
+                              ),
+                              maxHeight: constraints.maxHeight,
+                              child: child,
                             );
-                      return _BoundedQuestionScrollView(
-                        key: ValueKey(
-                          index == questions.length
-                              ? 'ask_summary_scroll_view'
-                              : 'ask_question_${index}_scroll_view',
+                          },
                         ),
-                        maxHeight: constraints.maxHeight,
-                        child: child,
-                      );
-                    },
                   ),
                 ),
-              ),
-            ] else ...[
-              Flexible(
-                child: SingleChildScrollView(
-                  key: const ValueKey('ask_single_question_scroll_view'),
-                  child: _AskQuestionLayout(
-                    question: questions.first,
-                    questionIndex: 0,
-                    isMultiQuestion: false,
-                    allowsCustomInput: _singleQuestionAllowsCustomInput,
-                    singleAnswers: _singleAnswers,
-                    multiAnswers: _multiAnswers,
-                    customInputs: _customInputs,
-                    getOrCreateController: _getOrCreateController,
-                    onAnswerSingle: _onAnswerSingle,
-                    onToggleMultiSelectLabel: _toggleMultiSelectLabel,
-                    onConfirmMultiSelect: _confirmMultiSelect,
-                    onSubmitCustomText: _submitCustomText,
-                    onCustomTextChanged: _onCustomTextChanged,
-                    onShowCustomInput: _showCustomInput,
-                    alwaysShowTextInput:
-                        !_singleQuestionIsMultiSelect &&
-                        _singleQuestionAllowsCustomInput,
+              ] else ...[
+                Flexible(
+                  child: SingleChildScrollView(
+                    key: const ValueKey('ask_single_question_scroll_view'),
+                    child: _AskQuestionLayout(
+                      question: questions.first,
+                      questionIndex: 0,
+                      isMultiQuestion: false,
+                      allowsCustomInput: _singleQuestionAllowsCustomInput,
+                      singleAnswers: _singleAnswers,
+                      multiAnswers: _multiAnswers,
+                      customInputs: _customInputs,
+                      getOrCreateController: _getOrCreateController,
+                      onAnswerSingle: _onAnswerSingle,
+                      onToggleMultiSelectLabel: _toggleMultiSelectLabel,
+                      onConfirmMultiSelect: _confirmMultiSelect,
+                      onSubmitCustomText: _submitCustomText,
+                      onCustomTextChanged: _onCustomTextChanged,
+                      onShowCustomInput: _showCustomInput,
+                      alwaysShowTextInput:
+                          !_singleQuestionIsMultiSelect &&
+                          _singleQuestionAllowsCustomInput,
+                    ),
                   ),
                 ),
-              ),
+              ],
+              if (_singleQuestionIsMultiSelect) ...[
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    key: const ValueKey('ask_submit_multi_single_button'),
+                    onPressed: _allQuestionsAnswered ? _sendAllAnswers : null,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: Text(
+                      _allQuestionsAnswered
+                          ? l.submitWithCount(_multiAnswers[0]?.length ?? 0)
+                          : l.selectOptionsToSubmit,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ],
-            if (_singleQuestionIsMultiSelect) ...[
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  key: const ValueKey('ask_submit_multi_single_button'),
-                  onPressed: _allQuestionsAnswered ? _sendAllAnswers : null,
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                  ),
-                  child: Text(
-                    _allQuestionsAnswered
-                        ? l.submitWithCount(_multiAnswers[0]?.length ?? 0)
-                        : l.selectOptionsToSubmit,
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                ),
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );
@@ -603,7 +644,9 @@ class _AskQuestionLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appColors = Theme.of(context).extension<AppColors>()!;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     final l = AppLocalizations.of(context);
 
     final header = question['header'] as String?;
@@ -612,46 +655,56 @@ class _AskQuestionLayout extends StatelessWidget {
     final isMulti = question['multiSelect'] as bool? ?? false;
     final isSecret = question['isSecret'] as bool? ?? false;
 
-    final content = Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (header != null && header.isNotEmpty)
+        if (header != null && header.isNotEmpty) ...[
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: appColors.askIcon.withValues(alpha: 0.12),
+              color: cs.onSurface.withValues(alpha: isDark ? 0.08 : 0.05),
               borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: cs.outlineVariant.withValues(alpha: 0.65),
+                width: 0.75,
+              ),
             ),
             child: Text(
               header,
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: appColors.askIcon,
+                color: cs.onSurfaceVariant,
               ),
             ),
           ),
-        if (header != null && header.isNotEmpty) const SizedBox(height: 4),
+          const SizedBox(height: 6),
+        ],
         GoogleSearchSelectionArea(
           child: Text(
             text,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: cs.onSurface,
+              height: 1.35,
+            ),
           ),
         ),
         if (isMulti) ...[
-          const SizedBox(height: 2),
+          const SizedBox(height: 3),
           Text(
             l.selectAllThatApply,
-            style: TextStyle(fontSize: 11, color: appColors.subtleText),
+            style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant),
           ),
         ],
         if (options.isNotEmpty) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           for (final opt in options)
             if (opt is Map<String, dynamic>)
               Padding(
-                padding: const EdgeInsets.only(bottom: 4),
+                padding: const EdgeInsets.only(bottom: 6),
                 child: AskQuestionOptionButton(
                   optionKey: ValueKey(
                     'ask_option_${questionIndex}_${opt['label'] as String? ?? ''}',
@@ -696,14 +749,23 @@ class _AskQuestionLayout extends StatelessWidget {
                   ? () => onConfirmMultiSelect(questionIndex)
                   : null,
               style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                padding: const EdgeInsets.symmetric(vertical: 11),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
-              child: Text(l.next, style: const TextStyle(fontSize: 13)),
+              child: Text(
+                l.next,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ),
         ],
         if (alwaysShowTextInput) ...[
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           _AskTextInputRow(
             controller: getOrCreateController(questionIndex),
             hintText: l.typeYourAnswer,
@@ -728,8 +790,6 @@ class _AskQuestionLayout extends StatelessWidget {
         ],
       ],
     );
-
-    return content;
   }
 }
 
@@ -757,6 +817,7 @@ class _AskOtherAnswerSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final cs = Theme.of(context).colorScheme;
     if (isCustomInputShown) {
       return _AskTextInputRow(
         controller: controller,
@@ -777,7 +838,8 @@ class _AskOtherAnswerSection extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
           minimumSize: Size.zero,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          textStyle: const TextStyle(fontSize: 11),
+          foregroundColor: cs.onSurfaceVariant,
+          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
         ),
         child: Text(l.otherAnswer),
       ),
@@ -807,6 +869,9 @@ class _AskTextInputRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     final canSubmit = controller.text.trim().isNotEmpty;
 
     return Row(
@@ -827,17 +892,32 @@ class _AskTextInputRow extends StatelessWidget {
             textInputAction: TextInputAction.newline,
             decoration: InputDecoration(
               hintText: hintText,
+              hintStyle: TextStyle(
+                fontSize: 13,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.75),
+              ),
               filled: true,
-              fillColor: Theme.of(context).colorScheme.surface
-                  .withValues(alpha: 0.8),
+              fillColor: isDark ? cs.surface : cs.surfaceContainerLow,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(
+                  color: cs.outlineVariant.withValues(alpha: 0.8),
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(
+                  color: cs.outlineVariant.withValues(alpha: 0.8),
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: cs.primary, width: 1.5),
               ),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 12,
-                vertical: 8,
+                vertical: 9,
               ),
             ),
             style: const TextStyle(fontSize: 13),
@@ -853,12 +933,15 @@ class _AskTextInputRow extends StatelessWidget {
                   }
                 : null,
             style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              minimumSize: Size.zero,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              minimumSize: const Size(0, 38),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             child: Text(
               submitLabel ?? l.send,
-              style: const TextStyle(fontSize: 13),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -885,14 +968,23 @@ class _AskSummaryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final cs = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final buttonShape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(10),
+    );
 
-    final content = Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           l.submitAllAnswers,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+          style: TextStyle(
+            fontSize: 13.5,
+            fontWeight: FontWeight.w600,
+            color: cs.onSurface,
+          ),
         ),
         const SizedBox(height: 8),
         for (var i = 0; i < questions.length; i++) ...[
@@ -904,14 +996,31 @@ class _AskSummaryPage extends StatelessWidget {
           ),
           if (i < questions.length - 1) const SizedBox(height: 6),
         ],
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
               child: OutlinedButton(
                 key: const ValueKey('ask_reset_button'),
                 onPressed: onResetAll,
-                child: Text(l.cancel),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  minimumSize: const Size(0, 40),
+                  foregroundColor: cs.onSurfaceVariant,
+                  side: BorderSide(
+                    color: cs.outlineVariant.withValues(
+                      alpha: isDark ? 0.85 : 1.0,
+                    ),
+                  ),
+                  shape: buttonShape,
+                ),
+                child: Text(
+                  l.cancel,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 8),
@@ -920,18 +1029,25 @@ class _AskSummaryPage extends StatelessWidget {
                 key: const ValueKey('ask_submit_summary_button'),
                 onPressed: onSubmitAll,
                 style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  minimumSize: const Size(0, 40),
                   backgroundColor: cs.primary,
                   foregroundColor: cs.onPrimary,
+                  shape: buttonShape,
                 ),
-                child: Text(l.submitAllAnswers),
+                child: Text(
+                  l.submitAllAnswers,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ),
           ],
         ),
       ],
     );
-
-    return content;
   }
 }
 
@@ -951,7 +1067,9 @@ class _AskSummaryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final cs = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     final header = question['header'] as String? ?? 'Q${index + 1}';
     final answerText = answer?.trim();
     final displayAnswer = answerText == null || answerText.isEmpty
@@ -961,13 +1079,21 @@ class _AskSummaryRow extends StatelessWidget {
         : answer!;
 
     return Material(
-      color: cs.surface.withValues(alpha: 0.6),
+      color: isDark
+          ? cs.onSurface.withValues(alpha: 0.045)
+          : cs.surfaceContainerLow,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: onEdit,
         borderRadius: BorderRadius.circular(10),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: cs.outlineVariant.withValues(alpha: isDark ? 0.7 : 0.8),
+            ),
+          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -984,7 +1110,10 @@ class _AskSummaryRow extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(displayAnswer, style: const TextStyle(fontSize: 12)),
+                    Text(
+                      displayAnswer,
+                      style: TextStyle(fontSize: 12.5, color: cs.onSurface),
+                    ),
                   ],
                 ),
               ),

@@ -642,5 +642,36 @@ void main() {
         expect(find.text('常に許可'), findsNothing);
       },
     );
+
+    testWidgets(
+      'uses calm neutral secondary button instead of error styling and code font for primary target',
+      (tester) async {
+        await tester.pumpWidget(
+          buildSubject(
+            pendingPermission: const PermissionRequestMessage(
+              toolUseId: 'tu-style',
+              toolName: 'Bash',
+              input: {
+                'command': 'flutter test',
+                'availableDecisions': ['accept', 'acceptForSession', 'decline'],
+              },
+            ),
+          ),
+        );
+
+        final alwaysButton = tester.widget<FilledButton>(
+          find.byKey(const ValueKey('approve_always_button')),
+        );
+        final errorColor = AppTheme.darkTheme.colorScheme.error;
+        final resolvedFg = alwaysButton.style?.foregroundColor?.resolve({});
+        final resolvedSide = alwaysButton.style?.side?.resolve({});
+        expect(resolvedFg, isNot(errorColor));
+        expect(resolvedSide?.color, isNot(errorColor.withValues(alpha: 0.5)));
+
+        final targetText = tester.widget<Text>(find.text('flutter test'));
+        expect(targetText.style?.fontFamily, 'JetBrainsMono');
+        expect(targetText.style?.fontFamilyFallback, contains('monospace'));
+      },
+    );
   });
 }
