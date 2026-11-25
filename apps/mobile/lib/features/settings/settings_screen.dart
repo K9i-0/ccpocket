@@ -104,8 +104,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         final visibility = _currentVisibility();
-        if (visibleSettingsCategories(visibility)
-            .contains(widget.initialCategory)) {
+        if (visibleSettingsCategories(
+          visibility,
+          includeInline: _isTwoPane,
+        ).contains(widget.initialCategory)) {
           _openCategory(widget.initialCategory!);
         }
       });
@@ -165,7 +167,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         : (null, null);
     if (category == null) return;
     if (entryId == null) {
-      if (visibleSettingsCategories(visibility).contains(category)) {
+      if (visibleSettingsCategories(
+        visibility,
+        includeInline: _isTwoPane,
+      ).contains(category)) {
         _openCategory(category);
       }
       return;
@@ -181,9 +186,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _openCategory(SettingsCategory category, {String? entryId}) {
-    if (inlineSettingsCategories.contains(category)) {
-      // Inline categories live on the home: close any open page so a single
-      // back gesture leaves settings, and reveal the row in place.
+    if (!_isTwoPane && inlineSettingsCategories.contains(category)) {
+      // Inline categories live on the home in single-pane layouts: close any
+      // open page so a single back gesture leaves settings, and reveal the row
+      // in place.
       final route = _categoryRoute;
       if (route != null && route.isActive) {
         Navigator.of(context).removeRoute(route);
@@ -282,7 +288,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           return SettingsVisibilityBuilder(
             environment: _environment,
             builder: (context, state, visibility, env) {
-              final categories = visibleSettingsCategories(visibility);
+              final categories = visibleSettingsCategories(
+                visibility,
+                includeInline: true,
+              );
               final selected = categories.contains(_selectedCategory)
                   ? _selectedCategory!
                   : categories.first;
@@ -296,6 +305,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       environment: _environment,
                       highlight: _homeHighlight,
                       selectedCategory: selected,
+                      isTwoPane: true,
                       onOpenCategory: _openCategory,
                       onUpdateBridge: _updateBridgeFromSettings,
                     ),
@@ -318,6 +328,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           createLocalBridgeCubit: widget.createLocalBridgeCubit,
                           highlight: _highlight,
                           showHeader: true,
+                          allowInlineCategories: true,
                         ),
                       ),
                     ),

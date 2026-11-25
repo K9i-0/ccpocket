@@ -716,7 +716,18 @@ void main() {
           DesktopMenuAction.checkForUpdates,
         );
         await tester.pump();
+        await tester.pump(const Duration(milliseconds: 250));
         expect(updateChecks, 1);
+        expect(
+          find.byKey(const ValueKey('check_for_updates_dialog')),
+          findsOneWidget,
+        );
+        expect(find.byType(SnackBar), findsNothing);
+        await tester.tap(
+          find.byKey(const ValueKey('check_for_updates_ok_button')),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 250));
 
         await harness.triggerNativeMenuAction(
           tester,

@@ -22,12 +22,17 @@ class SettingsStatusCard extends StatelessWidget {
     required this.visibility,
     required this.onOpenCategory,
     required this.onUpdateBridge,
+    this.showInlineUsage = true,
   });
 
   final SettingsState state;
   final SettingsVisibility visibility;
   final ValueChanged<SettingsCategory> onOpenCategory;
   final ValueChanged<MachineWithStatus> onUpdateBridge;
+
+  /// Renders plan usage inline inside the status card (single-pane mobile).
+  /// In two-pane desktop settings, usage opens in the wider detail pane.
+  final bool showInlineUsage;
 
   @override
   Widget build(BuildContext context) {
@@ -72,7 +77,7 @@ class SettingsStatusCard extends StatelessWidget {
                   )
                 else
                   _DisconnectedStatus(accent: accent),
-                if (visibility.bridgeConnected) ...[
+                if (showInlineUsage && visibility.bridgeConnected) ...[
                   Divider(
                     height: 1,
                     indent: 18,

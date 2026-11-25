@@ -24,6 +24,7 @@ import '../../features/settings/models/settings_catalog.dart';
 import '../../features/settings/sections/shortcuts_settings_section.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/settings/state/settings_state.dart';
+import '../../features/settings/widgets/check_for_updates_dialog.dart';
 import '../../features/settings/widgets/keyboard_shortcuts_dialog.dart';
 import '../../features/setup_guide/setup_guide_screen.dart';
 import '../../l10n/app_localizations.dart';
@@ -959,47 +960,11 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
   Future<void> _handleCheckForUpdates() async {
     if (_checkingForUpdates || !mounted) return;
     setState(() => _checkingForUpdates = true);
-    final l = AppLocalizations.of(context);
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    messenger
-      ?..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(l.settingsCheckingForUpdates)));
     try {
-      final update =
-          await (widget.checkForUpdatesOverride?.call() ??
-              AppUpdateService.instance.checkForUpdate(force: true));
-      if (!mounted) return;
-      final currentL = AppLocalizations.of(context);
-      final currentMessenger = ScaffoldMessenger.maybeOf(context);
-      if (update != null) {
-        currentMessenger
-          ?..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(
-              content: Text(currentL.appUpdateAvailable(update.latestVersion)),
-              action: SnackBarAction(
-                label: update.canInstallInApp
-                    ? currentL.update
-                    : currentL.download,
-                onPressed: () {
-                  unawaited(AppUpdateService.instance.performUpdate(update));
-                },
-              ),
-            ),
-          );
-      } else {
-        currentMessenger
-          ?..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(currentL.settingsUpToDate)));
-      }
-    } catch (_) {
-      if (!mounted) return;
-      final currentL = AppLocalizations.of(context);
-      ScaffoldMessenger.maybeOf(context)
-        ?..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(content: Text(currentL.settingsUpdateCheckFailed)),
-        );
+      await showCheckForUpdatesDialog(
+        context,
+        checkForUpdates: widget.checkForUpdatesOverride,
+      );
     } finally {
       if (mounted) {
         setState(() => _checkingForUpdates = false);

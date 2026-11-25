@@ -542,12 +542,17 @@ List<SettingsEntry> visibleSettingsEntries(
 const Set<SettingsCategory> inlineSettingsCategories = {SettingsCategory.usage};
 
 /// Page categories that have at least one visible entry.
+///
+/// Set [includeInline] to `true` in two-pane layouts where categories such as
+/// [SettingsCategory.usage] are promoted out of the narrow sidebar status card
+/// into the wide detail pane.
 List<SettingsCategory> visibleSettingsCategories(
-  SettingsVisibility visibility,
-) {
+  SettingsVisibility visibility, {
+  bool includeInline = false,
+}) {
   return [
     for (final category in SettingsCategory.values)
-      if (!inlineSettingsCategories.contains(category) &&
+      if ((includeInline || !inlineSettingsCategories.contains(category)) &&
           visibleSettingsEntries(category, visibility).isNotEmpty)
         category,
   ];

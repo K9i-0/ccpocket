@@ -35,6 +35,7 @@ class SettingsHome extends StatefulWidget {
     required this.onUpdateBridge,
     this.selectedCategory,
     this.highlight,
+    this.isTwoPane = false,
   });
 
   final ValueListenable<SettingsEnvironment> environment;
@@ -46,6 +47,9 @@ class SettingsHome extends StatefulWidget {
 
   /// Row on the home itself (e.g. usage in the status card) to reveal.
   final SettingsHighlightRequest? highlight;
+
+  /// Whether this home list is rendered as the sidebar of a two-pane layout.
+  final bool isTwoPane;
 
   @override
   State<SettingsHome> createState() => _SettingsHomeState();
@@ -61,10 +65,11 @@ class _SettingsHomeState extends State<SettingsHome> {
     super.dispose();
   }
 
-  /// Usage lives in the status card, so the whole card is its search /
-  /// deep-link target.
+  /// Usage lives in the status card on single-pane layouts, so the whole card
+  /// is its search / deep-link target. In two-pane mode, usage has its own
+  /// detail pane instead.
   Widget _maybeUsageItem(SettingsVisibility visibility, Widget card) {
-    if (!visibility.bridgeConnected) return card;
+    if (widget.isTwoPane || !visibility.bridgeConnected) return card;
     return SettingsItem(id: SettingsEntryIds.usage, framed: true, child: card);
   }
 
@@ -102,6 +107,7 @@ class _SettingsHomeState extends State<SettingsHome> {
                 SettingsStatusCard(
                   state: state,
                   visibility: visibility,
+                  showInlineUsage: !widget.isTwoPane,
                   onOpenCategory: (category) => widget.onOpenCategory(category),
                   onUpdateBridge: widget.onUpdateBridge,
                 ),
@@ -117,6 +123,7 @@ class _SettingsHomeState extends State<SettingsHome> {
               _CategoryList(
                 state: state,
                 visibility: visibility,
+                isTwoPane: widget.isTwoPane,
                 selectedCategory: widget.selectedCategory,
                 onOpenCategory: widget.onOpenCategory,
               )
@@ -198,12 +205,14 @@ class _CategoryList extends StatelessWidget {
   const _CategoryList({
     required this.state,
     required this.visibility,
+    required this.isTwoPane,
     required this.selectedCategory,
     required this.onOpenCategory,
   });
 
   final SettingsState state;
   final SettingsVisibility visibility;
+  final bool isTwoPane;
   final SettingsCategory? selectedCategory;
   final SettingsOpenCategory onOpenCategory;
 
@@ -211,6 +220,7 @@ class _CategoryList extends StatelessWidget {
     [
       SettingsCategory.connection,
       SettingsCategory.localBridge,
+      SettingsCategory.usage,
       SettingsCategory.notifications,
     ],
     [
@@ -225,7 +235,10 @@ class _CategoryList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final visible = visibleSettingsCategories(visibility).toSet();
+    final visible = visibleSettingsCategories(
+      visibility,
+      includeInline: isTwoPane,
+    ).toSet();
     final machineState = context.watch<MachineManagerCubit>().state;
     final bridge = context.read<BridgeService>();
     final machineName = activeMachineWithStatus(

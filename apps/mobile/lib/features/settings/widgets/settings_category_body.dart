@@ -36,6 +36,7 @@ class SettingsCategoryBody extends StatelessWidget {
     this.createLocalBridgeCubit,
     this.highlight,
     this.showHeader = false,
+    this.allowInlineCategories = false,
   });
 
   final SettingsCategory category;
@@ -48,6 +49,9 @@ class SettingsCategoryBody extends StatelessWidget {
   /// Shows a large title, used in the two-pane layout.
   final bool showHeader;
 
+  /// Allows rendering inline categories (such as Usage) in the detail pane.
+  final bool allowInlineCategories;
+
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
@@ -58,13 +62,16 @@ class SettingsCategoryBody extends StatelessWidget {
         child: SettingsVisibilityBuilder(
           environment: environment,
           builder: (context, state, visibility, env) {
-            if (!visibleSettingsCategories(visibility).contains(category)) {
+            if (!visibleSettingsCategories(
+              visibility,
+              includeInline: allowInlineCategories,
+            ).contains(category)) {
               // e.g. the Bridge disconnected while this page was open.
               return const _CategoryUnavailable();
             }
             if (category == SettingsCategory.localBridge) {
               return Column(
-                key: const PageStorageKey('settings_category_localBridge'),
+                key: const ValueKey('settings_category_localBridge'),
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (showHeader) _CategoryHeader(category: category),

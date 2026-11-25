@@ -146,63 +146,73 @@ class LocalBridgeToolTile extends StatelessWidget {
     ].join(' · ');
     final docsUrl = Uri.tryParse(tool.docsUrl);
 
-    return ExpansionTile(
+    // Give ExpansionTile its own PageStorageKey so it never inherits a parent
+    // scrollable's PageStorageKey (which stores a double scroll offset and
+    // throws a cast error when ExpansionTile reads bool? on remount).
+    return KeyedSubtree(
       key: ValueKey('local_bridge_tool_tile:${tool.id}'),
-      shape: const Border(),
-      collapsedShape: const Border(),
-      leading: Icon(icon, color: color),
-      title: Text(tool.name),
-      subtitle: Text(subtitle),
-      initiallyExpanded: state != _ToolState.ready && !optional,
-      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-      expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          _description(l),
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: cs.onSurfaceVariant,
-          ),
+      child: ExpansionTile(
+        key: PageStorageKey<String>(
+          'local_bridge_tool_tile_expanded:${tool.id}',
         ),
-        if (tool.message != null) ...[
-          const SizedBox(height: 4),
-          Text(tool.message!, style: theme.textTheme.bodySmall),
-        ],
-        if (state == _ToolState.missing && tool.installCommands.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          Text(l.localBridgeToolInstall, style: theme.textTheme.labelMedium),
-          for (final command in tool.installCommands) ...[
-            const SizedBox(height: 6),
-            CopyableCommand(command: command.command, label: command.label),
-          ],
-        ],
-        if (state == _ToolState.needsSetup && tool.setupCommand != null) ...[
-          const SizedBox(height: 10),
-          Text(l.localBridgeToolSetup, style: theme.textTheme.labelMedium),
-          const SizedBox(height: 6),
-          CopyableCommand(command: tool.setupCommand!),
-        ],
-        if (state != _ToolState.ready &&
-            (tool.installCommands.isNotEmpty || tool.setupCommand != null)) ...[
-          const SizedBox(height: 6),
+        shape: const Border(),
+        collapsedShape: const Border(),
+        leading: Icon(icon, color: color),
+        title: Text(tool.name),
+        subtitle: Text(subtitle),
+        initiallyExpanded: state != _ToolState.ready && !optional,
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+        expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
           Text(
-            l.localBridgeToolRunInTerminal,
+            _description(l),
             style: theme.textTheme.bodySmall?.copyWith(
               color: cs.onSurfaceVariant,
             ),
           ),
-        ],
-        if (docsUrl != null)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              key: ValueKey('local_bridge_tool_docs_button:${tool.id}'),
-              onPressed: () =>
-                  launchUrl(docsUrl, mode: LaunchMode.externalApplication),
-              icon: const Icon(Icons.open_in_new_rounded, size: 16),
-              label: Text(l.localBridgeToolDocs),
+          if (tool.message != null) ...[
+            const SizedBox(height: 4),
+            Text(tool.message!, style: theme.textTheme.bodySmall),
+          ],
+          if (state == _ToolState.missing &&
+              tool.installCommands.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(l.localBridgeToolInstall, style: theme.textTheme.labelMedium),
+            for (final command in tool.installCommands) ...[
+              const SizedBox(height: 6),
+              CopyableCommand(command: command.command, label: command.label),
+            ],
+          ],
+          if (state == _ToolState.needsSetup && tool.setupCommand != null) ...[
+            const SizedBox(height: 10),
+            Text(l.localBridgeToolSetup, style: theme.textTheme.labelMedium),
+            const SizedBox(height: 6),
+            CopyableCommand(command: tool.setupCommand!),
+          ],
+          if (state != _ToolState.ready &&
+              (tool.installCommands.isNotEmpty ||
+                  tool.setupCommand != null)) ...[
+            const SizedBox(height: 6),
+            Text(
+              l.localBridgeToolRunInTerminal,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
             ),
-          ),
-      ],
+          ],
+          if (docsUrl != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                key: ValueKey('local_bridge_tool_docs_button:${tool.id}'),
+                onPressed: () =>
+                    launchUrl(docsUrl, mode: LaunchMode.externalApplication),
+                icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                label: Text(l.localBridgeToolDocs),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

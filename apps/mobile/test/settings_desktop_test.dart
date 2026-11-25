@@ -9,8 +9,11 @@ import 'package:ccpocket/features/settings/sections/connection_settings_section.
 import 'package:ccpocket/features/settings/sections/shortcuts_settings_section.dart';
 import 'package:ccpocket/features/settings/settings_screen.dart';
 import 'package:ccpocket/features/settings/state/settings_cubit.dart';
+import 'package:ccpocket/features/settings/widgets/check_for_updates_dialog.dart';
 import 'package:ccpocket/features/settings/widgets/connected_bridge_tools_card.dart';
 import 'package:ccpocket/features/settings/widgets/keyboard_shortcuts_dialog.dart';
+import 'package:ccpocket/features/settings/widgets/settings_status_card.dart';
+import 'package:ccpocket/features/settings/widgets/usage_section.dart';
 import 'package:ccpocket/features/session_list/widgets/machine_edit_sheet.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/l10n/app_localizations_delegates.dart';
@@ -886,6 +889,304 @@ void main() {
       );
       expect(find.byType(AppBar), findsNothing);
       expect(find.text('Running'), findsOneWidget);
+    });
+
+    testWidgets(
+      'LocalBridgeToolsCard does not crash when scrolled out and back inside PageStorage',
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+      (tester) async {
+        tester.view.physicalSize = const Size(960, 620);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+
+        SharedPreferences.setMockInitialValues({});
+        final prefs = await SharedPreferences.getInstance();
+        final settingsCubit = _SeededSettingsCubit(
+          prefs,
+          activeMachineId: null,
+        );
+        final manager = MachineManagerService(prefs, _FakeSecureStorage());
+        final machineCubit = _createMachineManagerCubit(manager);
+        final bridge = _TestBridgeService(connected: false);
+        final fakeLocal = FakeLocalBridge();
+
+        await tester.pumpWidget(
+          MultiRepositoryProvider(
+            providers: [
+              RepositoryProvider<BridgeService>.value(value: bridge),
+              RepositoryProvider<RevenueCatService>.value(
+                value: RevenueCatService(),
+              ),
+              RepositoryProvider<DatabaseService>.value(
+                value: DatabaseService(),
+              ),
+              RepositoryProvider<InAppReviewService>.value(
+                value: InAppReviewService(prefs: prefs),
+              ),
+            ],
+            child: MultiBlocProvider(
+              providers: [
+                BlocProvider<SettingsCubit>.value(value: settingsCubit),
+                BlocProvider<MachineManagerCubit>.value(value: machineCubit),
+              ],
+              child: MaterialApp(
+                locale: const Locale('en'),
+                localizationsDelegates: appLocalizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                home: SettingsScreen(
+                  initialCategory: SettingsCategory.localBridge,
+                  createLocalBridgeCubit: () => LocalBridgeCubit(
+                    clientFactory: fakeLocal.client,
+                    launcher: FakeLauncher(fakeLocal, available: false),
+                    startTimeout: const Duration(seconds: 1),
+                    restartPollInterval: const Duration(milliseconds: 10),
+                    restartTimeout: const Duration(seconds: 1),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final list = find.byKey(const ValueKey('local_bridge_list'));
+        expect(list, findsOneWidget);
+
+        // Scroll far past the tools card so its ExpansionTiles unmount, then
+        // scroll back up so they remount and read PageStorage.
+        await tester.drag(list, const Offset(0, -1400));
+        await tester.pumpAndSettle();
+        await tester.drag(list, const Offset(0, 1400));
+        await tester.pumpAndSettle();
+        await tester.scrollUntilVisible(
+          find.byKey(const ValueKey('local_bridge_tools_card')),
+          250,
+          scrollable: find
+              .descendant(of: list, matching: find.byType(Scrollable))
+              .first,
+        );
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(
+          find.byKey(const ValueKey('local_bridge_tool_tile:node')),
+          findsOneWidget,
+        );
+        expect(find.text('Node.js'), findsOneWidget);
+
+        await settingsCubit.close();
+        await machineCubit.close();
+        bridge.dispose();
+      },
+    );
+  });
+
+  group('Two-pane Usage detail pane', () {
+    testWidgets(
+      'moves Usage out of narrow status card into right detail pane in two-pane mode',
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+      (tester) async {
+        tester.view.physicalSize = const Size(960, 800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+
+        SharedPreferences.setMockInitialValues({});
+        final prefs = await SharedPreferences.getInstance();
+        final settingsCubit = _SeededSettingsCubit(
+          prefs,
+          activeMachineId: 'machine-1',
+        );
+        final machineService = _StaticMachineManagerService([
+          MachineWithStatus(
+            machine: Machine(
+              id: 'machine-1',
+              name: 'Local Mac',
+              host: 'localhost',
+              port: 8765,
+            ),
+            status: MachineStatus.online,
+            versionInfo: BridgeVersionInfo(version: recommendedBridgeVersion),
+          ),
+        ]);
+        final machineCubit = _createMachineManagerCubit(machineService);
+        final bridge = _TestBridgeService(
+          connected: true,
+          fakeLastUrl: 'ws://localhost:8765',
+        );
+
+        await tester.pumpWidget(
+          MultiRepositoryProvider(
+            providers: [
+              RepositoryProvider<BridgeService>.value(value: bridge),
+              RepositoryProvider<RevenueCatService>.value(
+                value: RevenueCatService(),
+              ),
+              RepositoryProvider<DatabaseService>.value(
+                value: DatabaseService(),
+              ),
+              RepositoryProvider<InAppReviewService>.value(
+                value: InAppReviewService(prefs: prefs),
+              ),
+            ],
+            child: MultiBlocProvider(
+              providers: [
+                BlocProvider<SettingsCubit>.value(value: settingsCubit),
+                BlocProvider<MachineManagerCubit>.value(value: machineCubit),
+              ],
+              child: const MaterialApp(
+                locale: Locale('en'),
+                localizationsDelegates: appLocalizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                home: SettingsScreen(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Inline UsageSection is omitted from the narrow sidebar status card.
+        expect(
+          find.descendant(
+            of: find.byType(SettingsStatusCard),
+            matching: find.byType(UsageSection),
+          ),
+          findsNothing,
+        );
+        // Usage appears as a dedicated category in the sidebar.
+        final usageTile = find.byKey(const ValueKey('settings_category_usage'));
+        expect(usageTile, findsOneWidget);
+
+        await tester.tap(usageTile);
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const ValueKey('settings_detail_usage')),
+          findsOneWidget,
+        );
+        expect(find.byType(UsageSection), findsOneWidget);
+
+        await settingsCubit.close();
+        await machineCubit.close();
+        machineService.dispose();
+        bridge.dispose();
+      },
+    );
+  });
+
+  group('showCheckForUpdatesDialog', () {
+    testWidgets('shows up-to-date dialog without SnackBar', (tester) async {
+      await tester.pumpWidget(
+        _wrapWithApp(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () => showCheckForUpdatesDialog(
+                context,
+                checkForUpdates: () async => null,
+              ),
+              child: const Text('Check'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Check'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('check_for_updates_dialog')),
+        findsOneWidget,
+      );
+      expect(find.text("You're up to date"), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
+
+      await tester.tap(
+        find.byKey(const ValueKey('check_for_updates_ok_button')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('check_for_updates_dialog')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('shows available update and triggers install action', (
+      tester,
+    ) async {
+      AppUpdateInfo? installed;
+      const info = AppUpdateInfo(
+        latestVersion: '1.183.0',
+        currentVersion: '1.182.0',
+        downloadUrl: 'https://example.com/app.dmg',
+        releaseUrl: 'https://example.com/release',
+        installMode: AppUpdateInstallMode.nativeUpdater,
+      );
+
+      await tester.pumpWidget(
+        _wrapWithApp(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () => showCheckForUpdatesDialog(
+                context,
+                checkForUpdates: () async => info,
+                performUpdate: (update) async {
+                  installed = update;
+                },
+              ),
+              child: const Text('Check'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Check'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('check_for_updates_dialog')),
+        findsOneWidget,
+      );
+      expect(find.text('v1.182.0 → v1.183.0'), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
+
+      await tester.tap(
+        find.byKey(const ValueKey('check_for_updates_install_button')),
+      );
+      await tester.pumpAndSettle();
+      expect(installed, same(info));
+      expect(
+        find.byKey(const ValueKey('check_for_updates_dialog')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('supports retry after failure', (tester) async {
+      var attempts = 0;
+      await tester.pumpWidget(
+        _wrapWithApp(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () => showCheckForUpdatesDialog(
+                context,
+                checkForUpdates: () async {
+                  attempts++;
+                  if (attempts == 1) throw Exception('network');
+                  return null;
+                },
+              ),
+              child: const Text('Check'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Check'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Failed to check for updates'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey('check_for_updates_retry_button')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(attempts, 2);
+      expect(find.text("You're up to date"), findsOneWidget);
     });
   });
 }
