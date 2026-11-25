@@ -6,6 +6,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../theme/markdown_style.dart';
+import '../../widgets/google_search_text_selection.dart';
+import '../../widgets/link_hover_underline.dart';
 
 const _changelogUrl =
     'https://raw.githubusercontent.com/K9i-0/ccpocket/main/CHANGELOG.md';
@@ -196,10 +198,16 @@ class _ChangelogScreenState extends State<ChangelogScreen> {
     return Scrollbar(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        child: MarkdownBody(
-          data: displayMarkdown,
-          styleSheet: buildMarkdownStyle(context),
-          onTapLink: handleMarkdownLink,
+        child: GoogleSearchSelectionArea(
+          child: LinkHoverUnderline(
+            child: MarkdownBody(
+              data: displayMarkdown,
+              selectable: false,
+              styleSheet: buildMarkdownStyle(context),
+              onTapLink: handleMarkdownLink,
+              builders: markdownBuilders,
+            ),
+          ),
         ),
       ),
     );

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
+import '../google_search_text_selection.dart';
 
 /// Maximum number of non-in_progress items shown in collapsed state.
 const _maxCollapsedItems = 4;
@@ -90,97 +91,101 @@ class _TodoWriteWidgetState extends State<TodoWriteWidget> {
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         border: Border.all(color: appColors.toolBubbleBorder),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
-            child: Row(
-              children: [
-                Icon(Icons.checklist, size: 16, color: appColors.toolIcon),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '($completedCount/${todos.length})',
-                  style: TextStyle(fontSize: 12, color: appColors.subtleText),
-                ),
-              ],
-            ),
-          ),
-
-          if (explanation != null)
+      child: GoogleSearchSelectionArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-              child: Text(
-                explanation,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: appColors.subtleText,
-                  height: 1.25,
-                ),
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+              child: Row(
+                children: [
+                  Icon(Icons.checklist, size: 16, color: appColors.toolIcon),
+                  const SizedBox(width: 8),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '($completedCount/${todos.length})',
+                    style: TextStyle(fontSize: 12, color: appColors.subtleText),
+                  ),
+                ],
               ),
             ),
 
-          // Progress bar
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(2),
-              child: LinearProgressIndicator(
-                value: todos.isEmpty ? 0 : completedCount / todos.length,
-                minHeight: 4,
-                backgroundColor: appColors.toolBubbleBorder,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  Theme.of(context).colorScheme.primary,
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
-          // Current task (in_progress) - highlighted
-          if (inProgressItem != null) ...[
-            _TodoItemTile(item: inProgressItem, isHighlighted: true),
-            if (todos.length > 1)
+            if (explanation != null)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Divider(height: 1, color: appColors.toolBubbleBorder),
-              ),
-          ],
-
-          // Other tasks
-          ...visibleOthers.map((item) => _TodoItemTile(item: item)),
-
-          // Expand / collapse control
-          if (hasOverflow)
-            GestureDetector(
-              onTap: _toggleExpanded,
-              behavior: HitTestBehavior.opaque,
-              child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
                 child: Text(
-                  _expanded ? 'Show less' : '... and $hiddenCount more',
+                  explanation,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 12,
                     color: appColors.subtleText,
-                    fontStyle: FontStyle.italic,
+                    height: 1.25,
+                  ),
+                ),
+              ),
+
+            // Progress bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  value: todos.isEmpty ? 0 : completedCount / todos.length,
+                  minHeight: 4,
+                  backgroundColor: appColors.toolBubbleBorder,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    Theme.of(context).colorScheme.primary,
                   ),
                 ),
               ),
             ),
 
-          const SizedBox(height: 4),
-        ],
+            const SizedBox(height: 8),
+
+            // Current task (in_progress) - highlighted
+            if (inProgressItem != null) ...[
+              _TodoItemTile(item: inProgressItem, isHighlighted: true),
+              if (todos.length > 1)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Divider(height: 1, color: appColors.toolBubbleBorder),
+                ),
+            ],
+
+            // Other tasks
+            ...visibleOthers.map((item) => _TodoItemTile(item: item)),
+
+            // Expand / collapse control
+            if (hasOverflow)
+              SelectionContainer.disabled(
+                child: GestureDetector(
+                  onTap: _toggleExpanded,
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                    child: Text(
+                      _expanded ? 'Show less' : '... and $hiddenCount more',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: appColors.subtleText,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+            const SizedBox(height: 4),
+          ],
+        ),
       ),
     );
   }

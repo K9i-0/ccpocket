@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
@@ -361,7 +363,7 @@ class _CollapsedToolResult extends StatelessWidget {
 }
 
 /// Preview / Expanded: card with background + content.
-class _ExpandedToolResult extends StatelessWidget {
+class _ExpandedToolResult extends StatefulWidget {
   final ToolResultMessage message;
   final String? httpBaseUrl;
   final ToolCategory category;
@@ -385,14 +387,38 @@ class _ExpandedToolResult extends StatelessWidget {
   });
 
   @override
+  State<_ExpandedToolResult> createState() => _ExpandedToolResultState();
+}
+
+class _ExpandedToolResultState extends State<_ExpandedToolResult> {
+  Timer? _copiedResetTimer;
+  bool _copied = false;
+
+  @override
+  void dispose() {
+    _copiedResetTimer?.cancel();
+    super.dispose();
+  }
+
+  void _handleCopy() {
+    widget.onLongPress();
+    _copiedResetTimer?.cancel();
+    setState(() => _copied = true);
+    _copiedResetTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted) setState(() => _copied = false);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
     final l = AppLocalizations.of(context);
-    final content = message.content;
-    final toolName = message.toolName;
-    final hasMore = presentation.lineCount > _previewLines;
+    final content = widget.message.content;
+    final toolName = widget.message.toolName;
+    final hasMore =
+        widget.presentation.lineCount > _ExpandedToolResult._previewLines;
 
-    final chevronIcon = expansion == ToolResultExpansion.preview
+    final chevronIcon = widget.expansion == ToolResultExpansion.preview
         ? Icons.expand_more
         : Icons.expand_less;
 
@@ -401,33 +427,39 @@ class _ExpandedToolResult extends StatelessWidget {
         vertical: 2,
         horizontal: AppSpacing.bubbleMarginH,
       ),
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: onLongPress,
+      decoration: BoxDecoration(
+        color: appColors.toolResultBackground,
         borderRadius: BorderRadius.circular(AppSpacing.codeRadius),
-        child: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: appColors.toolResultBackground,
-            borderRadius: BorderRadius.circular(AppSpacing.codeRadius),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (message.images.isNotEmpty && httpBaseUrl != null) ...[
-                ImagePreviewWidget(
-                  images: message.images,
-                  httpBaseUrl: httpBaseUrl!,
-                ),
-                const SizedBox(height: 8),
-              ],
-              // Header row
-              Row(
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (widget.message.images.isNotEmpty &&
+              widget.httpBaseUrl != null) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
+              child: ImagePreviewWidget(
+                images: widget.message.images,
+                httpBaseUrl: widget.httpBaseUrl!,
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+          // Header row: InkWell is scoped strictly here so selecting body text
+          // never collapses or cycles the card.
+          InkWell(
+            key: const ValueKey('tool_result_header'),
+            onTap: widget.onTap,
+            onLongPress: widget.onLongPress,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
+              child: Row(
                 children: [
                   Icon(
-                    getToolCategoryIcon(category),
+                    getToolCategoryIcon(widget.category),
                     size: 14,
-                    color: getToolCategoryColor(category, appColors),
+                    color: getToolCategoryColor(widget.category, appColors),
                   ),
                   const SizedBox(width: 6),
                   Text(
@@ -440,7 +472,7 @@ class _ExpandedToolResult extends StatelessWidget {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      summary,
+                      widget.summary,
                       style: TextStyle(
                         fontSize: 11,
                         color: appColors.subtleText,
@@ -448,41 +480,81 @@ class _ExpandedToolResult extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  if (content.isNotEmpty)
+                    IconButton(
+                      key: const ValueKey('tool_result_copy_button'),
+                      icon: Icon(
+                        _copied ? Icons.check : Icons.copy_outlined,
+                        size: 14,
+                      ),
+                      color: _copied
+                          ? Theme.of(context).colorScheme.primary
+                          : appColors.subtleText,
+                      tooltip: _copied ? l.copied : l.copy,
+                      onPressed: _handleCopy,
+                      padding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                      constraints: const BoxConstraints.tightFor(
+                        width: 26,
+                        height: 24,
+                      ),
+                    ),
                   Icon(chevronIcon, size: 16, color: appColors.subtleText),
                 ],
               ),
-              // Content
-              if (presentation.diffFile case final diffFile?) ...[
-                const SizedBox(height: 6),
-                InlineEditDiff(diffFile: diffFile, onTapFullDiff: onTap),
-              ] else if (expansion == ToolResultExpansion.preview) ...[
-                const SizedBox(height: 6),
-                Text(
-                  presentation.previewText,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontFamily: 'monospace',
-                    color: appColors.toolResultText,
-                    height: 1.4,
-                  ),
-                  maxLines: _previewLines,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (hasMore)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
+            ),
+          ),
+          // Content
+          if (widget.presentation.diffFile case final diffFile?)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+              child: InlineEditDiff(
+                diffFile: diffFile,
+                onTapFullDiff: widget.onTap,
+              ),
+            )
+          else if (widget.expansion == ToolResultExpansion.preview)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  GoogleSearchSelectionArea(
                     child: Text(
-                      '... ${presentation.lineCount - _previewLines} more lines',
+                      widget.presentation.previewText,
                       style: TextStyle(
-                        fontSize: 10,
-                        fontStyle: FontStyle.italic,
-                        color: appColors.subtleText,
+                        fontSize: 11,
+                        fontFamily: 'monospace',
+                        color: appColors.toolResultText,
+                        height: 1.4,
                       ),
+                      maxLines: _ExpandedToolResult._previewLines,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-              ] else if (expansion == ToolResultExpansion.expanded) ...[
-                const SizedBox(height: 6),
-                SelectableText(
+                  if (hasMore)
+                    GestureDetector(
+                      onTap: widget.onTap,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          '... ${widget.presentation.lineCount - _ExpandedToolResult._previewLines} more lines',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontStyle: FontStyle.italic,
+                            color: appColors.subtleText,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            )
+          else if (widget.expansion == ToolResultExpansion.expanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+              child: GoogleSearchSelectionArea(
+                child: Text(
                   content,
                   style: TextStyle(
                     fontSize: 11,
@@ -490,13 +562,10 @@ class _ExpandedToolResult extends StatelessWidget {
                     color: appColors.toolResultTextExpanded,
                     height: 1.4,
                   ),
-                  contextMenuBuilder:
-                      googleSearchSelectableTextContextMenuBuilder,
                 ),
-              ],
-            ],
-          ),
-        ),
+              ),
+            ),
+        ],
       ),
     );
   }

@@ -5,6 +5,7 @@ import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
+import '../google_search_text_selection.dart';
 
 class PermissionRequestBubble extends StatefulWidget {
   final PermissionRequestMessage message;
@@ -42,128 +43,155 @@ class _PermissionRequestBubbleState extends State<PermissionRequestBubble> {
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         border: Border.all(color: appColors.permissionBubbleBorder),
       ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-        onTap: () => setState(() => _expanded = !_expanded),
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.vertical(
+              top: const Radius.circular(AppSpacing.cardRadius),
+              bottom: _expanded
+                  ? Radius.zero
+                  : const Radius.circular(AppSpacing.cardRadius),
+            ),
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(10, 10, 10, _expanded ? 6 : 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.security,
-                    size: 16,
-                    color: appColors.permissionIcon,
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      presentation.title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.security,
+                        size: 16,
+                        color: appColors.permissionIcon,
                       ),
-                    ),
-                  ),
-                  _PermissionStatusBadge(status: widget.status),
-                  const SizedBox(width: 4),
-                  Icon(
-                    _expanded ? Icons.expand_less : Icons.expand_more,
-                    size: 18,
-                    color: appColors.subtleText,
-                  ),
-                ],
-              ),
-              if (!_expanded && primaryTarget != null) ...[
-                const SizedBox(height: 5),
-                Text(
-                  primaryTarget,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontFamily: 'monospace',
-                    color: appColors.subtleText,
-                  ),
-                ),
-              ],
-              if (_expanded) ...[
-                const SizedBox(height: 6),
-                Text(
-                  presentation.summary,
-                  style: TextStyle(fontSize: 12, color: appColors.subtleText),
-                ),
-                if (primaryTarget != null) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: appColors.permissionBubble.withValues(alpha: 0.35),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: appColors.permissionBubbleBorder.withValues(
-                          alpha: 0.7,
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          presentation.title,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
-                    ),
-                    child: Text(
+                      _PermissionStatusBadge(status: widget.status),
+                      const SizedBox(width: 4),
+                      Icon(
+                        _expanded ? Icons.expand_less : Icons.expand_more,
+                        size: 18,
+                        color: appColors.subtleText,
+                      ),
+                    ],
+                  ),
+                  if (!_expanded && primaryTarget != null) ...[
+                    const SizedBox(height: 5),
+                    Text(
                       primaryTarget,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 11,
                         fontFamily: 'monospace',
                         color: appColors.subtleText,
                       ),
                     ),
-                  ),
+                  ],
                 ],
-                if (detailLines.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  for (final line in detailLines)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(top: 5, right: 6),
-                            child: Icon(
-                              Icons.circle,
-                              size: 5,
-                              color: appColors.subtleText,
-                            ),
-                          ),
-                          Expanded(
-                            child: Text(
-                              line,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: appColors.subtleText,
-                              ),
-                            ),
-                          ),
-                        ],
+              ),
+            ),
+          ),
+          if (_expanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+              child: GoogleSearchSelectionArea(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      presentation.summary,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: appColors.subtleText,
                       ),
                     ),
-                ],
-                const SizedBox(height: 8),
-                Text(
-                  inputStr,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontFamily: 'monospace',
-                    color: appColors.subtleText,
-                  ),
+                    if (primaryTarget != null) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: appColors.permissionBubble.withValues(
+                            alpha: 0.35,
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: appColors.permissionBubbleBorder.withValues(
+                              alpha: 0.7,
+                            ),
+                          ),
+                        ),
+                        child: Text(
+                          primaryTarget,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontFamily: 'monospace',
+                            color: appColors.subtleText,
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (detailLines.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      for (final line in detailLines)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  top: 5,
+                                  right: 6,
+                                ),
+                                child: Icon(
+                                  Icons.circle,
+                                  size: 5,
+                                  color: appColors.subtleText,
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  line,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: appColors.subtleText,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                    const SizedBox(height: 8),
+                    Text(
+                      inputStr,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontFamily: 'monospace',
+                        color: appColors.subtleText,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ],
-          ),
-        ),
+              ),
+            ),
+        ],
       ),
     );
   }

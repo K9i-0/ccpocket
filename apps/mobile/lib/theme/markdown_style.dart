@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -307,6 +309,10 @@ class FencedCodeBlockBuilder extends MarkdownElementBuilder {
         ..codeBlockBuildMicros += buildWatch.elapsedMicroseconds;
     }
 
+    final hasAncestorSelectionArea =
+        SelectionContainer.maybeOf(context) != null;
+    final codeSpan = TextSpan(style: baseStyle, children: highlightedSpans);
+
     return Container(
       key: ValueKey(
         'code_block_container_${displayLanguage}_${source.length}_${source.hashCode}',
@@ -320,19 +326,24 @@ class FencedCodeBlockBuilder extends MarkdownElementBuilder {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _CodeBlockToolbar(
-            displayLanguage: displayLanguage,
-            hasExplicitLanguage: hasExplicitLanguage,
-            baseStyle: baseStyle,
-            source: source,
+          SelectionContainer.disabled(
+            child: _CodeBlockToolbar(
+              displayLanguage: displayLanguage,
+              hasExplicitLanguage: hasExplicitLanguage,
+              baseStyle: baseStyle,
+              source: source,
+            ),
           ),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            child: SelectableText.rich(
-              TextSpan(style: baseStyle, children: highlightedSpans),
-              contextMenuBuilder: googleSearchSelectableTextContextMenuBuilder,
-            ),
+            child: hasAncestorSelectionArea
+                ? Text.rich(codeSpan)
+                : SelectableText.rich(
+                    codeSpan,
+                    contextMenuBuilder:
+                        googleSearchSelectableTextContextMenuBuilder,
+                  ),
           ),
         ],
       ),
@@ -340,7 +351,7 @@ class FencedCodeBlockBuilder extends MarkdownElementBuilder {
   }
 }
 
-class _CodeBlockToolbar extends StatelessWidget {
+class _CodeBlockToolbar extends StatefulWidget {
   const _CodeBlockToolbar({
     required this.displayLanguage,
     required this.hasExplicitLanguage,
@@ -354,21 +365,45 @@ class _CodeBlockToolbar extends StatelessWidget {
   final String source;
 
   @override
+  State<_CodeBlockToolbar> createState() => _CodeBlockToolbarState();
+}
+
+class _CodeBlockToolbarState extends State<_CodeBlockToolbar> {
+  Timer? _resetTimer;
+  bool _copied = false;
+
+  @override
+  void dispose() {
+    _resetTimer?.cancel();
+    super.dispose();
+  }
+
+  void _handleCopy() {
+    _copyCodeBlock(context, widget.source);
+    _resetTimer?.cancel();
+    setState(() => _copied = true);
+    _resetTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted) setState(() => _copied = false);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final subtleColor = Theme.of(context).colorScheme.onSurface
         .withValues(alpha: 0.52);
+    final l = AppLocalizations.of(context);
     return SizedBox(
       height: 44,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          if (hasExplicitLanguage)
+          if (widget.hasExplicitLanguage)
             Padding(
               padding: const EdgeInsets.only(right: 4),
               child: Text(
-                displayLanguage,
-                key: ValueKey('code_block_language_$displayLanguage'),
-                style: baseStyle.copyWith(
+                widget.displayLanguage,
+                key: ValueKey('code_block_language_${widget.displayLanguage}'),
+                style: widget.baseStyle.copyWith(
                   fontSize: 10,
                   letterSpacing: 0.2,
                   color: subtleColor,
@@ -376,15 +411,17 @@ class _CodeBlockToolbar extends StatelessWidget {
               ),
             ),
           IconButton(
-            key: ValueKey('code_block_copy_button_$displayLanguage'),
-            tooltip: AppLocalizations.of(context).copy,
-            onPressed: () => _copyCodeBlock(context, source),
+            key: ValueKey('code_block_copy_button_${widget.displayLanguage}'),
+            tooltip: _copied ? l.copied : l.copy,
+            onPressed: _handleCopy,
             visualDensity: VisualDensity.compact,
             constraints: const BoxConstraints.tightFor(width: 44, height: 44),
             padding: EdgeInsets.zero,
             iconSize: 18,
-            color: subtleColor,
-            icon: const Icon(Icons.content_copy_rounded),
+            color: _copied
+                ? Theme.of(context).colorScheme.primary
+                : subtleColor,
+            icon: Icon(_copied ? Icons.check : Icons.content_copy_rounded),
           ),
         ],
       ),

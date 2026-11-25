@@ -5,6 +5,8 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../theme/markdown_style.dart';
+import '../../widgets/google_search_text_selection.dart';
+import '../../widgets/link_hover_underline.dart';
 
 enum _AuthHelpLanguage { ja, en, zhHans, ko }
 
@@ -144,10 +146,16 @@ class _AuthHelpBody extends StatelessWidget {
           child: Scrollbar(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
-              child: MarkdownBody(
-                data: markdown,
-                styleSheet: buildMarkdownStyle(context),
-                onTapLink: handleMarkdownLink,
+              child: GoogleSearchSelectionArea(
+                child: LinkHoverUnderline(
+                  child: MarkdownBody(
+                    data: markdown,
+                    selectable: false,
+                    styleSheet: buildMarkdownStyle(context),
+                    onTapLink: handleMarkdownLink,
+                    builders: markdownBuilders,
+                  ),
+                ),
               ),
             ),
           ),

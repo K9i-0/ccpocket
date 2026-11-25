@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:auto_route/auto_route.dart';
@@ -639,7 +640,7 @@ class _ToolUseCollapsed extends StatelessWidget {
   }
 }
 
-class _ToolUseCard extends StatelessWidget {
+class _ToolUseCard extends StatefulWidget {
   final String name;
   final Map<String, dynamic> input;
   final ToolCategory category;
@@ -665,10 +666,34 @@ class _ToolUseCard extends StatelessWidget {
   });
 
   @override
+  State<_ToolUseCard> createState() => _ToolUseCardState();
+}
+
+class _ToolUseCardState extends State<_ToolUseCard> {
+  Timer? _copiedResetTimer;
+  bool _copied = false;
+
+  @override
+  void dispose() {
+    _copiedResetTimer?.cancel();
+    super.dispose();
+  }
+
+  void _handleCopy() {
+    widget.onLongPress();
+    _copiedResetTimer?.cancel();
+    setState(() => _copied = true);
+    _copiedResetTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted) setState(() => _copied = false);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
-    final diffFile = editDiff;
-    final chevronIcon = expansion == ToolUseExpansion.expanded
+    final l = Localizations.of<AppLocalizations>(context, AppLocalizations);
+    final diffFile = widget.editDiff;
+    final chevronIcon = widget.expansion == ToolUseExpansion.expanded
         ? Icons.expand_less
         : Icons.expand_more;
 
@@ -677,30 +702,31 @@ class _ToolUseCard extends StatelessWidget {
         vertical: 2,
         horizontal: AppSpacing.bubbleMarginH,
       ),
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: onLongPress,
+      decoration: BoxDecoration(
+        color: appColors.toolBubble,
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-        child: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: appColors.toolBubble,
-            borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-            border: Border.all(color: appColors.toolBubbleBorder),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+        border: Border.all(color: appColors.toolBubbleBorder),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            key: const ValueKey('tool_use_card_header'),
+            onTap: widget.onTap,
+            onLongPress: widget.onLongPress,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
+              child: Row(
                 children: [
                   Icon(
-                    getToolCategoryIcon(category),
+                    getToolCategoryIcon(widget.category),
                     size: 14,
-                    color: getToolCategoryColor(category, appColors),
+                    color: getToolCategoryColor(widget.category, appColors),
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    name,
+                    widget.name,
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -709,7 +735,7 @@ class _ToolUseCard extends StatelessWidget {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      inputSummary,
+                      widget.inputSummary,
                       style: TextStyle(
                         fontSize: 11,
                         color: appColors.subtleText,
@@ -721,69 +747,96 @@ class _ToolUseCard extends StatelessWidget {
                     _DiffStatsMini(diffFile: diffFile, appColors: appColors),
                     const SizedBox(width: 4),
                   ],
+                  IconButton(
+                    key: const ValueKey('tool_use_copy_button'),
+                    icon: Icon(
+                      _copied ? Icons.check : Icons.copy_outlined,
+                      size: 14,
+                    ),
+                    color: _copied
+                        ? Theme.of(context).colorScheme.primary
+                        : appColors.subtleText,
+                    tooltip: _copied
+                        ? (l?.copied ?? 'Copied')
+                        : (l?.copy ?? 'Copy'),
+                    onPressed: _handleCopy,
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints.tightFor(
+                      width: 26,
+                      height: 24,
+                    ),
+                  ),
                   Icon(chevronIcon, size: 16, color: appColors.subtleText),
                 ],
               ),
-              const SizedBox(height: 6),
-              if (diffFile != null)
-                InlineEditDiff(
-                  diffFile: diffFile,
-                  onTapFullDiff: onOpenGitScreen,
-                )
-              else
-                _buildInputBody(appColors),
-            ],
+            ),
           ),
-        ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+            child: diffFile != null
+                ? InlineEditDiff(
+                    diffFile: diffFile,
+                    onTapFullDiff: widget.onOpenGitScreen,
+                  )
+                : _buildInputBody(appColors),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildInputBody(AppColors appColors) {
-    final fullText = getToolFullInput(category, input);
+    final fullText = getToolFullInput(widget.category, widget.input);
     final lines = fullText.split('\n');
-    final hasMore = lines.length > _previewLines;
+    final hasMore = lines.length > _ToolUseCard._previewLines;
 
-    if (expansion == ToolUseExpansion.expanded) {
-      return SelectableText(
-        fullText,
-        style: TextStyle(
-          fontSize: 11,
-          fontFamily: 'monospace',
-          color: appColors.toolResultTextExpanded,
-          height: 1.4,
+    if (widget.expansion == ToolUseExpansion.expanded) {
+      return GoogleSearchSelectionArea(
+        child: Text(
+          fullText,
+          style: TextStyle(
+            fontSize: 11,
+            fontFamily: 'monospace',
+            color: appColors.toolResultTextExpanded,
+            height: 1.4,
+          ),
         ),
-        contextMenuBuilder: googleSearchSelectableTextContextMenuBuilder,
       );
     }
 
     // preview
     final previewText = hasMore
-        ? lines.take(_previewLines).join('\n')
+        ? lines.take(_ToolUseCard._previewLines).join('\n')
         : fullText;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          previewText,
-          style: TextStyle(
-            fontSize: 11,
-            fontFamily: 'monospace',
-            color: appColors.toolResultText,
-            height: 1.4,
+        GoogleSearchSelectionArea(
+          child: Text(
+            previewText,
+            style: TextStyle(
+              fontSize: 11,
+              fontFamily: 'monospace',
+              color: appColors.toolResultText,
+              height: 1.4,
+            ),
+            maxLines: _ToolUseCard._previewLines,
+            overflow: TextOverflow.ellipsis,
           ),
-          maxLines: _previewLines,
-          overflow: TextOverflow.ellipsis,
         ),
         if (hasMore)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              '... ${lines.length - _previewLines} more lines',
-              style: TextStyle(
-                fontSize: 10,
-                fontStyle: FontStyle.italic,
-                color: appColors.subtleText,
+          GestureDetector(
+            onTap: widget.onTap,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '... ${lines.length - _ToolUseCard._previewLines} more lines',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontStyle: FontStyle.italic,
+                  color: appColors.subtleText,
+                ),
               ),
             ),
           ),

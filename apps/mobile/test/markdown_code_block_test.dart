@@ -96,7 +96,8 @@ void main() {
         findsOneWidget,
       );
       expect(find.textContaining('final value = 42;'), findsOneWidget);
-      expect(find.byType(SelectableText), findsWidgets);
+      expect(find.byType(SelectionArea), findsOneWidget);
+      expect(find.byType(SelectableText), findsNothing);
     });
 
     testWidgets('normalizes sh language label to bash', (tester) async {
@@ -243,9 +244,13 @@ void main() {
       );
       final selectable = find.descendant(
         of: codeBlock,
-        matching: find.byType(SelectableText),
+        matching: find.textContaining('echo selectable text'),
       );
       expect(selectable, findsOneWidget);
+      expect(
+        find.ancestor(of: selectable, matching: find.byType(SelectionArea)),
+        findsOneWidget,
+      );
       final longPressAncestors = tester
           .widgetList<GestureDetector>(
             find.ancestor(

@@ -7,6 +7,7 @@ import '../../features/file_peek/markdown_link_handler.dart';
 import '../../providers/bridge_cubits.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/markdown_style.dart';
+import '../google_search_text_selection.dart';
 import '../link_hover_underline.dart';
 
 /// A visually distinct card for rendering implementation plans inline in chat.
@@ -51,32 +52,32 @@ class _PlanCardState extends State<PlanCard> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    return GestureDetector(
-      onTap: _isLongPlan ? widget.onViewFullPlan : null,
-      child: Container(
-        margin: const EdgeInsets.symmetric(
-          vertical: AppSpacing.bubbleMarginV,
-          horizontal: AppSpacing.bubbleMarginH,
-        ),
-        decoration: BoxDecoration(
-          color: cs.primary.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-          border: Border.all(color: cs.primary.withValues(alpha: 0.25)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _PlanHeader(sectionCount: _sectionCount),
-            Divider(height: 1, color: cs.primary.withValues(alpha: 0.15)),
-            _PlanBody(
-              planText: widget.planText,
-              onOverflowChanged: _handleOverflowChanged,
-              onFileTap: widget.onFileTap,
-            ),
-            if (_isLongPlan) _PlanFooter(onViewFullPlan: widget.onViewFullPlan),
-          ],
-        ),
+    return Container(
+      margin: const EdgeInsets.symmetric(
+        vertical: AppSpacing.bubbleMarginV,
+        horizontal: AppSpacing.bubbleMarginH,
+      ),
+      decoration: BoxDecoration(
+        color: cs.primary.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _PlanHeader(
+            sectionCount: _sectionCount,
+            onTap: _isLongPlan ? widget.onViewFullPlan : null,
+          ),
+          Divider(height: 1, color: cs.primary.withValues(alpha: 0.15)),
+          _PlanBody(
+            planText: widget.planText,
+            onOverflowChanged: _handleOverflowChanged,
+            onFileTap: widget.onFileTap,
+          ),
+          if (_isLongPlan) _PlanFooter(onViewFullPlan: widget.onViewFullPlan),
+        ],
       ),
     );
   }
@@ -84,14 +85,15 @@ class _PlanCardState extends State<PlanCard> {
 
 class _PlanHeader extends StatelessWidget {
   final int sectionCount;
+  final VoidCallback? onTap;
 
-  const _PlanHeader({required this.sectionCount});
+  const _PlanHeader({required this.sectionCount, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    return Padding(
+    final header = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(
         children: [
@@ -128,6 +130,15 @@ class _PlanHeader extends StatelessWidget {
             ),
         ],
       ),
+    );
+
+    if (onTap == null) return header;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: const BorderRadius.vertical(
+        top: Radius.circular(AppSpacing.cardRadius),
+      ),
+      child: header,
     );
   }
 }
@@ -179,29 +190,31 @@ class _PlanBodyState extends State<_PlanBody> {
         : const <String>{};
     final markdownWidget = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: LinkHoverUnderline(
-        child: MarkdownBody(
-          data: widget.planText,
-          selectable: true,
-          styleSheet: buildMarkdownStyle(context),
-          onTapLink: buildChatMarkdownLinkHandler(
-            context,
-            onFileTap: widget.onFileTap,
-            knownPathSuffixes: fileSuffixes,
-          ),
-          inlineSyntaxes: [
-            if (widget.onFileTap != null) ...[
-              FilePathSyntax(knownPathSuffixes: fileSuffixes),
-              BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
+      child: GoogleSearchSelectionArea(
+        child: LinkHoverUnderline(
+          child: MarkdownBody(
+            data: widget.planText,
+            selectable: false,
+            styleSheet: buildMarkdownStyle(context),
+            onTapLink: buildChatMarkdownLinkHandler(
+              context,
+              onFileTap: widget.onFileTap,
+              knownPathSuffixes: fileSuffixes,
+            ),
+            inlineSyntaxes: [
+              if (widget.onFileTap != null) ...[
+                FilePathSyntax(knownPathSuffixes: fileSuffixes),
+                BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
+              ],
+              ...colorCodeInlineSyntaxes,
+              ...localhostAutolinkInlineSyntaxes,
             ],
-            ...colorCodeInlineSyntaxes,
-            ...localhostAutolinkInlineSyntaxes,
-          ],
-          builders: {
-            if (widget.onFileTap != null)
-              'filePath': FilePathBuilder(onTap: widget.onFileTap),
-            ...markdownBuilders,
-          },
+            builders: {
+              if (widget.onFileTap != null)
+                'filePath': FilePathBuilder(onTap: widget.onFileTap),
+              ...markdownBuilders,
+            },
+          ),
         ),
       ),
     );

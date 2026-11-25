@@ -1,14 +1,14 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/logger.dart';
 import '../l10n/app_localizations.dart';
+import '../utils/platform_helper.dart';
 
-bool get _isMacOSNative =>
-    !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
+bool get _isMacOSNative => isMacOSPlatform;
 
 Widget googleSearchSelectableTextContextMenuBuilder(
   BuildContext context,
@@ -47,8 +47,13 @@ Widget googleSearchSelectableTextContextMenuBuilder(
 /// selection; other platforms keep their default selection toolbar.
 class GoogleSearchSelectionArea extends StatefulWidget {
   final Widget child;
+  final ValueChanged<SelectedContent?>? onSelectionChanged;
 
-  const GoogleSearchSelectionArea({super.key, required this.child});
+  const GoogleSearchSelectionArea({
+    super.key,
+    required this.child,
+    this.onSelectionChanged,
+  });
 
   @override
   State<GoogleSearchSelectionArea> createState() =>
@@ -58,14 +63,22 @@ class GoogleSearchSelectionArea extends StatefulWidget {
 class _GoogleSearchSelectionAreaState extends State<GoogleSearchSelectionArea> {
   String? _selectedText;
 
+  void _handleSelectionChanged(SelectedContent? content) {
+    _selectedText = content?.plainText;
+    widget.onSelectionChanged?.call(content);
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (!_isMacOSNative) return SelectionArea(child: widget.child);
+    if (!_isMacOSNative) {
+      return SelectionArea(
+        onSelectionChanged: widget.onSelectionChanged,
+        child: widget.child,
+      );
+    }
 
     return SelectionArea(
-      onSelectionChanged: (content) {
-        _selectedText = content?.plainText;
-      },
+      onSelectionChanged: _handleSelectionChanged,
       contextMenuBuilder: (context, selectableRegionState) {
         final items = _withGoogleSearchItem(
           context: context,
@@ -112,7 +125,11 @@ List<ContextMenuButtonItem> _withGoogleSearchItem({
 }
 
 String _searchWithGoogleLabel(BuildContext context) {
-  return AppLocalizations.of(context).googleSearchSelectionAction;
+  return Localizations.of<AppLocalizations>(
+        context,
+        AppLocalizations,
+      )?.googleSearchSelectionAction ??
+      'Search with Google';
 }
 
 Future<void> _openGoogleSearch(String selectedText) async {

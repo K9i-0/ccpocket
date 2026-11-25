@@ -14,6 +14,7 @@ import '../../router/app_router.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/structured_error_inference.dart';
+import '../google_search_text_selection.dart';
 
 /// Maps errorCode to a localized title for the error bubble header.
 String? _errorTitle(String? errorCode, AppLocalizations l) {
@@ -143,24 +144,26 @@ class ErrorBubble extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         border: Border.all(color: borderColor),
       ),
-      child: hasStructured
-          ? _isClaudeAuthError(resolvedErrorCode)
-                ? _ClaudeAuthErrorCard(
-                    textColor: textColor,
-                    title: l.authErrorTitle,
-                    body: l.authErrorBody,
-                    primaryCommandLabel: l.authErrorPrimaryCommandLabel,
-                    primaryCommand: 'claude',
-                    secondaryCommandLabel: l.authErrorSecondaryCommandLabel,
-                    secondaryCommand: '/login',
-                    alternativeLabel: l.authErrorAlternativeLabel,
-                    alternativeCommand: 'claude auth login',
-                    helpLabel: l.authHelpButton,
-                  )
-                : _isClaudeOAuthOptInRequired(resolvedErrorCode)
-                ? _ClaudeOAuthOptInCard(textColor: textColor)
-                : _buildStructured(context, title, hint, textColor, isWarn)
-          : _buildSimple(textColor),
+      child: GoogleSearchSelectionArea(
+        child: hasStructured
+            ? _isClaudeAuthError(resolvedErrorCode)
+                  ? _ClaudeAuthErrorCard(
+                      textColor: textColor,
+                      title: l.authErrorTitle,
+                      body: l.authErrorBody,
+                      primaryCommandLabel: l.authErrorPrimaryCommandLabel,
+                      primaryCommand: 'claude',
+                      secondaryCommandLabel: l.authErrorSecondaryCommandLabel,
+                      secondaryCommand: '/login',
+                      alternativeLabel: l.authErrorAlternativeLabel,
+                      alternativeCommand: 'claude auth login',
+                      helpLabel: l.authHelpButton,
+                    )
+                  : _isClaudeOAuthOptInRequired(resolvedErrorCode)
+                  ? _ClaudeOAuthOptInCard(textColor: textColor)
+                  : _buildStructured(context, title, hint, textColor, isWarn)
+            : _buildSimple(textColor),
+      ),
     );
   }
 

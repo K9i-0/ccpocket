@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
 import '../../theme/app_theme.dart';
+import '../google_search_text_selection.dart';
 
 /// A quiet activity notice for medium/high-risk actions approved by Codex.
 ///
@@ -49,31 +50,38 @@ class _GuardianApprovalNoticeState extends State<GuardianApprovalNotice> {
                 ),
               ),
               clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                key: const ValueKey('guardian_approval_details_button'),
-                onTap: () => setState(() => _expanded = !_expanded),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 9,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _GuardianApprovalHeader(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  InkWell(
+                    key: const ValueKey('guardian_approval_details_button'),
+                    onTap: () => setState(() => _expanded = !_expanded),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 9,
+                      ),
+                      child: _GuardianApprovalHeader(
                         riskLabel: riskLabel,
                         expanded: _expanded,
                       ),
-                      AnimatedSize(
-                        duration: const Duration(milliseconds: 160),
-                        curve: Curves.easeOut,
-                        child: _expanded
-                            ? _GuardianApprovalDetails(message: widget.message)
-                            : const SizedBox.shrink(),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 160),
+                    curve: Curves.easeOut,
+                    child: _expanded
+                        ? Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 9),
+                            child: GoogleSearchSelectionArea(
+                              child: _GuardianApprovalDetails(
+                                message: widget.message,
+                              ),
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                ],
               ),
             ),
           ),

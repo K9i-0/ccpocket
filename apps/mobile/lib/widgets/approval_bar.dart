@@ -3,7 +3,9 @@ import 'package:material_ui/material_ui.dart';
 import '../l10n/app_localizations.dart';
 import '../models/messages.dart';
 import '../theme/app_theme.dart';
+import '../utils/platform_helper.dart';
 import 'expandable_summary_text.dart';
+import 'google_search_text_selection.dart';
 
 enum PlanApprovalUiMode { claude, codex }
 
@@ -157,50 +159,54 @@ class _ApprovalHeader extends StatelessWidget {
         ),
         const SizedBox(width: 10),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                toolName ?? l.approvalRequired,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 2),
-              ExpandableSummaryText(
-                text: summary,
-                style: TextStyle(fontSize: 11, color: appColors.subtleText),
-                maxLines: 2,
-                backgroundColor: appColors.approvalBar,
-              ),
-              if (!isPlanApproval && primaryTargetText != null) ...[
-                const SizedBox(height: 8),
-                _PrimaryTargetCard(
-                  text: primaryTargetText,
-                  backgroundColor: appColors.approvalBar.withValues(alpha: 0.7),
-                  borderColor: appColors.approvalBarBorder,
-                  textColor: Theme.of(context).colorScheme.onSurface,
-                ),
-              ],
-              if (detailLines.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                ...detailLines.map(
-                  (line) => Padding(
-                    padding: const EdgeInsets.only(bottom: 2),
-                    child: Text(
-                      line,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: appColors.subtleText,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+          child: GoogleSearchSelectionArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  toolName ?? l.approvalRequired,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
+                const SizedBox(height: 2),
+                ExpandableSummaryText(
+                  text: summary,
+                  style: TextStyle(fontSize: 11, color: appColors.subtleText),
+                  maxLines: 2,
+                  backgroundColor: appColors.approvalBar,
+                ),
+                if (!isPlanApproval && primaryTargetText != null) ...[
+                  const SizedBox(height: 8),
+                  _PrimaryTargetCard(
+                    text: primaryTargetText,
+                    backgroundColor: appColors.approvalBar.withValues(
+                      alpha: 0.7,
+                    ),
+                    borderColor: appColors.approvalBarBorder,
+                    textColor: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ],
+                if (detailLines.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  ...detailLines.map(
+                    (line) => Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: Text(
+                        line,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: appColors.subtleText,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
         if (isPlanApproval && onViewPlan != null)
@@ -294,7 +300,9 @@ class _KeepPlanningCard extends StatelessWidget {
                 child: TextField(
                   key: const ValueKey('plan_feedback_input'),
                   controller: planFeedbackController,
-                  onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                  onTapOutside: isDesktopPlatform
+                      ? null
+                      : (_) => FocusScope.of(context).unfocus(),
                   decoration: InputDecoration(
                     hintText: l.keepPlanningHint,
                     hintStyle: TextStyle(

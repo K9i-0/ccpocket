@@ -5,6 +5,8 @@ import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
 import '../../../theme/app_theme.dart';
 import '../../../theme/markdown_style.dart';
+import '../../../widgets/google_search_text_selection.dart';
+import '../../../widgets/link_hover_underline.dart';
 
 /// Divider shown at a context compaction boundary.
 ///
@@ -233,10 +235,14 @@ class _CompactionSummary extends StatelessWidget {
     return Padding(
       key: const ValueKey('context_compaction_summary'),
       padding: const EdgeInsets.fromLTRB(24, 0, 0, 8),
-      child: SelectionArea(
-        child: MarkdownBody(
-          data: text,
-          styleSheet: buildMarkdownStyle(context),
+      child: GoogleSearchSelectionArea(
+        child: LinkHoverUnderline(
+          child: MarkdownBody(
+            data: text,
+            selectable: false,
+            styleSheet: buildMarkdownStyle(context),
+            builders: markdownBuilders,
+          ),
         ),
       ),
     );

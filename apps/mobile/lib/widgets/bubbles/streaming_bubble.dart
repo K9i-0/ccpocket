@@ -11,6 +11,7 @@ import '../../providers/bridge_cubits.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/markdown_style.dart';
 import '../../utils/markdown_block_splitter.dart';
+import '../google_search_text_selection.dart';
 import '../link_hover_underline.dart';
 import 'thinking_bubble.dart';
 
@@ -195,26 +196,30 @@ class _StreamingBubbleState extends State<StreamingBubble>
               vertical: AppSpacing.bubbleMarginV,
               horizontal: AppSpacing.bubbleMarginH,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                LinkHoverUnderline(
-                  child: _buildMarkdownBlocks(context, fileSuffixes),
-                ),
-                AnimatedBuilder(
-                  animation: _cursorController,
-                  builder: (context, child) {
-                    return Opacity(
-                      opacity: _cursorController.value,
-                      child: const Text(
-                        '\u258D',
-                        style: TextStyle(fontSize: 16, height: 1),
-                      ),
-                    );
-                  },
-                ),
-              ],
+            child: GoogleSearchSelectionArea(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  LinkHoverUnderline(
+                    child: _buildMarkdownBlocks(context, fileSuffixes),
+                  ),
+                  SelectionContainer.disabled(
+                    child: AnimatedBuilder(
+                      animation: _cursorController,
+                      builder: (context, child) {
+                        return Opacity(
+                          opacity: _cursorController.value,
+                          child: const Text(
+                            '\u258D',
+                            style: TextStyle(fontSize: 16, height: 1),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ),
           )
         : null;

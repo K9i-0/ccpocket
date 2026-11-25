@@ -1,12 +1,13 @@
 import 'dart:ui' as ui;
 
+import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../models/git_diff_interaction_mode.dart';
 import '../../../theme/app_theme.dart';
 import '../../../theme/code_text_style.dart';
 import '../../../utils/diff_parser.dart';
-import '../../../widgets/adaptive_context_menu.dart';
+import '../../../widgets/google_search_text_selection.dart';
 import 'git_swipe_action_background.dart';
 
 const _prefixWidth = 10.0;
@@ -108,6 +109,13 @@ class DiffHunkWidget extends StatefulWidget {
 
 class _DiffHunkWidgetState extends State<DiffHunkWidget> {
   double _maxContentWidth = 0.0;
+  bool _hasSelectedText = false;
+
+  void _handleSelectionChanged(SelectedContent? content) {
+    final hasSelection = content?.plainText.isNotEmpty ?? false;
+    if (hasSelection == _hasSelectedText) return;
+    setState(() => _hasSelectedText = hasSelection);
+  }
 
   @override
   void initState() {
@@ -185,15 +193,25 @@ class _DiffHunkWidgetState extends State<DiffHunkWidget> {
                 ? widget.onLongPress
                 : null,
           ),
-        ..._buildBody(),
+        GoogleSearchSelectionArea(
+          onSelectionChanged: _handleSelectionChanged,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: _buildBody(),
+          ),
+        ),
         const SizedBox(height: 4),
       ],
     );
 
     final onShowActions = widget.onShowActions;
     if (onShowActions != null) {
-      content = AdaptiveContextMenuRegion(
-        onOpen: onShowActions,
+      content = GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onSecondaryTapDown: _hasSelectedText
+            ? null
+            : (details) => onShowActions(details.globalPosition),
+        onLongPressStart: (details) => onShowActions(details.globalPosition),
         child: content,
       );
     }
@@ -434,12 +452,13 @@ class _DiffGutterRow extends StatelessWidget {
         ],
       ),
     );
+    final gutter = SelectionContainer.disabled(child: row);
     return onTap == null
-        ? row
+        ? gutter
         : GestureDetector(
             onTap: onTap,
             behavior: HitTestBehavior.opaque,
-            child: row,
+            child: gutter,
           );
   }
 }

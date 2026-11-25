@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
@@ -9,7 +10,9 @@ import '../../models/messages.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/command_parser.dart';
+import '../../utils/platform_helper.dart';
 import '../adaptive_context_menu.dart';
+import '../google_search_text_selection.dart';
 import 'handoff_bubble.dart';
 
 enum _UserMessageAction { rewind, restoreFiles }
@@ -55,6 +58,13 @@ class UserBubble extends StatefulWidget {
 class _UserBubbleState extends State<UserBubble> {
   bool _editing = false;
   TextEditingController? _editController;
+  bool _hasSelectedText = false;
+
+  void _handleSelectionChanged(SelectedContent? content) {
+    final hasSelection = content?.plainText.isNotEmpty ?? false;
+    if (hasSelection == _hasSelectedText) return;
+    setState(() => _hasSelectedText = hasSelection);
+  }
 
   @override
   void didUpdateWidget(covariant UserBubble oldWidget) {
@@ -115,6 +125,8 @@ class _UserBubbleState extends State<UserBubble> {
             onEdit: null,
             onCopy: _copyText,
             actionsButtonKey: actionsButtonKey,
+            hasSelectedText: _hasSelectedText,
+            onSelectionChanged: _handleSelectionChanged,
             onShowContextMenu: (position) =>
                 _showContextMenu(context, position: position, onEdit: null),
           );
@@ -132,6 +144,8 @@ class _UserBubbleState extends State<UserBubble> {
           httpBaseUrl: widget.httpBaseUrl,
           onCopy: _copyText,
           actionsButtonKey: actionsButtonKey,
+          hasSelectedText: _hasSelectedText,
+          onSelectionChanged: _handleSelectionChanged,
           onShowContextMenu: (position) =>
               _showContextMenu(context, position: position, onEdit: onEdit),
         );
@@ -199,7 +213,7 @@ class _UserBubbleState extends State<UserBubble> {
 }
 
 /// Inline editor shown in place of the bubble while editing (Codex App).
-class _EditingBubble extends StatelessWidget {
+class _EditingBubble extends StatefulWidget {
   final TextEditingController controller;
   final VoidCallback onCancel;
   final VoidCallback onSend;
@@ -209,6 +223,50 @@ class _EditingBubble extends StatelessWidget {
     required this.onCancel,
     required this.onSend,
   });
+
+  @override
+  State<_EditingBubble> createState() => _EditingBubbleState();
+}
+
+class _EditingBubbleState extends State<_EditingBubble> {
+  late final FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode(onKeyEvent: _handleKeyEvent);
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (!isDesktopPlatform) return KeyEventResult.ignored;
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    final composing = widget.controller.value.composing;
+    final isImeComposing = composing.isValid && !composing.isCollapsed;
+    if (isImeComposing) return KeyEventResult.ignored;
+
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
+      widget.onCancel();
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.enter) {
+      if (HardwareKeyboard.instance.isShiftPressed) {
+        return KeyEventResult.ignored;
+      }
+      if (widget.controller.text.trim().isNotEmpty) {
+        widget.onSend();
+      }
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -231,7 +289,8 @@ class _EditingBubble extends StatelessWidget {
         children: [
           TextField(
             key: const ValueKey('user_message_edit_field'),
-            controller: controller,
+            focusNode: _focusNode,
+            controller: widget.controller,
             autofocus: true,
             minLines: 1,
             maxLines: 10,
@@ -240,13 +299,13 @@ class _EditingBubble extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           ValueListenableBuilder<TextEditingValue>(
-            valueListenable: controller,
+            valueListenable: widget.controller,
             builder: (context, value, _) => Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 OutlinedButton(
                   key: const ValueKey('user_message_edit_cancel'),
-                  onPressed: onCancel,
+                  onPressed: widget.onCancel,
                   style: OutlinedButton.styleFrom(
                     visualDensity: VisualDensity.compact,
                   ),
@@ -255,7 +314,7 @@ class _EditingBubble extends StatelessWidget {
                 const SizedBox(width: 6),
                 FilledButton(
                   key: const ValueKey('user_message_edit_send'),
-                  onPressed: value.text.trim().isEmpty ? null : onSend,
+                  onPressed: value.text.trim().isEmpty ? null : widget.onSend,
                   style: FilledButton.styleFrom(
                     visualDensity: VisualDensity.compact,
                   ),
@@ -303,6 +362,8 @@ class _StandardBubble extends StatelessWidget {
   final String? httpBaseUrl;
   final VoidCallback onCopy;
   final GlobalKey<_UserMessageActionsButtonState> actionsButtonKey;
+  final bool hasSelectedText;
+  final ValueChanged<SelectedContent?> onSelectionChanged;
   final ValueChanged<Offset?> onShowContextMenu;
 
   const _StandardBubble({
@@ -317,6 +378,8 @@ class _StandardBubble extends StatelessWidget {
     required this.httpBaseUrl,
     required this.onCopy,
     required this.actionsButtonKey,
+    required this.hasSelectedText,
+    required this.onSelectionChanged,
     required this.onShowContextMenu,
   });
 
@@ -326,9 +389,11 @@ class _StandardBubble extends StatelessWidget {
 
     return Align(
       alignment: Alignment.centerRight,
-      child: AdaptiveContextMenuRegion(
-        onOpen: onShowContextMenu,
-        enableLongPress: false,
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onSecondaryTapDown: hasSelectedText
+            ? null
+            : (details) => onShowContextMenu(details.globalPosition),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -412,7 +477,8 @@ class _StandardBubble extends StatelessWidget {
                         ),
                       ),
                     if (displayText.isNotEmpty)
-                      SelectionArea(
+                      GoogleSearchSelectionArea(
+                        onSelectionChanged: onSelectionChanged,
                         child: Text(
                           displayText,
                           style: TextStyle(color: appColors.userBubbleText),
@@ -447,6 +513,8 @@ class _CommandBubble extends StatelessWidget {
   final VoidCallback? onEdit;
   final VoidCallback onCopy;
   final GlobalKey<_UserMessageActionsButtonState> actionsButtonKey;
+  final bool hasSelectedText;
+  final ValueChanged<SelectedContent?> onSelectionChanged;
   final ValueChanged<Offset?> onShowContextMenu;
 
   const _CommandBubble({
@@ -458,6 +526,8 @@ class _CommandBubble extends StatelessWidget {
     required this.onEdit,
     required this.onCopy,
     required this.actionsButtonKey,
+    required this.hasSelectedText,
+    required this.onSelectionChanged,
     required this.onShowContextMenu,
   });
 
@@ -468,9 +538,11 @@ class _CommandBubble extends StatelessWidget {
 
     return Align(
       alignment: Alignment.centerRight,
-      child: AdaptiveContextMenuRegion(
-        onOpen: onShowContextMenu,
-        enableLongPress: false,
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onSecondaryTapDown: hasSelectedText
+            ? null
+            : (details) => onShowContextMenu(details.globalPosition),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -499,7 +571,8 @@ class _CommandBubble extends StatelessWidget {
                   color: appColors.userBubble,
                   borderRadius: AppSpacing.userBubbleBorderRadius,
                 ),
-                child: SelectionArea(
+                child: GoogleSearchSelectionArea(
+                  onSelectionChanged: onSelectionChanged,
                   child: Text.rich(
                     TextSpan(
                       children: [

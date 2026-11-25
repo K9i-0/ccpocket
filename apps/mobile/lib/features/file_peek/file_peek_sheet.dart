@@ -35,6 +35,7 @@ import 'widgets/file_peek_media_preview.dart';
 import 'widgets/file_peek_model_preview.dart';
 import 'glb_preview_data.dart';
 import 'widgets/finder_reveal_button.dart';
+import '../../widgets/google_search_text_selection.dart';
 import '../../widgets/link_hover_underline.dart';
 import '../../widgets/zoomable_image_viewer.dart';
 
@@ -686,19 +687,23 @@ class FilePeekMarkdown extends StatelessWidget {
   });
   @override
   Widget build(BuildContext context) {
-    return LinkHoverUnderline(
-      child: Markdown(
-        controller: controller,
-        data: content,
-        selectable: true,
-        styleSheet: buildMarkdownStyle(context),
-        onTapLink: handleMarkdownLink,
-        inlineSyntaxes: [
-          ...colorCodeInlineSyntaxes,
-          ...localhostAutolinkInlineSyntaxes,
-        ],
-        builders: markdownBuilders,
-        padding: const EdgeInsets.all(16),
+    return SingleChildScrollView(
+      controller: controller,
+      padding: const EdgeInsets.all(16),
+      child: GoogleSearchSelectionArea(
+        child: LinkHoverUnderline(
+          child: MarkdownBody(
+            data: content,
+            selectable: false,
+            styleSheet: buildMarkdownStyle(context),
+            onTapLink: handleMarkdownLink,
+            inlineSyntaxes: [
+              ...colorCodeInlineSyntaxes,
+              ...localhostAutolinkInlineSyntaxes,
+            ],
+            builders: markdownBuilders,
+          ),
+        ),
       ),
     );
   }
@@ -777,38 +782,63 @@ class FilePeekCode extends StatelessWidget {
       highlightedLines.addAll(_splitSpansByLine(highlighted, lines.length));
     }
 
+    final strutStyle = StrutStyle.fromTextStyle(
+      baseStyle,
+      forceStrutHeight: true,
+    );
+    final gutterText = [
+      for (var i = 0; i < highlightedLines.length; i++)
+        '${' ${i + 1}'.padLeft(gutterWidth + 1)}  ',
+    ].join('\n');
+
     return SingleChildScrollView(
       controller: controller,
       padding: const EdgeInsets.symmetric(vertical: 12),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minWidth: 0),
-          child: SelectableText.rich(
-            TextSpan(
-              style: baseStyle,
-              children: [
-                for (var i = 0; i < highlightedLines.length; i++) ...[
-                  TextSpan(
-                    text: '${' ${i + 1}'.padLeft(gutterWidth + 1)}  ',
-                    style: gutterStyle,
-                  ),
-                  TextSpan(
-                    style: initialLine == i + 1
-                        ? TextStyle(
-                            backgroundColor: Theme.of(context)
-                                .colorScheme
-                                .primaryContainer,
-                          )
-                        : null,
-                    children: highlightedLines[i],
-                  ),
-                  const TextSpan(text: '\n'),
-                ],
-              ],
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SelectionContainer.disabled(
+            child: Text(
+              gutterText,
+              key: const ValueKey('file_peek_code_gutter'),
+              style: gutterStyle,
+              strutStyle: strutStyle,
+              softWrap: false,
             ),
           ),
-        ),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.only(right: 12),
+              child: GoogleSearchSelectionArea(
+                child: Text.rich(
+                  TextSpan(
+                    style: baseStyle,
+                    children: [
+                      for (var i = 0; i < highlightedLines.length; i++) ...[
+                        TextSpan(
+                          style: initialLine == i + 1
+                              ? TextStyle(
+                                  backgroundColor: Theme.of(context)
+                                      .colorScheme
+                                      .primaryContainer,
+                                )
+                              : null,
+                          children: highlightedLines[i],
+                        ),
+                        if (i < highlightedLines.length - 1)
+                          const TextSpan(text: '\n'),
+                      ],
+                    ],
+                  ),
+                  key: const ValueKey('file_peek_code_content'),
+                  strutStyle: strutStyle,
+                  softWrap: false,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

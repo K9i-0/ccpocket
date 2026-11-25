@@ -241,19 +241,25 @@ class FilePathBuilder extends MarkdownElementBuilder {
       decorationStyle: TextDecorationStyle.dotted,
     );
 
-    return GestureDetector(
-      onTap: onTap != null ? () => onTap!(path) : null,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.description_outlined,
-            size: 12,
-            color: cs.primary.withValues(alpha: 0.7),
-          ),
-          const SizedBox(width: 3),
-          Flexible(child: Text(displayText, style: codeStyle)),
-        ],
+    return MouseRegion(
+      cursor: onTap != null ? SystemMouseCursors.click : MouseCursor.defer,
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: onTap != null ? () => onTap!(path) : null,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SelectionContainer.disabled(
+              child: Icon(
+                Icons.description_outlined,
+                size: 12,
+                color: cs.primary.withValues(alpha: 0.7),
+              ),
+            ),
+            const SizedBox(width: 3),
+            Flexible(child: Text(displayText, style: codeStyle)),
+          ],
+        ),
       ),
     );
   }

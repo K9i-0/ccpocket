@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../../../widgets/google_search_text_selection.dart';
 import '../data/local_bridge_models.dart';
 
 /// Recent Bridge console output.
@@ -67,25 +68,36 @@ class _LocalBridgeLogsScreenState extends State<LocalBridgeLogsScreen> {
             _ when entries.isEmpty => Center(
               child: Text(l.localBridgeLogsEmpty),
             ),
-            _ => ListView.builder(
-              key: const ValueKey('local_bridge_logs_list'),
-              reverse: true,
-              padding: const EdgeInsets.all(12),
-              itemCount: entries.length,
-              itemBuilder: (context, index) {
-                final entry = entries[entries.length - 1 - index];
-                return SelectableText(
-                  _line(entry),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
-                    color: switch (entry.level) {
-                      'error' => cs.error,
-                      'warn' => cs.tertiary,
-                      _ => cs.onSurface,
-                    },
+            _ => GoogleSearchSelectionArea(
+              child: SingleChildScrollView(
+                key: const ValueKey('local_bridge_logs_list'),
+                reverse: true,
+                padding: const EdgeInsets.all(12),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: Text.rich(
+                    TextSpan(
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontFamily: 'monospace',
+                        color: cs.onSurface,
+                      ),
+                      children: [
+                        for (var i = 0; i < entries.length; i++)
+                          TextSpan(
+                            text: i == entries.length - 1
+                                ? _line(entries[i])
+                                : '${_line(entries[i])}\n',
+                            style: switch (entries[i].level) {
+                              'error' => TextStyle(color: cs.error),
+                              'warn' => TextStyle(color: cs.tertiary),
+                              _ => null,
+                            },
+                          ),
+                      ],
+                    ),
                   ),
-                );
-              },
+                ),
+              ),
             ),
           },
         );

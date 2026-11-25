@@ -8,6 +8,7 @@ import '../../l10n/app_localizations.dart';
 import '../../services/question_draft_store.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/request_user_input.dart';
+import '../google_search_text_selection.dart';
 import 'ask_question_option_button.dart';
 
 class AskUserQuestionWidget extends StatefulWidget {
@@ -632,9 +633,11 @@ class _AskQuestionLayout extends StatelessWidget {
             ),
           ),
         if (header != null && header.isNotEmpty) const SizedBox(height: 4),
-        Text(
-          text,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        GoogleSearchSelectionArea(
+          child: Text(
+            text,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
         ),
         if (isMulti) ...[
           const SizedBox(height: 2),

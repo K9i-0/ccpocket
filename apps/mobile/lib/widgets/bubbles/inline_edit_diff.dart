@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../theme/app_theme.dart';
 import '../../utils/diff_parser.dart';
+import '../google_search_text_selection.dart';
 
 /// Maximum number of diff lines shown inline before truncation.
 const _maxInlineLines = 20;
@@ -59,15 +60,17 @@ class InlineEditDiff extends StatelessWidget {
           borderRadius: BorderRadius.circular(6),
           child: Container(
             color: appColors.codeBackground,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final entry in visibleLines)
-                  if (entry.isSeparator)
-                    _HunkSeparator(appColors: appColors)
-                  else
-                    _DiffLineRow(line: entry.line, appColors: appColors),
-              ],
+            child: GoogleSearchSelectionArea(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final entry in visibleLines)
+                    if (entry.isSeparator)
+                      _HunkSeparator(appColors: appColors)
+                    else
+                      _DiffLineRow(line: entry.line, appColors: appColors),
+                ],
+              ),
             ),
           ),
         ),

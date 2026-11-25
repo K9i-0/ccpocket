@@ -11,6 +11,7 @@ import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/markdown_style.dart';
 import '../../theme/swarm_colors.dart';
+import '../google_search_text_selection.dart';
 import '../link_hover_underline.dart';
 import '../workspace_pane_chrome.dart';
 
@@ -270,7 +271,6 @@ class _SwarmPostCardState extends State<SwarmPostCard> {
                   padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
                   child: _SwarmPostMarkdownBody(
                     text: summary.fullText,
-                    selectable: false,
                     onFileTap: widget.onFileTap,
                   ),
                 ),
@@ -436,14 +436,9 @@ class _HeaderIconButton extends StatelessWidget {
 
 class _SwarmPostMarkdownBody extends StatelessWidget {
   final String text;
-  final bool selectable;
   final FilePathTapCallback? onFileTap;
 
-  const _SwarmPostMarkdownBody({
-    required this.text,
-    required this.selectable,
-    this.onFileTap,
-  });
+  const _SwarmPostMarkdownBody({required this.text, this.onFileTap});
 
   @override
   Widget build(BuildContext context) {
@@ -453,28 +448,31 @@ class _SwarmPostMarkdownBody extends StatelessWidget {
     final fileSuffixes = fileListCubit != null
         ? FilePathSyntax.cachedSuffixSet(fileListCubit.state)
         : const <String>{};
-    return LinkHoverUnderline(
-      child: MarkdownBody(
-        data: text,
-        selectable: selectable,
-        styleSheet: buildMarkdownStyle(context),
-        onTapLink: buildChatMarkdownLinkHandler(
-          context,
-          onFileTap: onFileTap,
-          knownPathSuffixes: fileSuffixes,
-        ),
-        inlineSyntaxes: [
-          if (onFileTap != null) ...[
-            FilePathSyntax(knownPathSuffixes: fileSuffixes),
-            BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
+    return GoogleSearchSelectionArea(
+      child: LinkHoverUnderline(
+        child: MarkdownBody(
+          data: text,
+          selectable: false,
+          styleSheet: buildMarkdownStyle(context),
+          onTapLink: buildChatMarkdownLinkHandler(
+            context,
+            onFileTap: onFileTap,
+            knownPathSuffixes: fileSuffixes,
+          ),
+          inlineSyntaxes: [
+            if (onFileTap != null) ...[
+              FilePathSyntax(knownPathSuffixes: fileSuffixes),
+              BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
+            ],
+            ...colorCodeInlineSyntaxes,
+            ...localhostAutolinkInlineSyntaxes,
           ],
-          ...colorCodeInlineSyntaxes,
-          ...localhostAutolinkInlineSyntaxes,
-        ],
-        builders: {
-          if (onFileTap != null) 'filePath': FilePathBuilder(onTap: onFileTap),
-          ...markdownBuilders,
-        },
+          builders: {
+            if (onFileTap != null)
+              'filePath': FilePathBuilder(onTap: onFileTap),
+            ...markdownBuilders,
+          },
+        ),
       ),
     );
   }
@@ -626,7 +624,6 @@ class _SwarmPostDetailSheet extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               child: _SwarmPostMarkdownBody(
                 text: summary.fullText,
-                selectable: true,
                 onFileTap: onFileTap,
               ),
             ),

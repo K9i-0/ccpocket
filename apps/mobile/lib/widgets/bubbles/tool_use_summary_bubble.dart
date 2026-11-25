@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../models/messages.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
+import '../google_search_text_selection.dart';
 
 /// Displays a summary of tool uses from a subagent (Task tool).
 ///
@@ -44,11 +45,13 @@ class ToolUseSummaryBubble extends StatelessWidget {
           const SizedBox(width: 8),
           // Summary text
           Expanded(
-            child: Text(
-              message.summary,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: appColors.subtleText,
-                fontStyle: FontStyle.italic,
+            child: GoogleSearchSelectionArea(
+              child: Text(
+                message.summary,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: appColors.subtleText,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ),
           ),
