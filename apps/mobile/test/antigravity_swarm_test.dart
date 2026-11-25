@@ -214,6 +214,16 @@ void main() {
       find.byKey(const ValueKey('swarm_post_target_icon_4')),
       findsNothing,
     );
+    // Identified target mentions render inline without an outline border.
+    final target1Container = tester.widget<Container>(
+      find
+          .ancestor(
+            of: find.byKey(const ValueKey('swarm_post_target_1')),
+            matching: find.byType(Container),
+          )
+          .first,
+    );
+    expect((target1Container.decoration as BoxDecoration?)?.border, isNull);
   });
 
   test('a swarm worker task carries its join number', () {

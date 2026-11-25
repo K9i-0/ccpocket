@@ -85,9 +85,10 @@ class SwarmPostSummary {
   }
 }
 
-/// The chip naming whom a post addresses. With a member colour for the text
-/// it sits on the plain surface, outlined in that colour, so the name keeps
-/// its contrast; without one it is the grey chip it always was.
+/// Decoration for the target mention label. Identified members already carry
+/// their own icon and colour so they render cleanly without an outline box;
+/// unknown targets (e.g. `@all` or posts from an older Bridge) keep the plain
+/// grey chip.
 BoxDecoration swarmTargetChipDecoration(
   BuildContext context,
   SwarmPostSummary summary, {
@@ -95,11 +96,9 @@ BoxDecoration swarmTargetChipDecoration(
   required Color plainColor,
 }) {
   final accent = summary.targetAccent(context);
+  if (accent != null) return const BoxDecoration();
   return BoxDecoration(
-    color: accent == null ? plainColor : Theme.of(context).colorScheme.surface,
-    border: accent == null
-        ? null
-        : Border.all(color: accent.withValues(alpha: 0.45), width: 0.8),
+    color: plainColor,
     borderRadius: BorderRadius.circular(radius),
   );
 }
@@ -440,18 +439,25 @@ class _SwarmTargetChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
     final cs = Theme.of(context).colorScheme;
     final mention = summary.targetMention!;
-    final textColor = summary.targetAccent(context) ?? cs.onSurfaceVariant;
+    final targetAccent = summary.targetAccent(context);
+    final textColor = targetAccent ?? cs.onSurfaceVariant;
     final textStyle = TextStyle(
       fontSize: fontSize,
       fontWeight: FontWeight.w600,
       color: textColor,
     );
+    final arrowStyle = TextStyle(
+      fontSize: fontSize,
+      fontWeight: FontWeight.w500,
+      color: appColors.subtleText,
+    );
     final textKey = seq != null ? ValueKey('swarm_post_target_$seq') : null;
 
     return Container(
-      padding: padding,
+      padding: targetAccent == null ? padding : EdgeInsets.zero,
       decoration: swarmTargetChipDecoration(
         context,
         summary,
@@ -462,8 +468,8 @@ class _SwarmTargetChip extends StatelessWidget {
           ? Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('→', style: textStyle),
-                const SizedBox(width: 3),
+                Text('→', style: arrowStyle),
+                const SizedBox(width: 4),
                 SwarmMemberIcon(
                   key: seq != null
                       ? ValueKey('swarm_post_target_icon_$seq')
