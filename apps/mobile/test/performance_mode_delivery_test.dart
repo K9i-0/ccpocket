@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:ccpocket/features/chat_session/state/chat_session_cubit.dart';
 import 'package:ccpocket/features/chat_session/state/streaming_state_cubit.dart';
+import 'package:ccpocket/models/chat_display_filter.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -37,7 +38,10 @@ void main() {
           jsonEncode({
             'type': 'session_list',
             'sessions': [],
-            'protocolCapabilities': ['performance_mode_v1'],
+            'protocolCapabilities': [
+              'performance_mode_v1',
+              'performance_mode_v2',
+            ],
           }),
         );
       });
@@ -91,6 +95,13 @@ void main() {
           () => requests.any((r) => r['type'] == 'client_capabilities'),
         );
         final revision = requests.last['deliveryRevision'];
+        expect(
+          requests.last['performanceFilter'],
+          ChatDisplayFilter.recommended.toJson(),
+        );
+        // Legacy boolean stays false when recommended keeps tasks/subagents so
+        // older v1-only Bridges never drop them.
+        expect(requests.last['performanceMode'], false);
         expect(chat.state.entries, isNotEmpty);
         expect(requests.where((r) => r['type'] == 'get_history'), isEmpty);
         // An old frame already on the wire must be cleared at the ACK boundary.

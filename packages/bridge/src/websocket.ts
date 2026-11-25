@@ -1,5 +1,9 @@
 import { hasGitHead } from "./git-project-state.js";
-import { performanceMessage } from "./performance-mode.js";
+import {
+  isPerformanceFilterActive,
+  performanceMessage,
+  type PerformanceFilter,
+} from "./performance-mode.js";
 import type { Server as HttpServer } from "node:http";
 import { randomUUID } from "node:crypto";
 import { execFile, execFileSync } from "node:child_process";
@@ -515,16 +519,37 @@ export class BridgeWebSocketServer {
   platform: NodeJS.Platform;
   private deliveryPreferences = new WeakMap<
     WebSocket,
-    { enabled: boolean; sessions: Record<string, boolean> }
+    {
+      enabled: boolean;
+      sessions: Record<string, boolean>;
+      filter?: PerformanceFilter;
+      sessionFilters?: Record<string, PerformanceFilter>;
+    }
   >();
   private activityTimes = new WeakMap<WebSocket, Map<string, number>>();
 
-  private performanceEnabled(ws: WebSocket, msg: Record<string, unknown>): boolean {
+  private resolvePerformanceFilter(
+    ws: WebSocket,
+    msg: Record<string, unknown>,
+  ): { filter?: PerformanceFilter } | null {
     const prefs = this.deliveryPreferences.get(ws);
-    if (!prefs || typeof msg.sessionId !== "string") return false;
-    return Object.hasOwn(prefs.sessions, msg.sessionId)
+    if (!prefs || typeof msg.sessionId !== "string") return null;
+    if (
+      prefs.sessionFilters &&
+      Object.hasOwn(prefs.sessionFilters, msg.sessionId)
+    ) {
+      const filter = prefs.sessionFilters[msg.sessionId];
+      return isPerformanceFilterActive(filter) ? { filter } : null;
+    }
+    if (prefs.filter) {
+      return isPerformanceFilterActive(prefs.filter)
+        ? { filter: prefs.filter }
+        : null;
+    }
+    const enabled = Object.hasOwn(prefs.sessions, msg.sessionId)
       ? prefs.sessions[msg.sessionId]
       : prefs.enabled;
+    return enabled ? {} : null;
   }
 
   clientSupportedServerMessages = new WeakMap<WebSocket, Set<string>>();
@@ -1320,6 +1345,8 @@ export class BridgeWebSocketServer {
       this.deliveryPreferences.set(ws, {
         enabled: msg.performanceMode ?? false,
         sessions: msg.sessionPerformanceModes ?? {},
+        filter: msg.performanceFilter,
+        sessionFilters: msg.sessionPerformanceFilters,
       });
       if (msg.deliveryRevision !== undefined) {
         this.send(ws, { type: "performance_mode_state", deliveryRevision: msg.deliveryRevision });
@@ -3051,8 +3078,15 @@ export class BridgeWebSocketServer {
     msg: ServerMessage | Record<string, unknown>,
   ): ServerMessage | Record<string, unknown> | null {
     if (!this.shouldSendToClient(ws, msg)) return null;
-    if (this.performanceEnabled(ws, msg as Record<string, unknown>)) {
-      const projected = performanceMessage(msg as Record<string, unknown>);
+    const performance = this.resolvePerformanceFilter(
+      ws,
+      msg as Record<string, unknown>,
+    );
+    if (performance) {
+      const projected = performanceMessage(
+        msg as Record<string, unknown>,
+        performance.filter,
+      );
       if (projected) {
         msg = projected;
       } else {

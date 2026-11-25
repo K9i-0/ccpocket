@@ -1849,5 +1849,36 @@
   "menuGitHubRepo": "GitHub Repository",
   "plainText": "Plain text",
   "resizeSidebar": "Resize sidebar",
-  "resizeRightPane": "Resize right pane"
+  "resizeRightPane": "Resize right pane",
+  "displayPresetAll": "All",
+  "displayPresetRecommended": "Recommended",
+  "displayPresetCustom": "Custom",
+  "displayPresetCustomSummary": "Custom ({enabled}/{total})",
+  "@displayPresetCustomSummary": {
+    "placeholders": {
+      "enabled": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "displayPresetAllDescription": "Show every tool call, edit diff, and result.",
+  "displayPresetRecommendedDescription": "Keep tasks, thinking, and subagents while reducing tool logs and work-in-progress images sent by Bridge.",
+  "displayPresetCustomDescription": "Choose which transcript items to receive and display.",
+  "displayItemsSectionTitle": "Visible items",
+  "displayItemsAlwaysVisibleNote": "Messages, plans, approvals, questions, generated images, and errors are always shown.",
+  "displayItemTasks": "Tasks / TODO",
+  "displayItemTasksSubtitle": "Task lists and progress checklists",
+  "displayItemThinking": "Thinking",
+  "displayItemThinkingSubtitle": "Model reasoning blocks and live thinking",
+  "displayItemSubagents": "Subagents & Swarm",
+  "displayItemSubagentsSubtitle": "Subagent launches, summaries, and Swarm posts",
+  "displayItemCodeEdits": "Code edits & diffs",
+  "displayItemCodeEditsSubtitle": "File edits, creations, and inline diffs",
+  "displayItemOtherTools": "Other tool calls",
+  "displayItemOtherToolsSubtitle": "Commands, file reads, searches, web, and MCP",
+  "displayItemToolResults": "Tool outputs & screenshots",
+  "displayItemToolResultsSubtitle": "Tool result bodies and work-in-progress images"
 }

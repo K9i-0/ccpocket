@@ -4961,4 +4961,78 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get resizeRightPane => 'Resize right pane';
+
+  @override
+  String get displayPresetAll => 'All';
+
+  @override
+  String get displayPresetRecommended => 'Recommended';
+
+  @override
+  String get displayPresetCustom => 'Custom';
+
+  @override
+  String displayPresetCustomSummary(int enabled, int total) {
+    return 'Custom ($enabled/$total)';
+  }
+
+  @override
+  String get displayPresetAllDescription =>
+      'Show every tool call, edit diff, and result.';
+
+  @override
+  String get displayPresetRecommendedDescription =>
+      'Keep tasks, thinking, and subagents while reducing tool logs and work-in-progress images sent by Bridge.';
+
+  @override
+  String get displayPresetCustomDescription =>
+      'Choose which transcript items to receive and display.';
+
+  @override
+  String get displayItemsSectionTitle => 'Visible items';
+
+  @override
+  String get displayItemsAlwaysVisibleNote =>
+      'Messages, plans, approvals, questions, generated images, and errors are always shown.';
+
+  @override
+  String get displayItemTasks => 'Tasks / TODO';
+
+  @override
+  String get displayItemTasksSubtitle => 'Task lists and progress checklists';
+
+  @override
+  String get displayItemThinking => 'Thinking';
+
+  @override
+  String get displayItemThinkingSubtitle =>
+      'Model reasoning blocks and live thinking';
+
+  @override
+  String get displayItemSubagents => 'Subagents & Swarm';
+
+  @override
+  String get displayItemSubagentsSubtitle =>
+      'Subagent launches, summaries, and Swarm posts';
+
+  @override
+  String get displayItemCodeEdits => 'Code edits & diffs';
+
+  @override
+  String get displayItemCodeEditsSubtitle =>
+      'File edits, creations, and inline diffs';
+
+  @override
+  String get displayItemOtherTools => 'Other tool calls';
+
+  @override
+  String get displayItemOtherToolsSubtitle =>
+      'Commands, file reads, searches, web, and MCP';
+
+  @override
+  String get displayItemToolResults => 'Tool outputs & screenshots';
+
+  @override
+  String get displayItemToolResultsSubtitle =>
+      'Tool result bodies and work-in-progress images';
 }

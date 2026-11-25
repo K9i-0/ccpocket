@@ -1,19 +1,62 @@
+import '../../models/chat_display_filter.dart';
 import '../../models/messages.dart';
+
+const _taskToolNames = {'TodoWrite', 'UpdatePlan', 'TaskCreate', 'TaskUpdate'};
+
+const _subagentToolNames = {'Task', 'Agent', 'SubAgent', 'invoke_subagent'};
+
+const _codeEditToolNames = {
+  'Edit',
+  'Write',
+  'MultiEdit',
+  'NotebookEdit',
+  'FileChange',
+  'FileEdit',
+  'apply_patch',
+};
+
+bool _isSwarmConversation(String name, Map<String, dynamic> input) =>
+    name == 'SwarmPost' || (name == 'swarm' && input['action'] == 'add');
+
+bool _shouldKeepToolUse(
+  String name,
+  Map<String, dynamic> input,
+  ChatDisplayFilter filter,
+) {
+  if (name == 'ExitPlanMode' || name == 'ImageGeneration') return true;
+  // AskUserQuestion is rendered via the dedicated approval/answer transcript
+  // entry rather than as a raw tool_use tile when filtering is active.
+  if (name == 'AskUserQuestion') return false;
+  if (_isSwarmConversation(name, input)) return filter.subagents;
+  if (_taskToolNames.contains(name)) return filter.tasks;
+  if (_subagentToolNames.contains(name)) return filter.subagents;
+  if (_codeEditToolNames.contains(name)) return filter.codeEdits;
+  return filter.otherTools;
+}
 
 /// A presentation-only projection. The original transcript stays available for
 /// switching modes, permissions, plan extraction, and resuming the agent.
-List<ChatEntry> liteModeEntries(List<ChatEntry> entries) {
+List<ChatEntry> liteModeEntries(
+  List<ChatEntry> entries, {
+  ChatDisplayFilter filter = ChatDisplayFilter.recommended,
+}) {
+  if (!filter.isFiltered) return entries;
+
   final visible = <ChatEntry>[];
   for (final entry in entries) {
     if (entry case ServerChatEntry(:final message)) {
       switch (message) {
         case ToolResultMessage():
-          if (message.toolName == 'ImageGeneration' ||
+          if (filter.toolResults ||
+              message.toolName == 'ImageGeneration' ||
               message.permissionOutcome != null) {
             visible.add(entry);
           }
           continue;
         case ToolUseSummaryMessage():
+          if (filter.subagents) {
+            visible.add(entry);
+          }
           continue;
         case AssistantServerMessage(
           :final message,
@@ -25,14 +68,9 @@ List<ChatEntry> liteModeEntries(List<ChatEntry> entries) {
                 (part) => switch (part) {
                   TextContent(:final text) => text.trim().isNotEmpty,
                   ThinkingContent(:final thinking) =>
-                    thinking.trim().isNotEmpty,
+                    filter.thinking && thinking.trim().isNotEmpty,
                   ToolUseContent(:final name, :final input) =>
-                    name == 'ExitPlanMode' ||
-                        name == 'ImageGeneration' ||
-                        name == 'SwarmPost' ||
-                        // The brief a swarm worker is given: the board's copy
-                        // of it is not sent, so this call is where it reads.
-                        (name == 'swarm' && input['action'] == 'add'),
+                    _shouldKeepToolUse(name, input, filter),
                 },
               )
               .toList();

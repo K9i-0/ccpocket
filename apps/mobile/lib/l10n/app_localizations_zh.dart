@@ -4720,4 +4720,70 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get resizeRightPane => '调整右侧面板宽度';
+
+  @override
+  String get displayPresetAll => '全部';
+
+  @override
+  String get displayPresetRecommended => '推荐';
+
+  @override
+  String get displayPresetCustom => '自定义';
+
+  @override
+  String displayPresetCustomSummary(int enabled, int total) {
+    return '自定义 ($enabled/$total)';
+  }
+
+  @override
+  String get displayPresetAllDescription => '显示所有工具调用、代码差异和执行结果。';
+
+  @override
+  String get displayPresetRecommendedDescription =>
+      '保留任务、思考和子代理进度，同时减少 Bridge 发送的工具日志和过程图片。';
+
+  @override
+  String get displayPresetCustomDescription => '已自定义要接收和显示的对话项目。';
+
+  @override
+  String get displayItemsSectionTitle => '显示项目';
+
+  @override
+  String get displayItemsAlwaysVisibleNote => '消息正文、计划、审批、提问、生成的图片和错误始终显示。';
+
+  @override
+  String get displayItemTasks => '任务 / TODO';
+
+  @override
+  String get displayItemTasksSubtitle => '任务列表与进度清单';
+
+  @override
+  String get displayItemThinking => 'Thinking（思考）';
+
+  @override
+  String get displayItemThinkingSubtitle => '思考过程与流式显示';
+
+  @override
+  String get displayItemSubagents => '子代理 / Swarm';
+
+  @override
+  String get displayItemSubagentsSubtitle => '子代理启动、摘要和 Swarm 对话';
+
+  @override
+  String get displayItemCodeEdits => '代码编辑与差异';
+
+  @override
+  String get displayItemCodeEditsSubtitle => '文件创建、编辑及行内差异';
+
+  @override
+  String get displayItemOtherTools => '其他工具调用';
+
+  @override
+  String get displayItemOtherToolsSubtitle => '命令执行、文件读取、搜索、MCP 等';
+
+  @override
+  String get displayItemToolResults => '工具输出与附带图片';
+
+  @override
+  String get displayItemToolResultsSubtitle => '工具输出正文及截图等过程图片';
 }

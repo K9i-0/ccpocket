@@ -20,6 +20,10 @@ import type {
 import type { WindowInfo } from "./screenshot.js";
 import type { WorktreeInfo } from "./worktree.js";
 import {
+  isPerformanceFilter,
+  type PerformanceFilter,
+} from "./performance-mode.js";
+import {
   isValidSharedStateKey,
   isValidSharedStateValue,
   SHARED_STATE_MAX_SEED_ENTRIES,
@@ -27,6 +31,7 @@ import {
 
 // Re-export for convenience
 export type { ImageRef } from "./image-store.js";
+export type { PerformanceFilter } from "./performance-mode.js";
 
 // ---- Assistant message content types (used by ServerMessage and session.ts) ----
 
@@ -214,6 +219,8 @@ export type ClientMessage =
       deliveryRevision?: number;
       performanceMode?: boolean;
       sessionPerformanceModes?: Record<string, boolean>;
+      performanceFilter?: PerformanceFilter;
+      sessionPerformanceFilters?: Record<string, PerformanceFilter>;
     }
   | {
       type: "start";
@@ -1937,6 +1944,18 @@ export function parseClientMessage(data: string): ClientMessage | null {
             typeof msg.sessionPerformanceModes !== "object" ||
             Array.isArray(msg.sessionPerformanceModes) ||
             Object.values(msg.sessionPerformanceModes).some((value) => typeof value !== "boolean")
+          )
+        ) return null;
+        if (
+          msg.performanceFilter !== undefined &&
+          !isPerformanceFilter(msg.performanceFilter)
+        ) return null;
+        if (
+          msg.sessionPerformanceFilters !== undefined && (
+            msg.sessionPerformanceFilters === null ||
+            typeof msg.sessionPerformanceFilters !== "object" ||
+            Array.isArray(msg.sessionPerformanceFilters) ||
+            Object.values(msg.sessionPerformanceFilters).some((value) => !isPerformanceFilter(value))
           )
         ) return null;
         if (msg.appVersion !== undefined && typeof msg.appVersion !== "string")

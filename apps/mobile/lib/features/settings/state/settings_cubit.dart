@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../core/logger.dart';
 import '../../../models/app_icon.dart';
+import '../../../models/chat_display_filter.dart';
 import '../../../models/local_url_settings.dart';
 import '../../../models/code_font_family.dart';
 import '../../../models/git_diff_interaction_mode.dart';
@@ -45,6 +46,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   VoidCallback? _supporterListener;
 
   static const _localUrlKeyPrefix = 'local_url_settings:';
+  static const _keyChatDisplayFilter = 'settings_chat_display_filter';
   static const _keyThemeMode = 'settings_theme_mode';
   static const _keyAppLocale = 'settings_app_locale';
   static const _keySpeechLocale = 'settings_speech_locale';
@@ -116,6 +118,9 @@ class SettingsCubit extends Cubit<SettingsState> {
                (appIconService ?? AppIconService()).isSupportedPlatform,
          ),
        ) {
+    if (state.chatDisplayFilter.preset == ChatDisplayPreset.custom) {
+      _lastCustomDisplayFilter = state.chatDisplayFilter;
+    }
     _syncPerformanceMode();
     final bridge = _bridge;
     if (bridge != null) {
@@ -292,8 +297,19 @@ class SettingsCubit extends Cubit<SettingsState> {
       newSessionTabs = tabsFromJson(tabsJson) ?? defaultNewSessionTabs;
     }
 
+    final savedDisplayFilter = ChatDisplayFilter.fromJsonString(
+      prefs.getString(_keyChatDisplayFilter),
+    );
+    final legacyLiteMode = prefs.getBool('settings_lite_mode') ?? false;
+    final chatDisplayFilter =
+        savedDisplayFilter ??
+        (legacyLiteMode
+            ? ChatDisplayFilter.recommended
+            : ChatDisplayFilter.all);
+
     return SettingsState(
-      liteMode: prefs.getBool('settings_lite_mode') ?? false,
+      liteMode: chatDisplayFilter.isFiltered,
+      chatDisplayFilter: chatDisplayFilter,
       sessionLiteModes: {
         for (final key in prefs.getKeys().where(
           (key) => key.startsWith('settings_session_lite_mode:'),
@@ -368,14 +384,49 @@ class SettingsCubit extends Cubit<SettingsState> {
     return const {};
   }
 
+  ChatDisplayFilter? _lastCustomDisplayFilter;
+
+  ChatDisplayFilter? get lastCustomDisplayFilter => _lastCustomDisplayFilter;
+
   void _syncPerformanceMode() {
-    _bridge?.configurePerformanceMode(state.liteMode, state.sessionLiteModes);
+    _bridge?.configureDisplayFilters(state.chatDisplayFilter, {
+      for (final entry in state.sessionLiteModes.entries)
+        entry.key: entry.value
+            ? ChatDisplayFilter.recommended
+            : ChatDisplayFilter.all,
+    });
+  }
+
+  void setChatDisplayFilter(ChatDisplayFilter filter) {
+    if (filter.preset == ChatDisplayPreset.custom) {
+      _lastCustomDisplayFilter = filter;
+    }
+    _prefs.setString(_keyChatDisplayFilter, filter.toJsonString());
+    _prefs.setBool('settings_lite_mode', filter.isFiltered);
+    emit(
+      state.copyWith(chatDisplayFilter: filter, liteMode: filter.isFiltered),
+    );
+    _syncPerformanceMode();
+  }
+
+  void setChatDisplayPreset(ChatDisplayPreset preset) {
+    switch (preset) {
+      case ChatDisplayPreset.all:
+        setChatDisplayFilter(ChatDisplayFilter.all);
+      case ChatDisplayPreset.recommended:
+        setChatDisplayFilter(ChatDisplayFilter.recommended);
+      case ChatDisplayPreset.custom:
+        final remembered = _lastCustomDisplayFilter;
+        if (remembered != null) {
+          setChatDisplayFilter(remembered);
+        }
+    }
   }
 
   void setLiteMode(bool enabled) {
-    _prefs.setBool('settings_lite_mode', enabled);
-    emit(state.copyWith(liteMode: enabled));
-    _syncPerformanceMode();
+    setChatDisplayFilter(
+      enabled ? ChatDisplayFilter.recommended : ChatDisplayFilter.all,
+    );
   }
 
   void setSessionLiteMode(String sessionId, bool? enabled) {

@@ -4772,4 +4772,71 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get resizeRightPane => '右ペインの幅を変更';
+
+  @override
+  String get displayPresetAll => 'すべて';
+
+  @override
+  String get displayPresetRecommended => 'おすすめ';
+
+  @override
+  String get displayPresetCustom => 'カスタム';
+
+  @override
+  String displayPresetCustomSummary(int enabled, int total) {
+    return 'カスタム ($enabled/$total)';
+  }
+
+  @override
+  String get displayPresetAllDescription => 'すべてのツール操作・差分・実行結果を表示します。';
+
+  @override
+  String get displayPresetRecommendedDescription =>
+      'Tasks・Thinking・サブエージェントは残しつつ、Bridgeから送るツールログや途中の画像を削減します。';
+
+  @override
+  String get displayPresetCustomDescription => '表示・受信する項目を個別に設定しています。';
+
+  @override
+  String get displayItemsSectionTitle => '表示する項目';
+
+  @override
+  String get displayItemsAlwaysVisibleNote =>
+      'メッセージ本文・プラン・承認・質問・生成画像・エラーは常に表示されます。';
+
+  @override
+  String get displayItemTasks => 'Tasks / TODO';
+
+  @override
+  String get displayItemTasksSubtitle => 'タスク一覧・進捗チェックリスト';
+
+  @override
+  String get displayItemThinking => 'Thinking（思考）';
+
+  @override
+  String get displayItemThinkingSubtitle => '思考プロセスとストリーミング表示';
+
+  @override
+  String get displayItemSubagents => 'サブエージェント / Swarm';
+
+  @override
+  String get displayItemSubagentsSubtitle => 'サブエージェント起動・要約・Swarm会話';
+
+  @override
+  String get displayItemCodeEdits => 'コード編集・差分';
+
+  @override
+  String get displayItemCodeEditsSubtitle => 'ファイルの作成・編集と差分カード';
+
+  @override
+  String get displayItemOtherTools => 'その他のツール操作';
+
+  @override
+  String get displayItemOtherToolsSubtitle => 'コマンド実行・ファイル閲覧・検索・MCPなど';
+
+  @override
+  String get displayItemToolResults => 'ツール結果・付随画像';
+
+  @override
+  String get displayItemToolResultsSubtitle => 'ツールの出力本文やスクショ等の画像';
 }

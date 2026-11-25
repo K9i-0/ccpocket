@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../core/logger.dart';
+import '../models/chat_display_filter.dart';
 import '../models/messages.dart';
 import '../models/offline_pending_action.dart';
 import '../models/protocol_version.dart';
@@ -175,13 +176,23 @@ class BridgeService implements BridgeServiceBase {
   final Set<String> _pendingDeliveryRefreshIds = {};
   int _deliveryRevision = 0;
   int _deliveryHandshakeEpoch = -1;
-  bool _appliedPerformanceMode = false;
-  Map<String, bool> _appliedSessionPerformanceModes = const {};
-  bool _performanceMode = false;
-  Map<String, bool> _sessionPerformanceModes = const {};
+  ChatDisplayFilter _appliedPerformanceFilter = ChatDisplayFilter.all;
+  Map<String, ChatDisplayFilter> _appliedSessionPerformanceFilters = const {};
+  ChatDisplayFilter _performanceFilter = ChatDisplayFilter.all;
+  Map<String, ChatDisplayFilter> _sessionPerformanceFilters = const {};
   final Map<String, int> _historyObservers = {};
   bool get supportsPerformanceMode =>
       _protocolCapabilities.contains('performance_mode_v1');
+  bool get supportsPerformanceModeV2 =>
+      _protocolCapabilities.contains('performance_mode_v2');
+
+  /// Whether the connected Bridge reduces network traffic for [filter] without
+  /// dropping categories the user chose to keep.
+  bool supportsPerformanceDeliveryFor(ChatDisplayFilter filter) {
+    if (!filter.isFiltered) return true;
+    if (supportsPerformanceModeV2) return true;
+    return supportsPerformanceMode && filter.canUseLegacyV1Bridge;
+  }
 
   /// Multi-project, period, pinned-only and content search filters for
   /// `list_recent_sessions` (docs/recent-sessions-filters.md).
@@ -253,46 +264,108 @@ class BridgeService implements BridgeServiceBase {
     }
   }
 
-  ClientMessage _deliveryCapabilities() => ClientMessage.clientCapabilities(
-    deliveryRevision: ++_deliveryRevision,
-    performanceMode: _performanceMode,
-    sessionPerformanceModes: _sessionPerformanceModes,
+  static const _legacyV1BridgeFilter = ChatDisplayFilter(
+    tasks: false,
+    thinking: true,
+    subagents: false,
+    codeEdits: false,
+    otherTools: false,
+    toolResults: false,
   );
 
-  void configurePerformanceMode(bool enabled, Map<String, bool> sessions) {
-    if (_performanceMode == enabled &&
-        mapEquals(_sessionPerformanceModes, sessions)) {
+  ChatDisplayFilter _effectiveBridgeFilter(
+    ChatDisplayFilter filter, {
+    required bool supportsV1,
+    required bool supportsV2,
+  }) {
+    if (!filter.isFiltered) return ChatDisplayFilter.all;
+    if (supportsV2) return filter;
+    if (supportsV1 && filter.canUseLegacyV1Bridge) {
+      return _legacyV1BridgeFilter;
+    }
+    return ChatDisplayFilter.all;
+  }
+
+  ClientMessage _deliveryCapabilities() => ClientMessage.clientCapabilities(
+    deliveryRevision: ++_deliveryRevision,
+    // Legacy v1 Bridges ignore `performanceFilter` and drop tasks/subagents/edits
+    // when `performanceMode` is true. Only enable the legacy boolean when v1
+    // won't strip anything the user wants to keep.
+    performanceMode: _performanceFilter.canUseLegacyV1Bridge,
+    sessionPerformanceModes: {
+      for (final entry in _sessionPerformanceFilters.entries)
+        entry.key: entry.value.canUseLegacyV1Bridge,
+    },
+    performanceFilter: _performanceFilter.toJson(),
+    sessionPerformanceFilters: {
+      for (final entry in _sessionPerformanceFilters.entries)
+        entry.key: entry.value.toJson(),
+    },
+  );
+
+  void configureDisplayFilters(
+    ChatDisplayFilter defaultFilter,
+    Map<String, ChatDisplayFilter> sessionFilters,
+  ) {
+    if (_performanceFilter == defaultFilter &&
+        mapEquals(_sessionPerformanceFilters, sessionFilters)) {
       return;
     }
     _pendingDeliveryRefreshIds.addAll(
       {..._runtimeStore.sessionIds, ..._historyObservers.keys}.where(
         (id) =>
-            (_sessionPerformanceModes[id] ?? _performanceMode) !=
-            (sessions[id] ?? enabled),
+            (_sessionPerformanceFilters[id] ?? _performanceFilter) !=
+            (sessionFilters[id] ?? defaultFilter),
       ),
     );
-    _performanceMode = enabled;
-    _sessionPerformanceModes = Map.of(sessions);
+    _performanceFilter = defaultFilter;
+    _sessionPerformanceFilters = Map.of(sessionFilters);
     if (_connectionState == BridgeConnectionState.connected) {
       send(_deliveryCapabilities());
     }
   }
 
+  void configurePerformanceMode(bool enabled, Map<String, bool> sessions) {
+    configureDisplayFilters(
+      enabled ? ChatDisplayFilter.recommended : ChatDisplayFilter.all,
+      {
+        for (final entry in sessions.entries)
+          entry.key: entry.value
+              ? ChatDisplayFilter.recommended
+              : ChatDisplayFilter.all,
+      },
+    );
+  }
+
   void _applyDeliveryMode({required bool supported}) {
-    final enabled = supported && _performanceMode;
-    final sessions = supported ? _sessionPerformanceModes : <String, bool>{};
+    final supportsV1 =
+        supported && (supportsPerformanceMode || _protocolCapabilities.isEmpty);
+    final supportsV2 = supported && supportsPerformanceModeV2;
+    final effectiveDefault = _effectiveBridgeFilter(
+      _performanceFilter,
+      supportsV1: supportsV1,
+      supportsV2: supportsV2,
+    );
+    final effectiveSessions = <String, ChatDisplayFilter>{
+      for (final entry in _sessionPerformanceFilters.entries)
+        entry.key: _effectiveBridgeFilter(
+          entry.value,
+          supportsV1: supportsV1,
+          supportsV2: supportsV2,
+        ),
+    };
     final affected = {..._runtimeStore.sessionIds, ..._historyObservers.keys}
         .where(
           (id) =>
               (supported && _pendingDeliveryRefreshIds.contains(id)) ||
-              (_appliedSessionPerformanceModes[id] ??
-                      _appliedPerformanceMode) !=
-                  (sessions[id] ?? enabled),
+              (_appliedSessionPerformanceFilters[id] ??
+                      _appliedPerformanceFilter) !=
+                  (effectiveSessions[id] ?? effectiveDefault),
         )
         .toList();
     _pendingDeliveryRefreshIds.clear();
-    _appliedPerformanceMode = enabled;
-    _appliedSessionPerformanceModes = Map.of(sessions);
+    _appliedPerformanceFilter = effectiveDefault;
+    _appliedSessionPerformanceFilters = effectiveSessions;
     for (final id in affected) {
       _runtimeStore.clearHistory(id);
       _pendingHistoryDeltaSinceSeq.remove(id);

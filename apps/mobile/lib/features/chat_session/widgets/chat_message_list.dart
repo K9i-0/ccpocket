@@ -16,6 +16,7 @@ import 'package:scroll_to_index/scroll_to_index.dart';
 import '../compaction_projection.dart';
 import '../../session_transcript/session_transcript_screen.dart';
 import '../../media_feedback/media_feedback_scope.dart';
+import '../../../models/chat_display_filter.dart';
 import '../../../models/messages.dart';
 import '../../../providers/bridge_cubits.dart';
 import '../../../services/bridge_service.dart';
@@ -557,6 +558,7 @@ class ChatMessageList extends StatefulWidget {
   final double bottomPadding;
   final bool isCodex;
   final bool liteMode;
+  final ChatDisplayFilter? displayFilter;
   final bool isReadingHistory;
   final ValueChanged<String>? onFilePeekOpened;
 
@@ -587,6 +589,7 @@ class ChatMessageList extends StatefulWidget {
     this.projectPath,
     this.isCodex = false,
     this.liteMode = false,
+    this.displayFilter,
     this.isReadingHistory = false,
     this.onFilePeekOpened,
   });
@@ -604,28 +607,35 @@ class _ChatMessageListState extends State<ChatMessageList> {
   List<ChatEntry>? _projectionSource;
   bool? _projectionOlderHistory;
   bool? _projectionCompacting;
-  bool? _projectionLiteMode;
+  ChatDisplayFilter? _projectionFilter;
   List<ChatEntry>? _projectedEntries;
 
-  /// Rows to display: compaction folding first, then performance mode.
+  ChatDisplayFilter get _effectiveDisplayFilter =>
+      widget.displayFilter ??
+      (widget.liteMode ? ChatDisplayFilter.recommended : ChatDisplayFilter.all);
+
+  /// Rows to display: compaction folding first, then display filter.
   List<ChatEntry> _displayEntries(ChatSessionState state) {
     final entries = state.entries;
     final compacting = state.status == ProcessStatus.compacting;
+    final filter = _effectiveDisplayFilter;
     if (_projectedEntries == null ||
         !listEquals(_projectionSource, entries) ||
         _projectionOlderHistory != state.olderHistoryAvailable ||
         _projectionCompacting != compacting ||
-        _projectionLiteMode != widget.liteMode) {
+        _projectionFilter != filter) {
       _projectionSource = entries;
       _projectionOlderHistory = state.olderHistoryAvailable;
       _projectionCompacting = compacting;
-      _projectionLiteMode = widget.liteMode;
+      _projectionFilter = filter;
       final folded = compactionVisibleEntries(
         entries,
         olderHistoryAvailable: state.olderHistoryAvailable,
         compacting: compacting,
       );
-      _projectedEntries = widget.liteMode ? liteModeEntries(folded) : folded;
+      _projectedEntries = filter.isFiltered
+          ? liteModeEntries(folded, filter: filter)
+          : folded;
     }
     return _projectedEntries!;
   }
@@ -636,7 +646,8 @@ class _ChatMessageListState extends State<ChatMessageList> {
       sessionId: widget.sessionId,
       httpBaseUrl: widget.httpBaseUrl,
       isCodex: widget.isCodex,
-      liteMode: widget.liteMode,
+      liteMode: _effectiveDisplayFilter.isFiltered,
+      displayFilter: _effectiveDisplayFilter,
     );
   }
 
@@ -678,7 +689,12 @@ class _ChatMessageListState extends State<ChatMessageList> {
   @override
   void didUpdateWidget(covariant ChatMessageList oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.liteMode != widget.liteMode) {
+    final oldFilter =
+        oldWidget.displayFilter ??
+        (oldWidget.liteMode
+            ? ChatDisplayFilter.recommended
+            : ChatDisplayFilter.all);
+    if (oldFilter != _effectiveDisplayFilter) {
       _derivedData = null;
       _pendingAnchor = null;
     }
@@ -994,7 +1010,11 @@ class _ChatMessageListState extends State<ChatMessageList> {
             activity: cubit.state.activity,
           ),
         );
-    final hasStreaming = streamingFlags.isStreaming;
+    final showThinking = _effectiveDisplayFilter.thinking;
+    final hasVisibleThinking = showThinking && streamingFlags.hasThinking;
+    final hasStreaming =
+        streamingFlags.isStreaming &&
+        (streamingFlags.hasText || hasVisibleThinking);
     final derivedData = _deriveData(
       chatState,
       allEntries,
@@ -1005,7 +1025,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
       incompleteTool: derivedData.latestIncompleteToolUse,
       activity: streamingFlags.activity,
       hasStreamingText: streamingFlags.hasText,
-      hasThinkingText: streamingFlags.hasThinking,
+      hasThinkingText: hasVisibleThinking,
     );
     final hasActivityBar = activityLabel != null;
     final totalCount =
@@ -1108,7 +1128,9 @@ class _ChatMessageListState extends State<ChatMessageList> {
                             return ChatEntryWidget(
                               entry: StreamingChatEntry(
                                 text: streamingState.text,
-                                thinking: streamingState.thinking,
+                                thinking: showThinking
+                                    ? streamingState.thinking
+                                    : '',
                               ),
                               previous: null,
                               httpBaseUrl: widget.httpBaseUrl,

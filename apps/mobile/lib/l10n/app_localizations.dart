@@ -8926,6 +8926,132 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'右ペインの幅を変更'**
   String get resizeRightPane;
+
+  /// No description provided for @displayPresetAll.
+  ///
+  /// In ja, this message translates to:
+  /// **'すべて'**
+  String get displayPresetAll;
+
+  /// No description provided for @displayPresetRecommended.
+  ///
+  /// In ja, this message translates to:
+  /// **'おすすめ'**
+  String get displayPresetRecommended;
+
+  /// No description provided for @displayPresetCustom.
+  ///
+  /// In ja, this message translates to:
+  /// **'カスタム'**
+  String get displayPresetCustom;
+
+  /// No description provided for @displayPresetCustomSummary.
+  ///
+  /// In ja, this message translates to:
+  /// **'カスタム ({enabled}/{total})'**
+  String displayPresetCustomSummary(int enabled, int total);
+
+  /// No description provided for @displayPresetAllDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'すべてのツール操作・差分・実行結果を表示します。'**
+  String get displayPresetAllDescription;
+
+  /// No description provided for @displayPresetRecommendedDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'Tasks・Thinking・サブエージェントは残しつつ、Bridgeから送るツールログや途中の画像を削減します。'**
+  String get displayPresetRecommendedDescription;
+
+  /// No description provided for @displayPresetCustomDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'表示・受信する項目を個別に設定しています。'**
+  String get displayPresetCustomDescription;
+
+  /// No description provided for @displayItemsSectionTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'表示する項目'**
+  String get displayItemsSectionTitle;
+
+  /// No description provided for @displayItemsAlwaysVisibleNote.
+  ///
+  /// In ja, this message translates to:
+  /// **'メッセージ本文・プラン・承認・質問・生成画像・エラーは常に表示されます。'**
+  String get displayItemsAlwaysVisibleNote;
+
+  /// No description provided for @displayItemTasks.
+  ///
+  /// In ja, this message translates to:
+  /// **'Tasks / TODO'**
+  String get displayItemTasks;
+
+  /// No description provided for @displayItemTasksSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'タスク一覧・進捗チェックリスト'**
+  String get displayItemTasksSubtitle;
+
+  /// No description provided for @displayItemThinking.
+  ///
+  /// In ja, this message translates to:
+  /// **'Thinking（思考）'**
+  String get displayItemThinking;
+
+  /// No description provided for @displayItemThinkingSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'思考プロセスとストリーミング表示'**
+  String get displayItemThinkingSubtitle;
+
+  /// No description provided for @displayItemSubagents.
+  ///
+  /// In ja, this message translates to:
+  /// **'サブエージェント / Swarm'**
+  String get displayItemSubagents;
+
+  /// No description provided for @displayItemSubagentsSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'サブエージェント起動・要約・Swarm会話'**
+  String get displayItemSubagentsSubtitle;
+
+  /// No description provided for @displayItemCodeEdits.
+  ///
+  /// In ja, this message translates to:
+  /// **'コード編集・差分'**
+  String get displayItemCodeEdits;
+
+  /// No description provided for @displayItemCodeEditsSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'ファイルの作成・編集と差分カード'**
+  String get displayItemCodeEditsSubtitle;
+
+  /// No description provided for @displayItemOtherTools.
+  ///
+  /// In ja, this message translates to:
+  /// **'その他のツール操作'**
+  String get displayItemOtherTools;
+
+  /// No description provided for @displayItemOtherToolsSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'コマンド実行・ファイル閲覧・検索・MCPなど'**
+  String get displayItemOtherToolsSubtitle;
+
+  /// No description provided for @displayItemToolResults.
+  ///
+  /// In ja, this message translates to:
+  /// **'ツール結果・付随画像'**
+  String get displayItemToolResults;
+
+  /// No description provided for @displayItemToolResultsSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'ツールの出力本文やスクショ等の画像'**
+  String get displayItemToolResultsSubtitle;
 }
 
 class _AppLocalizationsDelegate

@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import '../../../models/app_icon.dart';
+import '../../../models/chat_display_filter.dart';
 import '../../../models/code_font_family.dart';
 import '../../../models/git_diff_interaction_mode.dart';
 import '../../../models/image_paste_shortcut.dart';
@@ -38,6 +39,7 @@ abstract class SettingsState with _$SettingsState {
     @Default({}) Map<String, String> localUrlSettings,
 
     @Default(false) bool liteMode,
+    @Default(ChatDisplayFilter.all) ChatDisplayFilter chatDisplayFilter,
     @Default({}) Map<String, bool> sessionLiteModes,
 
     /// Theme mode: system, light, or dark.
@@ -162,8 +164,14 @@ abstract class SettingsState with _$SettingsState {
     Provider.antigravity => enabledAntigravityModels,
   };
 
+  ChatDisplayFilter displayFilterForSession(String sessionId) {
+    final override = sessionLiteModes[sessionId];
+    if (override == null) return chatDisplayFilter;
+    return override ? ChatDisplayFilter.recommended : ChatDisplayFilter.all;
+  }
+
   bool liteModeForSession(String sessionId) =>
-      sessionLiteModes[sessionId] ?? liteMode;
+      displayFilterForSession(sessionId).isFiltered;
 
   /// Whether push notifications are enabled for the currently connected machine.
   bool get fcmEnabled =>

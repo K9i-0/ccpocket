@@ -4,7 +4,9 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../../../models/chat_display_filter.dart';
 import '../../../models/messages.dart';
+import '../../settings/chat_display_settings_screen.dart';
 import '../../settings/state/settings_cubit.dart';
 import '../../settings/state/settings_state.dart';
 import '../state/chat_session_cubit.dart';
@@ -30,6 +32,10 @@ class _DisplayModeSheet extends StatelessWidget {
     final l = AppLocalizations.of(context);
     final settings = context.watch<SettingsCubit>();
     final selected = settings.state.sessionLiteModes[sessionId];
+    final defaultSummary = chatDisplayPresetLabel(
+      l,
+      settings.state.chatDisplayFilter.preset,
+    );
     return SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -42,13 +48,9 @@ class _DisplayModeSheet extends StatelessWidget {
             ),
           ),
           for (final option in <(bool?, String, String)>[
-            (
-              null,
-              '${l.followDefaultMode} (${settings.state.liteMode ? l.liteMode : l.standardMode})',
-              'default',
-            ),
-            (false, l.standardMode, 'standard'),
-            (true, l.liteMode, 'lite'),
+            (null, '${l.followDefaultMode} ($defaultSummary)', 'default'),
+            (false, l.displayPresetAll, 'standard'),
+            (true, l.displayPresetRecommended, 'lite'),
           ])
             ListTile(
               key: ValueKey('display_mode_${option.$3}'),
@@ -61,7 +63,7 @@ class _DisplayModeSheet extends StatelessWidget {
             ),
           Padding(
             padding: const EdgeInsets.all(16),
-            child: Text(l.liteModeDescription),
+            child: Text(l.displayPresetRecommendedDescription),
           ),
         ],
       ),
@@ -76,16 +78,18 @@ class LiteModeActivityBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocSelector<SettingsCubit, SettingsState, bool>(
-      selector: (state) => state.liteModeForSession(sessionId),
-      builder: (context, enabled) =>
-          enabled ? const _ActivityStatus() : const SizedBox.shrink(),
+    return BlocSelector<SettingsCubit, SettingsState, ChatDisplayFilter>(
+      selector: (state) => state.displayFilterForSession(sessionId),
+      builder: (context, filter) => filter.isFiltered
+          ? _ActivityStatus(filter: filter)
+          : const SizedBox.shrink(),
     );
   }
 }
 
 class _ActivityStatus extends StatefulWidget {
-  const _ActivityStatus();
+  const _ActivityStatus({required this.filter});
+  final ChatDisplayFilter filter;
 
   @override
   State<_ActivityStatus> createState() => _ActivityStatusState();
@@ -187,7 +191,9 @@ class _ActivityStatusState extends State<_ActivityStatus> {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        if (!cubit.supportsPerformanceMode)
+                        if (!cubit.supportsPerformanceDeliveryFor(
+                          widget.filter,
+                        ))
                           Text(l.performanceModeBridgeUpdate),
                       ],
                     ),

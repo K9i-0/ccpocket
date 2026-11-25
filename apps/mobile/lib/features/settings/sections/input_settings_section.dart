@@ -5,6 +5,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../models/image_paste_shortcut.dart';
 import '../../../models/input_delivery.dart';
 import '../../../models/skill_trigger_style.dart';
+import '../chat_display_settings_screen.dart';
 import '../models/settings_catalog.dart';
 import '../state/settings_cubit.dart';
 import '../state/settings_state.dart';
@@ -172,13 +173,16 @@ class InputSettingsSection extends StatelessWidget {
           children: [
             SettingsItem(
               id: SettingsEntryIds.liteMode,
-              child: SettingsSwitchTile(
+              child: SettingsNavTile(
                 key: const ValueKey('lite_mode_toggle'),
                 icon: Icons.bolt_rounded,
-                title: l.liteMode,
-                subtitle: l.liteModeDescription,
-                value: state.liteMode,
-                onChanged: cubit.setLiteMode,
+                title: Text(l.chatDisplayMode),
+                subtitle: chatDisplayFilterSummary(l, state.chatDisplayFilter),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const ChatDisplaySettingsScreen(),
+                  ),
+                ),
               ),
             ),
           ],

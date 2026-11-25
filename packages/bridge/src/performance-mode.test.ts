@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { performanceMessage } from "./performance-mode.js";
+import {
+  ALL_PERFORMANCE_FILTER,
+  RECOMMENDED_PERFORMANCE_FILTER,
+  performanceMessage,
+  type PerformanceFilter,
+} from "./performance-mode.js";
 import { parseClientMessage } from "./parser.js";
 
 const tool = { type: "tool_use", id: "t1", name: "mcp__simulator__screenshot", input: { huge: "x".repeat(1_000_000) } };
@@ -279,9 +284,118 @@ describe("performance delivery projection", () => {
 
   it("validates preferences while accepting legacy capabilities", () => {
     expect(parseClientMessage(JSON.stringify({ type: "client_capabilities" }))).not.toBeNull();
-    for (const patch of [{ performanceMode: "yes" }, { sessionPerformanceModes: [] }, { sessionPerformanceModes: { a: 1 } }, { deliveryRevision: -1 }]) {
+    for (const patch of [
+      { performanceMode: "yes" },
+      { sessionPerformanceModes: [] },
+      { sessionPerformanceModes: { a: 1 } },
+      { deliveryRevision: -1 },
+      { performanceFilter: null },
+      { performanceFilter: { tasks: true } },
+      { performanceFilter: { ...RECOMMENDED_PERFORMANCE_FILTER, tasks: "yes" } },
+      { sessionPerformanceFilters: [] },
+      { sessionPerformanceFilters: { s1: { tasks: true } } },
+    ]) {
       expect(parseClientMessage(JSON.stringify({ type: "client_capabilities", ...patch }))).toBeNull();
     }
-    expect(parseClientMessage(JSON.stringify({ type: "client_capabilities", deliveryRevision: 2, performanceMode: true, sessionPerformanceModes: { a: false } }))).not.toBeNull();
+    expect(parseClientMessage(JSON.stringify({
+      type: "client_capabilities",
+      deliveryRevision: 2,
+      performanceMode: true,
+      sessionPerformanceModes: { a: false },
+      performanceFilter: RECOMMENDED_PERFORMANCE_FILTER,
+      sessionPerformanceFilters: { a: ALL_PERFORMANCE_FILTER },
+    }))).not.toBeNull();
+  });
+
+  it("supports per-category v2 filters including tasks, thinking, subagents, code edits, other tools and results", () => {
+    const todo = { type: "tool_use", id: "todo1", name: "TodoWrite", input: { todos: [{ content: "Ship", status: "in_progress" }] } };
+    const updatePlan = { type: "tool_use", id: "plan1", name: "UpdatePlan", input: { todos: [{ content: "Check", status: "pending" }] } };
+    const taskCreate = { type: "tool_use", id: "tc1", name: "TaskCreate", input: { subject: "Verify" } };
+    const subagent = { type: "tool_use", id: "sub1", name: "Agent", input: { description: "Explore" } };
+    const swarmPost = { type: "tool_use", id: "sp1", name: "SwarmPost", input: { seq: 1, text: "hi" } };
+    const edit = { type: "tool_use", id: "ed1", name: "Edit", input: { file_path: "/repo/a.ts", old_string: "a", new_string: "b" } };
+    const fileChange = { type: "tool_use", id: "fc1", name: "FileChange", input: { changes: [{ path: "a.ts" }] } };
+    const bash = { type: "tool_use", id: "b1", name: "Bash", input: { command: "ls" } };
+    const thinking = { type: "thinking", thinking: "Step by step" };
+    const text = { type: "text", text: "Answer" };
+    const mixed = {
+      type: "assistant",
+      message: {
+        id: "m1",
+        role: "assistant",
+        content: [thinking, todo, updatePlan, taskCreate, subagent, swarmPost, edit, fileChange, bash, text],
+      },
+    };
+    const summary = { type: "tool_use_summary", summary: "Read 4 files" };
+    const thinkingDelta = { type: "thinking_delta", text: "hmm" };
+
+    // Recommended preset keeps tasks, thinking, subagents/swarm, and summaries while dropping edits, other tools and results.
+    expect(performanceMessage(mixed, RECOMMENDED_PERFORMANCE_FILTER)).toEqual({
+      type: "assistant",
+      message: {
+        id: "m1",
+        role: "assistant",
+        content: [thinking, todo, updatePlan, taskCreate, subagent, swarmPost, text],
+      },
+    });
+    expect(performanceMessage(summary, RECOMMENDED_PERFORMANCE_FILTER)).toEqual(summary);
+    expect(performanceMessage(thinkingDelta, RECOMMENDED_PERFORMANCE_FILTER)).toEqual(thinkingDelta);
+    expect(performanceMessage(result, RECOMMENDED_PERFORMANCE_FILTER)).toEqual({
+      type: "tool_result",
+      toolUseId: "t1",
+      content: "",
+    });
+
+    // Disabling thinking drops both thinking blocks and thinking_delta streams.
+    const noThinking: PerformanceFilter = { ...RECOMMENDED_PERFORMANCE_FILTER, thinking: false };
+    expect(performanceMessage(thinkingDelta, noThinking)).toBeNull();
+    expect(performanceMessage(mixed, noThinking)).toEqual({
+      type: "assistant",
+      message: {
+        id: "m1",
+        role: "assistant",
+        content: [todo, updatePlan, taskCreate, subagent, swarmPost, text],
+      },
+    });
+
+    // Disabling subagents removes SwarmPost, Agent and tool_use_summary.
+    const noSubagents: PerformanceFilter = { ...RECOMMENDED_PERFORMANCE_FILTER, subagents: false };
+    expect(performanceMessage(summary, noSubagents)).toBeNull();
+    expect(performanceMessage(mixed, noSubagents)).toEqual({
+      type: "assistant",
+      message: {
+        id: "m1",
+        role: "assistant",
+        content: [thinking, todo, updatePlan, taskCreate, text],
+      },
+    });
+
+    // Enabling codeEdits keeps Edit & FileChange while still omitting Bash and tool results.
+    const withEdits: PerformanceFilter = { ...RECOMMENDED_PERFORMANCE_FILTER, codeEdits: true };
+    expect(performanceMessage(mixed, withEdits)).toEqual({
+      type: "assistant",
+      message: {
+        id: "m1",
+        role: "assistant",
+        content: [thinking, todo, updatePlan, taskCreate, subagent, swarmPost, edit, fileChange, text],
+      },
+    });
+
+    // Enabling otherTools without toolResults keeps one-line tool calls while stripping heavy outputs.
+    const callsOnly: PerformanceFilter = { ...ALL_PERFORMANCE_FILTER, toolResults: false };
+    expect(performanceMessage(mixed, callsOnly)).toEqual(mixed);
+    expect(performanceMessage(result, callsOnly)).toEqual({
+      type: "tool_result",
+      toolUseId: "t1",
+      content: "",
+    });
+
+    // Enabling toolResults preserves full tool output and images.
+    const withResults: PerformanceFilter = { ...RECOMMENDED_PERFORMANCE_FILTER, toolResults: true };
+    expect(performanceMessage(result, withResults)).toEqual(result);
+
+    // All-enabled filter is a no-op and does not mark history_delta as filtered.
+    const delta = { type: "history_delta", fromSeq: 1, toSeq: 1, messages: [{ seq: 1, message: mixed }] };
+    expect(performanceMessage(delta, ALL_PERFORMANCE_FILTER)).toBe(delta);
   });
 });

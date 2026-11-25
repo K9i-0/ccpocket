@@ -150,6 +150,7 @@ export const RETRACT_IDLE_TIMEOUT_MS = 15_000;
 
 export const BRIDGE_PROTOCOL_CAPABILITIES = [
   "performance_mode_v1",
+  "performance_mode_v2",
   "project_request_correlation_v1",
   "session_context_v1",
   "codex_service_tiers_v1",

@@ -15,6 +15,7 @@ import '../../constants/feature_flags.dart';
 import '../../hooks/use_app_resume_callback.dart';
 import '../../hooks/use_scroll_tracking.dart';
 import '../../l10n/app_localizations.dart';
+import '../../models/chat_display_filter.dart';
 import '../../models/messages.dart';
 import '../../providers/bridge_cubits.dart';
 import '../../router/session_stack_navigation.dart';
@@ -1493,10 +1494,11 @@ class _CodexChatBody extends HookWidget {
                         fit: StackFit.expand,
                         children: [
                           ChatMessageList(
-                            liteMode: context.select<SettingsCubit, bool>(
-                              (cubit) =>
-                                  cubit.state.liteModeForSession(sessionId),
-                            ),
+                            displayFilter: context
+                                .select<SettingsCubit, ChatDisplayFilter>(
+                                  (cubit) => cubit.state
+                                      .displayFilterForSession(sessionId),
+                                ),
                             sessionId: sessionId,
                             scrollController: scroll.controller,
                             httpBaseUrl: context

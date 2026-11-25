@@ -1987,5 +1987,36 @@
   "menuGitHubRepo": "GitHubリポジトリ",
   "plainText": "プレーンテキスト",
   "resizeSidebar": "サイドバーの幅を変更",
-  "resizeRightPane": "右ペインの幅を変更"
+  "resizeRightPane": "右ペインの幅を変更",
+  "displayPresetAll": "すべて",
+  "displayPresetRecommended": "おすすめ",
+  "displayPresetCustom": "カスタム",
+  "displayPresetCustomSummary": "カスタム ({enabled}/{total})",
+  "@displayPresetCustomSummary": {
+    "placeholders": {
+      "enabled": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "displayPresetAllDescription": "すべてのツール操作・差分・実行結果を表示します。",
+  "displayPresetRecommendedDescription": "Tasks・Thinking・サブエージェントは残しつつ、Bridgeから送るツールログや途中の画像を削減します。",
+  "displayPresetCustomDescription": "表示・受信する項目を個別に設定しています。",
+  "displayItemsSectionTitle": "表示する項目",
+  "displayItemsAlwaysVisibleNote": "メッセージ本文・プラン・承認・質問・生成画像・エラーは常に表示されます。",
+  "displayItemTasks": "Tasks / TODO",
+  "displayItemTasksSubtitle": "タスク一覧・進捗チェックリスト",
+  "displayItemThinking": "Thinking（思考）",
+  "displayItemThinkingSubtitle": "思考プロセスとストリーミング表示",
+  "displayItemSubagents": "サブエージェント / Swarm",
+  "displayItemSubagentsSubtitle": "サブエージェント起動・要約・Swarm会話",
+  "displayItemCodeEdits": "コード編集・差分",
+  "displayItemCodeEditsSubtitle": "ファイルの作成・編集と差分カード",
+  "displayItemOtherTools": "その他のツール操作",
+  "displayItemOtherToolsSubtitle": "コマンド実行・ファイル閲覧・検索・MCPなど",
+  "displayItemToolResults": "ツール結果・付随画像",
+  "displayItemToolResultsSubtitle": "ツールの出力本文やスクショ等の画像"
 }

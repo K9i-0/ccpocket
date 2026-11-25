@@ -1,6 +1,7 @@
 import 'package:ccpocket/features/chat_session/lite_mode_projection.dart';
 import 'package:ccpocket/features/generated_image_preview/generated_image_response_grouping.dart';
 import 'package:ccpocket/features/settings/state/settings_cubit.dart';
+import 'package:ccpocket/models/chat_display_filter.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -158,12 +159,168 @@ void main() {
               ToolResultMessage(toolUseId: '${i - 1}', content: 'output'),
             ),
     );
-    entries.add(
-      ServerChatEntry(const ToolUseSummaryMessage(summary: 'many tools')),
+    final summary = ServerChatEntry(
+      const ToolUseSummaryMessage(summary: 'many tools'),
     );
-    expect(liteModeEntries(entries), isEmpty);
+    entries.add(summary);
+    // Recommended preset keeps subagent summaries while omitting Read/results.
+    expect(liteModeEntries(entries), [same(summary)]);
+    // Disabling subagents produces an empty transcript.
+    expect(
+      liteModeEntries(
+        entries,
+        filter: ChatDisplayFilter.recommended.copyWith(subagents: false),
+      ),
+      isEmpty,
+    );
     expect(entries.length, 2001);
   });
+
+  test('supports per-category display filters', () {
+    final mixed = assistant([
+      const ThinkingContent(thinking: 'step by step'),
+      const ToolUseContent(
+        id: 'todo',
+        name: 'TodoWrite',
+        input: {
+          'todos': [
+            {'content': 'Ship', 'status': 'in_progress'},
+          ],
+        },
+      ),
+      const ToolUseContent(id: 'plan', name: 'UpdatePlan', input: {}),
+      const ToolUseContent(id: 'tc', name: 'TaskCreate', input: {}),
+      const ToolUseContent(id: 'sub', name: 'Agent', input: {}),
+      const ToolUseContent(id: 'edit', name: 'Edit', input: {}),
+      const ToolUseContent(id: 'fc', name: 'FileChange', input: {}),
+      const ToolUseContent(id: 'bash', name: 'Bash', input: {'command': 'ls'}),
+      const TextContent(text: 'Done'),
+    ]);
+    final toolResult = ServerChatEntry(
+      const ToolResultMessage(
+        toolUseId: 'bash',
+        toolName: 'Bash',
+        content: 'ok',
+      ),
+    );
+
+    // Recommended keeps thinking, tasks, subagents and prose.
+    final recommended = liteModeEntries([mixed, toolResult]);
+    expect(recommended, hasLength(1));
+    final recContent =
+        ((recommended.single as ServerChatEntry).message
+                as AssistantServerMessage)
+            .message
+            .content;
+    expect(
+      recContent.map(
+        (c) => c is ToolUseContent ? c.name : c.runtimeType.toString(),
+      ),
+      [
+        'ThinkingContent',
+        'TodoWrite',
+        'UpdatePlan',
+        'TaskCreate',
+        'Agent',
+        'TextContent',
+      ],
+    );
+
+    // Turning thinking and tasks off hides them.
+    final noThinkingOrTasks = liteModeEntries(
+      [mixed, toolResult],
+      filter: ChatDisplayFilter.recommended.copyWith(
+        tasks: false,
+        thinking: false,
+      ),
+    );
+    final ntContent =
+        ((noThinkingOrTasks.single as ServerChatEntry).message
+                as AssistantServerMessage)
+            .message
+            .content;
+    expect(
+      ntContent.map(
+        (c) => c is ToolUseContent ? c.name : c.runtimeType.toString(),
+      ),
+      ['Agent', 'TextContent'],
+    );
+
+    // Enabling codeEdits keeps Edit & FileChange without Bash or tool results.
+    final withEdits = liteModeEntries([
+      mixed,
+      toolResult,
+    ], filter: ChatDisplayFilter.recommended.copyWith(codeEdits: true));
+    final editContent =
+        ((withEdits.single as ServerChatEntry).message
+                as AssistantServerMessage)
+            .message
+            .content;
+    expect(editContent.whereType<ToolUseContent>().map((t) => t.name), [
+      'TodoWrite',
+      'UpdatePlan',
+      'TaskCreate',
+      'Agent',
+      'Edit',
+      'FileChange',
+    ]);
+
+    // Enabling toolResults keeps ToolResultMessage.
+    final withResults = liteModeEntries([
+      mixed,
+      toolResult,
+    ], filter: ChatDisplayFilter.recommended.copyWith(toolResults: true));
+    expect(withResults, hasLength(2));
+    expect(withResults.last, same(toolResult));
+
+    // All preset returns original list untouched.
+    final allEntries = [mixed, toolResult];
+    expect(
+      liteModeEntries(allEntries, filter: ChatDisplayFilter.all),
+      same(allEntries),
+    );
+  });
+
+  test(
+    'migrates legacy liteMode preference and persists custom filters',
+    () async {
+      SharedPreferences.setMockInitialValues({'settings_lite_mode': true});
+      final prefs = await SharedPreferences.getInstance();
+      final migrated = SettingsCubit(prefs);
+      expect(migrated.state.chatDisplayFilter, ChatDisplayFilter.recommended);
+      expect(migrated.state.liteMode, true);
+
+      final custom = ChatDisplayFilter.recommended.copyWith(codeEdits: true);
+      migrated.setChatDisplayFilter(custom);
+      expect(migrated.state.chatDisplayFilter.preset, ChatDisplayPreset.custom);
+      expect(migrated.state.liteMode, true);
+
+      migrated.setChatDisplayPreset(ChatDisplayPreset.all);
+      expect(migrated.state.chatDisplayFilter, ChatDisplayFilter.all);
+      expect(migrated.state.liteMode, false);
+
+      // Switching back to custom restores the remembered custom filter.
+      migrated.setChatDisplayPreset(ChatDisplayPreset.custom);
+      expect(migrated.state.chatDisplayFilter, custom);
+      await migrated.close();
+
+      // Persists across restarts.
+      final restored = SettingsCubit(prefs);
+      expect(restored.state.chatDisplayFilter, custom);
+      expect(restored.state.displayFilterForSession('s1'), custom);
+      restored.setSessionLiteMode('s1', false);
+      expect(
+        restored.state.displayFilterForSession('s1'),
+        ChatDisplayFilter.all,
+      );
+      restored.setSessionLiteMode('s1', true);
+      expect(
+        restored.state.displayFilterForSession('s1'),
+        ChatDisplayFilter.recommended,
+      );
+      await restored.close();
+    },
+  );
 
   test('keeps answered question panels in performance mode', () {
     final questionText = assistant([

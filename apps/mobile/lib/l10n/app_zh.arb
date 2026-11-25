@@ -1903,5 +1903,36 @@
   "menuGitHubRepo": "GitHub 仓库",
   "plainText": "纯文本",
   "resizeSidebar": "调整侧边栏宽度",
-  "resizeRightPane": "调整右侧面板宽度"
+  "resizeRightPane": "调整右侧面板宽度",
+  "displayPresetAll": "全部",
+  "displayPresetRecommended": "推荐",
+  "displayPresetCustom": "自定义",
+  "displayPresetCustomSummary": "自定义 ({enabled}/{total})",
+  "@displayPresetCustomSummary": {
+    "placeholders": {
+      "enabled": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "displayPresetAllDescription": "显示所有工具调用、代码差异和执行结果。",
+  "displayPresetRecommendedDescription": "保留任务、思考和子代理进度，同时减少 Bridge 发送的工具日志和过程图片。",
+  "displayPresetCustomDescription": "已自定义要接收和显示的对话项目。",
+  "displayItemsSectionTitle": "显示项目",
+  "displayItemsAlwaysVisibleNote": "消息正文、计划、审批、提问、生成的图片和错误始终显示。",
+  "displayItemTasks": "任务 / TODO",
+  "displayItemTasksSubtitle": "任务列表与进度清单",
+  "displayItemThinking": "Thinking（思考）",
+  "displayItemThinkingSubtitle": "思考过程与流式显示",
+  "displayItemSubagents": "子代理 / Swarm",
+  "displayItemSubagentsSubtitle": "子代理启动、摘要和 Swarm 对话",
+  "displayItemCodeEdits": "代码编辑与差异",
+  "displayItemCodeEditsSubtitle": "文件创建、编辑及行内差异",
+  "displayItemOtherTools": "其他工具调用",
+  "displayItemOtherToolsSubtitle": "命令执行、文件读取、搜索、MCP 等",
+  "displayItemToolResults": "工具输出与附带图片",
+  "displayItemToolResultsSubtitle": "工具输出正文及截图等过程图片"
 }

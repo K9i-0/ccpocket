@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../../models/chat_display_filter.dart';
 import '../../models/messages.dart';
 import '../../services/bridge_service.dart';
 import '../../widgets/message_bubble.dart';
@@ -19,6 +20,7 @@ void openSessionTranscript(
   required String? httpBaseUrl,
   required bool isCodex,
   required bool liteMode,
+  ChatDisplayFilter? displayFilter,
 }) {
   final bridge = context.read<BridgeService>();
   Navigator.of(context).push(
@@ -33,6 +35,7 @@ void openSessionTranscript(
           httpBaseUrl: httpBaseUrl,
           isCodex: isCodex,
           liteMode: liteMode,
+          displayFilter: displayFilter,
         ),
       ),
     ),
@@ -47,11 +50,13 @@ class SessionTranscriptScreen extends StatelessWidget {
     required this.httpBaseUrl,
     required this.isCodex,
     required this.liteMode,
+    this.displayFilter,
   });
 
   final String? httpBaseUrl;
   final bool isCodex;
   final bool liteMode;
+  final ChatDisplayFilter? displayFilter;
 
   @override
   Widget build(BuildContext context) {
@@ -76,7 +81,11 @@ class SessionTranscriptScreen extends StatelessWidget {
             state: state,
             httpBaseUrl: httpBaseUrl,
             isCodex: isCodex,
-            liteMode: liteMode,
+            displayFilter:
+                displayFilter ??
+                (liteMode
+                    ? ChatDisplayFilter.recommended
+                    : ChatDisplayFilter.all),
           ),
         },
       ),
@@ -89,18 +98,18 @@ class _TranscriptList extends StatelessWidget {
     required this.state,
     required this.httpBaseUrl,
     required this.isCodex,
-    required this.liteMode,
+    required this.displayFilter,
   });
 
   final SessionTranscriptState state;
   final String? httpBaseUrl;
   final bool isCodex;
-  final bool liteMode;
+  final ChatDisplayFilter displayFilter;
 
   @override
   Widget build(BuildContext context) {
-    final rawEntries = liteMode
-        ? liteModeEntries(state.entries)
+    final rawEntries = displayFilter.isFiltered
+        ? liteModeEntries(state.entries, filter: displayFilter)
         : state.entries;
     final hiddenToolUseIds = redundantFileChangeToolUseIds(rawEntries);
     final entries = rawEntries

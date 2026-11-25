@@ -8,9 +8,11 @@ import 'package:ccpocket/features/chat_session/state/chat_session_cubit.dart';
 import 'package:ccpocket/features/chat_session/state/streaming_state_cubit.dart';
 import 'package:ccpocket/features/chat_session/widgets/chat_message_list.dart';
 import 'package:ccpocket/features/chat_session/widgets/lite_mode_controls.dart';
+import 'package:ccpocket/features/settings/chat_display_settings_screen.dart';
 import 'package:ccpocket/features/settings/state/settings_cubit.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/l10n/app_localizations_delegates.dart';
+import 'package:ccpocket/models/chat_display_filter.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/providers/bridge_cubits.dart';
 import 'package:ccpocket/theme/app_theme.dart';
@@ -68,7 +70,7 @@ void main() {
       );
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
-      expect(find.text('パフォーマンスモード'), findsOneWidget);
+      expect(find.text('おすすめ'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('display_mode_lite')));
       await tester.pumpAndSettle();
       expect(settings.state.liteModeForSession('session'), true);
@@ -262,6 +264,92 @@ void main() {
       expect(padding.bottom, 38);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'display settings screen applies presets and auto-switches to custom on item toggle',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final settings = SettingsCubit(await SharedPreferences.getInstance());
+      addTearDown(settings.close);
+
+      await tester.pumpWidget(
+        BlocProvider.value(
+          value: settings,
+          child: MaterialApp(
+            theme: AppTheme.lightTheme,
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('ja'),
+            home: const ChatDisplaySettingsScreen(),
+          ),
+        ),
+      );
+
+      // Default is All (all 6 toggles ON).
+      expect(settings.state.chatDisplayFilter, ChatDisplayFilter.all);
+      expect(
+        tester
+            .widget<SwitchListTile>(
+              find.descendant(
+                of: find.byKey(const ValueKey('display_item_code_edits')),
+                matching: find.byType(SwitchListTile),
+              ),
+            )
+            .value,
+        true,
+      );
+
+      // Selecting Recommended updates toggles to recommended defaults.
+      await tester.tap(find.text('おすすめ'));
+      await tester.pumpAndSettle();
+      expect(settings.state.chatDisplayFilter, ChatDisplayFilter.recommended);
+      expect(
+        tester
+            .widget<SwitchListTile>(
+              find.descendant(
+                of: find.byKey(const ValueKey('display_item_tasks')),
+                matching: find.byType(SwitchListTile),
+              ),
+            )
+            .value,
+        true,
+      );
+      expect(
+        tester
+            .widget<SwitchListTile>(
+              find.descendant(
+                of: find.byKey(const ValueKey('display_item_code_edits')),
+                matching: find.byType(SwitchListTile),
+              ),
+            )
+            .value,
+        false,
+      );
+
+      // Toggling Code Edits switches preset to Custom automatically.
+      await tester.tap(find.byKey(const ValueKey('display_item_code_edits')));
+      await tester.pumpAndSettle();
+      expect(settings.state.chatDisplayFilter.preset, ChatDisplayPreset.custom);
+      expect(settings.state.chatDisplayFilter.codeEdits, true);
+
+      // Switching to All and back to Custom restores the remembered custom filter.
+      await tester.tap(find.text('すべて'));
+      await tester.pumpAndSettle();
+      expect(settings.state.chatDisplayFilter, ChatDisplayFilter.all);
+      await tester.tap(find.text('カスタム'));
+      await tester.pumpAndSettle();
+      expect(
+        settings.state.chatDisplayFilter,
+        ChatDisplayFilter.recommended.copyWith(codeEdits: true),
+      );
+
+      // Toggling Code Edits back off returns to Recommended preset.
+      await tester.tap(find.byKey(const ValueKey('display_item_code_edits')));
+      await tester.pumpAndSettle();
+      expect(settings.state.chatDisplayFilter, ChatDisplayFilter.recommended);
+      expect(tester.takeException(), isNull);
     },
   );
 }

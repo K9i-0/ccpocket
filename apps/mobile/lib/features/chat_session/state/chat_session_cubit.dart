@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/logger.dart';
+import '../../../models/chat_display_filter.dart';
 import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
 import '../../../services/chat_message_handler.dart';
@@ -469,6 +470,9 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   }
 
   bool get supportsPerformanceMode => _bridge.supportsPerformanceMode;
+
+  bool supportsPerformanceDeliveryFor(ChatDisplayFilter filter) =>
+      _bridge.supportsPerformanceDeliveryFor(filter);
 
   void _recordAgentActivity(ServerMessage msg) {
     if (msg is AssistantServerMessage ||

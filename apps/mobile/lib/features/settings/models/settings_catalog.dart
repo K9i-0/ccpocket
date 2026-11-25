@@ -340,8 +340,8 @@ final List<SettingsEntry> settingsEntries = [
   SettingsEntry(
     id: SettingsEntryIds.liteMode,
     category: SettingsCategory.input,
-    title: (l) => l.liteMode,
-    keywords: 'lite performance fast 軽量 パフォーマンス',
+    title: (l) => l.chatDisplayMode,
+    keywords: 'lite performance fast display mode recommended custom tasks todo thinking 軽量 パフォーマンス 表示モード おすすめ カスタム すべて',
   ),
 
   // ── Agents ──

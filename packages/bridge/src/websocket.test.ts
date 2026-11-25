@@ -14037,4 +14037,55 @@ describe("performance mode delivery", () => {
       expect(history.messages).toHaveLength(2);
     } finally { bridge.close(); server.close(); }
   });
+
+  it("applies v2 performanceFilter per session including tasks and thinking_delta suppression", async () => {
+    const server = createServer();
+    const bridge = new BridgeWebSocketServer({ server });
+    const internal = bridge as any;
+    const client = { readyState: 1, send: vi.fn() } as any;
+    const todo = { type: "tool_use", id: "todo1", name: "TodoWrite", input: { todos: [{ content: "Ship", status: "in_progress" }] } };
+    const bash = { type: "tool_use", id: "b1", name: "Bash", input: { command: "ls" } };
+    const assistant = { type: "assistant", sessionId: "s1", message: { id: "a", role: "assistant", content: [todo, bash] } };
+    try {
+      await internal.handleClientMessage({
+        type: "client_capabilities",
+        deliveryRevision: 1,
+        performanceMode: false,
+        performanceFilter: {
+          tasks: true,
+          thinking: false,
+          subagents: true,
+          codeEdits: false,
+          otherTools: false,
+          toolResults: false,
+        },
+        sessionPerformanceFilters: {
+          full: {
+            tasks: true,
+            thinking: true,
+            subagents: true,
+            codeEdits: true,
+            otherTools: true,
+            toolResults: true,
+          },
+        },
+      }, client);
+      client.send.mockClear();
+
+      internal.send(client, assistant);
+      expect(JSON.parse(client.send.mock.calls[0][0])).toEqual({
+        ...assistant,
+        message: { ...assistant.message, content: [todo] },
+      });
+
+      // thinking: false suppresses thinking_delta and emits session_activity instead.
+      internal.queueDeltaForClient(client, "s1", "thinking_delta", internal.splitDeltaText("STEP"));
+      internal.flushClientDeltaBatch(client, "s1");
+      expect(JSON.parse(client.send.mock.calls[1][0]).type).toBe("session_activity");
+
+      // Session override with all=true sends the full unprojected message.
+      internal.send(client, { ...assistant, sessionId: "full" });
+      expect(JSON.parse(client.send.mock.calls[2][0])).toEqual({ ...assistant, sessionId: "full" });
+    } finally { bridge.close(); server.close(); }
+  });
 });

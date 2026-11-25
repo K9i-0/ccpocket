@@ -68,7 +68,7 @@ export type AppSent =
       type: "client_capabilities";
       from: "ClientMessage.clientCapabilities";
       always: "minimumProtocolVersion" | "performanceMode" | "protocolVersion" | "sessionPerformanceModes" | "type";
-      sometimes: "appVersion" | "deliveryRevision" | "supportedServerMessages";
+      sometimes: "appVersion" | "deliveryRevision" | "performanceFilter" | "sessionPerformanceFilters" | "supportedServerMessages";
     }
   | {
       type: "create_project";

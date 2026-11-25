@@ -4810,4 +4810,71 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get resizeRightPane => '오른쪽 패널 크기 조절';
+
+  @override
+  String get displayPresetAll => '전체';
+
+  @override
+  String get displayPresetRecommended => '추천';
+
+  @override
+  String get displayPresetCustom => '사용자 지정';
+
+  @override
+  String displayPresetCustomSummary(int enabled, int total) {
+    return '사용자 지정 ($enabled/$total)';
+  }
+
+  @override
+  String get displayPresetAllDescription => '모든 도구 호출, 편집 차이 및 실행 결과를 표시합니다.';
+
+  @override
+  String get displayPresetRecommendedDescription =>
+      '작업, 사고 과정, 서브에이전트는 유지하면서 Bridge가 전송하는 도구 로그와 중간 이미지를 줄입니다.';
+
+  @override
+  String get displayPresetCustomDescription => '표시하고 수신할 항목을 개별적으로 설정했습니다.';
+
+  @override
+  String get displayItemsSectionTitle => '표시할 항목';
+
+  @override
+  String get displayItemsAlwaysVisibleNote =>
+      '메시지 본문, 계획, 승인, 질문, 생성된 이미지 및 오류는 항상 표시됩니다.';
+
+  @override
+  String get displayItemTasks => '작업 / TODO';
+
+  @override
+  String get displayItemTasksSubtitle => '작업 목록 및 진행 체크리스트';
+
+  @override
+  String get displayItemThinking => 'Thinking (사고)';
+
+  @override
+  String get displayItemThinkingSubtitle => '사고 과정 및 실시간 스트리밍';
+
+  @override
+  String get displayItemSubagents => '서브에이전트 / Swarm';
+
+  @override
+  String get displayItemSubagentsSubtitle => '서브에이전트 실행, 요약 및 Swarm 대화';
+
+  @override
+  String get displayItemCodeEdits => '코드 편집 및 차이';
+
+  @override
+  String get displayItemCodeEditsSubtitle => '파일 생성·편집 및 인라인 diff';
+
+  @override
+  String get displayItemOtherTools => '기타 도구 호출';
+
+  @override
+  String get displayItemOtherToolsSubtitle => '명령 실행, 파일 읽기, 검색, MCP 등';
+
+  @override
+  String get displayItemToolResults => '도구 결과 및 첨부 이미지';
+
+  @override
+  String get displayItemToolResultsSubtitle => '도구 출력 본문 및 스크린샷 등 이미지';
 }

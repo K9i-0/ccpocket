@@ -1762,5 +1762,36 @@
   "menuGitHubRepo": "GitHub 저장소",
   "plainText": "일반 텍스트",
   "resizeSidebar": "사이드바 크기 조절",
-  "resizeRightPane": "오른쪽 패널 크기 조절"
+  "resizeRightPane": "오른쪽 패널 크기 조절",
+  "displayPresetAll": "전체",
+  "displayPresetRecommended": "추천",
+  "displayPresetCustom": "사용자 지정",
+  "displayPresetCustomSummary": "사용자 지정 ({enabled}/{total})",
+  "@displayPresetCustomSummary": {
+    "placeholders": {
+      "enabled": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "displayPresetAllDescription": "모든 도구 호출, 편집 차이 및 실행 결과를 표시합니다.",
+  "displayPresetRecommendedDescription": "작업, 사고 과정, 서브에이전트는 유지하면서 Bridge가 전송하는 도구 로그와 중간 이미지를 줄입니다.",
+  "displayPresetCustomDescription": "표시하고 수신할 항목을 개별적으로 설정했습니다.",
+  "displayItemsSectionTitle": "표시할 항목",
+  "displayItemsAlwaysVisibleNote": "메시지 본문, 계획, 승인, 질문, 생성된 이미지 및 오류는 항상 표시됩니다.",
+  "displayItemTasks": "작업 / TODO",
+  "displayItemTasksSubtitle": "작업 목록 및 진행 체크리스트",
+  "displayItemThinking": "Thinking (사고)",
+  "displayItemThinkingSubtitle": "사고 과정 및 실시간 스트리밍",
+  "displayItemSubagents": "서브에이전트 / Swarm",
+  "displayItemSubagentsSubtitle": "서브에이전트 실행, 요약 및 Swarm 대화",
+  "displayItemCodeEdits": "코드 편집 및 차이",
+  "displayItemCodeEditsSubtitle": "파일 생성·편집 및 인라인 diff",
+  "displayItemOtherTools": "기타 도구 호출",
+  "displayItemOtherToolsSubtitle": "명령 실행, 파일 읽기, 검색, MCP 등",
+  "displayItemToolResults": "도구 결과 및 첨부 이미지",
+  "displayItemToolResultsSubtitle": "도구 출력 본문 및 스크린샷 등 이미지"
 }
