@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:ccpocket/theme/app_theme.dart';
@@ -85,5 +86,20 @@ void main() {
     expect(swarmWorkerColor(Brightness.dark, 0), swarmWorkerColorsDark[0]);
     expect(swarmWorkerColor(Brightness.light, 1), swarmWorkerColorsLight[1]);
     expect(swarmWorkerColor(Brightness.dark, n + 2), swarmWorkerColorsDark[2]);
+  });
+
+  test('each palette slot has a unique creature SVG asset that exists', () {
+    final n = swarmWorkerColorsDark.length;
+    expect(swarmWorkerIconAssets, hasLength(n));
+    expect(swarmWorkerIconAssets.toSet(), hasLength(n));
+    expect(swarmWorkerIconAsset(0), swarmWorkerIconAssets[0]);
+    expect(swarmWorkerIconAsset(n + 3), swarmWorkerIconAssets[3]);
+    for (final asset in swarmWorkerIconAssets) {
+      expect(
+        File(asset).existsSync(),
+        isTrue,
+        reason: 'missing SVG asset: $asset',
+      );
+    }
   });
 }

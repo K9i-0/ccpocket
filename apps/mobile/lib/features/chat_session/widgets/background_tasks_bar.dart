@@ -160,18 +160,15 @@ class BackgroundTasksBar extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                // The colour of the worker named next, as on its board posts.
+                // The icon and colour of the worker named next, as on its board posts.
                 if (isSwarmOnly && tasks.first.swarmIndex != null) ...[
-                  Container(
-                    key: const ValueKey('background_tasks_bar_swarm_dot'),
-                    width: 7,
-                    height: 7,
-                    decoration: BoxDecoration(
-                      color: swarmWorkerColor(
-                        Theme.of(context).brightness,
-                        tasks.first.swarmIndex!,
-                      ),
-                      shape: BoxShape.circle,
+                  SwarmMemberIcon(
+                    key: const ValueKey('background_tasks_bar_swarm_icon'),
+                    index: tasks.first.swarmIndex,
+                    size: 15,
+                    color: swarmWorkerColor(
+                      Theme.of(context).brightness,
+                      tasks.first.swarmIndex!,
                     ),
                   ),
                   const SizedBox(width: 5),
@@ -303,24 +300,32 @@ class _BackgroundTaskTile extends StatelessWidget {
       if (summary != null && summary.isNotEmpty && summary != title) summary,
       if (tool != null && tool.isNotEmpty) tool,
     ];
+    final leadingColor = !isSwarm
+        ? cs.onSurfaceVariant
+        : task.swarmIndex != null
+        ? swarmWorkerColor(
+            Theme.of(context).brightness,
+            task.swarmIndex!,
+          ).withValues(alpha: isWaiting ? 0.55 : 1)
+        : isWaiting
+        ? cs.onSurfaceVariant
+        : cs.tertiary;
     return ListTile(
       key: ValueKey('background_task_${task.taskId}'),
       dense: true,
-      leading: Icon(
-        task.isAgent ? Icons.smart_toy_outlined : Icons.terminal,
-        size: 20,
-        // A numbered swarm worker keeps its colour while it waits, dimmed.
-        color: !isSwarm
-            ? cs.onSurfaceVariant
-            : task.swarmIndex != null
-            ? swarmWorkerColor(
-                Theme.of(context).brightness,
-                task.swarmIndex!,
-              ).withValues(alpha: isWaiting ? 0.55 : 1)
-            : isWaiting
-            ? cs.onSurfaceVariant
-            : cs.tertiary,
-      ),
+      leading: isSwarm
+          ? SwarmMemberIcon(
+              key: ValueKey('background_task_icon_${task.taskId}'),
+              index: task.swarmIndex,
+              size: 22,
+              // A numbered swarm worker keeps its colour while it waits, dimmed.
+              color: leadingColor,
+            )
+          : Icon(
+              task.isAgent ? Icons.smart_toy_outlined : Icons.terminal,
+              size: 20,
+              color: leadingColor,
+            ),
       title: Text(
         title,
         style: isSwarm

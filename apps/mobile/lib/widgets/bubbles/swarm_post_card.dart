@@ -308,9 +308,11 @@ class _SwarmPostHeader extends StatelessWidget {
 
     return Row(
       children: [
-        Icon(
-          summary.isCoordinator ? Icons.hub_outlined : Icons.smart_toy_outlined,
-          size: 13,
+        SwarmMemberIcon(
+          key: ValueKey('swarm_post_icon_$seq'),
+          isCoordinator: summary.isCoordinator,
+          index: summary.agentIndex,
+          size: summary.isCoordinator ? 14 : 16,
           color: accent,
         ),
         const SizedBox(width: 5),
@@ -536,11 +538,10 @@ class _SwarmPostDetailSheet extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 0, 8, 8),
             child: Row(
               children: [
-                Icon(
-                  summary.isCoordinator
-                      ? Icons.hub_outlined
-                      : Icons.smart_toy_outlined,
-                  size: 18,
+                SwarmMemberIcon(
+                  isCoordinator: summary.isCoordinator,
+                  index: summary.agentIndex,
+                  size: summary.isCoordinator ? 18 : 20,
                   color: accent,
                 ),
                 const SizedBox(width: 8),

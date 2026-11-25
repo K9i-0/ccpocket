@@ -9,6 +9,7 @@ import 'package:ccpocket/utils/tool_categories.dart';
 import 'package:ccpocket/widgets/bubbles/assistant_bubble.dart';
 import 'package:ccpocket/widgets/bubbles/swarm_post_card.dart';
 import 'package:ccpocket/widgets/message_bubble.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -152,6 +153,37 @@ void main() {
     expect(colorOf('swarm_post_target_3'), swarmWorkerColorsDark[0]);
     expect(colorOf('swarm_post_agent_4'), scheme.tertiary);
     expect(colorOf('swarm_post_target_4'), scheme.onSurfaceVariant);
+
+    // Coordinator keeps the hub icon, numbered workers get fixed creature SVGs,
+    // and unnumbered workers fall back to the legacy robot icon.
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('swarm_post_icon_1')),
+        matching: find.byIcon(Icons.hub_outlined),
+      ),
+      findsOneWidget,
+    );
+    SvgPicture svgOf(String key) => tester.widget<SvgPicture>(
+      find.descendant(
+        of: find.byKey(ValueKey(key)),
+        matching: find.byType(SvgPicture),
+      ),
+    );
+    expect(
+      (svgOf('swarm_post_icon_2').bytesLoader as SvgAssetLoader).assetName,
+      swarmWorkerIconAssets[0],
+    );
+    expect(
+      (svgOf('swarm_post_icon_3').bytesLoader as SvgAssetLoader).assetName,
+      swarmWorkerIconAssets[1],
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('swarm_post_icon_4')),
+        matching: find.byIcon(Icons.smart_toy_outlined),
+      ),
+      findsOneWidget,
+    );
   });
 
   test('a swarm worker task carries its join number', () {
@@ -196,12 +228,20 @@ void main() {
       );
 
       expect(find.text('Swarm (2)'), findsOneWidget);
-      final dot = tester.widget<Container>(
-        find.byKey(const ValueKey('background_tasks_bar_swarm_dot')),
+      final barIcon = tester.widget<SwarmMemberIcon>(
+        find.byKey(const ValueKey('background_tasks_bar_swarm_icon')),
+      );
+      expect(barIcon.index, 2);
+      expect(barIcon.color, swarmWorkerColorsDark[2]);
+      final barSvg = tester.widget<SvgPicture>(
+        find.descendant(
+          of: find.byKey(const ValueKey('background_tasks_bar_swarm_icon')),
+          matching: find.byType(SvgPicture),
+        ),
       );
       expect(
-        (dot.decoration! as BoxDecoration).color,
-        swarmWorkerColorsDark[2],
+        (barSvg.bytesLoader as SvgAssetLoader).assetName,
+        swarmWorkerIconAssets[2],
       );
       expect(
         find.textContaining('waterfall-pond — File pond.dart'),
@@ -219,6 +259,27 @@ void main() {
       expect(find.text('waterfall-pond'), findsOneWidget);
       expect(find.text('ocean-river'), findsOneWidget);
       expect(find.text('Waiting'), findsOneWidget);
+      final tileSvg = tester.widget<SvgPicture>(
+        find.descendant(
+          of: find.byKey(
+            const ValueKey('background_task_icon_swarm:waterfall-pond'),
+          ),
+          matching: find.byType(SvgPicture),
+        ),
+      );
+      expect(
+        (tileSvg.bytesLoader as SvgAssetLoader).assetName,
+        swarmWorkerIconAssets[2],
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(
+            const ValueKey('background_task_icon_swarm:ocean-river'),
+          ),
+          matching: find.byIcon(Icons.smart_toy_outlined),
+        ),
+        findsOneWidget,
+      );
     },
   );
 

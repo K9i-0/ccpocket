@@ -1,3 +1,4 @@
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// Colours for the workers of an Antigravity swarm.
@@ -55,4 +56,61 @@ Color swarmMemberColor(
   if (isCoordinator) return theme.colorScheme.primary;
   if (index == null || index < 0) return theme.colorScheme.tertiary;
   return swarmWorkerColor(theme.brightness, index);
+}
+
+/// Asset paths of the monochrome creature marks for numbered swarm workers,
+/// paired 1:1 with [swarmWorkerColorsLight] and [swarmWorkerColorsDark].
+const swarmWorkerIconAssets = <String>[
+  'assets/icons/swarm_shark.svg',
+  'assets/icons/swarm_turtle.svg',
+  'assets/icons/swarm_flamingo.svg',
+  'assets/icons/swarm_bat.svg',
+  'assets/icons/swarm_cat.svg',
+  'assets/icons/swarm_dino.svg',
+  'assets/icons/swarm_fox.svg',
+  'assets/icons/swarm_hedgehog.svg',
+];
+
+/// The creature icon asset of the worker that joined its swarm at [index]
+/// (from 0).
+String swarmWorkerIconAsset(int index) =>
+    swarmWorkerIconAssets[index % swarmWorkerIconAssets.length];
+
+/// Icon for a swarm member: a hub for the coordinator, a fixed monochrome
+/// creature SVG matched to the member's palette slot for numbered workers,
+/// and the legacy robot icon when an older Bridge sends no worker index.
+class SwarmMemberIcon extends StatelessWidget {
+  final bool isCoordinator;
+  final int? index;
+  final double size;
+  final Color? color;
+
+  const SwarmMemberIcon({
+    super.key,
+    this.isCoordinator = false,
+    this.index,
+    required this.size,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final resolvedColor =
+        color ??
+        swarmMemberColor(context, isCoordinator: isCoordinator, index: index);
+    if (isCoordinator) {
+      return Icon(Icons.hub_outlined, size: size, color: resolvedColor);
+    }
+    final workerIndex = index;
+    if (workerIndex == null || workerIndex < 0) {
+      return Icon(Icons.smart_toy_outlined, size: size, color: resolvedColor);
+    }
+    return SvgPicture.asset(
+      swarmWorkerIconAsset(workerIndex),
+      width: size,
+      height: size,
+      colorFilter: ColorFilter.mode(resolvedColor, BlendMode.srcIn),
+      excludeFromSemantics: true,
+    );
+  }
 }
