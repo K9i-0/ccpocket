@@ -76,7 +76,7 @@ class RecentSessionCard extends StatelessWidget {
         side: BorderSide(
           color: isSelected
               ? colorScheme.primary.withValues(alpha: 0.9)
-              : colorScheme.outlineVariant.withValues(alpha: 0.5),
+              : colorScheme.outlineVariant.withValues(alpha: 0.45),
           width: isSelected ? 2.2 : 1,
         ),
       ),
@@ -87,7 +87,7 @@ class RecentSessionCard extends StatelessWidget {
         child: Stack(
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -107,10 +107,13 @@ class RecentSessionCard extends StatelessWidget {
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: colorScheme.surfaceContainer,
+                                    color: colorScheme.onSurface.withValues(
+                                      alpha: 0.05,
+                                    ),
                                     borderRadius: BorderRadius.circular(6),
                                     border: Border.all(
-                                      color: colorScheme.outlineVariant,
+                                      color: colorScheme.outlineVariant
+                                          .withValues(alpha: 0.45),
                                       width: 0.5,
                                     ),
                                   ),

@@ -42,25 +42,14 @@ class SettingsStatusCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: SettingsHighlightFrame(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(20),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color.alphaBlend(
-                  accent.withValues(alpha: 0.16),
-                  cs.surfaceContainerLow,
-                ),
-                Color.alphaBlend(
-                  cs.primary.withValues(alpha: 0.10),
-                  cs.surfaceContainerLow,
-                ),
-              ],
+            borderRadius: BorderRadius.circular(20),
+            color: cs.surfaceContainerHigh,
+            border: Border.all(
+              color: cs.outlineVariant.withValues(alpha: 0.55),
             ),
-            border: Border.all(color: accent.withValues(alpha: 0.22)),
           ),
           child: Material(
             type: MaterialType.transparency,
@@ -76,13 +65,13 @@ class SettingsStatusCard extends StatelessWidget {
                     onUpdateBridge: onUpdateBridge,
                   )
                 else
-                  _DisconnectedStatus(accent: accent),
+                  const _DisconnectedStatus(),
                 if (showInlineUsage && visibility.bridgeConnected) ...[
                   Divider(
                     height: 1,
                     indent: 18,
                     endIndent: 18,
-                    color: cs.outlineVariant.withValues(alpha: 0.6),
+                    color: cs.outlineVariant.withValues(alpha: 0.45),
                   ),
                   // Plan usage lives here instead of on its own page, so the
                   // usage shortcut on the home screen is a single hop back.
@@ -102,9 +91,7 @@ class SettingsStatusCard extends StatelessWidget {
 }
 
 class _DisconnectedStatus extends StatelessWidget {
-  const _DisconnectedStatus({required this.accent});
-
-  final Color accent;
+  const _DisconnectedStatus();
 
   @override
   Widget build(BuildContext context) {
@@ -195,7 +182,7 @@ class _ConnectedStatus extends StatelessWidget {
 
     return InkWell(
       key: const ValueKey('settings_status_card'),
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       onTap: () => onOpenCategory(SettingsCategory.connection),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 14, 14, 12),
@@ -342,8 +329,9 @@ class _StatusPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.24), width: 0.75),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

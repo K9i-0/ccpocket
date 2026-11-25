@@ -93,7 +93,7 @@ class SettingsCard extends StatelessWidget {
           color: cs.surfaceContainerLow,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
-            side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.55)),
+            side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.45)),
           ),
           child: child,
         ),
@@ -175,7 +175,7 @@ class SettingsDivider extends StatelessWidget {
       indent: 16,
       endIndent: 16,
       color: Theme.of(context).colorScheme.outlineVariant
-          .withValues(alpha: 0.55),
+          .withValues(alpha: 0.45),
     );
   }
 }
@@ -215,13 +215,14 @@ class SettingsLeadingIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final accent = color ?? SettingsAccent.of(context);
     return Container(
       width: 34,
       height: 34,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.13),
+        color: accent.withValues(alpha: isDark ? 0.16 : 0.11),
         borderRadius: BorderRadius.circular(10),
       ),
       child: iconWidget != null
@@ -234,7 +235,7 @@ class SettingsLeadingIcon extends StatelessWidget {
   }
 }
 
-/// Solid, colored icon badge used for categories.
+/// Restrained tinted squircle icon badge used for categories.
 class SettingsCategoryBadge extends StatelessWidget {
   const SettingsCategoryBadge({
     super.key,
@@ -249,26 +250,17 @@ class SettingsCategoryBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: size,
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color.lerp(color, Colors.white, 0.18)!, color],
-        ),
-        borderRadius: BorderRadius.circular(size * 0.3),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.28),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
+        color: color.withValues(alpha: isDark ? 0.18 : 0.12),
+        borderRadius: BorderRadius.circular(size * 0.28),
+        border: Border.all(color: color.withValues(alpha: 0.22), width: 1),
       ),
-      child: Icon(icon, size: size * 0.55, color: Colors.white),
+      child: Icon(icon, size: size * 0.54, color: color),
     );
   }
 }

@@ -159,7 +159,7 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
         side: BorderSide(
           color: widget.isSelected
               ? statusColor.withValues(alpha: 0.95)
-              : colorScheme.outlineVariant.withValues(alpha: 0.5),
+              : colorScheme.outlineVariant.withValues(alpha: 0.45),
           width: widget.isSelected ? 2.2 : 1,
         ),
       ),
@@ -170,17 +170,15 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Status bar with gradient
+            // Clean flat status header separated by a subtle hairline divider
             Container(
               width: double.infinity,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    statusColor.withValues(alpha: 0.15),
-                    statusColor.withValues(alpha: 0.04),
-                  ],
+                border: Border(
+                  bottom: BorderSide(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.45),
+                    width: 0.5,
+                  ),
                 ),
               ),
               // The header actions own tap regions that reach the header's
@@ -192,7 +190,7 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                   children: [
                     Expanded(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 6, 0, 6),
+                        padding: const EdgeInsets.fromLTRB(16, 6, 0, 6),
                         child: Row(
                           children: [
                             SessionStatusDot(
@@ -207,9 +205,9 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                             Text(
                               visualStatus.label,
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: 11.5,
                                 fontWeight: isReadyUnseen
-                                    ? FontWeight.w800
+                                    ? FontWeight.w700
                                     : FontWeight.w600,
                                 color: statusColor,
                               ),
@@ -402,7 +400,7 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                     },
             // Content (same structure as RecentSessionCard)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 11),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -422,14 +420,13 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .surfaceContainer,
+                                    color: colorScheme.onSurface.withValues(
+                                      alpha: 0.05,
+                                    ),
                                     borderRadius: BorderRadius.circular(6),
                                     border: Border.all(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .outlineVariant,
+                                      color: colorScheme.outlineVariant
+                                          .withValues(alpha: 0.45),
                                       width: 0.5,
                                     ),
                                   ),
@@ -438,9 +435,7 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w500,
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant,
+                                      color: colorScheme.onSurfaceVariant,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -484,20 +479,24 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                     ],
                   ),
                   if (agentLabel != null) ...[
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     SessionAgentLabel(label: agentLabel),
                   ],
                   // Last message
                   if (displayMessage.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Text(
                       displayMessage,
-                      style: const TextStyle(fontSize: 13),
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        height: 1.38,
+                        color: colorScheme.onSurface,
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   if (isCodexSession)
                     CodexEnvironmentSummary(
                       leadingLabel:

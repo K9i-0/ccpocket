@@ -156,11 +156,17 @@ class ChatInputBar extends StatelessWidget {
           ? const BoxDecoration()
           : BoxDecoration(
               color: cs.surface,
+              border: Border(
+                top: BorderSide(
+                  color: cs.outlineVariant.withValues(alpha: 0.45),
+                  width: 0.5,
+                ),
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.15),
-                  blurRadius: 8,
-                  offset: const Offset(0, -2),
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 6,
+                  offset: const Offset(0, -1),
                 ),
               ],
             ),
@@ -213,15 +219,15 @@ class ChatInputBar extends StatelessWidget {
                         enabled: canDedent,
                       ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
               _IndentButton(onTap: onIndent),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
               _MentionButton(onTap: onMention, enabled: !isInMentionContext),
               if (showDollarButton) ...[
-                const SizedBox(width: 8),
+                const SizedBox(width: 4),
                 _DollarButton(onTap: onDollarMention ?? () {}),
               ],
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
               _AttachButton(
                 hasAttachment: attachedImages.isNotEmpty,
                 imageCount: attachedImages.length,
@@ -229,7 +235,7 @@ class ChatInputBar extends StatelessWidget {
                 onLongPress: onShowAttachmentOptions,
               ),
               if (onShowPromptHistory != null) ...[
-                const SizedBox(width: 8),
+                const SizedBox(width: 4),
                 _HistoryButton(onTap: onShowPromptHistory!),
               ],
               const Spacer(),
@@ -251,7 +257,7 @@ class ChatInputBar extends StatelessWidget {
               else ...[
                 if (isVoiceAvailable) ...[
                   _VoiceButton(isRecording: isRecording, onTap: onToggleVoice),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                 ],
                 _ActionButton(
                   status: status,
@@ -271,6 +277,50 @@ class ChatInputBar extends StatelessWidget {
   }
 }
 
+/// Low-chrome secondary toolbar button: transparent at rest with ripple/hover
+/// feedback only, keeping the primary Send button as the visual anchor.
+class _ComposerToolbarButton extends StatelessWidget {
+  const _ComposerToolbarButton({
+    required this.tooltip,
+    required this.child,
+    this.inkWellKey,
+    this.onTap,
+    this.onLongPress,
+    this.backgroundColor,
+    this.enabled = true,
+  });
+
+  final String tooltip;
+  final Widget child;
+  final Key? inkWellKey;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final Color? backgroundColor;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final button = Tooltip(
+      message: tooltip,
+      child: Material(
+        color: backgroundColor ?? Colors.transparent,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          key: inkWellKey,
+          borderRadius: BorderRadius.circular(18),
+          hoverColor: cs.onSurface.withValues(alpha: 0.06),
+          onTap: enabled ? onTap : null,
+          onLongPress: enabled ? onLongPress : null,
+          child: SizedBox(width: 36, height: 36, child: Center(child: child)),
+        ),
+      ),
+    );
+    if (enabled) return button;
+    return Opacity(opacity: 0.38, child: button);
+  }
+}
+
 class _IndentButton extends StatelessWidget {
   const _IndentButton({required this.onTap});
   final VoidCallback onTap;
@@ -279,26 +329,14 @@ class _IndentButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
-    return Tooltip(
-      message: l.tooltipIndent,
-      child: Material(
-        color: FrostedComposer.fill(context, cs.surfaceContainerHigh),
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          key: const ValueKey('indent_button'),
-          borderRadius: BorderRadius.circular(20),
-          onTap: onTap,
-          child: Container(
-            width: 36,
-            height: 36,
-            alignment: Alignment.center,
-            child: Icon(
-              Icons.format_indent_increase,
-              size: 18,
-              color: cs.primary,
-            ),
-          ),
-        ),
+    return _ComposerToolbarButton(
+      tooltip: l.tooltipIndent,
+      inkWellKey: const ValueKey('indent_button'),
+      onTap: onTap,
+      child: Icon(
+        Icons.format_indent_increase,
+        size: 18,
+        color: cs.onSurfaceVariant,
       ),
     );
   }
@@ -313,28 +351,14 @@ class _DedentButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
-    return Tooltip(
-      message: l.tooltipDedent,
-      child: Opacity(
-        opacity: enabled ? 1.0 : 0.4,
-        child: Material(
-          color: FrostedComposer.fill(context, cs.surfaceContainerHigh),
-          borderRadius: BorderRadius.circular(20),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(20),
-            onTap: enabled ? onTap : null,
-            child: Container(
-              width: 36,
-              height: 36,
-              alignment: Alignment.center,
-              child: Icon(
-                Icons.format_indent_decrease,
-                size: 18,
-                color: cs.primary,
-              ),
-            ),
-          ),
-        ),
+    return _ComposerToolbarButton(
+      tooltip: l.tooltipDedent,
+      onTap: onTap,
+      enabled: enabled,
+      child: Icon(
+        Icons.format_indent_decrease,
+        size: 18,
+        color: cs.onSurfaceVariant,
       ),
     );
   }
@@ -348,27 +372,15 @@ class _SlashCommandButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
-    return Tooltip(
-      message: l.tooltipSlashCommand,
-      child: Material(
-        color: FrostedComposer.fill(context, cs.surfaceContainerHigh),
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: onTap,
-          child: Container(
-            width: 36,
-            height: 36,
-            alignment: Alignment.center,
-            child: Text(
-              '/',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: cs.primary,
-              ),
-            ),
-          ),
+    return _ComposerToolbarButton(
+      tooltip: l.tooltipSlashCommand,
+      onTap: onTap,
+      child: Text(
+        '/',
+        style: TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
+          color: cs.onSurfaceVariant,
         ),
       ),
     );
@@ -384,31 +396,17 @@ class _MentionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
-    return Tooltip(
-      message: l.tooltipMention,
-      child: Opacity(
-        opacity: enabled ? 1.0 : 0.4,
-        child: Material(
-          color: FrostedComposer.fill(context, cs.surfaceContainerHigh),
-          borderRadius: BorderRadius.circular(20),
-          child: InkWell(
-            key: const ValueKey('mention_button'),
-            borderRadius: BorderRadius.circular(20),
-            onTap: enabled ? onTap : null,
-            child: Container(
-              width: 36,
-              height: 36,
-              alignment: Alignment.center,
-              child: Text(
-                '@',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: cs.primary,
-                ),
-              ),
-            ),
-          ),
+    return _ComposerToolbarButton(
+      tooltip: l.tooltipMention,
+      inkWellKey: const ValueKey('mention_button'),
+      onTap: onTap,
+      enabled: enabled,
+      child: Text(
+        '@',
+        style: TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
+          color: cs.onSurfaceVariant,
         ),
       ),
     );
@@ -423,28 +421,16 @@ class _DollarButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
-    return Tooltip(
-      message: l.tooltipDollarMention,
-      child: Material(
-        color: FrostedComposer.fill(context, cs.surfaceContainerHigh),
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          key: const ValueKey('dollar_button'),
-          borderRadius: BorderRadius.circular(20),
-          onTap: onTap,
-          child: Container(
-            width: 36,
-            height: 36,
-            alignment: Alignment.center,
-            child: Text(
-              r'$',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: cs.primary,
-              ),
-            ),
-          ),
+    return _ComposerToolbarButton(
+      tooltip: l.tooltipDollarMention,
+      inkWellKey: const ValueKey('dollar_button'),
+      onTap: onTap,
+      child: Text(
+        r'$',
+        style: TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
+          color: cs.onSurfaceVariant,
         ),
       ),
     );
@@ -467,59 +453,47 @@ class _AttachButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
-    return Tooltip(
-      message: onLongPress == null
+    return _ComposerToolbarButton(
+      tooltip: onLongPress == null
           ? l.tooltipAttachImage
           : '${l.tooltipAttachImage}\n${l.tooltipAttachmentOptions}',
-      child: Material(
-        color: FrostedComposer.fill(
-          context,
-          hasAttachment ? cs.primaryContainer : cs.surfaceContainerHigh,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          key: const ValueKey('attach_image_button'),
-          borderRadius: BorderRadius.circular(20),
-          onTap: onTap,
-          onLongPress: onLongPress,
-          child: Container(
-            width: 36,
-            height: 36,
-            alignment: Alignment.center,
-            child: hasAttachment
-                ? Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Icon(Icons.image, size: 18, color: cs.onPrimaryContainer),
-                      if (imageCount > 1)
-                        Positioned(
-                          top: -6,
-                          right: -8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 4,
-                              vertical: 1,
-                            ),
-                            decoration: BoxDecoration(
-                              color: cs.primary,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              '$imageCount',
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                                color: cs.onPrimary,
-                              ),
-                            ),
-                          ),
+      inkWellKey: const ValueKey('attach_image_button'),
+      onTap: onTap,
+      onLongPress: onLongPress,
+      backgroundColor: hasAttachment
+          ? FrostedComposer.fill(context, cs.primaryContainer)
+          : null,
+      child: hasAttachment
+          ? Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(Icons.image, size: 18, color: cs.onPrimaryContainer),
+                if (imageCount > 1)
+                  Positioned(
+                    top: -6,
+                    right: -8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: cs.primary,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '$imageCount',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: cs.onPrimary,
                         ),
-                    ],
-                  )
-                : Icon(Icons.image_outlined, size: 18, color: cs.primary),
-          ),
-        ),
-      ),
+                      ),
+                    ),
+                  ),
+              ],
+            )
+          : Icon(Icons.image_outlined, size: 18, color: cs.onSurfaceVariant),
     );
   }
 }
@@ -532,23 +506,11 @@ class _HistoryButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
-    return Tooltip(
-      message: l.tooltipPromptHistory,
-      child: Material(
-        color: FrostedComposer.fill(context, cs.surfaceContainerHigh),
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          key: const ValueKey('prompt_history_button'),
-          borderRadius: BorderRadius.circular(20),
-          onTap: onTap,
-          child: Container(
-            width: 36,
-            height: 36,
-            alignment: Alignment.center,
-            child: Icon(Icons.history, size: 18, color: cs.primary),
-          ),
-        ),
-      ),
+    return _ComposerToolbarButton(
+      tooltip: l.tooltipPromptHistory,
+      inkWellKey: const ValueKey('prompt_history_button'),
+      onTap: onTap,
+      child: Icon(Icons.history, size: 18, color: cs.onSurfaceVariant),
     );
   }
 }
@@ -1468,28 +1430,15 @@ class _VoiceButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
-    return Tooltip(
-      message: isRecording ? l.tooltipStopRecording : l.tooltipVoiceInput,
-      child: Material(
-        color: isRecording
-            ? cs.error
-            : FrostedComposer.fill(context, cs.surfaceContainerHigh),
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          key: const ValueKey('voice_button'),
-          borderRadius: BorderRadius.circular(20),
-          onTap: onTap,
-          child: Container(
-            width: 36,
-            height: 36,
-            alignment: Alignment.center,
-            child: Icon(
-              isRecording ? Icons.stop : Icons.mic,
-              size: 18,
-              color: isRecording ? cs.onError : cs.primary,
-            ),
-          ),
-        ),
+    return _ComposerToolbarButton(
+      tooltip: isRecording ? l.tooltipStopRecording : l.tooltipVoiceInput,
+      inkWellKey: const ValueKey('voice_button'),
+      onTap: onTap,
+      backgroundColor: isRecording ? cs.error : null,
+      child: Icon(
+        isRecording ? Icons.stop : Icons.mic,
+        size: 18,
+        color: isRecording ? cs.onError : cs.onSurfaceVariant,
       ),
     );
   }
@@ -1511,18 +1460,10 @@ class _SendButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
-    final opacity = enabled ? 1.0 : 0.4;
     return Opacity(
-      opacity: opacity,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [cs.primary, cs.primary.withValues(alpha: 0.8)],
-          ),
-          borderRadius: BorderRadius.circular(20),
-        ),
+      opacity: enabled ? 1.0 : 0.36,
+      child: DecoratedBox(
+        decoration: BoxDecoration(color: cs.primary, shape: BoxShape.circle),
         child: IconButton(
           key: const ValueKey('send_button'),
           tooltip: switch (delivery) {

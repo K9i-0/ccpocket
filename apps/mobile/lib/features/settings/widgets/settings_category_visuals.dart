@@ -47,17 +47,17 @@ extension SettingsCategoryVisuals on SettingsCategory {
       SettingsCategory.appearance =>
         dark ? const Color(0xFFA78BFA) : const Color(0xFF7C3AED),
       SettingsCategory.input =>
-        dark ? const Color(0xFFFB923C) : const Color(0xFFEA580C),
+        dark ? const Color(0xFFFB923C) : const Color(0xFFD4450A),
       SettingsCategory.agents =>
         dark ? const Color(0xFF818CF8) : const Color(0xFF4F46E5),
       SettingsCategory.git =>
-        dark ? const Color(0xFFFBBF24) : const Color(0xFFD97706),
+        dark ? const Color(0xFFFBBF24) : const Color(0xFFB45309),
       SettingsCategory.shortcuts =>
         dark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB),
       SettingsCategory.support =>
         dark ? const Color(0xFFF472B6) : const Color(0xFFDB2777),
       SettingsCategory.about =>
-        dark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+        dark ? const Color(0xFFA1A1AA) : const Color(0xFF52525B),
     };
   }
 

@@ -81,7 +81,7 @@ class NewSessionSheetTitle extends StatelessWidget {
                 color: colorScheme.surfaceContainerHigh,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.45),
                 ),
               ),
               child: Row(
@@ -126,6 +126,8 @@ class NewSessionSheetActions extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final providerStyle = providerStyleFor(context, provider);
+    final ctaBackground = providerStyle.foreground;
+    final ctaForeground = _ctaForegroundFor(ctaBackground);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -146,8 +148,8 @@ class NewSessionSheetActions extends StatelessWidget {
               child: FilledButton(
                 key: const ValueKey('dialog_start_button'),
                 style: FilledButton.styleFrom(
-                  backgroundColor: canStart ? providerStyle.background : null,
-                  foregroundColor: canStart ? providerStyle.foreground : null,
+                  backgroundColor: canStart ? ctaBackground : null,
+                  foregroundColor: canStart ? ctaForeground : null,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 18,
                     vertical: 12,
@@ -180,6 +182,16 @@ class NewSessionSheetActions extends StatelessWidget {
   }
 }
 
+/// Picks crisp white or black ink guaranteed to clear WCAG AA (>= 4.5:1)
+/// against solid provider accent fills in both light and dark modes.
+Color _ctaForegroundFor(Color background) {
+  final luminance = background.computeLuminance();
+  final whiteContrast = 1.05 / (luminance + 0.05);
+  if (whiteContrast >= 4.5) return Colors.white;
+  final blackContrast = (luminance + 0.05) / 0.05;
+  return whiteContrast >= blackContrast ? Colors.white : Colors.black;
+}
+
 class _ProviderToggleButton extends StatelessWidget {
   final Provider provider;
   final bool isSelected;
@@ -209,6 +221,10 @@ class _ProviderToggleButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected ? style.background : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? style.border : Colors.transparent,
+            width: 0.75,
+          ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
