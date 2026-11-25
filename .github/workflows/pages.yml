@@ -14,6 +14,7 @@ on:
       - 'docs/**'
 
 permissions:
+  actions: read
   contents: read
   pages: write
   id-token: write
@@ -128,6 +129,24 @@ jobs:
         with:
           name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
           path: docs
+
+      - name: Wait for Pages artifact visibility
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_NAME: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            count=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?name=$ARTIFACT_NAME" --jq '.total_count // 0')
+            if [[ "$count" -ge 1 ]]; then
+              echo "Artifact $ARTIFACT_NAME is visible via Actions API (attempt $attempt)"
+              exit 0
+            fi
+            echo "Waiting for artifact $ARTIFACT_NAME to appear in Actions API (attempt $attempt)..."
+            sleep 2
+          done
+          echo "::error::Artifact $ARTIFACT_NAME did not appear in Actions API after 60s"
+          exit 1
 
       - name: Deploy to GitHub Pages
         id: deployment
