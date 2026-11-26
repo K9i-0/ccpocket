@@ -1637,8 +1637,12 @@ class RenderSelectableParagraph extends RenderParagraph
     if (!(Offset.zero & size).contains(local)) {
       return false;
     }
+    // Full line height, not just the glyphs: otherwise the leading between
+    // lines (a third of the paragraph at a 1.5 line height) is a dead band
+    // where a long-press does not start a selection.
     final boxes = getBoxesForSelection(
       TextSelection(baseOffset: 0, extentOffset: _offsetMapping.painterLength),
+      boxHeightStyle: ui.BoxHeightStyle.max,
     );
     for (final box in boxes) {
       if (box.toRect().contains(local)) {

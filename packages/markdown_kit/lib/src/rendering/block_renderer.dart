@@ -226,7 +226,9 @@ class MarkdownBlockRenderer extends StatelessWidget {
     // Offsets are counted in the code itself, so spans that add, drop or
     // replace characters cannot be used.
     if (highlighted != null &&
-        TextSpan(children: highlighted).toPlainText() == codeBlock.code) {
+        TextSpan(children: highlighted)
+                .toPlainText(includeSemanticsLabels: false) ==
+            codeBlock.code) {
       codeSpan = TextSpan(style: codeStyle.textStyle, children: highlighted);
     } else {
       codeSpan = TextSpan(text: codeBlock.code, style: codeStyle.textStyle);

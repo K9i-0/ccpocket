@@ -50,8 +50,9 @@ class Reply extends StatelessWidget {
 }
 ```
 
-On its own, `MarkdownView` manages selection for that one document. A runnable
-app is in [`example/`](example).
+On its own, `MarkdownView` manages selection for that one document. A small
+app is in [`example/`](example); run `flutter create .` there once to generate
+the platform folders.
 
 ### Streaming
 

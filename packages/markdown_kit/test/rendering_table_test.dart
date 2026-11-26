@@ -144,6 +144,61 @@ Finder _tableScroll() => find.descendant(
 );
 
 void main() {
+  group('a table that fits leaves drags to whatever is around it', () {
+    const fits = '| a | b |\n| - | - |\n| c | d |';
+
+    testWidgets('a horizontal drag on it turns the enclosing PageView', (
+      tester,
+    ) async {
+      final pages = PageController();
+      addTearDown(pages.dispose);
+      await tester.pumpWidget(
+        _app(
+          child: SizedBox(
+            height: 300,
+            child: PageView(
+              controller: pages,
+              children: const [
+                Align(
+                  alignment: Alignment.topLeft,
+                  child: MarkdownView(data: fits),
+                ),
+                SizedBox.expand(),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.drag(find.byType(Table), const Offset(-300, 0));
+      await tester.pumpAndSettle();
+      expect(pages.page, 1.0);
+    });
+
+    testWidgets('a vertical drag on it scrolls the enclosing list', (
+      tester,
+    ) async {
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      await tester.pumpWidget(
+        _app(
+          child: SizedBox(
+            height: 300,
+            child: ListView(
+              controller: scroll,
+              children: const [
+                MarkdownView(data: fits),
+                SizedBox(height: 1000),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.drag(find.byType(Table), const Offset(0, -120));
+      await tester.pump();
+      expect(scroll.offset, greaterThan(50.0));
+    });
+  });
+
   group('line endings', () {
     const lines = ['| Name | Qty |', '| --- | --- |', '| apple | 3 |'];
 

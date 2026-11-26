@@ -77,13 +77,16 @@ class MarkdownDefaultContextMenu extends StatelessWidget {
   /// Style of the button labels, merged over a 14px default.
   final TextStyle? textStyle;
 
-  static const double _gap = 8.0;
-  static const double _height = 40.0;
+  // Clears the handle knobs, which stick out above and below the selection.
+  static const double _gap = 18.0;
+  static const double _verticalPadding = 11.0;
+  static const double _screenMargin = 8.0;
 
   @override
   Widget build(BuildContext context) {
     final anchors = state.contextMenuAnchors;
-    final topInset = MediaQuery.maybePaddingOf(context)?.top ?? 0.0;
+    final media = MediaQuery.maybeOf(context);
+    final topInset = media?.padding.top ?? 0.0;
     final above = anchors.primaryAnchor - const Offset(0, _gap);
     final below =
         (anchors.secondaryAnchor ?? anchors.primaryAnchor) +
@@ -116,39 +119,64 @@ class MarkdownDefaultContextMenu extends StatelessWidget {
       ),
     ];
 
-    return CustomSingleChildLayout(
-      delegate: TextSelectionToolbarLayoutDelegate(
-        anchorAbove: above,
-        anchorBelow: below,
-        fitsAbove: above.dy - _height >= topInset,
-      ),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: const BorderRadius.all(Radius.circular(8.0)),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x33000000),
-              blurRadius: 12.0,
-              offset: Offset(0, 4),
-            ),
-          ],
+    // The bar is as tall as its (scaled) label, and scrolls sideways rather
+    // than overflowing when the labels do not fit the screen.
+    final fontSize = style.fontSize ?? 14.0;
+    final lineHeight =
+        (media?.textScaler ?? TextScaler.noScaling).scale(fontSize) *
+        (style.height ?? 1.2);
+    final barHeight = lineHeight + _verticalPadding * 2;
+    final maxWidth = media == null
+        ? double.infinity
+        : (media.size.width - _screenMargin * 2).clamp(0.0, double.infinity);
+
+    // The delegate keeps the bar inside the area it is given, so the padding
+    // is what keeps it off the screen edges. Anchors are shifted to match.
+    const margin = Offset(_screenMargin, 0);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: _screenMargin),
+      child: CustomSingleChildLayout(
+        delegate: TextSelectionToolbarLayoutDelegate(
+          anchorAbove: above - margin,
+          anchorBelow: below - margin,
+          fitsAbove: above.dy - barHeight >= topInset,
         ),
-        child: SizedBox(
-          height: _height,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (var i = 0; i < buttons.length; i++) ...[
-                if (i > 0)
-                  SizedBox(
-                    width: 1.0,
-                    height: _height,
-                    child: ColoredBox(color: dividerColor),
-                  ),
-                buttons[i],
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              borderRadius: const BorderRadius.all(Radius.circular(8.0)),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x33000000),
+                  blurRadius: 12.0,
+                  offset: Offset(0, 4),
+                ),
               ],
-            ],
+            ),
+            child: ClipRRect(
+              borderRadius: const BorderRadius.all(Radius.circular(8.0)),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: IntrinsicHeight(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var i = 0; i < buttons.length; i++) ...[
+                        if (i > 0)
+                          SizedBox(
+                            width: 1.0,
+                            child: ColoredBox(color: dividerColor),
+                          ),
+                        buttons[i],
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -177,11 +205,11 @@ class _MenuButton extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           onTap: onPressed,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14.0),
-            child: Center(
-              widthFactor: 1.0,
-              child: Text(label, style: style, maxLines: 1),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 14.0,
+              vertical: MarkdownDefaultContextMenu._verticalPadding,
             ),
+            child: Text(label, style: style, maxLines: 1, softWrap: false),
           ),
         ),
       ),
