@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.186.1] - 2026-11-26
+
+### Changed
+
+- Typography: the interface now uses each platform's system font instead of bundled web fonts; code keeps its monospace font.
+- Image viewing: chat images, generated images, the gallery, and file previews share one zoom viewer (pinch, double-tap to 2.5x, pan) backed by a new on-disk image cache.
+- Image paste and drag & drop: rebuilt on each platform's native clipboard and drop APIs. Dropping image files and pasting copied images are supported; images dragged straight out of a browser on Windows and Linux, and promise-only drags on macOS (for example from Photos), are not accepted yet.
+- Syntax highlighting: chat code blocks and file previews now use a single highlighter.
+- Lighter app: replaced a number of third-party packages (logging, skeleton loading, page indicators, scroll-to-message, UUIDs) with small built-in implementations; the debug log viewer was rebuilt with search, level filters, copy, and share.
+
+### Fixed
+
+- Chat code blocks: restored syntax highlighting, which had been rendering in a single color since 1.186.0.
+
 ## [1.186.0] - 2026-11-26
 
 ### Added
