@@ -7,7 +7,6 @@ import '../selection/selection_controller.dart';
 import '../selection/selection_handles.dart';
 import '../selection/selection_model.dart';
 import '../selection/selection_scope.dart';
-import 'markdown_view.dart' show MarkdownSelectionContextMenuBuilder;
 import 'markdown_widget_helpers.dart';
 
 /// Lightweight single-block selectable plain text widget that participates in
@@ -88,7 +87,7 @@ class SelectablePlainText extends StatefulWidget {
 
   /// Context menu builder used when running in standalone mode (no ancestor
   /// [MarkdownSelectionScope]).
-  final MarkdownSelectionContextMenuBuilder? contextMenuBuilder;
+  final MarkdownContextMenuBuilder? contextMenuBuilder;
 
   /// Custom selection handle builder used in standalone mode.
   final MarkdownSelectionHandleBuilder? handleBuilder;

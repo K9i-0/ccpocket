@@ -9,6 +9,10 @@ import 'package:ccpocket/widgets/markdown/ccpocket_markdown.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:markdown_kit/markdown_kit.dart';
+// The block widget is not public API; this test checks that finished blocks
+// keep their widget identity while the tail streams.
+// ignore: implementation_imports
+import 'package:markdown_kit/src/rendering/block_renderer.dart';
 
 void main() {
   testWidgets('autolinks localhost URLs in streamed markdown', (tester) async {

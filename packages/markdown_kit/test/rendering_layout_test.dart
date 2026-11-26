@@ -19,6 +19,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:markdown_kit/markdown_kit.dart';
+import 'package:markdown_kit/src/rendering/block_renderer.dart';
 
 /// Hosts [child] at the top-left with loose constraints up to [size].
 Widget _host({

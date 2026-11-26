@@ -15,6 +15,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:markdown_kit/markdown_kit.dart';
+import 'package:markdown_kit/src/rendering/block_renderer.dart';
+import 'package:markdown_kit/src/rendering/list_item_widget.dart';
 
 const _rtl = ui.TextDirection.rtl;
 const _ltr = ui.TextDirection.ltr;

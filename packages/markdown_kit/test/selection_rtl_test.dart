@@ -45,6 +45,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:markdown_kit/markdown_kit.dart';
+import 'package:markdown_kit/src/selection/selection_handles.dart';
 
 Widget _testApp({
   required Widget child,

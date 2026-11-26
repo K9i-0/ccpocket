@@ -3,6 +3,10 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:markdown_kit/markdown_kit.dart';
+import 'package:markdown_kit/src/rendering/block_renderer.dart';
+import 'package:markdown_kit/src/rendering/details_widget.dart';
+import 'package:markdown_kit/src/rendering/list_item_widget.dart';
+import 'package:markdown_kit/src/rendering/table_widget.dart';
 
 Widget _wrapApp(
   Widget child, {
@@ -874,9 +878,9 @@ void main() {
               blockIndex: 0,
               block: const CodeBlock(code: 'print(42);', language: 'dart'),
               builders: MarkdownBuilders(
-                codeHighlighter: (code, lang, base) => [
+                codeHighlighter: (context, block, base) => [
                   TextSpan(
-                    text: code,
+                    text: block.code,
                     style: base.copyWith(color: const Color(0xFF00AA00)),
                   ),
                 ],

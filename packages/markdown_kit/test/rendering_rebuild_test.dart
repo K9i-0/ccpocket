@@ -19,6 +19,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:markdown_kit/markdown_kit.dart';
+import 'package:markdown_kit/src/rendering/list_item_widget.dart';
+import 'package:markdown_kit/src/rendering/table_widget.dart';
 
 Widget _app({
   required Widget child,
@@ -588,9 +590,9 @@ void main() {
             builders: MarkdownBuilders(
               codeBlockBuilder: (context, block, content, theme) =>
                   Container(key: const ValueKey('frame'), child: content),
-              codeHighlighter: (code, language, style) => [
+              codeHighlighter: (context, block, style) => [
                 TextSpan(
-                  text: code,
+                  text: block.code,
                   style: style.copyWith(color: const Color(0xFFFF00FF)),
                 ),
               ],
@@ -833,7 +835,6 @@ void main() {
       expect(tester.getSize(find.byType(Table)).width, tableWidth);
     });
 
-    // REAL BUG: lib/src/widgets/markdown_widget_helpers.dart:182-199
     // `wrapWithTextOverrides` — the MediaQuery / Directionality wrapper is
     // only inserted when the override is non-null, so going from null to a
     // value (or back) changes the widget type at the root of MarkdownView and
@@ -926,7 +927,6 @@ void main() {
           // `keepDocumentOnDispose: true` the document stays registered in a
           // shared controller after `selectable` turns false (see the doc
           // comment of `MarkdownDocumentRegistration.sync` in
-          // lib/src/widgets/markdown_widget_helpers.dart), so `selectAll`
           // would still reach it. This test opts out to check the toggle.
           child: MarkdownView(
             documentId: 'probe',

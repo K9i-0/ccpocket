@@ -246,7 +246,7 @@ void main() {
       final initialSelection = scope.selectedPlainText;
       final scrollBefore = scrollController.offset;
 
-      final endHandle = find.byKey(MarkdownSelectionHandleOverlay.endHandleKey);
+      final endHandle = find.byKey(kMarkdownEndHandleKey);
       expect(endHandle, findsOneWidget);
 
       final handleCenter = tester.getCenter(endHandle);

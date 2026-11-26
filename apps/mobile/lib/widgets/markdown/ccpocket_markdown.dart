@@ -551,6 +551,7 @@ class _CcpocketMarkdownState extends State<CcpocketMarkdown> {
     }
 
     _builders = MarkdownBuilders(
+      codeHighlighter: highlightCcpocketCodeBlock,
       codeBlockBuilder: buildCcpocketCodeBlock,
       inlineCodeBuilder: (ctx, code, style, codeStyle) =>
           _buildCcpocketInlineCode(
@@ -714,6 +715,7 @@ class _CcpocketSliverMarkdownState extends State<CcpocketSliverMarkdown> {
     }
 
     _builders = MarkdownBuilders(
+      codeHighlighter: highlightCcpocketCodeBlock,
       codeBlockBuilder: buildCcpocketCodeBlock,
       inlineCodeBuilder: (ctx, code, style, codeStyle) =>
           _buildCcpocketInlineCode(

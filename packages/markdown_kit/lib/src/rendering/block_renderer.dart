@@ -199,13 +199,16 @@ class MarkdownBlockRenderer extends StatelessWidget {
     final highlighter = builders.codeHighlighter;
 
     final InlineSpan codeSpan;
-    if (highlighter != null) {
-      final spans = highlighter(
-        codeBlock.code,
-        codeBlock.language,
-        codeStyle.textStyle,
-      );
-      codeSpan = TextSpan(style: codeStyle.textStyle, children: spans);
+    final highlighted = highlighter?.call(
+      context,
+      codeBlock,
+      codeStyle.textStyle,
+    );
+    // Offsets are counted in the code itself, so spans that add, drop or
+    // replace characters cannot be used.
+    if (highlighted != null &&
+        TextSpan(children: highlighted).toPlainText() == codeBlock.code) {
+      codeSpan = TextSpan(style: codeStyle.textStyle, children: highlighted);
     } else {
       codeSpan = TextSpan(text: codeBlock.code, style: codeStyle.textStyle);
     }

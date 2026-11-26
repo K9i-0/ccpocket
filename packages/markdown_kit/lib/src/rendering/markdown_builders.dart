@@ -3,16 +3,25 @@ import 'package:flutter/widgets.dart';
 import '../ast/markdown_ast.dart';
 import 'markdown_theme.dart';
 
-/// Produces highlighted [InlineSpan]s for a [CodeBlock]'s source [code].
+/// Produces the highlighted spans for a code block.
+///
+/// The spans' combined text must equal [CodeBlock.code] exactly, because
+/// selection offsets are counted in that text; if it does not, the code is
+/// shown unhighlighted. [baseStyle] is the theme's code text style. While a
+/// reply is streaming, [CodeBlock.closed] is `false` for the block still being
+/// written, which is the moment not to fill a cache keyed by source.
 typedef MarkdownCodeHighlighter =
     List<InlineSpan> Function(
-      String code,
-      String? language,
+      BuildContext context,
+      CodeBlock block,
       TextStyle baseStyle,
     );
 
 /// Wraps the selectable [codeContent] widget for a [CodeBlock] (e.g. to add a
 /// non-selectable language header, copy button, or custom frame).
+///
+/// Treat [codeContent] as opaque: place it, do not inspect or rebuild it. To
+/// change how the code itself is drawn, use [MarkdownBuilders.codeHighlighter].
 typedef MarkdownCodeBlockBuilder =
     Widget Function(
       BuildContext context,

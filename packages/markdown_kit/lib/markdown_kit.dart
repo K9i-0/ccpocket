@@ -1,35 +1,67 @@
-/// Standalone Flutter Markdown AST, parser, streaming splitter, selection
-/// engine, and renderer built solely on `package:flutter/widgets.dart`.
+/// Renders GitHub-Flavored Markdown with `package:flutter/widgets.dart` only,
+/// with streaming support and text selection that spans blocks.
+///
+/// Start with [MarkdownView] (or [SliverMarkdownView] for one long document)
+/// inside a [MarkdownSelectionScope].
 library;
 
-// AST & canonical rendered-text extraction.
+// Document model.
 export 'src/ast/markdown_ast.dart';
 export 'src/ast/rendered_text.dart';
 
-// Parser, streaming splitter, and inline post-processing scanner.
-export 'src/parser/block_splitter.dart';
-export 'src/parser/gfm_parser.dart';
-export 'src/parser/inline_scanner.dart';
-export 'src/parser/markdown_parser.dart';
+// Parsing.
+export 'src/parser/block_splitter.dart'
+    show sanitizeStreamingTail, splitMarkdownBlocks;
+export 'src/parser/gfm_parser.dart' show GfmMarkdownParser;
+export 'src/parser/inline_scanner.dart'
+    show MarkdownInlineMatch, MarkdownInlineRule;
+export 'src/parser/markdown_parser.dart'
+    show MarkdownParser, MarkdownParserOptions;
 
-// Model-anchored selection engine, opaque handles, autoscroll, and formatters.
-export 'src/selection/selection_autoscroll.dart';
-export 'src/selection/selection_controller.dart';
-export 'src/selection/selection_formatter.dart';
-export 'src/selection/selection_handles.dart';
-export 'src/selection/selection_model.dart';
-export 'src/selection/selection_scope.dart';
-
-// Pure widgets.dart rendering layer.
-export 'src/rendering/block_renderer.dart';
-export 'src/rendering/details_widget.dart';
-export 'src/rendering/list_item_widget.dart';
+// Appearance and extension points.
 export 'src/rendering/markdown_builders.dart';
 export 'src/rendering/markdown_theme.dart';
-export 'src/rendering/selectable_paragraph.dart';
-export 'src/rendering/table_widget.dart';
+export 'src/rendering/selectable_paragraph.dart'
+    show
+        CodeTextSpan,
+        OffsetSegment,
+        RenderSelectableParagraph,
+        SelectableParagraph,
+        TappableTextSpan,
+        TextOffsetMapping,
+        TextOffsetMappingBuilder;
 
-// Top-level public widgets.
-export 'src/widgets/markdown_view.dart';
-export 'src/widgets/selectable_plain_text.dart';
-export 'src/widgets/sliver_markdown_view.dart';
+// Selection.
+export 'src/selection/default_context_menu.dart';
+export 'src/selection/selection_autoscroll.dart'
+    show
+        MarkdownAutoscrollTarget,
+        MarkdownAutoscrollTargetResolver,
+        MarkdownAutoscrollViewport,
+        MarkdownCallbackAutoscrollTarget,
+        MarkdownScrollableAutoscrollTarget,
+        MarkdownSelectionAutoscrollConfig;
+export 'src/selection/selection_controller.dart';
+export 'src/selection/selection_formatter.dart';
+export 'src/selection/selection_handles.dart'
+    show
+        MarkdownMagnifierBuilder,
+        MarkdownSelectionHandleBuilder,
+        MarkdownSelectionHandleType,
+        kMarkdownEndHandleKey,
+        kMarkdownHandleMinHitSize,
+        kMarkdownHandleTouchSlop,
+        kMarkdownStartHandleKey;
+export 'src/selection/selection_model.dart';
+export 'src/selection/selection_scope.dart'
+    show
+        MarkdownCanStartSelectionAt,
+        MarkdownContextMenuBuilder,
+        MarkdownSelectionScope,
+        MarkdownSelectionScopeState;
+
+// Widgets.
+export 'src/widgets/markdown_view.dart'
+    show MarkdownBlockBuildCallback, MarkdownView;
+export 'src/widgets/selectable_plain_text.dart' show SelectablePlainText;
+export 'src/widgets/sliver_markdown_view.dart' show SliverMarkdownView;

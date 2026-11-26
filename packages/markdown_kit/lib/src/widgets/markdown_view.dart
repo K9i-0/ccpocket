@@ -12,11 +12,6 @@ import '../selection/selection_model.dart';
 import '../selection/selection_scope.dart';
 import 'markdown_widget_helpers.dart';
 
-/// Builder for a custom selection context menu / action toolbar.
-///
-/// Alias for [MarkdownContextMenuBuilder].
-typedef MarkdownSelectionContextMenuBuilder = MarkdownContextMenuBuilder;
-
 /// Callback invoked when a top-level [MarkdownBlock] widget is built or reused
 /// from cache.
 typedef MarkdownBlockBuildCallback =
@@ -105,7 +100,7 @@ class MarkdownView extends StatefulWidget {
 
   /// Context menu builder used when running in standalone mode (no ancestor
   /// [MarkdownSelectionScope]).
-  final MarkdownSelectionContextMenuBuilder? contextMenuBuilder;
+  final MarkdownContextMenuBuilder? contextMenuBuilder;
 
   /// Custom selection handle builder used in standalone mode.
   final MarkdownSelectionHandleBuilder? handleBuilder;

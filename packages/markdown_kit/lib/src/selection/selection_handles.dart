@@ -46,6 +46,13 @@ typedef MarkdownHandleDragEndCallback =
 /// Minimum logical hit-target dimension for touch selection handles.
 const double kMarkdownHandleMinHitSize = 44.0;
 
+/// Key of the start selection handle, for finding it in widget tests.
+const Key kMarkdownStartHandleKey =
+    MarkdownSelectionHandleOverlay.startHandleKey;
+
+/// Key of the end selection handle, for finding it in widget tests.
+const Key kMarkdownEndHandleKey = MarkdownSelectionHandleOverlay.endHandleKey;
+
 /// Low drag threshold (in logical pixels) used for selection handles so drags
 /// initiate immediately without losing the gesture arena to scrollables.
 const double kMarkdownHandleTouchSlop = 2.0;

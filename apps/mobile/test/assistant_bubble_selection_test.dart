@@ -61,14 +61,8 @@ void main() {
       );
       expect(scopeState.controller.hasSelection, isTrue);
       expect(scopeState.selectedPlainText, isNotEmpty);
-      expect(
-        find.byKey(MarkdownSelectionHandleOverlay.startHandleKey),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(MarkdownSelectionHandleOverlay.endHandleKey),
-        findsOneWidget,
-      );
+      expect(find.byKey(kMarkdownStartHandleKey), findsOneWidget);
+      expect(find.byKey(kMarkdownEndHandleKey), findsOneWidget);
     }, variant: platforms);
 
     testWidgets('markdown links still respond to taps', (tester) async {

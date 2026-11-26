@@ -395,31 +395,22 @@ String? normalizeCodeLanguage(String? language) {
   }
 }
 
-/// Renders ccpocket's fenced code block frame (non-selectable language header
-/// + copy button + horizontally scrollable selectable code with syntax
-/// highlighting).
-Widget buildCcpocketCodeBlock(
+/// Highlights a fenced code block for `MarkdownBuilders.codeHighlighter`.
+///
+/// The spans are wrapped in one span carrying ccpocket's own code text style,
+/// so the code looks the same whatever the Markdown theme's code style is.
+List<InlineSpan> highlightCcpocketCodeBlock(
   BuildContext context,
   CodeBlock block,
-  Widget codeContent,
-  MarkdownThemeData markdownTheme,
+  TextStyle _,
 ) {
   final buildWatch = !kReleaseMode ? (Stopwatch()..start()) : null;
-  final source = block.code.trimRight();
-  if (source.isEmpty) return const SizedBox.shrink();
-
-  final language = normalizeCodeLanguage(block.language);
-  final displayLanguage = language ?? 'text';
-  final hasExplicitLanguage = language != null;
-
-  final appColors = Theme.of(context).extension<AppColors>()!;
-  final baseStyle = codeTextSettingsOf(context)
-      .style(height: 1.45, color: Theme.of(context).colorScheme.onSurface);
-  final highlightedSpans = highlightToTextSpans(
+  final baseStyle = _ccpocketCodeBaseStyle(context);
+  final spans = highlightToTextSpans(
     context: context,
     source: block.code,
     baseStyle: baseStyle,
-    language: language,
+    language: normalizeCodeLanguage(block.language),
     isStreaming: !block.closed,
   );
   if (buildWatch != null) {
@@ -428,54 +419,31 @@ Widget buildCcpocketCodeBlock(
       ..codeBlockBuilds += 1
       ..codeBlockBuildMicros += buildWatch.elapsedMicroseconds;
   }
+  return [TextSpan(style: baseStyle, children: spans)];
+}
 
-  // markdown_kit pins code to left-to-right by wrapping the paragraph in a
-  // Directionality; look through it, or the highlighted spans are never used.
-  final (
-    SelectableParagraph? paragraph,
-    TextDirection? pinnedDirection,
-  ) = switch (codeContent) {
-    SelectableParagraph() => (codeContent, null),
-    Directionality(:final textDirection, child: final SelectableParagraph p) =>
-      (p, textDirection),
-    _ => (null, null),
-  };
+TextStyle _ccpocketCodeBaseStyle(BuildContext context) =>
+    codeTextSettingsOf(context)
+        .style(height: 1.45, color: Theme.of(context).colorScheme.onSurface);
 
-  final Widget effectiveCodeContent;
-  if (paragraph != null) {
-    final codeContent = paragraph;
-    final safeSpans = _spansTextLength(highlightedSpans) == block.code.length
-        ? highlightedSpans
-        : <TextSpan>[TextSpan(text: block.code, style: baseStyle)];
-    final highlighted = SelectableParagraph(
-      documentId: codeContent.documentId,
-      blockIndex: codeContent.blockIndex,
-      textOffsetInBlock: codeContent.textOffsetInBlock,
-      canonicalLength: codeContent.canonicalLength,
-      offsetMapping: codeContent.offsetMapping,
-      text: TextSpan(style: baseStyle, children: safeSpans),
-      textAlign: codeContent.textAlign,
-      textDirection: codeContent.textDirection,
-      softWrap: codeContent.softWrap,
-      overflow: codeContent.overflow,
-      textScaler: codeContent.textScaler,
-      maxLines: codeContent.maxLines,
-      locale: codeContent.locale,
-      strutStyle: codeContent.strutStyle,
-      textWidthBasis: codeContent.textWidthBasis,
-      textHeightBehavior: codeContent.textHeightBehavior,
-      selectionColor: codeContent.selectionColor,
-      inlineCodeStyle: codeContent.inlineCodeStyle,
-      selectable: codeContent.selectable,
-      onSurfaceAttach: codeContent.onSurfaceAttach,
-      onSurfaceDetach: codeContent.onSurfaceDetach,
-    );
-    effectiveCodeContent = pinnedDirection == null
-        ? highlighted
-        : Directionality(textDirection: pinnedDirection, child: highlighted);
-  } else {
-    effectiveCodeContent = codeContent;
-  }
+/// Renders ccpocket's fenced code block frame (non-selectable language header
+/// + copy button + horizontally scrollable selectable code). The code itself
+/// is highlighted by [highlightCcpocketCodeBlock].
+Widget buildCcpocketCodeBlock(
+  BuildContext context,
+  CodeBlock block,
+  Widget codeContent,
+  MarkdownThemeData markdownTheme,
+) {
+  final source = block.code.trimRight();
+  if (source.isEmpty) return const SizedBox.shrink();
+
+  final language = normalizeCodeLanguage(block.language);
+  final displayLanguage = language ?? 'text';
+  final hasExplicitLanguage = language != null;
+
+  final appColors = Theme.of(context).extension<AppColors>()!;
+  final baseStyle = _ccpocketCodeBaseStyle(context);
 
   return Container(
     key: ValueKey(
@@ -501,31 +469,11 @@ Widget buildCcpocketCodeBlock(
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: effectiveCodeContent,
+          child: codeContent,
         ),
       ],
     ),
   );
-}
-
-int _spansTextLength(List<TextSpan> spans) {
-  var total = 0;
-  void visit(InlineSpan span) {
-    if (span is TextSpan) {
-      total += span.text?.length ?? 0;
-      final children = span.children;
-      if (children != null) {
-        for (final child in children) {
-          visit(child);
-        }
-      }
-    }
-  }
-
-  for (final span in spans) {
-    visit(span);
-  }
-  return total;
 }
 
 class _CodeBlockToolbar extends StatefulWidget {
