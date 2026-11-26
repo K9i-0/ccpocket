@@ -1,3 +1,4 @@
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 import '../ast/markdown_ast.dart';
@@ -142,6 +143,7 @@ class MarkdownView extends StatefulWidget {
 }
 
 class _MarkdownViewState extends State<MarkdownView> {
+  final GlobalKey _contentKey = GlobalKey();
   late String _autoDocumentId;
   GfmMarkdownParser? _customParser;
   late MarkdownDocument _document;
@@ -219,7 +221,8 @@ class _MarkdownViewState extends State<MarkdownView> {
 
     return wrapWithTextOverrides(
       context,
-      child: content,
+      contentKey: _contentKey,
+      child: _IntrinsicWidthWhenUnbounded(child: content),
       textDirection: widget.textDirection,
       textScaler: widget.textScaler,
     );
@@ -389,5 +392,33 @@ class _MarkdownDocumentHostState extends State<_MarkdownDocumentHost> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: children,
     );
+  }
+}
+
+/// Gives the content its own widest natural width when the parent offers
+/// unlimited width (a horizontal scroll view, a `Row`, `UnconstrainedBox`).
+///
+/// Several blocks stretch to the width they are given, which is undefined when
+/// that width is infinite. With a bounded width this does nothing.
+class _IntrinsicWidthWhenUnbounded extends SingleChildRenderObjectWidget {
+  const _IntrinsicWidthWhenUnbounded({required Widget super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderIntrinsicWidthWhenUnbounded();
+}
+
+class _RenderIntrinsicWidthWhenUnbounded extends RenderProxyBox {
+  @override
+  void performLayout() {
+    final content = child;
+    if (content == null || constraints.hasBoundedWidth) {
+      super.performLayout();
+      return;
+    }
+    final natural = content.getMaxIntrinsicWidth(double.infinity);
+    final width = natural.clamp(constraints.minWidth, double.maxFinite);
+    content.layout(constraints.copyWith(maxWidth: width), parentUsesSize: true);
+    size = constraints.constrain(content.size);
   }
 }

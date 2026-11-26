@@ -145,23 +145,9 @@ const _blocks = <String, String>{
 var _docCounter = 0;
 String _freshId(String prefix) => '$prefix-${_docCounter++}';
 
-// Known limits, skipped rather than left failing. See "既知の制限" in
-// docs/markdown-kit-architecture.md.
-// - A table cannot answer intrinsic size queries (it measures itself in a
-//   LayoutBuilder), so it throws inside IntrinsicWidth / IntrinsicHeight.
-// - These blocks stretch to the available width and need it to be bounded.
-// - At 24lp the footnote label alone is wider than the view with the test
-//   font; a real font needs a view under about 20lp.
-const _needsBoundedWidth = {
-  'code block',
-  'alert',
-  'bullet list',
-  'ordered list',
-  'task list',
-  'footnotes',
-  'details',
-};
-
+// Known limit, skipped rather than left failing: at 24lp the footnote label
+// alone is wider than the view with the test font; a real font needs a view
+// under about 20lp.
 void main() {
   group('intrinsic sizing', () {
     for (final entry in _blocks.entries) {
@@ -188,7 +174,7 @@ void main() {
           expect(size.width, greaterThan(0.0));
         }
         expect(size.height, greaterThan(0.0));
-      }, skip: entry.key == 'table');
+      });
 
       testWidgets('${entry.key} inside IntrinsicHeight', (tester) async {
         final id = _freshId('ih');
@@ -215,7 +201,7 @@ void main() {
         final errors = _drain(tester);
         expect(errors, isEmpty, reason: errors.join('\n'));
         expect(tester.getSize(find.byType(MarkdownView)).height, plain.height);
-      }, skip: entry.key == 'table');
+      });
     }
 
     testWidgets('a paragraph in IntrinsicWidth is as wide as its text', (
@@ -314,7 +300,7 @@ void main() {
         final size = tester.getSize(find.byType(MarkdownView));
         expect(size.width.isFinite, isTrue);
         expect(size.height.isFinite, isTrue);
-      }, skip: _needsBoundedWidth.contains(entry.key));
+      });
     }
 
     testWidgets('a long paragraph does not wrap when width is unbounded', (

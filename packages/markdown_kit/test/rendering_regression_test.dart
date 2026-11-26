@@ -7,6 +7,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:markdown_kit/markdown_kit.dart';
 
+PageStorageBucket _bucket = PageStorageBucket();
+
 Widget _app({
   required Widget child,
   Size size = const Size(420, 680),
@@ -18,16 +20,20 @@ Widget _app({
   if (scroll) {
     body = SingleChildScrollView(child: body);
   }
-  return Directionality(
-    textDirection: dir,
-    child: MediaQuery(
-      data: MediaQueryData(size: size, textScaler: scaler),
-      child: FocusScope(
-        autofocus: true,
-        child: _ReactiveOverlayShell(
-          child: Align(
-            alignment: Alignment.topLeft,
-            child: SizedBox(width: size.width, child: body),
+  // Routes provide a PageStorage; <details> keeps its open state there.
+  return PageStorage(
+    bucket: _bucket,
+    child: Directionality(
+      textDirection: dir,
+      child: MediaQuery(
+        data: MediaQueryData(size: size, textScaler: scaler),
+        child: FocusScope(
+          autofocus: true,
+          child: _ReactiveOverlayShell(
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(width: size.width, child: body),
+            ),
           ),
         ),
       ),
@@ -105,6 +111,8 @@ List<Object> _drainExceptions(WidgetTester tester) {
 }
 
 void main() {
+  setUp(() => _bucket = PageStorageBucket());
+
   testWidgets('a11y: Markdown links expose a tap action to screen readers', (
     tester,
   ) async {

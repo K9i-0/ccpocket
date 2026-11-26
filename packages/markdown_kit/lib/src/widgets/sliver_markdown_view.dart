@@ -94,6 +94,7 @@ class SliverMarkdownView extends StatefulWidget {
 }
 
 class _SliverMarkdownViewState extends State<SliverMarkdownView> {
+  final GlobalKey _contentKey = GlobalKey();
   final MarkdownDocumentRegistration _registration =
       MarkdownDocumentRegistration();
 
@@ -216,6 +217,7 @@ class _SliverMarkdownViewState extends State<SliverMarkdownView> {
 
     return wrapWithTextOverrides(
       context,
+      contentKey: _contentKey,
       child: sliver,
       textDirection: widget.textDirection,
       textScaler: widget.textScaler,

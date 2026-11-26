@@ -22,24 +22,30 @@ import 'package:markdown_kit/markdown_kit.dart';
 import 'package:markdown_kit/src/rendering/list_item_widget.dart';
 import 'package:markdown_kit/src/rendering/table_widget.dart';
 
+PageStorageBucket _bucket = PageStorageBucket();
+
 Widget _app({
   required Widget child,
   Size size = const Size(420, 680),
   ui.TextDirection dir = ui.TextDirection.ltr,
   TextScaler scaler = TextScaler.noScaling,
 }) {
-  return Directionality(
-    textDirection: dir,
-    child: MediaQuery(
-      data: MediaQueryData(size: size, textScaler: scaler),
-      child: FocusScope(
-        autofocus: true,
-        child: _OverlayShell(
-          child: Align(
-            alignment: Alignment.topLeft,
-            child: SizedBox(
-              width: size.width,
-              child: SingleChildScrollView(child: child),
+  // Routes provide a PageStorage; <details> keeps its open state there.
+  return PageStorage(
+    bucket: _bucket,
+    child: Directionality(
+      textDirection: dir,
+      child: MediaQuery(
+        data: MediaQueryData(size: size, textScaler: scaler),
+        child: FocusScope(
+          autofocus: true,
+          child: _OverlayShell(
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: size.width,
+                child: SingleChildScrollView(child: child),
+              ),
             ),
           ),
         ),
@@ -192,6 +198,8 @@ class _Probe {
 }
 
 void main() {
+  setUp(() => _bucket = PageStorageBucket());
+
   group('nothing changed', () {
     testWidgets('rebuilding with identical inputs reuses every block', (
       tester,
@@ -840,8 +848,6 @@ void main() {
     // value (or back) changes the widget type at the root of MarkdownView and
     // remounts the whole subtree: the standalone selection scope, every
     // block, scroll offsets and any active selection are thrown away.
-    // Known limit, skipped: always inserting the wrapper would subscribe every
-    // view to MediaQuery and rebuild it on each keyboard animation frame.
     for (final kind in ['textScaler', 'textDirection']) {
       testWidgets('introducing a $kind override does not remount the blocks', (
         tester,
@@ -864,7 +870,7 @@ void main() {
           reason: 'the paragraph render object was recreated',
         );
         expect(probe.built, isEmpty);
-      }, skip: true);
+      });
     }
 
     testWidgets('an ambient text scale change relayouts cached blocks', (

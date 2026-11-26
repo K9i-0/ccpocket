@@ -2,7 +2,6 @@ import 'package:flutter/widgets.dart';
 
 import '../ast/markdown_ast.dart';
 import '../ast/rendered_text.dart';
-import '../parser/markdown_parser.dart' show BoundedLruCache;
 import '../selection/selection_model.dart';
 import 'markdown_theme.dart';
 import 'selectable_paragraph.dart';
@@ -58,22 +57,24 @@ class MarkdownDetailsWidget extends StatefulWidget {
 class _MarkdownDetailsWidgetState extends State<MarkdownDetailsWidget> {
   late bool _isOpen;
 
-  /// Open/closed choices made by the user, kept outside the element so a
-  /// block that is virtualized off-screen comes back the way it was left.
-  static final BoundedLruCache<String, bool> _userToggles =
-      BoundedLruCache<String, bool>(maxEntries: 512);
-
-  String get _toggleKey => [
+  /// Identifies this block in the route's [PageStorage], where the user's
+  /// open/closed choice is kept so a block that is virtualized off-screen
+  /// comes back the way it was left. Without a [PageStorage] ancestor (any
+  /// route provides one) the choice lives only as long as this state.
+  _DetailsStorageKey get _storageKey => _DetailsStorageKey(
     widget.documentId,
     widget.blockIndex,
     widget.baseOffsetInBlock,
     extractInlinesRenderedText(widget.block.summary),
-  ].join('\u0000');
+  );
 
   @override
   void initState() {
     super.initState();
-    _isOpen = _userToggles.get(_toggleKey) ?? widget.block.initiallyOpen;
+    final stored = PageStorage.maybeOf(
+      context,
+    )?.readState(context, identifier: _storageKey);
+    _isOpen = stored is bool ? stored : widget.block.initiallyOpen;
   }
 
   @override
@@ -88,7 +89,9 @@ class _MarkdownDetailsWidgetState extends State<MarkdownDetailsWidget> {
     setState(() {
       _isOpen = !_isOpen;
     });
-    _userToggles.put(_toggleKey, _isOpen);
+    PageStorage.maybeOf(
+      context,
+    )?.writeState(context, _isOpen, identifier: _storageKey);
   }
 
   BuiltInlineSpans _buildSummarySpans(BuildContext context, TextStyle style) {
@@ -241,4 +244,30 @@ class _DisclosureTrianglePainter extends CustomPainter {
   bool shouldRepaint(_DisclosureTrianglePainter oldDelegate) {
     return oldDelegate.color != color;
   }
+}
+
+@immutable
+class _DetailsStorageKey {
+  const _DetailsStorageKey(
+    this.documentId,
+    this.blockIndex,
+    this.offset,
+    this.summary,
+  );
+
+  final String documentId;
+  final int blockIndex;
+  final int offset;
+  final String summary;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _DetailsStorageKey &&
+      other.documentId == documentId &&
+      other.blockIndex == blockIndex &&
+      other.offset == offset &&
+      other.summary == summary;
+
+  @override
+  int get hashCode => Object.hash(documentId, blockIndex, offset, summary);
 }

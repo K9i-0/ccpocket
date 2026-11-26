@@ -106,93 +106,73 @@ class MarkdownTableWidget extends StatelessWidget {
     );
 
     final borderWidth = tableStyle.borderWidth;
-    // Borders are painted over the cells and take no width of their own.
-    final totalNaturalWidth = naturalColumnWidths.fold<double>(
-      0.0,
-      (sum, w) => sum + w,
+    // Inline widgets (images, chips) cannot be measured ahead of layout,
+    // so their columns size to the real content, capped at the maximum
+    // column width, and the table scrolls if that no longer fits.
+    final widgetColumns = <int>{
+      for (final row in builtRows)
+        for (var c = 0; c < columnCount; c++)
+          if (_countPlaceholders(row.cells[c].span) > 0) c,
+    };
+    final maxColumnWidth = math.max(
+      tableStyle.minColumnWidth,
+      tableStyle.maxColumnWidth,
     );
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final availableWidth = constraints.maxWidth;
-        // Inline widgets (images, chips) cannot be measured ahead of layout,
-        // so their columns size to the real content, capped at the maximum
-        // column width, and the table scrolls if that no longer fits.
-        final widgetColumns = <int>{
-          for (final row in builtRows)
-            for (var c = 0; c < columnCount; c++)
-              if (_countPlaceholders(row.cells[c].span) > 0) c,
-        };
-        final needsHorizontalScroll =
-            widgetColumns.isNotEmpty ||
-            (availableWidth.isFinite && totalNaturalWidth > availableWidth);
-        final maxColumnWidth = math.max(
-          tableStyle.minColumnWidth,
-          tableStyle.maxColumnWidth,
-        );
+    final columnWidths = <int, TableColumnWidth>{
+      for (var c = 0; c < columnCount; c++)
+        c: widgetColumns.contains(c)
+            ? MinColumnWidth(
+                FixedColumnWidth(maxColumnWidth),
+                MaxColumnWidth(
+                  FixedColumnWidth(naturalColumnWidths[c]),
+                  const IntrinsicColumnWidth(),
+                ),
+              )
+            : FixedColumnWidth(naturalColumnWidths[c]),
+    };
 
-        final columnWidths = <int, TableColumnWidth>{
-          for (var c = 0; c < columnCount; c++)
-            c: widgetColumns.contains(c)
-                ? MinColumnWidth(
-                    FixedColumnWidth(maxColumnWidth),
-                    MaxColumnWidth(
-                      FixedColumnWidth(naturalColumnWidths[c]),
-                      const IntrinsicColumnWidth(),
-                    ),
-                  )
-                : FixedColumnWidth(naturalColumnWidths[c]),
-        };
-
-        final tableWidget = ClipRRect(
+    final tableWidget = ClipRRect(
+      borderRadius: tableStyle.borderRadius,
+      child: DecoratedBox(
+        position: DecorationPosition.foreground,
+        decoration: BoxDecoration(
+          border: borderWidth > 0
+              ? Border.all(color: tableStyle.borderColor, width: borderWidth)
+              : null,
           borderRadius: tableStyle.borderRadius,
-          child: DecoratedBox(
-            position: DecorationPosition.foreground,
-            decoration: BoxDecoration(
-              border: borderWidth > 0
-                  ? Border.all(
-                      color: tableStyle.borderColor,
-                      width: borderWidth,
-                    )
-                  : null,
-              borderRadius: tableStyle.borderRadius,
-            ),
-            child: Table(
-              columnWidths: columnWidths,
-              defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-              border: borderWidth > 0
-                  ? TableBorder.symmetric(
-                      inside: BorderSide(
-                        color: tableStyle.borderColor,
-                        width: borderWidth,
-                      ),
-                    )
-                  : null,
-              children: [
-                for (var r = 0; r < builtRows.length; r++)
-                  _buildTableRowWidget(
-                    row: builtRows[r],
-                    rowIndex: r,
-                    tableStyle: tableStyle,
-                    selectionColor: effectiveSelectionColor,
-                    textDirection: textDirection,
+        ),
+        child: Table(
+          columnWidths: columnWidths,
+          defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+          border: borderWidth > 0
+              ? TableBorder.symmetric(
+                  inside: BorderSide(
+                    color: tableStyle.borderColor,
+                    width: borderWidth,
                   ),
-              ],
-            ),
-          ),
-        );
+                )
+              : null,
+          children: [
+            for (var r = 0; r < builtRows.length; r++)
+              _buildTableRowWidget(
+                row: builtRows[r],
+                rowIndex: r,
+                tableStyle: tableStyle,
+                selectionColor: effectiveSelectionColor,
+                textDirection: textDirection,
+              ),
+          ],
+        ),
+      ),
+    );
 
-        if (needsHorizontalScroll) {
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: tableWidget,
-          );
-        }
-        return Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: tableWidget,
-        );
-      },
+    // Always in a horizontal scroll view: it only scrolls when the table
+    // is wider than the space it gets, and unlike a LayoutBuilder it can
+    // answer intrinsic size queries.
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: tableWidget,
     );
   }
 

@@ -129,9 +129,18 @@ List<List<Rect>> _cells(WidgetTester tester, {int tableIndex = 0}) {
   return rows;
 }
 
+/// The table's horizontal scrollables that have something to scroll. A table
+/// always sits in a scroll view (so it can answer intrinsic size queries);
+/// one that fits has no scroll extent and takes no drags.
 Finder _tableScroll() => find.descendant(
   of: find.byType(MarkdownTableWidget),
-  matching: find.byType(SingleChildScrollView),
+  matching: find.byElementPredicate((element) {
+    if (element is! StatefulElement) return false;
+    final state = element.state;
+    return state is ScrollableState &&
+        state.position.hasContentDimensions &&
+        state.position.maxScrollExtent > 0;
+  }),
 );
 
 void main() {
@@ -335,12 +344,7 @@ void main() {
         'pixel less does', (tester) async {
       double scrollableDistance() {
         if (_tableScroll().evaluate().isEmpty) return 0.0;
-        final state = tester.state<ScrollableState>(
-          find.descendant(
-            of: _tableScroll(),
-            matching: find.byType(Scrollable),
-          ),
-        );
+        final state = tester.state<ScrollableState>(_tableScroll());
         return state.position.maxScrollExtent;
       }
 

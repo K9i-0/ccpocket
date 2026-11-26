@@ -28,6 +28,15 @@ Widget _wrapApp(
   );
 }
 
+/// Scroll extents of every scrollable on screen. A table always sits in a
+/// horizontal scroll view; one that fits has nothing to scroll.
+List<double> _scrollExtents(WidgetTester tester) => [
+  for (final state in tester.stateList<ScrollableState>(
+    find.byType(Scrollable),
+  ))
+    state.position.maxScrollExtent,
+];
+
 void main() {
   group('MarkdownThemeData & MarkdownBuilders value equality', () {
     test('fallback, dark, copyWith, equality, and InheritedWidget lookup', () {
@@ -728,7 +737,7 @@ void main() {
           ),
         );
         expect(find.byType(MarkdownTableWidget), findsOneWidget);
-        expect(find.byType(SingleChildScrollView), findsNothing);
+        expect(_scrollExtents(tester), everyElement(0.0));
 
         // Wide 6-column table inside a narrow 220px viewport must scroll
         // horizontally with zero overflow exceptions.
@@ -1510,7 +1519,7 @@ Details paragraph.
             ),
           );
 
-          expect(find.byType(SingleChildScrollView), findsNothing);
+          expect(_scrollExtents(tester), everyElement(0.0));
           final tableSize = tester.getSize(find.byType(Table));
           final clipSize = tester.getSize(find.byType(ClipRRect));
 

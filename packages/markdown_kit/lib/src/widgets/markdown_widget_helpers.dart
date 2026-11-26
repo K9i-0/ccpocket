@@ -179,13 +179,18 @@ class MarkdownDocumentRegistration {
 
 /// Wraps [child] with explicit [textDirection] and/or [textScaler] overrides
 /// only when provided, avoiding unnecessary [MediaQuery] subscriptions.
+///
+/// [contentKey] is attached to [child] so that adding or removing an override
+/// later, which changes the wrappers around it, moves the subtree instead of
+/// rebuilding it from scratch (and losing selection and scroll state).
 Widget wrapWithTextOverrides(
   BuildContext context, {
+  required GlobalKey contentKey,
   required Widget child,
   required TextDirection? textDirection,
   required TextScaler? textScaler,
 }) {
-  var result = child;
+  Widget result = KeyedSubtree(key: contentKey, child: child);
   if (textScaler != null) {
     final existing = MediaQuery.maybeOf(context) ?? const MediaQueryData();
     result = MediaQuery(
