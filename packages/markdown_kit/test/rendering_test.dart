@@ -1518,6 +1518,126 @@ Details paragraph.
           );
         },
       );
+
+      testWidgets(
+        'checked task-list checkbox computes contrasting checkmark in dark mode and honors custom theme colors',
+        (tester) async {
+          const taskListBlock = ListBlock(
+            ordered: false,
+            items: [
+              ListItemNode(
+                checked: true,
+                children: [
+                  ParagraphBlock(inlines: [TextInline('Completed task')]),
+                ],
+              ),
+              ListItemNode(
+                checked: false,
+                children: [
+                  ParagraphBlock(inlines: [TextInline('Open task')]),
+                ],
+              ),
+            ],
+          );
+
+          // 1. Dark-mode near-white listBulletColor without custom checkbox
+          //    colors must paint a contrasting dark checkmark (NOT white-on-white).
+          final darkNearWhiteTheme = MarkdownThemeData.dark().copyWith(
+            listBulletColor: const Color(0xFFF5F5F5),
+          );
+          await tester.pumpWidget(
+            _wrapApp(
+              theme: darkNearWhiteTheme,
+              const MarkdownBlockRenderer(
+                documentId: 'tasks-dark',
+                blockIndex: 0,
+                block: taskListBlock,
+              ),
+            ),
+          );
+
+          final checkedFinder = find.byWidgetPredicate(
+            (w) =>
+                w is MarkdownListItemWidget &&
+                w.markerKind == MarkdownListMarkerKind.taskChecked,
+          );
+          expect(checkedFinder, findsOneWidget);
+          expect(
+            checkedFinder,
+            paints
+              ..rrect(color: const Color(0xFFF5F5F5))
+              ..path(color: const Color(0xFF000000)),
+          );
+
+          // 2. Dark fill (light-mode default) paints a white checkmark.
+          final lightDarkFillTheme = MarkdownThemeData.fallback().copyWith(
+            listBulletColor: const Color(0xFF1F2328),
+          );
+          await tester.pumpWidget(
+            _wrapApp(
+              theme: lightDarkFillTheme,
+              const MarkdownBlockRenderer(
+                documentId: 'tasks-light',
+                blockIndex: 0,
+                block: taskListBlock,
+              ),
+            ),
+          );
+          expect(
+            checkedFinder,
+            paints
+              ..rrect(color: const Color(0xFF1F2328))
+              ..path(color: const Color(0xFFFFFFFF)),
+          );
+
+          // 3. Explicit listCheckboxFillColor / listCheckboxCheckColor override
+          //    both fill and checkmark stroke, and participate in copyWith / ==.
+          const customFill = Color(0xFFF97316);
+          const customCheck = Color(0xFF112233);
+          final customTheme = MarkdownThemeData.dark().copyWith(
+            listCheckboxFillColor: customFill,
+            listCheckboxCheckColor: customCheck,
+          );
+          expect(customTheme, isNot(equals(MarkdownThemeData.dark())));
+          expect(
+            customTheme,
+            equals(
+              MarkdownThemeData.dark().copyWith(
+                listCheckboxFillColor: customFill,
+                listCheckboxCheckColor: customCheck,
+              ),
+            ),
+          );
+          expect(
+            customTheme.hashCode,
+            equals(
+              MarkdownThemeData.dark()
+                  .copyWith(
+                    listCheckboxFillColor: customFill,
+                    listCheckboxCheckColor: customCheck,
+                  )
+                  .hashCode,
+            ),
+          );
+
+          await tester.pumpWidget(
+            _wrapApp(
+              theme: customTheme,
+              const MarkdownBlockRenderer(
+                documentId: 'tasks-custom',
+                blockIndex: 0,
+                block: taskListBlock,
+              ),
+            ),
+          );
+          expect(
+            checkedFinder,
+            paints
+              ..rrect(color: customFill)
+              ..path(color: customCheck),
+          );
+        },
+      );
     },
   );
 }

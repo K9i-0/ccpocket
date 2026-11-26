@@ -21,6 +21,8 @@ class MarkdownListItemWidget extends SingleChildRenderObjectWidget {
     required this.bulletSize,
     required this.indent,
     required this.markerTextStyle,
+    this.checkboxFillColor,
+    this.checkboxCheckColor,
     this.ordinalText,
     this.nestingDepth = 0,
     this.textDirection,
@@ -33,6 +35,8 @@ class MarkdownListItemWidget extends SingleChildRenderObjectWidget {
   final double bulletSize;
   final double indent;
   final TextStyle markerTextStyle;
+  final Color? checkboxFillColor;
+  final Color? checkboxCheckColor;
   final String? ordinalText;
   final int nestingDepth;
   final TextDirection? textDirection;
@@ -43,6 +47,8 @@ class MarkdownListItemWidget extends SingleChildRenderObjectWidget {
     return RenderMarkdownListItem(
       markerKind: markerKind,
       markerColor: markerColor,
+      checkboxFillColor: checkboxFillColor,
+      checkboxCheckColor: checkboxCheckColor,
       bulletSize: bulletSize,
       indent: indent,
       markerTextStyle: markerTextStyle,
@@ -61,6 +67,8 @@ class MarkdownListItemWidget extends SingleChildRenderObjectWidget {
     renderObject
       ..markerKind = markerKind
       ..markerColor = markerColor
+      ..checkboxFillColor = checkboxFillColor
+      ..checkboxCheckColor = checkboxCheckColor
       ..bulletSize = bulletSize
       ..indent = indent
       ..markerTextStyle = markerTextStyle
@@ -77,6 +85,8 @@ class RenderMarkdownListItem extends RenderShiftedBox {
   RenderMarkdownListItem({
     required MarkdownListMarkerKind markerKind,
     required Color markerColor,
+    Color? checkboxFillColor,
+    Color? checkboxCheckColor,
     required double bulletSize,
     required double indent,
     required TextStyle markerTextStyle,
@@ -87,6 +97,8 @@ class RenderMarkdownListItem extends RenderShiftedBox {
     RenderBox? child,
   }) : _markerKind = markerKind,
        _markerColor = markerColor,
+       _checkboxFillColor = checkboxFillColor,
+       _checkboxCheckColor = checkboxCheckColor,
        _bulletSize = bulletSize,
        _indent = indent,
        _markerTextStyle = markerTextStyle,
@@ -111,6 +123,22 @@ class RenderMarkdownListItem extends RenderShiftedBox {
     if (_markerColor == value) return;
     _markerColor = value;
     _disposeOrdinalPainter();
+    markNeedsPaint();
+  }
+
+  Color? _checkboxFillColor;
+  Color? get checkboxFillColor => _checkboxFillColor;
+  set checkboxFillColor(Color? value) {
+    if (_checkboxFillColor == value) return;
+    _checkboxFillColor = value;
+    markNeedsPaint();
+  }
+
+  Color? _checkboxCheckColor;
+  Color? get checkboxCheckColor => _checkboxCheckColor;
+  set checkboxCheckColor(Color? value) {
+    if (_checkboxCheckColor == value) return;
+    _checkboxCheckColor = value;
     markNeedsPaint();
   }
 
@@ -397,13 +425,20 @@ class RenderMarkdownListItem extends RenderShiftedBox {
     final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(3.0));
 
     if (checked) {
+      final fillColor = _checkboxFillColor ?? _markerColor;
+      final checkColor =
+          _checkboxCheckColor ??
+          (fillColor.computeLuminance() > 0.5
+              ? const Color(0xFF000000)
+              : const Color(0xFFFFFFFF));
+
       final fillPaint = Paint()
-        ..color = _markerColor
+        ..color = fillColor
         ..style = PaintingStyle.fill;
       canvas.drawRRect(rrect, fillPaint);
 
       final checkPaint = Paint()
-        ..color = const Color(0xFFFFFFFF)
+        ..color = checkColor
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.8
         ..strokeCap = StrokeCap.round

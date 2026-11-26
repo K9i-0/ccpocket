@@ -146,7 +146,14 @@ class MarkdownSelectionHandleOverlay {
   /// Whether the magnifier loupe overlay entry is currently mounted.
   bool get magnifierVisible => _magnifierEntry != null;
 
+  /// The handle currently capturing an active drag gesture, if any.
+  MarkdownSelectionHandleType? get activeDragHandle => _activeDragHandle;
+
   /// Synchronizes handle layer links and overlay entries with [endpoints].
+  ///
+  /// [showStartHandle] and [showEndHandle] allow independent suppression of
+  /// endpoints that have scrolled outside the visible viewport clip (for
+  /// example into a `ListView`'s `cacheExtent` behind a floating composer).
   ///
   /// If a handle is currently being dragged and its endpoint scrolls off-screen
   /// (for instance after flipping handles during edge autoscroll), its
@@ -156,12 +163,21 @@ class MarkdownSelectionHandleOverlay {
   void updateHandles({
     required MarkdownHandleEndpoints? endpoints,
     required bool visible,
+    bool showStartHandle = true,
+    bool showEndHandle = true,
     Color? handleColor,
   }) {
     if (_disposed) return;
-    _handleColor = handleColor ?? kDefaultMarkdownHandleColor;
+    final nextColor = handleColor ?? kDefaultMarkdownHandleColor;
+    final colorChanged = nextColor != _handleColor;
+    _handleColor = nextColor;
 
-    if (!visible || endpoints == null || !endpoints.hasAny) {
+    final effectiveShowStart =
+        visible && showStartHandle && endpoints != null && endpoints.hasStart;
+    final effectiveShowEnd =
+        visible && showEndHandle && endpoints != null && endpoints.hasEnd;
+
+    if (!effectiveShowStart && !effectiveShowEnd) {
       _unlinkHandleLayers();
       if (_activeDragHandle != MarkdownSelectionHandleType.start) {
         _removeStartHandleEntry();
@@ -172,18 +188,26 @@ class MarkdownSelectionHandleOverlay {
       return;
     }
 
-    _linkHandleLayers(endpoints);
+    _linkHandleLayers(
+      endpoints,
+      linkStart: effectiveShowStart,
+      linkEnd: effectiveShowEnd,
+    );
 
-    if (endpoints.hasStart) {
-      _startLineHeight = (endpoints.startLineHeight ?? 20.0).clamp(8.0, 200.0);
-      _ensureStartHandleEntry();
+    if (effectiveShowStart) {
+      final nextHeight = (endpoints.startLineHeight ?? 20.0).clamp(8.0, 200.0);
+      final heightChanged = nextHeight != _startLineHeight;
+      _startLineHeight = nextHeight;
+      _ensureStartHandleEntry(needsRebuild: colorChanged || heightChanged);
     } else if (_activeDragHandle != MarkdownSelectionHandleType.start) {
       _removeStartHandleEntry();
     }
 
-    if (endpoints.hasEnd) {
-      _endLineHeight = (endpoints.endLineHeight ?? 20.0).clamp(8.0, 200.0);
-      _ensureEndHandleEntry();
+    if (effectiveShowEnd) {
+      final nextHeight = (endpoints.endLineHeight ?? 20.0).clamp(8.0, 200.0);
+      final heightChanged = nextHeight != _endLineHeight;
+      _endLineHeight = nextHeight;
+      _ensureEndHandleEntry(needsRebuild: colorChanged || heightChanged);
     } else if (_activeDragHandle != MarkdownSelectionHandleType.end) {
       _removeEndHandleEntry();
     }
@@ -259,8 +283,8 @@ class MarkdownSelectionHandleOverlay {
 
   OverlayState? _resolveOverlay() {
     if (!context.mounted) return null;
-    return Overlay.maybeOf(context, rootOverlay: true) ??
-        Overlay.maybeOf(context);
+    return Overlay.maybeOf(context) ??
+        Overlay.maybeOf(context, rootOverlay: true);
   }
 
   bool _canUpdateSurface(MarkdownSelectionSurface surface) {
@@ -270,9 +294,17 @@ class MarkdownSelectionHandleOverlay {
     return surface.globalBounds != null;
   }
 
-  void _linkHandleLayers(MarkdownHandleEndpoints endpoints) {
-    final nextStartSurface = endpoints.hasStart ? endpoints.startSurface : null;
-    final nextEndSurface = endpoints.hasEnd ? endpoints.endSurface : null;
+  void _linkHandleLayers(
+    MarkdownHandleEndpoints endpoints, {
+    required bool linkStart,
+    required bool linkEnd,
+  }) {
+    final nextStartSurface = linkStart && endpoints.hasStart
+        ? endpoints.startSurface
+        : null;
+    final nextEndSurface = linkEnd && endpoints.hasEnd
+        ? endpoints.endSurface
+        : null;
 
     if (_linkedStartSurface != null &&
         _linkedStartSurface != nextStartSurface &&
@@ -338,7 +370,7 @@ class MarkdownSelectionHandleOverlay {
     _linkedEndSurface = null;
   }
 
-  void _ensureStartHandleEntry() {
+  void _ensureStartHandleEntry({bool needsRebuild = true}) {
     final overlay = _resolveOverlay();
     if (overlay == null) return;
     if (_startHandleEntry == null) {
@@ -352,12 +384,12 @@ class MarkdownSelectionHandleOverlay {
         _startHandleEntry!,
         below: _magnifierEntry ?? _toolbarEntry,
       );
-    } else {
+    } else if (needsRebuild) {
       _markEntryNeedsBuild(_startHandleEntry!);
     }
   }
 
-  void _ensureEndHandleEntry() {
+  void _ensureEndHandleEntry({bool needsRebuild = true}) {
     final overlay = _resolveOverlay();
     if (overlay == null) return;
     if (_endHandleEntry == null) {
@@ -368,7 +400,7 @@ class MarkdownSelectionHandleOverlay {
         ),
       );
       overlay.insert(_endHandleEntry!, below: _magnifierEntry ?? _toolbarEntry);
-    } else {
+    } else if (needsRebuild) {
       _markEntryNeedsBuild(_endHandleEntry!);
     }
   }

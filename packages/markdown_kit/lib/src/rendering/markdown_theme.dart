@@ -686,6 +686,8 @@ class MarkdownThemeData {
     this.listBulletSize = 5.5,
     this.listIndent = 22.0,
     this.listItemSpacing = 4.0,
+    this.listCheckboxFillColor,
+    this.listCheckboxCheckColor,
     this.tableStyle = const MarkdownTableStyle(),
     this.dividerColor = const Color(0xFFD0D7DE),
     this.dividerThickness = 1.0,
@@ -1006,6 +1008,8 @@ class MarkdownThemeData {
   final double listBulletSize;
   final double listIndent;
   final double listItemSpacing;
+  final Color? listCheckboxFillColor;
+  final Color? listCheckboxCheckColor;
   final MarkdownTableStyle tableStyle;
   final Color dividerColor;
   final double dividerThickness;
@@ -1056,6 +1060,8 @@ class MarkdownThemeData {
     double? listBulletSize,
     double? listIndent,
     double? listItemSpacing,
+    Color? listCheckboxFillColor,
+    Color? listCheckboxCheckColor,
     MarkdownTableStyle? tableStyle,
     Color? dividerColor,
     double? dividerThickness,
@@ -1088,6 +1094,10 @@ class MarkdownThemeData {
       listBulletSize: listBulletSize ?? this.listBulletSize,
       listIndent: listIndent ?? this.listIndent,
       listItemSpacing: listItemSpacing ?? this.listItemSpacing,
+      listCheckboxFillColor:
+          listCheckboxFillColor ?? this.listCheckboxFillColor,
+      listCheckboxCheckColor:
+          listCheckboxCheckColor ?? this.listCheckboxCheckColor,
       tableStyle: tableStyle ?? this.tableStyle,
       dividerColor: dividerColor ?? this.dividerColor,
       dividerThickness: dividerThickness ?? this.dividerThickness,
@@ -1125,6 +1135,8 @@ class MarkdownThemeData {
         other.listBulletSize == listBulletSize &&
         other.listIndent == listIndent &&
         other.listItemSpacing == listItemSpacing &&
+        other.listCheckboxFillColor == listCheckboxFillColor &&
+        other.listCheckboxCheckColor == listCheckboxCheckColor &&
         other.tableStyle == tableStyle &&
         other.dividerColor == dividerColor &&
         other.dividerThickness == dividerThickness &&
@@ -1161,6 +1173,8 @@ class MarkdownThemeData {
     listBulletSize,
     listIndent,
     listItemSpacing,
+    listCheckboxFillColor,
+    listCheckboxCheckColor,
     tableStyle,
     dividerColor,
     dividerThickness,

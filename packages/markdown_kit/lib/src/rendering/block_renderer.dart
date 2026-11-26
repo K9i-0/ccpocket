@@ -461,6 +461,8 @@ class MarkdownBlockRenderer extends StatelessWidget {
         MarkdownListItemWidget(
           markerKind: markerKind,
           markerColor: effectiveTheme.listBulletColor,
+          checkboxFillColor: effectiveTheme.listCheckboxFillColor,
+          checkboxCheckColor: effectiveTheme.listCheckboxCheckColor,
           bulletSize: effectiveTheme.listBulletSize,
           indent: effectiveTheme.listIndent,
           markerTextStyle: style,

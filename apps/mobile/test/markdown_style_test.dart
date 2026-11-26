@@ -202,6 +202,17 @@ void main() {
             resolvedTheme.linkHoverStyle.decoration,
             TextDecoration.underline,
           );
+
+          // Checked task-list checkboxes use theme primary / onPrimary so they
+          // remain crisp and high-contrast in both light and dark themes.
+          expect(
+            resolvedTheme.listCheckboxFillColor,
+            theme.colorScheme.primary,
+          );
+          expect(
+            resolvedTheme.listCheckboxCheckColor,
+            theme.colorScheme.onPrimary,
+          );
         }
       },
     );

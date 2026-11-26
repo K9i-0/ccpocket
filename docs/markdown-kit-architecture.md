@@ -72,7 +72,7 @@ Flutter の `SelectionArea` を使用せず、**カスタム `RenderSelectablePa
 - **`RenderSelectableParagraph` (`selectable_paragraph.dart`)**
   - `RenderParagraph` を拡張し、`MarkdownSelectionSurface` としてコントローラへ登録される。
   - 選択ハイライトの描画、`CodeTextSpan` に対する行単位の角丸背景ピル描画、`TappableTextSpan` に対するグリフボックス単位のタップ判定およびネイティブ `hoverStyle`（ポインターホバー時の下線等）を単一パラグラフ内で完結させる。これにより `WidgetSpan` / `Wrap` によるテキスト分断と旧 `LinkHoverUnderline` ワークアラウンドを不要にした。
-  - リスト記号は `ListItemWidget` で Canvas 描画（ハンギングインデント）とし、コピー対象テキストから構造的に分離する。
+  - リスト記号は `MarkdownListItemWidget` で Canvas 描画（ハンギングインデント）とし、コピー対象テキストから構造的に分離する。
 - **モデルアンカー選択 (`MarkdownSelectionController` / `MarkdownSelectionScope`)**
   - 選択範囲は RenderObject 参照ではなく、AST 座標 `MarkdownPosition(documentId, blockIndex, offset)`（`extractBlockRenderedText` 上の UTF-16 オフセット）で保持する。
   - `ListView.builder` や `SliverList.builder` の仮想化で画面外のウィジェットが破棄されても選択は失われず、再マウント時にハイライトとハンドルが復元される。

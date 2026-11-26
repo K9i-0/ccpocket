@@ -1711,5 +1711,402 @@ void main() {
         expect(controller.hasSelection, isFalse);
       },
     );
+
+    testWidgets(
+      'pushing opaque or modal Navigator routes hides handles and toolbar and popping restores them cleanly',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+        addTearDown(() {
+          debugDefaultTargetPlatformOverride = null;
+        });
+
+        final navigatorKey = GlobalKey<NavigatorState>();
+        final scopeKey = GlobalKey<MarkdownSelectionScopeState>();
+        final controller = MarkdownSelectionController();
+        addTearDown(controller.dispose);
+
+        controller.putDocument(
+          const MarkdownDocumentRef(
+            id: 'route-doc',
+            document: MarkdownDocument(
+              blocks: [
+                ParagraphBlock(
+                  inlines: [TextInline('Selectable route text alpha beta')],
+                ),
+              ],
+            ),
+          ),
+        );
+
+        await tester.pumpWidget(
+          Directionality(
+            textDirection: ui.TextDirection.ltr,
+            child: MediaQuery(
+              data: const MediaQueryData(size: Size(400, 600)),
+              child: FocusScope(
+                autofocus: true,
+                child: Navigator(
+                  key: navigatorKey,
+                  onGenerateRoute: (_) => PageRouteBuilder<void>(
+                    transitionDuration: Duration.zero,
+                    reverseTransitionDuration: Duration.zero,
+                    pageBuilder: (_, _, _) => ColoredBox(
+                      color: const Color(0xFFFFFFFF),
+                      child: MarkdownSelectionScope(
+                        key: scopeKey,
+                        controller: controller,
+                        contextMenuBuilder: _buildToolbar,
+                        child: Align(
+                          alignment: Alignment.topLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 100, left: 20),
+                            child: _TestSelectableParagraph(
+                              documentId: 'route-doc',
+                              blockIndex: 0,
+                              text: 'Selectable route text alpha beta',
+                              controller: controller,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Long-press to establish selection, handles, and context toolbar.
+        final pRect = tester.getRect(find.byType(_TestSelectableParagraph));
+        final lp = await tester.startGesture(
+          Offset(pRect.left + 40, pRect.center.dy),
+        );
+        await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+        await lp.up();
+        await tester.pumpAndSettle();
+
+        expect(controller.hasSelection, isTrue);
+        expect(controller.toolbarWanted, isTrue);
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.startHandleKey),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.endHandleKey),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.toolbarKey),
+          findsOneWidget,
+        );
+
+        // 1. Push an opaque route on top -> handles and toolbar MUST hide.
+        navigatorKey.currentState!.push<void>(
+          PageRouteBuilder<void>(
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+            pageBuilder: (_, _, _) => const ColoredBox(
+              color: Color(0xFFEEEEEE),
+              child: Center(child: Text('Second route')),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Second route'), findsOneWidget);
+        expect(controller.hasSelection, isTrue);
+        expect(controller.toolbarWanted, isTrue);
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.startHandleKey),
+          findsNothing,
+        );
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.endHandleKey),
+          findsNothing,
+        );
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.toolbarKey),
+          findsNothing,
+        );
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.magnifierKey),
+          findsNothing,
+        );
+
+        // Even if showToolbar() or a controller update fires while off-route,
+        // handles and toolbar MUST NOT reappear on the pushed route.
+        scopeKey.currentState!.showToolbar();
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.startHandleKey),
+          findsNothing,
+        );
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.toolbarKey),
+          findsNothing,
+        );
+
+        // Pop opaque route -> handles and toolbar cleanly restore.
+        navigatorKey.currentState!.pop();
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.startHandleKey),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.endHandleKey),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.toolbarKey),
+          findsOneWidget,
+        );
+
+        // 2. Push a non-opaque modal route (simulating File Peek bottom sheet,
+        //    where TickerMode stays enabled on route 1 while isCurrent is false).
+        navigatorKey.currentState!.push<void>(
+          PageRouteBuilder<void>(
+            opaque: false,
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+            pageBuilder: (_, _, _) => const Align(
+              alignment: Alignment.bottomCenter,
+              child: SizedBox(
+                height: 300,
+                child: ColoredBox(
+                  color: Color(0xDD222222),
+                  child: Center(child: Text('Modal sheet')),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Modal sheet'), findsOneWidget);
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.startHandleKey),
+          findsNothing,
+        );
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.endHandleKey),
+          findsNothing,
+        );
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.toolbarKey),
+          findsNothing,
+        );
+
+        // Pop modal sheet -> handles and toolbar cleanly restore again.
+        navigatorKey.currentState!.pop();
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.startHandleKey),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.endHandleKey),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.toolbarKey),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'handle scrolled into ListView cacheExtent past autoscroll bottomPad/topPad is suppressed and restores when scrolled back',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+        addTearDown(() {
+          debugDefaultTargetPlatformOverride = null;
+        });
+
+        final scrollController = ScrollController();
+        addTearDown(scrollController.dispose);
+        final controller = MarkdownSelectionController();
+        addTearDown(controller.dispose);
+
+        final paragraphs = List<String>.generate(
+          25,
+          (i) => 'Row$i alpha beta gamma delta',
+        );
+        controller.putDocument(
+          MarkdownDocumentRef(
+            id: 'doc',
+            document: MarkdownDocument(
+              blocks: [
+                for (final p in paragraphs)
+                  ParagraphBlock(inlines: [TextInline(p)]),
+              ],
+            ),
+          ),
+        );
+
+        // Viewport is 400x600; topPad=40, bottomPad=120 -> visible handle clip
+        // is y in [40, 480], while cacheExtent=300 keeps scrolled items mounted.
+        await tester.pumpWidget(
+          _testApp(
+            child: MarkdownSelectionScope(
+              controller: controller,
+              autoscroll: const MarkdownSelectionAutoscrollConfig(
+                topPad: 40.0,
+                bottomPad: 120.0,
+                useMediaQueryPadding: false,
+              ),
+              contextMenuBuilder: _buildToolbar,
+              child: ListView.builder(
+                controller: scrollController,
+                scrollCacheExtent: const ScrollCacheExtent.pixels(300.0),
+                itemCount: paragraphs.length,
+                itemBuilder: (context, index) => Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  child: _TestSelectableParagraph(
+                    documentId: 'doc',
+                    blockIndex: index,
+                    text: paragraphs[index],
+                    controller: controller,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Start scrolled at offset 250 so Row 7 (~y=114..166) and Row 11
+        // (~y=322..374) are both comfortably inside the visible [40, 480] clip.
+        scrollController.jumpTo(250.0);
+        await tester.pumpAndSettle();
+
+        final row7Finder = find.byWidgetPredicate(
+          (w) => w is _TestSelectableParagraph && w.blockIndex == 7,
+        );
+        final row7Rect = tester.getRect(row7Finder);
+        final lp = await tester.startGesture(
+          Offset(row7Rect.left + 20, row7Rect.center.dy),
+        );
+        await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+        await lp.up();
+        await tester.pumpAndSettle();
+
+        // Extend selection across Row 7..Row 11 while keeping touch handles & toolbar.
+        controller.setSelection(
+          const MarkdownSelection(
+            base: MarkdownPosition(documentId: 'doc', blockIndex: 7, offset: 0),
+            extent: MarkdownPosition(
+              documentId: 'doc',
+              blockIndex: 11,
+              offset: 10,
+            ),
+          ),
+          toolbarWanted: true,
+        );
+        await tester.pumpAndSettle();
+
+        final initialEndpoints = controller.selectionHandleEndpoints()!;
+        expect(initialEndpoints.hasStart, isTrue);
+        expect(initialEndpoints.hasEnd, isTrue);
+        expect(initialEndpoints.startGlobal!.dy, inInclusiveRange(40.0, 480.0));
+        expect(initialEndpoints.endGlobal!.dy, inInclusiveRange(40.0, 480.0));
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.startHandleKey),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.endHandleKey),
+          findsOneWidget,
+        );
+
+        // Scroll up to offset 100 -> Row 11 moves behind bottomPad (y > 480)
+        // while still mounted; Row 7 stays inside [40, 480].
+        scrollController.jumpTo(100.0);
+        await tester.pumpAndSettle();
+
+        final composerOccludedEndpoints = controller.selectionHandleEndpoints();
+        expect(composerOccludedEndpoints, isNotNull);
+        expect(composerOccludedEndpoints!.hasEnd, isTrue);
+        expect(composerOccludedEndpoints.endGlobal!.dy, greaterThan(480.0));
+        expect(controller.hasSelection, isTrue);
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.startHandleKey),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.endHandleKey),
+          findsNothing,
+        );
+
+        // Scroll further to offset 0 -> Row 11 enters ListView cacheExtent past
+        // the 600px viewport bottom while STILL mounted; end handle stays hidden.
+        scrollController.jumpTo(0.0);
+        await tester.pumpAndSettle();
+
+        final cacheExtentEndpoints = controller.selectionHandleEndpoints();
+        expect(cacheExtentEndpoints, isNotNull);
+        expect(cacheExtentEndpoints!.hasEnd, isTrue);
+        expect(cacheExtentEndpoints.endGlobal!.dy, greaterThan(600.0));
+        expect(controller.hasSelection, isTrue);
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.startHandleKey),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.endHandleKey),
+          findsNothing,
+        );
+
+        // Scroll down to offset 400 -> Row 7 moves above topPad (y < 40) while
+        // still mounted in cacheExtent; start handle is suppressed while end
+        // handle is visible.
+        scrollController.jumpTo(400.0);
+        await tester.pumpAndSettle();
+
+        final topOccludedEndpoints = controller.selectionHandleEndpoints();
+        expect(topOccludedEndpoints, isNotNull);
+        expect(topOccludedEndpoints!.hasStart, isTrue);
+        expect(topOccludedEndpoints.startGlobal!.dy, lessThan(40.0));
+        expect(topOccludedEndpoints.hasEnd, isTrue);
+        expect(
+          topOccludedEndpoints.endGlobal!.dy,
+          inInclusiveRange(40.0, 480.0),
+        );
+        expect(controller.hasSelection, isTrue);
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.startHandleKey),
+          findsNothing,
+        );
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.endHandleKey),
+          findsOneWidget,
+        );
+
+        // Scroll back to offset 250 -> both handles and toolbar cleanly reappear.
+        scrollController.jumpTo(250.0);
+        await tester.pumpAndSettle();
+
+        expect(controller.hasSelection, isTrue);
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.startHandleKey),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.endHandleKey),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.toolbarKey),
+          findsOneWidget,
+        );
+      },
+    );
   });
 }

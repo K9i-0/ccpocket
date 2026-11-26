@@ -212,6 +212,8 @@ MarkdownThemeData buildMarkdownTheme(BuildContext context) {
     ),
     alertStyles: defaultPalette.alertStyles,
     listBulletColor: baseStyle.color ?? cs.onSurface,
+    listCheckboxFillColor: cs.primary,
+    listCheckboxCheckColor: cs.onPrimary,
     listIndent: 24.0,
     listItemSpacing: 4.0,
     tableStyle: MarkdownTableStyle(

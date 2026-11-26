@@ -162,6 +162,7 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
   bool _isUserScrolling = false;
   bool _overlaySyncScheduled = false;
   bool _hadSelection = false;
+  bool _isRouteActive = true;
   ScrollPosition? _ancestorScrollPosition;
 
   /// Active [MarkdownSelectionController] bound to this scope.
@@ -247,7 +248,7 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
 
   /// Selects all text in the active document (or across documents when allowed).
   void selectAll() {
-    if (!widget.enabled) return;
+    if (!widget.enabled || !_isRouteActive) return;
     if (controller.selectAll()) {
       _focusNode.requestFocus();
       if (_isTouchPlatform) {
@@ -274,7 +275,7 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
 
   /// Shows the context menu toolbar at [anchor] (or computed selection anchors).
   void showToolbar([Offset? anchor]) {
-    if (!widget.enabled || !controller.hasSelection) return;
+    if (!widget.enabled || !_isRouteActive || !controller.hasSelection) return;
     _toolbarAnchorOverride = anchor;
     controller.toolbarWanted = true;
     _scheduleOverlaySync();
@@ -359,6 +360,32 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
   void didChangeDependencies() {
     super.didChangeDependencies();
     _syncAncestorScrollPosition();
+    _syncRouteActiveState();
+  }
+
+  void _syncRouteActiveState() {
+    final isCurrent = ModalRoute.isCurrentOf(context) ?? true;
+    final tickerEnabled = TickerMode.valuesOf(context).enabled;
+    final nextActive = isCurrent && tickerEnabled;
+    if (nextActive == _isRouteActive) return;
+    _isRouteActive = nextActive;
+    if (!_isRouteActive) {
+      _hideOverlaysForInactiveRoute();
+    } else {
+      _scheduleOverlaySync();
+    }
+  }
+
+  void _hideOverlaysForInactiveRoute() {
+    _stopAutoscroll();
+    _isDraggingHandle = false;
+    _handleFixedAnchor = null;
+    _handleDragAnchorOffset = Offset.zero;
+    _longPressAnchor = null;
+    _mouseAnchor = null;
+    _mouseDragMode = _MouseDragMode.none;
+    _isUserScrolling = false;
+    _scheduleOverlaySync();
   }
 
   @override
@@ -395,7 +422,7 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
   }
 
   void _onAncestorScrollingStateChanged() {
-    if (!mounted || !controller.hasSelection) return;
+    if (!mounted || !_isRouteActive || !controller.hasSelection) return;
     if (_activeAutoscrollDrag != _ActiveAutoscrollDrag.none) return;
 
     final isScrolling =
@@ -409,16 +436,14 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
       if (_isUserScrolling) {
         _isUserScrolling = false;
       }
-      _scheduleOverlaySync();
+      _scheduleOverlaySync(deferToPostFrame: true);
     }
   }
 
   void _onAncestorScrollPositionChanged() {
-    if (!mounted || !controller.hasSelection) return;
+    if (!mounted || !_isRouteActive || !controller.hasSelection) return;
     if (_activeAutoscrollDrag != _ActiveAutoscrollDrag.none) return;
-    if (!_isUserScrolling) {
-      _scheduleOverlaySync();
-    }
+    _scheduleOverlaySync(deferToPostFrame: true);
   }
 
   void _createHandleOverlay() {
@@ -462,10 +487,12 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
     _scheduleOverlaySync();
   }
 
-  void _scheduleOverlaySync() {
+  void _scheduleOverlaySync({bool deferToPostFrame = false}) {
     if (!mounted) return;
-    if (SchedulerBinding.instance.schedulerPhase ==
-        SchedulerPhase.persistentCallbacks) {
+    final inPersistentCallbacks =
+        SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks;
+    if (deferToPostFrame || inPersistentCallbacks) {
       if (_overlaySyncScheduled) return;
       _overlaySyncScheduled = true;
       SchedulerBinding.instance.addPostFrameCallback((_) {
@@ -474,6 +501,9 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
           _syncOverlay();
         }
       });
+      if (!inPersistentCallbacks) {
+        SchedulerBinding.instance.ensureVisualUpdate();
+      }
     } else {
       _syncOverlay();
     }
@@ -482,15 +512,43 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
   void _syncOverlay() {
     if (!mounted) return;
 
-    if (!widget.enabled || !controller.hasSelection) {
+    if (!widget.enabled || !controller.hasSelection || !_isRouteActive) {
       _handleOverlay.hideAll();
       return;
     }
 
     final endpoints = controller.selectionHandleEndpoints();
+    final clipRect = _visibleHandleClipRect();
+    final normalized = controller.normalizedSelection;
+    final draggingStartEdge =
+        _isDraggingHandle &&
+        _handleFixedAnchor != null &&
+        normalized != null &&
+        normalized.end == _handleFixedAnchor;
+    final draggingEndEdge =
+        _isDraggingHandle &&
+        _handleFixedAnchor != null &&
+        normalized != null &&
+        normalized.start == _handleFixedAnchor;
+
+    final showStartHandle =
+        endpoints != null &&
+        endpoints.hasStart &&
+        (draggingStartEdge ||
+            clipRect == null ||
+            _isHandleEndpointVisible(endpoints.startGlobal!, clipRect));
+    final showEndHandle =
+        endpoints != null &&
+        endpoints.hasEnd &&
+        (draggingEndEdge ||
+            clipRect == null ||
+            _isHandleEndpointVisible(endpoints.endGlobal!, clipRect));
+
     _handleOverlay.updateHandles(
       endpoints: endpoints,
-      visible: _showTouchHandles && endpoints != null && endpoints.hasAny,
+      visible: _showTouchHandles && (showStartHandle || showEndHandle),
+      showStartHandle: showStartHandle,
+      showEndHandle: showEndHandle,
       handleColor: _resolvedHandleColor,
     );
 
@@ -500,7 +558,7 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
         !_isDraggingHandle &&
         _longPressAnchor == null &&
         !_isUserScrolling &&
-        _isSelectionVisibleInViewport(endpoints);
+        _isSelectionVisibleInViewport(endpoints, clipRect: clipRect);
 
     _handleOverlay.updateToolbar(
       visible: shouldShowToolbar,
@@ -510,15 +568,41 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
     );
   }
 
-  bool _isSelectionVisibleInViewport(MarkdownHandleEndpoints? endpoints) {
+  Rect? _visibleHandleClipRect() {
+    final viewport = _currentViewportRect();
+    if (viewport == null) return null;
+    if (viewport.isEmpty) return Rect.zero;
+    final top = viewport.top + widget.autoscroll.topPad;
+    final bottom = viewport.bottom - widget.autoscroll.bottomPad;
+    if (bottom <= top) {
+      final mid = (viewport.top + viewport.bottom) / 2.0;
+      return Rect.fromLTRB(viewport.left, mid, viewport.right, mid);
+    }
+    return Rect.fromLTRB(viewport.left, top, viewport.right, bottom);
+  }
+
+  bool _isHandleEndpointVisible(Offset endpoint, Rect clipRect) {
+    if (clipRect.isEmpty) return false;
+    const horizontalSlop = 2.0;
+    return endpoint.dx >= clipRect.left - horizontalSlop &&
+        endpoint.dx <= clipRect.right + horizontalSlop &&
+        endpoint.dy >= clipRect.top &&
+        endpoint.dy <= clipRect.bottom;
+  }
+
+  bool _isSelectionVisibleInViewport(
+    MarkdownHandleEndpoints? endpoints, {
+    Rect? clipRect,
+  }) {
     if (_toolbarAnchorOverride != null) return true;
     final rects = controller.globalSelectionRects();
     if (rects.isEmpty && (endpoints == null || !endpoints.hasAny)) {
       return false;
     }
 
-    final viewportRect = _currentViewportRect();
+    final viewportRect = clipRect ?? _visibleHandleClipRect();
     if (viewportRect == null) return true;
+    if (viewportRect.isEmpty) return false;
 
     if (rects.isNotEmpty) {
       for (final r in rects) {
@@ -529,8 +613,12 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
 
     final start = endpoints?.startGlobal;
     final end = endpoints?.endGlobal;
-    if (start != null && viewportRect.contains(start)) return true;
-    if (end != null && viewportRect.contains(end)) return true;
+    if (start != null && _isHandleEndpointVisible(start, viewportRect)) {
+      return true;
+    }
+    if (end != null && _isHandleEndpointVisible(end, viewportRect)) {
+      return true;
+    }
     return false;
   }
 
@@ -563,7 +651,7 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
   // ---------------------------------------------------------------------------
 
   void _onLongPressStart(LongPressStartDetails details) {
-    if (!widget.enabled) return;
+    if (!widget.enabled || !_isRouteActive) return;
     final global = details.globalPosition;
     if (widget.canStartSelectionAt != null &&
         !widget.canStartSelectionAt!(global)) {
@@ -599,7 +687,7 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
 
   void _onLongPressMoveUpdate(LongPressMoveUpdateDetails details) {
     final anchor = _longPressAnchor;
-    if (anchor == null) return;
+    if (!_isRouteActive || anchor == null) return;
 
     final global = details.globalPosition;
     _autoscrollPointer = global;
@@ -633,7 +721,7 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
   }
 
   void _onTouchTapUp(TapUpDetails details) {
-    if (!widget.enabled || !controller.hasSelection) return;
+    if (!widget.enabled || !_isRouteActive || !controller.hasSelection) return;
     final global = details.globalPosition;
 
     if (_isPointInsideSelection(global)) {
@@ -667,7 +755,7 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
     MarkdownSelectionHandleType type,
     Offset globalPosition,
   ) {
-    if (!widget.enabled || !controller.hasSelection) return;
+    if (!widget.enabled || !_isRouteActive || !controller.hasSelection) return;
     final normalized = controller.normalizedSelection;
     if (normalized == null) return;
 
@@ -711,7 +799,9 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
     MarkdownSelectionHandleType type,
     Offset globalPosition,
   ) {
-    if (!_isDraggingHandle || _handleFixedAnchor == null) return;
+    if (!_isRouteActive || !_isDraggingHandle || _handleFixedAnchor == null) {
+      return;
+    }
     _autoscrollPointer = globalPosition;
     _applyHandleDragPosition(globalPosition);
   }
@@ -765,7 +855,7 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
   // ---------------------------------------------------------------------------
 
   void _onDesktopTapDown(TapDragDownDetails details) {
-    if (!widget.enabled) return;
+    if (!widget.enabled || !_isRouteActive) return;
     final global = details.globalPosition;
     final tapCount = details.consecutiveTapCount;
 
@@ -874,7 +964,7 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
   }
 
   void _onDesktopSecondaryTapUp(TapUpDetails details) {
-    if (!widget.enabled) return;
+    if (!widget.enabled || !_isRouteActive) return;
     final global = details.globalPosition;
     if (controller.hasSelection) {
       if (defaultTargetPlatform == TargetPlatform.macOS &&
@@ -940,6 +1030,7 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
 
   void _onAutoscrollTick(Duration elapsed) {
     if (!mounted ||
+        !_isRouteActive ||
         _activeAutoscrollDrag == _ActiveAutoscrollDrag.none ||
         _autoscrollPointer == null) {
       _stopAutoscroll();
@@ -978,7 +1069,7 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
       // Wait for the scrolled frame's layout before re-projecting pointer
       // coordinates into updated surface bounds.
       SchedulerBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || _autoscrollPointer == null) return;
+        if (!mounted || !_isRouteActive || _autoscrollPointer == null) return;
         final currentPointer = _autoscrollPointer!;
         switch (_activeAutoscrollDrag) {
           case _ActiveAutoscrollDrag.none:
@@ -996,6 +1087,7 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
           case _ActiveAutoscrollDrag.mouse:
             _applyMouseDragPosition(currentPointer);
         }
+        _syncOverlay();
       });
     }
   }
@@ -1146,7 +1238,7 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
   // ---------------------------------------------------------------------------
 
   bool _onScrollNotification(ScrollNotification notification) {
-    if (!controller.hasSelection) return false;
+    if (!_isRouteActive || !controller.hasSelection) return false;
     if (_activeAutoscrollDrag != _ActiveAutoscrollDrag.none) return false;
 
     if (notification is ScrollStartNotification &&
@@ -1156,17 +1248,15 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
         _handleOverlay.updateToolbar(visible: false, builder: null);
       }
     } else if (notification is ScrollUpdateNotification) {
-      if (_isUserScrolling) {
-        // Keep toolbar hidden while finger is scrolling; handles track via
-        // CompositedTransformFollower automatically.
-      } else {
-        _scheduleOverlaySync();
-      }
+      // Continuously sync handle visibility post-layout so handles scrolled
+      // outside the visible clip (e.g. behind a bottom composer) are
+      // suppressed immediately; toolbar remains hidden while _isUserScrolling.
+      _scheduleOverlaySync(deferToPostFrame: true);
     } else if (notification is ScrollEndNotification) {
       if (_isUserScrolling) {
         _isUserScrolling = false;
       }
-      _scheduleOverlaySync();
+      _scheduleOverlaySync(deferToPostFrame: true);
     }
     return false;
   }
