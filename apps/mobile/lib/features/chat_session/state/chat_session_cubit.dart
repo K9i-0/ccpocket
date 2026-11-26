@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../../core/logger.dart';
 import '../../../models/chat_display_filter.dart';
@@ -11,6 +10,7 @@ import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
 import '../../../services/chat_message_handler.dart';
 import '../../../utils/skill_invocation.dart';
+import '../../../utils/uuid_v4.dart';
 import '../../session_list/services/session_resume_coordinator.dart'
     show ClaudeSessionSettingsStore;
 import '../question_answer_transcript.dart';
@@ -25,7 +25,6 @@ import 'chat_entry_helpers.dart';
 /// processing to [ChatMessageHandler]. The resulting [ChatStateUpdate] is
 /// applied to the immutable [ChatSessionState].
 class ChatSessionCubit extends Cubit<ChatSessionState> {
-  static const _uuid = Uuid();
   static const offlineQueuedInputPrefix = 'offline:';
   static const deliveryPendingQueuedInputPrefix = 'pending:';
   static const _deliveryPendingDelay = Duration(milliseconds: 600);
@@ -1858,7 +1857,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       if (isClosed || state.queuedInput != null) return false;
     }
 
-    final clientMessageId = _uuid.v4();
+    final clientMessageId = generateUuidV4();
     final isOffline = !_bridge.isConnected;
     final baseSeq = isOffline
         ? _bridge.cachedSessionHistorySeq(sessionId)
@@ -2301,7 +2300,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     if (targetUuid == null || trimmed.isEmpty) return;
     final index = state.entries.indexWhere((e) => identical(e, entry));
     if (index < 0) return;
-    final clientMessageId = _uuid.v4();
+    final clientMessageId = generateUuidV4();
     _pendingEditClientMessageId = clientMessageId;
     emit(
       state.copyWith(
@@ -2917,7 +2916,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
 
   /// Retry a failed user message.
   Future<bool> retryMessage(UserChatEntry entry) async {
-    final clientMessageId = _uuid.v4();
+    final clientMessageId = generateUuidV4();
     final retrySessionId = entry.sessionId ?? sessionId;
     final isOffline = !_bridge.isConnected;
     emit(

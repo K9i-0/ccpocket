@@ -7,11 +7,11 @@ import '../core/logger.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:uuid/uuid.dart';
 
 import '../constants/app_constants.dart';
 import '../models/machine.dart';
 import '../utils/network_endpoint.dart';
+import '../utils/uuid_v4.dart';
 import 'bridge_endpoint_probe.dart';
 
 typedef BridgeWsUrlResolver = Future<String> Function(
@@ -44,7 +44,6 @@ class MachineManagerService {
   static const _oldMachinesKey = 'remote_machines';
   static const _oldUrlHistoryKey = 'url_history';
   static const _secureKeyPrefix = 'machine_';
-  static const _uuid = Uuid();
 
   final SharedPreferences _prefs;
   final FlutterSecureStorage _secureStorage;
@@ -135,7 +134,7 @@ class MachineManagerService {
           if (seenKeys.add(key)) {
             machines.add(
               Machine(
-                id: old['id'] as String? ?? _uuid.v4(),
+                id: old['id'] as String? ?? generateUuidV4(),
                 name: old['name'] as String?,
                 host: host,
                 port: port,
@@ -184,7 +183,7 @@ class MachineManagerService {
           if (seenKeys.add(key)) {
             // Migrate API key to secure storage
             final apiKey = entry['apiKey'] as String?;
-            final machineId = _uuid.v4();
+            final machineId = generateUuidV4();
             if (apiKey != null && apiKey.isNotEmpty) {
               await _secureStorage.write(
                 key: '$_secureKeyPrefix${machineId}_api',
@@ -453,7 +452,7 @@ class MachineManagerService {
     } else {
       // Create new machine
       machine = Machine(
-        id: _uuid.v4(),
+        id: generateUuidV4(),
         host: normalizedHost,
         port: port,
         name: name,
@@ -520,7 +519,7 @@ class MachineManagerService {
     bool useSsl = false,
   }) {
     return Machine(
-      id: _uuid.v4(),
+      id: generateUuidV4(),
       name: name,
       host: normalizeHostInput(host),
       port: port,

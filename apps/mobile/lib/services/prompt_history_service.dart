@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
-import 'package:uuid/uuid.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:crypto/crypto.dart';
 
@@ -14,6 +13,7 @@ import '../models/messages.dart';
 import '../models/protocol_version.dart';
 import '../utils/command_parser.dart';
 import '../utils/network_endpoint.dart';
+import '../utils/uuid_v4.dart';
 import 'bridge_service.dart';
 import 'database_service.dart';
 import 'machine_manager_service.dart';
@@ -242,7 +242,6 @@ class PromptHistoryService {
   static const _legacyMigrationDismissedKey =
       'prompt_history_legacy_migration_dismissed_v2';
   static const _syncTimeout = Duration(seconds: 8);
-  static const _uuid = Uuid();
 
   final DatabaseService _dbService;
 
@@ -254,7 +253,7 @@ class PromptHistoryService {
     final prefs = await SharedPreferences.getInstance();
     final existing = prefs.getString(_clientDeviceIdKey);
     if (existing != null && existing.isNotEmpty) return existing;
-    final value = _uuid.v4();
+    final value = generateUuidV4();
     await prefs.setString(_clientDeviceIdKey, value);
     return value;
   }

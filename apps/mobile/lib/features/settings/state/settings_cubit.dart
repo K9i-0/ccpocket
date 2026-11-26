@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../../core/logger.dart';
 import '../../../models/app_icon.dart';
@@ -27,6 +26,7 @@ import '../../../services/shared_state_adapters.dart';
 import '../../../services/shared_state_sync.dart';
 import '../../../theme/code_text_style.dart';
 import '../../../utils/platform_helper.dart';
+import '../../../utils/uuid_v4.dart';
 import '../../workspace/workspace_layout_metrics.dart';
 import 'settings_state.dart';
 
@@ -98,7 +98,6 @@ class SettingsCubit extends Cubit<SettingsState> {
   static const _keyIndentSize = 'settings_indent_size';
   // Legacy key for migration
   static const _keyFcmEnabled = 'settings_fcm_enabled';
-  static const _uuid = Uuid();
 
   SettingsCubit(
     this._prefs, {
@@ -867,7 +866,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   }
 
   Future<void> _syncPushRegistration() async {
-    final requestId = _uuid.v4();
+    final requestId = generateUuidV4();
     _activePushRegistrationRequestId = requestId;
     final bridge = _bridge;
     if (bridge == null) {

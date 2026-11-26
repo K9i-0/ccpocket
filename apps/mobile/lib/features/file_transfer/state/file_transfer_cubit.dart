@@ -1,10 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
+import '../../../utils/uuid_v4.dart';
 import '../file_transfer_downloader.dart';
 import 'file_transfer_state.dart';
 
@@ -57,7 +57,7 @@ class FileTransferCubit extends Cubit<FileTransferState> {
     String Function()? requestIdFactory,
     this.requestTimeout = const Duration(seconds: 15),
   }) : _downloader = downloader ?? FileTransferDownloader(),
-       _requestIdFactory = requestIdFactory ?? const Uuid().v4,
+       _requestIdFactory = requestIdFactory ?? generateUuidV4,
        super(const FileTransferState.idle());
 
   Future<void> start({

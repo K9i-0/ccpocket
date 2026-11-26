@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
+import '../../../utils/uuid_v4.dart';
 import '../file_upload_transport.dart';
 import 'file_upload_state.dart';
 
@@ -35,7 +35,7 @@ class FileUploadCubit extends Cubit<FileUploadState> {
     this.requestTimeout = const Duration(seconds: 20),
   }) : assert(files.length == fileSizes.length),
        _transport = transport ?? FileUploadTransport(),
-       _requestIdFactory = requestIdFactory ?? const Uuid().v4,
+       _requestIdFactory = requestIdFactory ?? generateUuidV4,
        _files = {
          for (var index = 0; index < files.length; index++)
            '$index-${files[index].name}': files[index],

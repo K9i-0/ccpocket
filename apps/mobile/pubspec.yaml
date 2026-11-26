@@ -48,7 +48,6 @@ dependencies:
   flutter_local_notifications: ^22.3.3
   markdown_kit:
     path: ../../packages/markdown_kit
-  markdown: ^7.3.0
   google_fonts: ^9.0.0
   mobile_scanner: ^7.1.4
   app_links: ^7.2.2
@@ -67,7 +66,6 @@ dependencies:
   url_launcher: ^6.3.3
   dartssh2: ^4.1.0
   flutter_secure_storage: ^10.0.0
-  uuid: ^4.5.1
   super_clipboard: ^0.9.1
   firebase_core: ^5.2.0
   firebase_messaging: ^17.1.0

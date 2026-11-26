@@ -1,10 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
+import '../../../utils/uuid_v4.dart';
 import '../finder_local_proof.dart';
 import 'finder_reveal_state.dart';
 
@@ -33,7 +33,7 @@ class FinderRevealCubit extends Cubit<FinderRevealState> {
       } else {
         proof = await FinderLocalProof.create();
         if (isClosed) return;
-        final requestId = const Uuid().v4();
+        final requestId = generateUuidV4();
         final response = _response = Completer<String?>();
         _subscription = bridge.messages.listen((message) {
           if (response.isCompleted) return;
