@@ -1368,5 +1368,64 @@ void main() {
 
       expect(cubit.state.filters.projectKeys, {'/w/a', '/w/b'});
     });
+
+    testWidgets(
+      'hides advanced and clear chips when searchContent/dateField are inactive',
+      (tester) async {
+        tester.view.physicalSize = const Size(1600, 2400);
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          _buildHomeContent(
+            recentSessions: [_session(id: 's1')],
+            supportsAdvancedFilters: true,
+            filters: const RecentSessionFilters(
+              dateField: RecentDateField.created,
+              searchContent: true,
+            ),
+            cubit: cubit,
+            draftService: draftService,
+            revenueCatService: revenueCatService,
+            supportBannerService: supportBannerService,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const ValueKey('advanced_search_chip')),
+          findsNothing,
+        );
+        expect(find.byKey(const ValueKey('clear_filters_chip')), findsNothing);
+
+        // Once paired with a keyword and period, both count toward Advanced.
+        await tester.pumpWidget(
+          _buildHomeContent(
+            recentSessions: [_session(id: 's1')],
+            searchQuery: 'needle',
+            supportsAdvancedFilters: true,
+            filters: const RecentSessionFilters(
+              dateFilter: RecentDateFilter(RecentDatePreset.today),
+              dateField: RecentDateField.created,
+              searchContent: true,
+            ),
+            cubit: cubit,
+            draftService: draftService,
+            revenueCatService: revenueCatService,
+            supportBannerService: supportBannerService,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const ValueKey('advanced_search_chip')),
+          findsOneWidget,
+        );
+        // keyword + searchContent + created dateField = 3
+        expect(find.text('Advanced 3'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('clear_filters_chip')),
+          findsOneWidget,
+        );
+      },
+    );
   });
 }

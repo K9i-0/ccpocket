@@ -1,11 +1,13 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../models/messages.dart';
 import '../../../models/new_session_tab.dart';
 import '../../../services/bridge_service.dart';
+import '../services/recent_session_filter_store.dart';
 import 'recent_session_filters.dart';
 import 'session_list_state.dart';
 
@@ -132,6 +134,7 @@ List<T> prioritizePinned<T>(
 /// a skeleton loading state.
 class SessionListCubit extends Cubit<SessionListState> {
   final BridgeService _bridge;
+  final RecentSessionFilterStore _filterStore;
   StreamSubscription<List<RecentSession>>? _recentSub;
   StreamSubscription<List<String>>? _projectHistorySub;
   StreamSubscription<ServerMessage>? _messageSub;
@@ -141,14 +144,32 @@ class SessionListCubit extends Cubit<SessionListState> {
   StreamSubscription<BridgeConnectionState>? _connectionSub;
   Timer? _searchDebounce;
   late final Future<void> _preferencesLoaded;
+  bool _preferencesLoadedDone = false;
+  Future<void> _filterPersistQueue = Future<void>.value();
+
+  /// Per-Bridge project filter selections loaded from preferences and kept in
+  /// sync on changes, so switching or reconnecting to a Bridge restores its
+  /// selection immediately.
+  final Map<String, Set<String>> _projectKeysByBridge = {};
+  String? _loadedProjectBridgeKey;
+
+  /// Guards against an asynchronous initial preference load overwriting filter
+  /// edits the user made right after startup.
+  bool _providerTouched = false;
+  bool _namedOnlyTouched = false;
+  bool _commonFiltersTouched = false;
+  bool _projectFiltersTouched = false;
 
   /// Whether a first-page list request went out (possibly before the pinned
-  /// sessions were loaded from preferences).
+  /// sessions or filters were loaded from preferences).
   bool _hasRequestedList = false;
 
-  SessionListCubit({required BridgeService bridge})
-    : _bridge = bridge,
-      super(const SessionListState()) {
+  SessionListCubit({
+    required BridgeService bridge,
+    RecentSessionFilterStore filterStore = const RecentSessionFilterStore(),
+  }) : _bridge = bridge,
+       _filterStore = filterStore,
+       super(const SessionListState()) {
     _recentSub = _bridge.recentSessionsStream.listen(_onSessionsUpdate);
     _projectHistorySub = _bridge.projectHistoryStream.listen(
       _onProjectHistoryUpdate,
@@ -157,7 +178,12 @@ class SessionListCubit extends Cubit<SessionListState> {
     // A filtered request built while reconnecting goes out without the
     // filters; ask again once the Bridge announces them.
     _filtersAvailableSub = _bridge.recentSessionFiltersAvailable.listen((_) {
-      if (!isClosed && state.filters.isActive) _requestWithCurrentFilters();
+      if (!isClosed &&
+          state.filters.hasEffectiveFilters(
+            hasSearchQuery: state.searchQuery.isNotEmpty,
+          )) {
+        _requestWithCurrentFilters();
+      }
     });
     // Antigravity rows and the Antigravity filter depend on a capability
     // that arrives after the first request and can change while connected.
@@ -174,9 +200,34 @@ class SessionListCubit extends Cubit<SessionListState> {
     // preferences is what this device last saw (docs/pin-sync.md).
     _pinsSub = _bridge.pinsStream.listen(_onBridgePins);
     _connectionSub = _bridge.connectionStatus.listen((status) {
-      if (status == BridgeConnectionState.connected) _requestBridgePins();
+      if (status == BridgeConnectionState.connected) {
+        _syncProjectFiltersForCurrentBridge();
+        _requestBridgePins();
+      }
     });
     _preferencesLoaded = _loadPreferences();
+  }
+
+  String? get _currentBridgeKey =>
+      RecentSessionFilterStore.bridgeScopeKey(_bridge.lastUrl);
+
+  /// Restore the saved project selection when connecting to a Bridge or
+  /// switching to a different one.
+  void _syncProjectFiltersForCurrentBridge() {
+    if (!_preferencesLoadedDone || isClosed) return;
+    final bridgeKey = _currentBridgeKey;
+    if (bridgeKey == null || bridgeKey == _loadedProjectBridgeKey) return;
+    _loadedProjectBridgeKey = bridgeKey;
+    _projectFiltersTouched = false;
+    final restoredProjects =
+        _projectKeysByBridge[bridgeKey] ?? const <String>{};
+    if (!setEquals(state.filters.projectKeys, restoredProjects)) {
+      emit(
+        state.copyWith(
+          filters: state.filters.copyWith(projectKeys: restoredProjects),
+        ),
+      );
+    }
   }
 
   /// Ask the Bridge for its pins, offering this device's pins as the seed
@@ -247,6 +298,10 @@ class SessionListCubit extends Cubit<SessionListState> {
     final prefs = await SharedPreferences.getInstance();
     final providerStr = prefs.getString('session_list_provider');
     final namedOnly = prefs.getBool('session_list_named_only');
+    final commonFilters = _filterStore.loadCommonFilters(prefs);
+    final storedProjectsByBridge = _filterStore.loadProjectFiltersByBridge(
+      prefs,
+    );
     final collapsedProjectPaths =
         prefs.getStringList(_collapsedProjectPathsKey)?.toSet() ??
         const <String>{};
@@ -262,10 +317,70 @@ class SessionListCubit extends Cubit<SessionListState> {
     );
 
     if (isClosed) return;
+
+    // Merge stored per-Bridge project selections without clobbering edits made
+    // before preferences finished loading.
+    final touchedByBridge = Map<String, Set<String>>.from(_projectKeysByBridge);
+    _projectKeysByBridge
+      ..clear()
+      ..addAll(storedProjectsByBridge);
+    for (final entry in touchedByBridge.entries) {
+      if (entry.value.isEmpty) {
+        _projectKeysByBridge.remove(entry.key);
+      } else {
+        _projectKeysByBridge[entry.key] = entry.value;
+      }
+    }
+    _preferencesLoadedDone = true;
+
+    final currentBridgeKey = _currentBridgeKey;
+    final prevProvider = state.providerFilter;
+    final prevNamedOnly = state.namedOnly;
+    final prevFilters = state.filters;
+
+    final nextProvider = _providerTouched ? prevProvider : provider;
+    final nextNamedOnly = _namedOnlyTouched
+        ? prevNamedOnly
+        : (namedOnly ?? false);
+
+    final Set<String> nextProjectKeys;
+    if (_projectFiltersTouched) {
+      nextProjectKeys = prevFilters.projectKeys;
+      if (currentBridgeKey != null) {
+        _loadedProjectBridgeKey = currentBridgeKey;
+        if (nextProjectKeys.isEmpty) {
+          _projectKeysByBridge.remove(currentBridgeKey);
+        } else {
+          _projectKeysByBridge[currentBridgeKey] = {...nextProjectKeys};
+        }
+      }
+    } else if (currentBridgeKey != null) {
+      _loadedProjectBridgeKey = currentBridgeKey;
+      nextProjectKeys =
+          _projectKeysByBridge[currentBridgeKey] ?? const <String>{};
+    } else {
+      nextProjectKeys = prevFilters.projectKeys;
+    }
+
+    final nextFilters = _commonFiltersTouched
+        ? prevFilters.copyWith(projectKeys: nextProjectKeys)
+        : commonFilters.copyWith(projectKeys: nextProjectKeys);
+
+    final filtersAffectRequest = _filtersDifferForRequest(
+      prevProvider: prevProvider,
+      nextProvider: nextProvider,
+      prevNamedOnly: prevNamedOnly,
+      nextNamedOnly: nextNamedOnly,
+      prevFilters: prevFilters,
+      nextFilters: nextFilters,
+      hasSearchQuery: state.searchQuery.isNotEmpty,
+    );
+
     emit(
       state.copyWith(
-        providerFilter: provider,
-        namedOnly: namedOnly ?? false,
+        providerFilter: nextProvider,
+        namedOnly: nextNamedOnly,
+        filters: nextFilters,
         collapsedProjectPaths: collapsedProjectPaths,
         pinnedSessionKeys: pinnedSessionKeys,
         pinnedProjectPaths: pinnedProjectPaths,
@@ -273,12 +388,45 @@ class SessionListCubit extends Cubit<SessionListState> {
     );
     _pushPinnedSessionsToBridge();
     // The first page may have been requested before preferences loaded; ask
-    // again so the Bridge can return the pinned sessions with it.
-    if (_hasRequestedList && pinnedSessionKeys.isNotEmpty) {
+    // again so restored pins and filters apply to the listing.
+    if (_hasRequestedList &&
+        (pinnedSessionKeys.isNotEmpty || filtersAffectRequest)) {
       _requestWithCurrentFilters();
     }
     // The connection may have been established while preferences loaded.
     unawaited(_requestBridgePins());
+  }
+
+  static bool _filtersDifferForRequest({
+    required ProviderFilter prevProvider,
+    required ProviderFilter nextProvider,
+    required bool prevNamedOnly,
+    required bool nextNamedOnly,
+    required RecentSessionFilters prevFilters,
+    required RecentSessionFilters nextFilters,
+    required bool hasSearchQuery,
+  }) {
+    if (prevProvider != nextProvider || prevNamedOnly != nextNamedOnly) {
+      return true;
+    }
+    if (!setEquals(prevFilters.projectKeys, nextFilters.projectKeys)) {
+      return true;
+    }
+    if (prevFilters.dateFilter != nextFilters.dateFilter) {
+      return true;
+    }
+    if (nextFilters.dateFilter != null &&
+        prevFilters.dateField != nextFilters.dateField) {
+      return true;
+    }
+    if (prevFilters.pinnedOnly != nextFilters.pinnedOnly) {
+      return true;
+    }
+    if (hasSearchQuery &&
+        prevFilters.searchContent != nextFilters.searchContent) {
+      return true;
+    }
+    return false;
   }
 
   void _pushPinnedSessionsToBridge() {
@@ -411,6 +559,15 @@ class SessionListCubit extends Cubit<SessionListState> {
     _searchDebounce?.cancel();
     final providerChanged = providerFilter != state.providerFilter;
     final namedChanged = namedOnly != state.namedOnly;
+    final projectsChanged = !setEquals(
+      filters.projectKeys,
+      state.filters.projectKeys,
+    );
+    final commonChanged = _commonFieldsDiffer(filters, state.filters);
+    if (providerChanged) _providerTouched = true;
+    if (namedChanged) _namedOnlyTouched = true;
+    if (projectsChanged) _projectFiltersTouched = true;
+    if (commonChanged) _commonFiltersTouched = true;
     emit(
       state.copyWith(
         searchQuery: searchQuery,
@@ -427,15 +584,26 @@ class SessionListCubit extends Cubit<SessionListState> {
         prefs.setBool('session_list_named_only', namedOnly);
       });
     }
+    if (commonChanged || projectsChanged) {
+      _persistFilters(
+        filters,
+        saveCommon: commonChanged,
+        saveProjects: projectsChanged,
+      );
+    }
   }
 
   /// Clear search text and every filter except the AI tool preference.
   void clearFilters() {
     _searchDebounce?.cancel();
+    _namedOnlyTouched = true;
+    _commonFiltersTouched = true;
+    _projectFiltersTouched = true;
+    const cleared = RecentSessionFilters();
     emit(
       state.copyWith(
         searchQuery: '',
-        filters: const RecentSessionFilters(),
+        filters: cleared,
         namedOnly: false,
         isInitialLoading: true,
       ),
@@ -444,12 +612,64 @@ class SessionListCubit extends Cubit<SessionListState> {
     SharedPreferences.getInstance().then(
       (prefs) => prefs.setBool('session_list_named_only', false),
     );
+    _persistFilters(cleared, saveCommon: true, saveProjects: true);
   }
 
   void _updateFilters(RecentSessionFilters next) {
     if (next == state.filters) return;
+    final projectsChanged = !setEquals(
+      next.projectKeys,
+      state.filters.projectKeys,
+    );
+    final commonChanged = _commonFieldsDiffer(next, state.filters);
+    if (projectsChanged) _projectFiltersTouched = true;
+    if (commonChanged) _commonFiltersTouched = true;
     emit(state.copyWith(filters: next, isInitialLoading: true));
     _requestWithCurrentFilters();
+    _persistFilters(
+      next,
+      saveCommon: commonChanged,
+      saveProjects: projectsChanged,
+    );
+  }
+
+  static bool _commonFieldsDiffer(
+    RecentSessionFilters a,
+    RecentSessionFilters b,
+  ) =>
+      a.dateFilter != b.dateFilter ||
+      a.dateField != b.dateField ||
+      a.pinnedOnly != b.pinnedOnly ||
+      a.searchContent != b.searchContent;
+
+  void _persistFilters(
+    RecentSessionFilters filters, {
+    required bool saveCommon,
+    required bool saveProjects,
+  }) {
+    final bridgeKey = saveProjects ? _currentBridgeKey : null;
+    if (bridgeKey != null) {
+      if (filters.projectKeys.isEmpty) {
+        _projectKeysByBridge.remove(bridgeKey);
+      } else {
+        _projectKeysByBridge[bridgeKey] = {...filters.projectKeys};
+      }
+      _loadedProjectBridgeKey = bridgeKey;
+    }
+    if (!saveCommon && bridgeKey == null) return;
+    _filterPersistQueue = _filterPersistQueue.then((_) async {
+      await _preferencesLoaded;
+      final prefs = await SharedPreferences.getInstance();
+      if (saveCommon) {
+        await _filterStore.saveCommonFilters(prefs, filters);
+      }
+      if (bridgeKey != null) {
+        await _filterStore.saveProjectFiltersByBridge(
+          prefs,
+          _projectKeysByBridge,
+        );
+      }
+    });
   }
 
   /// Set search query with debounce (server-side).
@@ -481,6 +701,7 @@ class SessionListCubit extends Cubit<SessionListState> {
 
   void setProviderFilter(ProviderFilter next) {
     if (state.providerFilter == next) return;
+    _providerTouched = true;
     emit(state.copyWith(providerFilter: next, isInitialLoading: true));
     _requestWithCurrentFilters();
     // Persist preference in background (fire-and-forget).
@@ -509,6 +730,7 @@ class SessionListCubit extends Cubit<SessionListState> {
   /// Toggle named-only filter on/off.
   void toggleNamedOnly() async {
     final next = !state.namedOnly;
+    _namedOnlyTouched = true;
     emit(state.copyWith(namedOnly: next, isInitialLoading: true));
     _requestWithCurrentFilters();
     // Persist preference in background (fire-and-forget).
@@ -638,15 +860,23 @@ class SessionListCubit extends Cubit<SessionListState> {
 
   /// Request fresh data from the server.
   void refresh() {
+    _syncProjectFiltersForCurrentBridge();
     _bridge.requestSessionList();
     _requestWithCurrentFilters();
     _bridge.requestProjectHistory();
     _bridge.requestProjects();
   }
 
-  /// Reset all filter state (used on disconnect).
+  /// Clear connection-scoped state on disconnect while keeping device-local
+  /// filter preferences so reconnecting behaves like restarting the app.
+  ///
+  /// Bridge-scoped project selections are cleared in memory and reloaded for
+  /// whichever Bridge the user connects to next.
   void resetFilters() {
     _searchDebounce?.cancel();
+    _hasRequestedList = false;
+    _loadedProjectBridgeKey = null;
+    _projectFiltersTouched = false;
     emit(
       state.copyWith(
         sessions: const [],
@@ -657,9 +887,7 @@ class SessionListCubit extends Cubit<SessionListState> {
         projectSessionDisplayLimits: const {},
         isLoadingMore: false,
         isInitialLoading: true,
-        providerFilter: ProviderFilter.all,
-        namedOnly: false,
-        filters: const RecentSessionFilters(),
+        filters: state.filters.copyWith(projectKeys: const {}),
       ),
     );
   }

@@ -34,6 +34,59 @@ class RecentDateFilter {
   static DateTime _day(DateTime value) =>
       DateTime(value.year, value.month, value.day);
 
+  static String _formatDay(DateTime value) {
+    final y = value.year.toString().padLeft(4, '0');
+    final m = value.month.toString().padLeft(2, '0');
+    final d = value.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
+  }
+
+  static final _isoDayPattern = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$');
+
+  static DateTime? _parseDay(Object? raw) {
+    if (raw is! String) return null;
+    final match = _isoDayPattern.firstMatch(raw);
+    if (match == null) return null;
+    final year = int.parse(match.group(1)!);
+    final month = int.parse(match.group(2)!);
+    final day = int.parse(match.group(3)!);
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+    final parsed = DateTime(year, month, day);
+    if (parsed.year != year || parsed.month != month || parsed.day != day) {
+      return null;
+    }
+    return parsed;
+  }
+
+  Map<String, Object?> toJson() => {
+    'preset': preset.name,
+    if (preset == RecentDatePreset.custom && customStart != null)
+      'customStart': _formatDay(customStart!),
+    if (preset == RecentDatePreset.custom && customEnd != null)
+      'customEnd': _formatDay(customEnd!),
+  };
+
+  static RecentDateFilter? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    final presetName = raw['preset'];
+    if (presetName is! String) return null;
+    RecentDatePreset? preset;
+    for (final candidate in RecentDatePreset.values) {
+      if (candidate.name == presetName) {
+        preset = candidate;
+        break;
+      }
+    }
+    if (preset == null) return null;
+    if (preset != RecentDatePreset.custom) {
+      return RecentDateFilter(preset);
+    }
+    final start = _parseDay(raw['customStart']);
+    final end = _parseDay(raw['customEnd']);
+    if (start == null || end == null || start.isAfter(end)) return null;
+    return RecentDateFilter.custom(start: start, end: end);
+  }
+
   /// Resolve to a half-open `[start, end)` range of local instants.
   ({DateTime start, DateTime? end}) resolve(DateTime now) {
     final today = _day(now);
@@ -101,11 +154,34 @@ class RecentSessionFilters {
   int get advancedOnlyCount =>
       (searchContent ? 1 : 0) + (dateField != RecentDateField.modified ? 1 : 0);
 
+  /// Advanced-only conditions that actively affect the current listing.
+  ///
+  /// [searchContent] only applies while a keyword query is set, and [dateField]
+  /// only applies while a [dateFilter] is set.
+  int effectiveAdvancedOnlyCount({required bool hasSearchQuery}) =>
+      (searchContent && hasSearchQuery ? 1 : 0) +
+      (dateFilter != null && dateField != RecentDateField.modified ? 1 : 0);
+
   bool get isActive =>
       projectKeys.isNotEmpty ||
       dateFilter != null ||
       pinnedOnly ||
       searchContent;
+
+  /// Whether any filter in this object actively narrows the current listing.
+  bool hasEffectiveFilters({required bool hasSearchQuery}) =>
+      projectKeys.isNotEmpty ||
+      dateFilter != null ||
+      pinnedOnly ||
+      (searchContent && hasSearchQuery);
+
+  /// Whether all device-global filter fields (everything except [projectKeys])
+  /// are at their defaults.
+  bool get hasOnlyDefaultCommonFields =>
+      dateFilter == null &&
+      dateField == RecentDateField.modified &&
+      !pinnedOnly &&
+      !searchContent;
 
   RecentSessionFilters copyWith({
     Set<String>? projectKeys,

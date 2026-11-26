@@ -211,3 +211,20 @@ Implementation notes (Bridge):
   days, Custom range. Presets are computed on the device in local time and sent
   as ISO instants.
 - Project filter keys keep the existing encoding (`project:<id>` or a path).
+- Persistence (device-local `SharedPreferences`, not shared through
+  `SharedStateSync`):
+  - AI tool (`session_list_provider`), named only (`session_list_named_only`),
+    and common filters (`session_list_filters_v1`: period preset or custom day
+    range, date field, pinned only, content search) are restored across app
+    restarts and reconnects.
+  - Project selections (`session_list_project_filters_by_bridge_v1`) are stored
+    per canonical Bridge target (`bridgeTargetKey`, without query tokens) so
+    switching machines does not carry over another machine's project paths.
+  - The search keyword (`searchQuery`) is not persisted and resets to empty on
+    restart or disconnect.
+  - Content search without a keyword and `created` date field without a period
+    are preserved for the search sheet, but do not count toward the filter
+    bar's "Advanced n" or "Clear" chips until paired with a keyword / period.
+  - Saved filters are kept intact even when connecting to an older Bridge
+    without `recent_sessions_filters_v1` or when a saved project is absent from
+    the current listing.

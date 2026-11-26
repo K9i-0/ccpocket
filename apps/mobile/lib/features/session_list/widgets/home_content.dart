@@ -743,12 +743,15 @@ class HomeContentState extends State<HomeContent> {
     final selectedProjectKeys = widget.filters.projectKeys.isNotEmpty
         ? widget.filters.projectKeys
         : {?widget.currentProjectFilter};
+    final hasEffectiveFilters = widget.filters.hasEffectiveFilters(
+      hasSearchQuery: widget.searchQuery.isNotEmpty,
+    );
     final hasActiveFilter =
         selectedProjectKeys.isNotEmpty ||
         widget.providerFilter != ProviderFilter.all ||
         widget.namedOnly ||
         widget.searchQuery.isNotEmpty ||
-        widget.filters.isActive;
+        hasEffectiveFilters;
     // Favorite projects stay visible in grouped mode even when the loaded
     // pages hold none of their sessions; "show more" loads them.
     final keepEmptyGroups = hasActiveFilter
@@ -795,7 +798,9 @@ class HomeContentState extends State<HomeContent> {
           ..sort((a, b) => _modifiedMillis(b).compareTo(_modifiedMillis(a)));
     // Conditions only the search sheet edits (keyword, named only, …).
     final advancedCount =
-        widget.filters.advancedOnlyCount +
+        widget.filters.effectiveAdvancedOnlyCount(
+          hasSearchQuery: widget.searchQuery.isNotEmpty,
+        ) +
         (widget.namedOnly ? 1 : 0) +
         (widget.searchQuery.isNotEmpty ? 1 : 0);
     _projectOptions = projectOptions;
@@ -1028,7 +1033,7 @@ class HomeContentState extends State<HomeContent> {
                     (selectedProjectKeys.isNotEmpty ||
                         widget.namedOnly ||
                         widget.searchQuery.isNotEmpty ||
-                        widget.filters.isActive)
+                        hasEffectiveFilters)
                 ? _clearFilters
                 : null,
           ),

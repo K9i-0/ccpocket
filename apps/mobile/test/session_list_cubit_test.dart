@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:ccpocket/features/session_list/services/recent_session_filter_store.dart';
 import 'package:ccpocket/features/session_list/state/recent_session_filters.dart';
 import 'package:ccpocket/features/session_list/state/session_list_cubit.dart';
 import 'package:ccpocket/features/session_list/state/session_list_state.dart';
@@ -34,6 +35,10 @@ class MockBridgeService extends BridgeService {
   final _connectionController =
       StreamController<BridgeConnectionState>.broadcast();
   bool connected = false;
+  String? mockLastUrl;
+
+  @override
+  String? get lastUrl => mockLastUrl;
 
   @override
   Stream<PinsMessage> get pinsStream => _pinsController.stream;
@@ -1281,10 +1286,378 @@ void main() {
       expect(mockBridge.lastExtraFilters.projectKeys, ['/a', '/b']);
     });
 
-    test('resetFilters clears the extra filters', () {
-      cubit.togglePinnedOnly();
-      cubit.resetFilters();
-      expect(cubit.state.filters.isActive, isFalse);
+    test(
+      'resetFilters keeps common filters and clears bridge-scoped projects',
+      () async {
+        mockBridge.mockLastUrl = 'ws://host-a:8765/?token=secret';
+        await Future<void>.delayed(Duration.zero);
+        cubit.setProjectFilters({'/a'});
+        cubit.togglePinnedOnly();
+        cubit.setProviderFilter(ProviderFilter.codex);
+        cubit.toggleNamedOnly();
+        cubit.resetFilters();
+
+        expect(cubit.state.filters.projectKeys, isEmpty);
+        expect(cubit.state.filters.pinnedOnly, isTrue);
+        expect(cubit.state.providerFilter, ProviderFilter.codex);
+        expect(cubit.state.namedOnly, isTrue);
+        expect(cubit.state.searchQuery, isEmpty);
+
+        // Reconnecting to the same Bridge restores its project selection.
+        mockBridge.emitConnected();
+        await Future<void>.delayed(Duration.zero);
+        expect(cubit.state.filters.projectKeys, {'/a'});
+      },
+    );
+
+    test(
+      'persists and restores filters across restart while resetting query',
+      () async {
+        mockBridge.mockLastUrl = 'ws://192.168.1.10:8765/?token=abc';
+        mockBridge.supportsFilters = true;
+        await Future<void>.delayed(Duration.zero);
+
+        final customDate = RecentDateFilter.custom(
+          start: DateTime(2026, 11, 1),
+          end: DateTime(2026, 11, 15),
+        );
+        cubit.applyAdvancedSearch(
+          searchQuery: 'temporary query',
+          filters: RecentSessionFilters(
+            projectKeys: const {'/repo/a', 'project:p1'},
+            dateFilter: customDate,
+            dateField: RecentDateField.created,
+            pinnedOnly: true,
+            searchContent: true,
+          ),
+          providerFilter: ProviderFilter.claude,
+          namedOnly: true,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        // Simulate app restart connecting to the same Bridge with a rotated token.
+        await cubit.close();
+        mockBridge.dispose();
+        mockBridge = MockBridgeService()
+          ..mockLastUrl = 'ws://192.168.1.10:8765/?token=rotated'
+          ..supportsFilters = true;
+        cubit = SessionListCubit(bridge: mockBridge);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(cubit.state.searchQuery, isEmpty);
+        expect(cubit.state.providerFilter, ProviderFilter.claude);
+        expect(cubit.state.namedOnly, isTrue);
+        expect(cubit.state.filters.projectKeys, {'/repo/a', 'project:p1'});
+        expect(cubit.state.filters.dateFilter, customDate);
+        expect(cubit.state.filters.dateField, RecentDateField.created);
+        expect(cubit.state.filters.pinnedOnly, isTrue);
+        expect(cubit.state.filters.searchContent, isTrue);
+      },
+    );
+
+    test(
+      'scopes project filters per Bridge and switches on reconnect',
+      () async {
+        mockBridge.mockLastUrl = 'ws://mac-a.local:8765/?token=1';
+        mockBridge.supportsFilters = true;
+        await Future<void>.delayed(Duration.zero);
+
+        cubit.setProjectFilters({'/mac-a/app'});
+        cubit.setDateFilter(const RecentDateFilter(RecentDatePreset.last7Days));
+        await Future<void>.delayed(Duration.zero);
+
+        // Disconnect and connect to Bridge B.
+        cubit.resetFilters();
+        mockBridge.mockLastUrl = 'ws://mac-b.local:8765/?token=2';
+        mockBridge.emitConnected();
+        cubit.refresh();
+
+        expect(cubit.state.filters.projectKeys, isEmpty);
+        expect(
+          cubit.state.filters.dateFilter,
+          const RecentDateFilter(RecentDatePreset.last7Days),
+        );
+
+        // Select a project on Bridge B.
+        cubit.setProjectFilters({'/mac-b/backend'});
+        await Future<void>.delayed(Duration.zero);
+
+        // Switch back to Bridge A (without disconnect first) and refresh.
+        mockBridge.mockLastUrl = 'ws://mac-a.local:8765/?token=3';
+        cubit.refresh();
+
+        expect(cubit.state.filters.projectKeys, {'/mac-a/app'});
+        expect(
+          mockBridge.sentOfType('list_recent_sessions').last['projectPath'],
+          '/mac-a/app',
+        );
+      },
+    );
+
+    test(
+      'restored filters re-request a list sent before preferences load',
+      () async {
+        await cubit.close();
+        mockBridge.dispose();
+        const store = RecentSessionFilterStore();
+        SharedPreferences.setMockInitialValues({
+          'session_list_provider': 'codex',
+          'session_list_named_only': true,
+        });
+        final prefs = await SharedPreferences.getInstance();
+        await store.saveCommonFilters(
+          prefs,
+          const RecentSessionFilters(
+            dateFilter: RecentDateFilter(RecentDatePreset.today),
+            pinnedOnly: true,
+          ),
+        );
+        await store.saveProjectFiltersByBridge(prefs, {
+          'ws://host-a:8765/': {'/repo/a'},
+        });
+
+        mockBridge = MockBridgeService()
+          ..mockLastUrl = 'ws://host-a:8765/'
+          ..supportsFilters = true;
+        cubit = SessionListCubit(bridge: mockBridge);
+
+        // Initial refresh happens before async _loadPreferences finishes.
+        cubit.refresh();
+        expect(mockBridge.sentOfType('list_recent_sessions'), hasLength(1));
+
+        await Future<void>.delayed(Duration.zero);
+
+        expect(mockBridge.sentOfType('list_recent_sessions'), hasLength(2));
+        expect(mockBridge.lastJson['projectPath'], '/repo/a');
+        expect(mockBridge.lastJson['provider'], 'codex');
+        expect(mockBridge.lastJson['namedOnly'], isTrue);
+        expect(mockBridge.lastExtraFilters.pinnedOnly, isTrue);
+        expect(mockBridge.lastExtraFilters.resolveDateRange, isNotNull);
+      },
+    );
+
+    test(
+      'restoring only inactive searchContent does not re-request list',
+      () async {
+        await cubit.close();
+        mockBridge.dispose();
+        const store = RecentSessionFilterStore();
+        SharedPreferences.setMockInitialValues({});
+        final prefs = await SharedPreferences.getInstance();
+        await store.saveCommonFilters(
+          prefs,
+          const RecentSessionFilters(
+            dateField: RecentDateField.created,
+            searchContent: true,
+          ),
+        );
+
+        mockBridge = MockBridgeService()..supportsFilters = true;
+        cubit = SessionListCubit(bridge: mockBridge);
+        cubit.refresh();
+        await Future<void>.delayed(Duration.zero);
+
+        expect(cubit.state.filters.searchContent, isTrue);
+        expect(cubit.state.filters.dateField, RecentDateField.created);
+        expect(mockBridge.sentOfType('list_recent_sessions'), hasLength(1));
+      },
+    );
+
+    test(
+      'user edits before preference load win and keep other Bridges',
+      () async {
+        await cubit.close();
+        mockBridge.dispose();
+        const store = RecentSessionFilterStore();
+        SharedPreferences.setMockInitialValues({});
+        final prefs = await SharedPreferences.getInstance();
+        await store.saveCommonFilters(
+          prefs,
+          const RecentSessionFilters(pinnedOnly: true),
+        );
+        await store.saveProjectFiltersByBridge(prefs, {
+          'ws://host-a:8765/': {'/old-a'},
+          'ws://host-b:8765/': {'/keep-b'},
+        });
+
+        mockBridge = MockBridgeService()
+          ..mockLastUrl = 'ws://host-a:8765/'
+          ..supportsFilters = true;
+        cubit = SessionListCubit(bridge: mockBridge);
+
+        // Edit project before _loadPreferences completes.
+        cubit.setProjectFilters({'/new-a'});
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(cubit.state.filters.projectKeys, {'/new-a'});
+        expect(cubit.state.filters.pinnedOnly, isTrue);
+        final savedByBridge = store.loadProjectFiltersByBridge(prefs);
+        expect(savedByBridge['ws://host-a:8765/'], {'/new-a'});
+        expect(savedByBridge['ws://host-b:8765/'], {'/keep-b'});
+      },
+    );
+
+    test(
+      'clearFilters clears persisted filters except providerFilter',
+      () async {
+        mockBridge.mockLastUrl = 'ws://host-a:8765/';
+        mockBridge.supportsFilters = true;
+        await Future<void>.delayed(Duration.zero);
+
+        cubit.applyAdvancedSearch(
+          searchQuery: 'foo',
+          filters: const RecentSessionFilters(
+            projectKeys: {'/repo/a'},
+            dateFilter: RecentDateFilter(RecentDatePreset.yesterday),
+            dateField: RecentDateField.created,
+            pinnedOnly: true,
+            searchContent: true,
+          ),
+          providerFilter: ProviderFilter.claude,
+          namedOnly: true,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        cubit.clearFilters();
+        await Future<void>.delayed(Duration.zero);
+
+        const store = RecentSessionFilterStore();
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getString('session_list_provider'), 'claude');
+        expect(prefs.getBool('session_list_named_only'), isFalse);
+        expect(store.loadCommonFilters(prefs), const RecentSessionFilters());
+        expect(store.loadProjectFiltersByBridge(prefs), isEmpty);
+      },
+    );
+
+    test(
+      'connecting to an older Bridge preserves saved extra filters',
+      () async {
+        await cubit.close();
+        mockBridge.dispose();
+        const store = RecentSessionFilterStore();
+        SharedPreferences.setMockInitialValues({});
+        final prefs = await SharedPreferences.getInstance();
+        await store.saveCommonFilters(
+          prefs,
+          const RecentSessionFilters(
+            dateFilter: RecentDateFilter(RecentDatePreset.today),
+            pinnedOnly: true,
+          ),
+        );
+        await store.saveProjectFiltersByBridge(prefs, {
+          'ws://legacy:8765/': {'/b', '/a'},
+        });
+
+        mockBridge = MockBridgeService()
+          ..mockLastUrl = 'ws://legacy:8765/'
+          ..supportsFilters = false;
+        cubit = SessionListCubit(bridge: mockBridge);
+        await Future<void>.delayed(Duration.zero);
+        cubit.refresh();
+
+        // Single project fallback is sent; saved filters stay intact.
+        expect(
+          mockBridge.sentOfType('list_recent_sessions').last['projectPath'],
+          '/a',
+        );
+        expect(cubit.state.filters.projectKeys, {'/a', '/b'});
+        expect(cubit.state.filters.pinnedOnly, isTrue);
+        expect(
+          store.loadCommonFilters(prefs).dateFilter,
+          const RecentDateFilter(RecentDatePreset.today),
+        );
+        expect(store.loadProjectFiltersByBridge(prefs)['ws://legacy:8765/'], {
+          '/a',
+          '/b',
+        });
+      },
+    );
+  });
+
+  group('RecentSessionFilterStore and JSON serialization', () {
+    test('RecentDateFilter serializes presets and custom day ranges', () {
+      for (final preset in RecentDatePreset.values) {
+        if (preset == RecentDatePreset.custom) continue;
+        final filter = RecentDateFilter(preset);
+        expect(RecentDateFilter.fromJson(filter.toJson()), filter);
+      }
+
+      final custom = RecentDateFilter.custom(
+        start: DateTime(2026, 2, 1, 23, 59),
+        end: DateTime(2026, 2, 28, 0, 1),
+      );
+      final json = custom.toJson();
+      expect(json, {
+        'preset': 'custom',
+        'customStart': '2026-02-01',
+        'customEnd': '2026-02-28',
+      });
+      expect(RecentDateFilter.fromJson(json), custom);
+    });
+
+    test('RecentDateFilter.fromJson rejects invalid or inverted ranges', () {
+      expect(RecentDateFilter.fromJson(null), isNull);
+      expect(RecentDateFilter.fromJson('today'), isNull);
+      expect(RecentDateFilter.fromJson({'preset': 'unknown'}), isNull);
+      expect(RecentDateFilter.fromJson({'preset': 'custom'}), isNull);
+      expect(
+        RecentDateFilter.fromJson({
+          'preset': 'custom',
+          'customStart': '2026-02-31',
+          'customEnd': '2026-03-05',
+        }),
+        isNull,
+      );
+      expect(
+        RecentDateFilter.fromJson({
+          'preset': 'custom',
+          'customStart': '2026-03-10',
+          'customEnd': '2026-03-01',
+        }),
+        isNull,
+      );
+    });
+
+    test('RecentSessionFilters effective helpers ignore inactive options', () {
+      const filters = RecentSessionFilters(
+        dateField: RecentDateField.created,
+        searchContent: true,
+      );
+      expect(filters.hasEffectiveFilters(hasSearchQuery: false), isFalse);
+      expect(filters.effectiveAdvancedOnlyCount(hasSearchQuery: false), 0);
+
+      expect(filters.hasEffectiveFilters(hasSearchQuery: true), isTrue);
+      expect(filters.effectiveAdvancedOnlyCount(hasSearchQuery: true), 1);
+
+      final withPeriod = filters.copyWith(
+        dateFilter: const RecentDateFilter(RecentDatePreset.today),
+      );
+      expect(withPeriod.hasEffectiveFilters(hasSearchQuery: false), isTrue);
+      expect(withPeriod.effectiveAdvancedOnlyCount(hasSearchQuery: false), 1);
+      expect(withPeriod.effectiveAdvancedOnlyCount(hasSearchQuery: true), 2);
+    });
+
+    test('store normalizes Bridge URLs and tolerates corrupt JSON', () async {
+      expect(
+        RecentSessionFilterStore.bridgeScopeKey(
+          'WS://MyHost.local:8765/?token=secret',
+        ),
+        RecentSessionFilterStore.bridgeScopeKey('ws://myhost.local:8765'),
+      );
+      expect(RecentSessionFilterStore.bridgeScopeKey(null), isNull);
+      expect(RecentSessionFilterStore.bridgeScopeKey(''), isNull);
+      expect(RecentSessionFilterStore.bridgeScopeKey('not a url'), isNull);
+
+      SharedPreferences.setMockInitialValues({
+        RecentSessionFilterStore.commonFiltersKey: '{broken json',
+        RecentSessionFilterStore.projectFiltersByBridgeKey: '[]',
+      });
+      const store = RecentSessionFilterStore();
+      final prefs = await SharedPreferences.getInstance();
+      expect(store.loadCommonFilters(prefs), const RecentSessionFilters());
+      expect(store.loadProjectFiltersByBridge(prefs), isEmpty);
     });
   });
 
