@@ -1,9 +1,6 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../../l10n/app_localizations.dart';
-import '../../../models/messages.dart';
-import '../../../widgets/session_card.dart';
 import 'section_header.dart';
 
 /// Loading state shared by Bridge connection and initial session list fetches.
@@ -67,72 +64,268 @@ class SessionListLoadingStatus extends StatelessWidget {
   }
 }
 
-/// Skeleton placeholder that mimics a list of [RecentSessionCard] widgets.
-class SessionListSkeleton extends StatelessWidget {
-  const SessionListSkeleton({super.key});
+/// Shimmer placeholder list that mimics `RecentSessionCard` widgets.
+class SessionListSkeleton extends StatefulWidget {
+  const SessionListSkeleton({super.key, this.itemCount = 5});
 
-  static const _dummySessions = [
-    RecentSession(
-      sessionId: 'skeleton-1',
-      firstPrompt: 'Implement the new feature for user authentication flow',
-      created: '2025-01-01T00:00:00Z',
-      modified: '2025-01-01T01:00:00Z',
-      gitBranch: 'feat/auth',
-      projectPath: '/projects/my-app',
-      isSidechain: false,
+  final int itemCount;
+
+  /// Resolves shimmer base and highlight colors from [theme] rather than
+  /// platform brightness so a manual light/dark choice is always respected.
+  static ({Color base, Color highlight}) shimmerColorsFor(ThemeData theme) {
+    final cs = theme.colorScheme;
+    if (theme.brightness == Brightness.dark) {
+      return (
+        base: Color.lerp(
+          cs.surfaceContainerHigh,
+          cs.surfaceContainerHighest,
+          0.45,
+        )!,
+        highlight: Color.lerp(
+          cs.surfaceContainerHigh,
+          cs.surfaceContainerHighest,
+          0.85,
+        )!,
+      );
+    }
+    return (base: cs.surfaceContainer, highlight: cs.surfaceContainerLow);
+  }
+
+  @override
+  State<SessionListSkeleton> createState() => _SessionListSkeletonState();
+}
+
+class _SessionListSkeletonState extends State<SessionListSkeleton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  static const _cardSpecs = [
+    _SkeletonCardSpec(
+      badgeWidth: 88,
+      firstLineFactor: 0.92,
+      secondLineFactor: 0.64,
+      branchWidth: 76,
+      dateWidth: 64,
     ),
-    RecentSession(
-      sessionId: 'skeleton-2',
-      firstPrompt: 'Fix the CI pipeline build failure on main branch',
-      created: '2025-01-01T00:00:00Z',
-      modified: '2025-01-01T01:00:00Z',
-      gitBranch: 'fix/ci',
-      projectPath: '/projects/backend',
-      isSidechain: false,
+    _SkeletonCardSpec(
+      badgeWidth: 104,
+      firstLineFactor: 0.84,
+      secondLineFactor: 0.56,
+      branchWidth: 62,
+      dateWidth: 72,
     ),
-    RecentSession(
-      sessionId: 'skeleton-3',
-      firstPrompt: 'Add dark mode support to the settings page',
-      created: '2025-01-01T00:00:00Z',
-      modified: '2025-01-01T01:00:00Z',
-      gitBranch: 'main',
-      projectPath: '/projects/mobile',
-      isSidechain: false,
+    _SkeletonCardSpec(
+      badgeWidth: 76,
+      firstLineFactor: 0.95,
+      secondLineFactor: 0.70,
+      branchWidth: 54,
+      dateWidth: 60,
     ),
-    RecentSession(
-      sessionId: 'skeleton-4',
-      firstPrompt: 'Refactor database queries for better performance',
-      created: '2025-01-01T00:00:00Z',
-      modified: '2025-01-01T01:00:00Z',
-      gitBranch: 'perf/db',
-      projectPath: '/projects/api',
-      isSidechain: false,
+    _SkeletonCardSpec(
+      badgeWidth: 96,
+      firstLineFactor: 0.88,
+      secondLineFactor: 0.60,
+      branchWidth: 84,
+      dateWidth: 68,
     ),
-    RecentSession(
-      sessionId: 'skeleton-5',
-      firstPrompt: 'Update documentation for the REST API endpoints',
-      created: '2025-01-01T00:00:00Z',
-      modified: '2025-01-01T01:00:00Z',
-      gitBranch: 'docs',
-      projectPath: '/projects/docs',
-      isSidechain: false,
+    _SkeletonCardSpec(
+      badgeWidth: 80,
+      firstLineFactor: 0.90,
+      secondLineFactor: 0.52,
+      branchWidth: 68,
+      dateWidth: 64,
     ),
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _controller.stop();
+      _controller.value = 0;
+    } else if (!_controller.isAnimating) {
+      _controller.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final colors = SessionListSkeleton.shimmerColorsFor(theme);
+    final textDirection = Directionality.maybeOf(context);
+    final borderColor = colorScheme.outlineVariant.withValues(alpha: 0.45);
+
     return ExcludeSemantics(
-      // skeletonizer 3 resolves the shimmer from the platform brightness by
-      // default; follow the app theme so a manual light/dark choice wins.
-      child: SkeletonizerConfig(
-        data: SkeletonizerConfigData(brightness: Theme.of(context).brightness),
-        child: Skeletonizer(
-          child: Column(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) {
+          final dx = -2.0 + 4.0 * _controller.value;
+          final gradient = LinearGradient(
+            begin: AlignmentDirectional(dx - 1.0, -0.2),
+            end: AlignmentDirectional(dx + 1.0, 0.2),
+            colors: [colors.base, colors.highlight, colors.base],
+            stops: const [0.1, 0.5, 0.9],
+          );
+          return Column(
             children: [
-              for (final session in _dummySessions)
-                RecentSessionCard(session: session, onTap: () {}),
+              for (var i = 0; i < widget.itemCount; i++)
+                _SkeletonSessionCard(
+                  spec: _cardSpecs[i % _cardSpecs.length],
+                  cardColor: colorScheme.surfaceContainerHigh,
+                  borderColor: borderColor,
+                  boneColor: colors.base,
+                  gradient: gradient,
+                  textDirection: textDirection,
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _SkeletonCardSpec {
+  const _SkeletonCardSpec({
+    required this.badgeWidth,
+    required this.firstLineFactor,
+    required this.secondLineFactor,
+    required this.branchWidth,
+    required this.dateWidth,
+  });
+
+  final double badgeWidth;
+  final double firstLineFactor;
+  final double secondLineFactor;
+  final double branchWidth;
+  final double dateWidth;
+}
+
+class _SkeletonSessionCard extends StatelessWidget {
+  const _SkeletonSessionCard({
+    required this.spec,
+    required this.cardColor,
+    required this.borderColor,
+    required this.boneColor,
+    required this.gradient,
+    required this.textDirection,
+  });
+
+  final _SkeletonCardSpec spec;
+  final Color cardColor;
+  final Color borderColor;
+  final Color boneColor;
+  final LinearGradient gradient;
+  final TextDirection? textDirection;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+      elevation: 0,
+      color: cardColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: borderColor, width: 1),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+        child: ShaderMask(
+          blendMode: BlendMode.srcATop,
+          shaderCallback: (bounds) =>
+              gradient.createShader(bounds, textDirection: textDirection),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SkeletonBone(
+                width: spec.badgeWidth,
+                height: 20,
+                borderRadius: 6,
+                color: boneColor,
+              ),
+              const SizedBox(height: 10),
+              FractionallySizedBox(
+                widthFactor: spec.firstLineFactor,
+                child: _SkeletonBone(
+                  height: 14,
+                  borderRadius: 4,
+                  color: boneColor,
+                ),
+              ),
+              const SizedBox(height: 6),
+              FractionallySizedBox(
+                widthFactor: spec.secondLineFactor,
+                child: _SkeletonBone(
+                  height: 14,
+                  borderRadius: 4,
+                  color: boneColor,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  _SkeletonBone(
+                    width: spec.branchWidth,
+                    height: 12,
+                    borderRadius: 4,
+                    color: boneColor,
+                  ),
+                  const Spacer(),
+                  _SkeletonBone(
+                    width: spec.dateWidth,
+                    height: 11,
+                    borderRadius: 4,
+                    color: boneColor,
+                  ),
+                ],
+              ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SkeletonBone extends StatelessWidget {
+  const _SkeletonBone({
+    this.width = double.infinity,
+    required this.height,
+    required this.borderRadius,
+    required this.color,
+  });
+
+  final double width;
+  final double height;
+  final double borderRadius;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: height,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(borderRadius),
         ),
       ),
     );

@@ -5,6 +5,7 @@ import 'package:ccpocket/features/session_list/state/session_list_cubit.dart';
 import 'package:ccpocket/features/session_list/state/session_list_state.dart';
 import 'package:ccpocket/features/session_list/widgets/home_content.dart';
 import 'package:ccpocket/features/session_list/widgets/session_filter_bar.dart';
+import 'package:ccpocket/features/session_list/widgets/session_list_loading_view.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/models/offline_pending_action.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
@@ -20,7 +21,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:skeletonizer/src/widgets/skeletonizer.dart';
 
 /// Minimal mock for BridgeService that satisfies SessionListCubit.
 class _MockBridgeService extends BridgeService {
@@ -445,7 +445,7 @@ void main() {
       );
     });
 
-    testWidgets('shows Skeletonizer when isInitialLoading is true and '
+    testWidgets('shows SessionListSkeleton when isInitialLoading is true and '
         'no sessions exist', (tester) async {
       final semantics = tester.ensureSemantics();
       try {
@@ -461,9 +461,7 @@ void main() {
         );
         await tester.pump();
 
-        // Skeletonizer internally renders as _Skeletonizer +
-        // SkeletonizerScope. Use SkeletonizerScope to detect presence.
-        expect(find.byType(SkeletonizerScope), findsOneWidget);
+        expect(find.byType(SessionListSkeleton), findsOneWidget);
         expect(find.text('Recent Sessions'), findsOneWidget);
         expect(find.text('No active sessions'), findsOneWidget);
         expect(find.text('Loading sessions...'), findsOneWidget);
@@ -496,7 +494,7 @@ void main() {
       await tester.pump();
 
       // Skeletonizer should NOT be present
-      expect(find.byType(SkeletonizerScope), findsNothing);
+      expect(find.byType(SessionListSkeleton), findsNothing);
       // Empty state should show the "New Session" button
       expect(find.text('New Session'), findsOneWidget);
       expect(find.text('Running'), findsOneWidget);
@@ -639,7 +637,7 @@ void main() {
       await tester.pump();
 
       // No skeleton
-      expect(find.byType(SkeletonizerScope), findsNothing);
+      expect(find.byType(SessionListSkeleton), findsNothing);
       // Real session cards should be visible
       expect(find.text('test prompt for s1'), findsOneWidget);
       expect(find.text('test prompt for s2'), findsOneWidget);
@@ -963,7 +961,7 @@ void main() {
       // Running session section should be visible
       expect(find.text('Running'), findsAtLeast(1));
       // Skeleton should show for recent sessions section
-      expect(find.byType(SkeletonizerScope), findsOneWidget);
+      expect(find.byType(SessionListSkeleton), findsOneWidget);
       expect(find.text('Recent Sessions'), findsOneWidget);
     });
 
@@ -985,7 +983,7 @@ void main() {
       // Running section visible
       expect(find.text('Running'), findsAtLeast(1));
       // No skeleton
-      expect(find.byType(SkeletonizerScope), findsNothing);
+      expect(find.byType(SessionListSkeleton), findsNothing);
       // Real recent session visible
       expect(find.text('test prompt for s1'), findsOneWidget);
     });
@@ -1079,7 +1077,7 @@ void main() {
       await tester.pump();
 
       // While loading, skeleton should be preferred over stale cards.
-      expect(find.byType(SkeletonizerScope), findsOneWidget);
+      expect(find.byType(SessionListSkeleton), findsOneWidget);
       expect(find.text('test prompt for s1'), findsNothing);
     });
 
