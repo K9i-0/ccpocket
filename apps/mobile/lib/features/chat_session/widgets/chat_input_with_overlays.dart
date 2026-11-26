@@ -4,8 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:super_clipboard/super_clipboard.dart';
-import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
 import '../../github/state/github_selection_state.dart';
 import '../../github/widgets/github_selection_cards.dart';
@@ -33,6 +31,8 @@ import '../../../widgets/file_mention_overlay.dart';
 import '../../../widgets/slash_command_overlay.dart';
 import '../../../widgets/workspace_pane_chrome.dart';
 import '../../settings/state/settings_cubit.dart';
+import '../../../services/clipboard_image_service.dart';
+import '../../../services/desktop_image_drop_service.dart';
 import '../../../services/draft_service.dart';
 import '../../../services/ios_clipboard_image_availability.dart';
 import '../../prompt_history/widgets/prompt_history_sheet.dart';
@@ -50,13 +50,6 @@ import 'queued_input_panel.dart';
 import 'floating_composer_layout.dart';
 
 enum _CompletionOverlay { slash, dollar, file }
-
-const _supportedClipboardImageFormats = [
-  (format: Formats.gif, mimeType: 'image/gif'),
-  (format: Formats.webp, mimeType: 'image/webp'),
-  (format: Formats.png, mimeType: 'image/png'),
-  (format: Formats.jpeg, mimeType: 'image/jpeg'),
-];
 
 /// Manages the chat input bar together with slash-command and @-mention
 /// overlays using [OverlayPortal].
@@ -783,24 +776,10 @@ class ChatInputWithOverlays extends HookWidget {
       }
     }
 
-    /// Handle items dropped via OS drag-and-drop (desktop).
-    Future<void> handleDroppedItems(PerformDropEvent event) async {
-      for (final item in event.session.items) {
-        final reader = item.dataReader;
-        if (reader == null) continue;
-        for (final imageFormat in _supportedClipboardImageFormats) {
-          if (reader.canProvide(imageFormat.format)) {
-            reader.getFile(imageFormat.format, (file) async {
-              try {
-                final bytes = await file.readAll();
-                addImageBytes(bytes, imageFormat.mimeType);
-              } catch (e) {
-                debugPrint('[drop] Failed to read dropped image: $e');
-              }
-            });
-            break; // Only read one format per item
-          }
-        }
+    /// Handle images dropped via OS drag-and-drop (desktop).
+    void handleDroppedImages(List<ClipboardImageData> images) {
+      for (final image in images) {
+        addImageBytes(image.bytes, image.mimeType);
       }
     }
 
@@ -1068,8 +1047,8 @@ class ChatInputWithOverlays extends HookWidget {
         return;
       }
 
-      final clipboard = SystemClipboard.instance;
-      if (clipboard == null) {
+      final clipboard = ClipboardImageService.instance;
+      if (!clipboard.isAvailable) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -1081,31 +1060,12 @@ class ChatInputWithOverlays extends HookWidget {
       }
 
       try {
-        final reader = await clipboard.read();
-
-        // Prefer original animated/modern formats before raster fallbacks.
-        for (final imageFormat in _supportedClipboardImageFormats) {
-          if (reader.canProvide(imageFormat.format)) {
-            reader.getFile(imageFormat.format, (file) async {
-              try {
-                final bytes = await file.readAll();
-                if (context.mounted) {
-                  addImageBytes(bytes, imageFormat.mimeType);
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        AppLocalizations.of(context).failedToLoadImage,
-                      ),
-                    ),
-                  );
-                }
-              }
-            });
-            return;
+        final image = await clipboard.readImage();
+        if (image != null) {
+          if (context.mounted) {
+            addImageBytes(image.bytes, image.mimeType);
           }
+          return;
         }
 
         // No image found in clipboard
@@ -1116,7 +1076,15 @@ class ChatInputWithOverlays extends HookWidget {
             ),
           );
         }
-      } catch (e) {
+      } on PlatformException catch (e) {
+        if (context.mounted) {
+          final message = e.code == 'image_load_failed'
+              ? AppLocalizations.of(context).failedToLoadImage
+              : AppLocalizations.of(context).failedToReadClipboard;
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(message)));
+        }
+      } catch (_) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -1133,22 +1101,13 @@ class ChatInputWithOverlays extends HookWidget {
     Future<bool> tryPasteImage() async {
       const maxImages = 5;
       if (attachedImages.value.length >= maxImages) return false;
-      final clipboard = SystemClipboard.instance;
-      if (clipboard == null) return false;
+      final clipboard = ClipboardImageService.instance;
+      if (!clipboard.isAvailable) return false;
       try {
-        final reader = await clipboard.read();
-        for (final imageFormat in _supportedClipboardImageFormats) {
-          if (reader.canProvide(imageFormat.format)) {
-            reader.getFile(imageFormat.format, (file) async {
-              try {
-                final bytes = await file.readAll();
-                addImageBytes(bytes, imageFormat.mimeType);
-              } catch (e) {
-                debugPrint('[paste] Failed to read clipboard image: $e');
-              }
-            });
-            return true;
-          }
+        final image = await clipboard.readImage();
+        if (image != null) {
+          addImageBytes(image.bytes, image.mimeType);
+          return true;
         }
         return false;
       } catch (e) {
@@ -1157,17 +1116,8 @@ class ChatInputWithOverlays extends HookWidget {
       }
     }
 
-    Future<bool> hasClipboardImage() async {
-      final clipboard = SystemClipboard.instance;
-      if (clipboard == null) return false;
-      try {
-        final reader = await clipboard.read();
-        return _supportedClipboardImageFormats.any(
-          (imageFormat) => reader.canProvide(imageFormat.format),
-        );
-      } catch (_) {
-        return false;
-      }
+    Future<bool> hasClipboardImage() {
+      return ClipboardImageService.instance.hasImage();
     }
 
     Future<bool> hasContextMenuClipboardImage() {
@@ -1345,9 +1295,9 @@ class ChatInputWithOverlays extends HookWidget {
               ),
               child: CompositedTransformTarget(
                 link: layerLink,
-                child: _wrapWithDropRegion(
+                child: DesktopImageDropTarget(
                   enabled: isDesktopPlatform,
-                  onPerformDrop: handleDroppedItems,
+                  onImagesDropped: handleDroppedImages,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -1461,31 +1411,6 @@ class ChatInputWithOverlays extends HookWidget {
       },
     );
   }
-}
-
-/// Wraps child with a [DropRegion] for accepting OS-level drag-and-drop
-/// of images on desktop platforms.
-Widget _wrapWithDropRegion({
-  required bool enabled,
-  required Future<void> Function(PerformDropEvent) onPerformDrop,
-  required Widget child,
-}) {
-  if (!enabled) return child;
-  return DropRegion(
-    formats: Formats.standardFormats,
-    hitTestBehavior: HitTestBehavior.opaque,
-    onDropOver: (event) {
-      // Accept copy if any item has an image
-      final hasImage = event.session.items.any(
-        (item) => _supportedClipboardImageFormats.any(
-          (imageFormat) => item.canProvide(imageFormat.format),
-        ),
-      );
-      return hasImage ? DropOperation.copy : DropOperation.none;
-    },
-    onPerformDrop: onPerformDrop,
-    child: child,
-  );
 }
 
 bool _isCompletionNextShortcut(KeyEvent event) {

@@ -102,31 +102,54 @@ import Photos
     }
   }
 
+  private static let maxClipboardImageBytes = 20 * 1024 * 1024
+  private static let supportedClipboardImageTypes: [(uti: String, mimeType: String)] = [
+    ("com.compuserve.gif", "image/gif"),
+    ("org.webmproject.webp", "image/webp"),
+    ("public.png", "image/png"),
+    ("public.jpeg", "image/jpeg"),
+  ]
+
   private func handleClipboardMethodCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-    if call.method == "supportsPasteControl" {
+    switch call.method {
+    case "supportsPasteControl":
       if #available(iOS 16.0, *) {
         result(true)
       } else {
         result(false)
       }
-      return
-    }
-    guard call.method == "hasSupportedImage" else {
-      result(FlutterMethodNotImplemented)
-      return
-    }
-    let supportedTypes = [
-      "com.compuserve.gif",
-      "org.webmproject.webp",
-      "public.png",
-      "public.jpeg",
-    ]
-    result(
-      UIPasteboard.general.contains(
-        pasteboardTypes: supportedTypes,
-        inItemSet: nil
+    case "hasSupportedImage", "hasImage":
+      result(
+        UIPasteboard.general.contains(
+          pasteboardTypes: Self.supportedClipboardImageTypes.map(\.uti),
+          inItemSet: nil
+        )
       )
-    )
+    case "readImage":
+      let pasteboard = UIPasteboard.general
+      for (uti, mimeType) in Self.supportedClipboardImageTypes {
+        if let data = pasteboard.data(forPasteboardType: uti), !data.isEmpty {
+          if data.count > Self.maxClipboardImageBytes {
+            result(
+              FlutterError(
+                code: "image_load_failed",
+                message: "Clipboard image exceeds size limit",
+                details: nil
+              )
+            )
+            return
+          }
+          result([
+            "bytes": FlutterStandardTypedData(bytes: data),
+            "mimeType": mimeType,
+          ])
+          return
+        }
+      }
+      result(nil)
+    default:
+      result(FlutterMethodNotImplemented)
+    }
   }
 
   private func currentIconId() -> String? {
