@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.185.0] - 2026-11-26
+
+### Added
+
+- macOS permissions for the Bridge on this Mac: the Bridge screen now lists running in the background, Full Disk Access, Screen Recording, and Local Network with what each is for, its current state, and a button that opens the matching System Settings page. The list is shown once right after the Bridge is first started while Full Disk Access is missing, and stays at the top of the screen while a permission that matters is off.
+- Common view-only folders: the folder editor suggests the temporary folder and the Antigravity artifacts folder, each with the reason agents use it, as one-tap additions.
+
+### Changed
+
+- Bridge settings descriptions: every setting of the Bridge on this Mac now shows a short explanation under its title and in its editor.
+- Folder editor: adding a folder is now a labelled "Choose folder…" button plus a path field with an "Add" button, and the view-only folder list can be emptied.
+
 ## [1.184.1] - 2026-11-25
 
 ### Changed
