@@ -16,7 +16,15 @@
 /// - Tracks fenced code blocks (```` ``` ```` / `~~~`), display math blocks
 ///   (`$$` / `\[`), and `<details>` HTML blocks so blank lines inside them
 ///   never trigger a premature split.
-List<String> splitMarkdownBlocks(String text) {
+///
+/// Pass [ignoreCrossBlockConstructs] to split even when such constructs are
+/// present. The chunks then no longer parse to the same result as the whole
+/// document (a reference link loses its definition), so this is only for
+/// isolating a chunk the parser cannot handle.
+List<String> splitMarkdownBlocks(
+  String text, {
+  bool ignoreCrossBlockConstructs = false,
+}) {
   if (text.isEmpty) return const [];
 
   final lines = _splitLinesKeepingNewlines(text);
@@ -56,7 +64,9 @@ List<String> splitMarkdownBlocks(String text) {
 
     // Cross-block definitions and spanning raw HTML blocks disable splitting.
     // Only inspected outside fences, math blocks, and `<details>`.
-    if (_hasCrossBlockConstruct(content)) return [text];
+    if (!ignoreCrossBlockConstructs && _hasCrossBlockConstruct(content)) {
+      return [text];
+    }
 
     if (_isBlank(content)) {
       current.write(line);

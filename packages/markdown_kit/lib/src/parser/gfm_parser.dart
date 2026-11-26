@@ -133,6 +133,36 @@ class GfmMarkdownParser implements MarkdownParser {
     required bool resolveFootnotes,
   }) {
     try {
+      return _parseChunkUnguarded(source, resolveFootnotes: resolveFootnotes);
+    } catch (_) {
+      // `package:markdown` throws on a few inputs (for example an alert marker
+      // directly followed by a table delimiter row trips its "not advancing"
+      // guard). Chat content is untrusted model output, so never let that fail
+      // the widget build: isolate the offending part and show it as raw text.
+      final pieces = splitMarkdownBlocks(
+        source,
+        ignoreCrossBlockConstructs: true,
+      );
+      if (pieces.length <= 1) return _rawTextFallback(source);
+      final blocks = <MarkdownBlock>[];
+      for (final piece in pieces) {
+        try {
+          blocks.addAll(
+            _parseChunkUnguarded(piece, resolveFootnotes: resolveFootnotes),
+          );
+        } catch (_) {
+          blocks.addAll(_rawTextFallback(piece));
+        }
+      }
+      return List.unmodifiable(blocks);
+    }
+  }
+
+  List<MarkdownBlock> _parseChunkUnguarded(
+    String source, {
+    required bool resolveFootnotes,
+  }) {
+    {
       final mdDoc = _createMdDocument();
       final rawNodes = mdDoc.parse(source);
       final footnotes = <String, FootnoteDefinition>{};
@@ -151,12 +181,6 @@ class GfmMarkdownParser implements MarkdownParser {
       }
 
       return List.unmodifiable(blocks);
-    } catch (_) {
-      // `package:markdown` throws on a few inputs (for example an alert marker
-      // directly followed by a table delimiter row trips its "not advancing"
-      // guard). Chat content is untrusted model output, so show the raw source
-      // rather than failing the whole widget build.
-      return _rawTextFallback(source);
     }
   }
 

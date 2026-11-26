@@ -170,6 +170,29 @@ void main() {
     ]);
   });
 
+  test('only the rejected part falls back when splitting is disabled', () {
+    // The footnote definition keeps the document in a single chunk, so the
+    // whole message used to degrade to raw text.
+    const rejected = '> [!NOTE]\n| --- | :-: |';
+    final document = GfmMarkdownParser().parse(
+      '# Title\n\n$rejected\n\nSome **bold** text[^1].\n\n[^1]: note\n',
+    );
+    expect(document.blocks.take(3), const [
+      HeadingBlock(level: 1, inlines: [TextInline('Title')]),
+      ParagraphBlock(inlines: [TextInline(rejected)]),
+      ParagraphBlock(
+        inlines: [
+          TextInline('Some '),
+          StrongInline(children: [TextInline('bold')]),
+          TextInline(' text'),
+          // Footnotes are not numbered across the isolated pieces.
+          FootnoteRefInline(label: '1'),
+          TextInline('.'),
+        ],
+      ),
+    ]);
+  });
+
   test('raw HTML blocks keep no stray blank lines and hide comments', () {
     final parser = GfmMarkdownParser();
     expect(
