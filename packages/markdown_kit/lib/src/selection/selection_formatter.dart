@@ -61,7 +61,12 @@ class MarkdownMarkupFormatter implements MarkdownSelectionFormatter {
   /// Separator inserted between formatted documents in cross-document copies.
   final String documentSeparator;
 
-  /// Indentation string used for nested list items and continuation blocks.
+  /// Indentation string used for continuation blocks of bullet list items and
+  /// footnote definitions.
+  ///
+  /// Ordered list items always indent by the width of their own marker
+  /// (`1. ` is three columns, `10. ` four) because CommonMark only treats
+  /// content indented at least that far as belonging to the item.
   final String listIndent;
 
   @override
@@ -125,7 +130,9 @@ class MarkdownMarkupFormatter implements MarkdownSelectionFormatter {
 
   String _formatHeading(int level, List<MarkdownInline> inlines) {
     final prefix = '#' * level;
-    final body = _formatInlines(inlines);
+    // An ATX heading is a single line; a line break inside it (from a
+    // multi-line setext heading) would cut the heading short.
+    final body = _formatInlines(inlines).replaceAll(_lineBreakInHeading, ' ');
     return body.isEmpty ? prefix : '$prefix $body';
   }
 
@@ -183,7 +190,14 @@ class MarkdownMarkupFormatter implements MarkdownSelectionFormatter {
         null => '',
       };
       final marker = '$baseMarker$taskMarker';
-      formattedItems.add(_formatListItem(marker, item, tight: tight));
+      formattedItems.add(
+        _formatListItem(
+          marker,
+          item,
+          tight: tight,
+          indent: ordered ? ' ' * baseMarker.length : listIndent,
+        ),
+      );
     }
     return formattedItems.join(itemJoin);
   }
@@ -192,6 +206,7 @@ class MarkdownMarkupFormatter implements MarkdownSelectionFormatter {
     String marker,
     ListItemNode item, {
     required bool tight,
+    required String indent,
   }) {
     if (item.children.isEmpty) {
       return marker.trimRight();
@@ -206,7 +221,7 @@ class MarkdownMarkupFormatter implements MarkdownSelectionFormatter {
           buffer.write(marker.trimRight());
           if (formatted.isNotEmpty) {
             buffer.write('\n');
-            buffer.write(_prefixLines(formatted, listIndent));
+            buffer.write(_prefixLines(formatted, indent));
           }
         } else {
           final lines = formatted.split('\n');
@@ -216,7 +231,7 @@ class MarkdownMarkupFormatter implements MarkdownSelectionFormatter {
             buffer.write('\n');
             final line = lines[lineIdx];
             if (line.isNotEmpty) {
-              buffer.write(listIndent);
+              buffer.write(indent);
               buffer.write(line);
             }
           }
@@ -225,7 +240,7 @@ class MarkdownMarkupFormatter implements MarkdownSelectionFormatter {
         if (formatted.isEmpty) continue;
         final needsBlankLine = !tight && child is! ListBlock;
         buffer.write(needsBlankLine ? '\n\n' : '\n');
-        buffer.write(_prefixLines(formatted, listIndent));
+        buffer.write(_prefixLines(formatted, indent));
       }
     }
     return buffer.toString();
@@ -469,3 +484,5 @@ class MarkdownMarkupFormatter implements MarkdownSelectionFormatter {
     return buffer.toString();
   }
 }
+
+final _lineBreakInHeading = RegExp(r' *\n');

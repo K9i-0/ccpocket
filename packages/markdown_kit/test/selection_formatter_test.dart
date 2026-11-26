@@ -463,4 +463,60 @@ void main() {
       expect(markupFormatter.format(content), '# Doc One\n\n## Doc Two');
     });
   });
+
+  group('MarkdownMarkupFormatter round trip', () {
+    String copyAll(String source) =>
+        markupFormatter.format(_selectWholeDoc(parser.parse(source)));
+
+    void expectStableRoundTrip(String source) {
+      final original = parser.parse(source);
+      final reparsed = parser.parse(copyAll(source));
+      expect(reparsed.blocks, original.blocks, reason: copyAll(source));
+    }
+
+    test('indents ordered list children by the marker width', () {
+      // Two spaces under `1. ` would turn the nested list into a sibling.
+      const source = '1. a\n   - b\n     1. c\n';
+      expect(copyAll(source), '1. a\n   - b\n     1. c');
+      expectStableRoundTrip(source);
+    });
+
+    test('keeps code blocks and paragraphs inside ordered items', () {
+      expectStableRoundTrip(
+        '1. first\n\n   ```dart\n   final x = 1;\n   ```\n\n'
+        '   second paragraph\n\n2. next\n',
+      );
+    });
+
+    test('widens the indent for multi-digit ordered markers', () {
+      const source = '10. ten\n    - nested\n11. eleven\n';
+      expect(copyAll(source), '10. ten\n    - nested\n11. eleven');
+      expectStableRoundTrip(source);
+    });
+
+    test('keeps bullet and task list nesting', () {
+      expectStableRoundTrip('- a\n  - b\n    - [x] c\n- [ ] d\n');
+    });
+
+    test('writes a multi-line setext heading on one ATX line', () {
+      expect(
+        copyAll('First line\nsecond line\n===\n'),
+        '# First line second line',
+      );
+    });
+
+    test('round trips common chat structures', () {
+      for (final source in [
+        '# Title\n\nParagraph with **bold**, *em*, ~~del~~ and `code`.\n',
+        '> quote\n> second line\n\n> [!WARNING]\n> careful\n',
+        '| a | b |\n| :-- | --: |\n| 1 | x \\| y |\n',
+        '```dart\nfinal a = "```";\n```\n',
+        'text[^1]\n\n[^1]: note\n',
+        '<details>\n<summary>More</summary>\n\nBody **text**\n\n</details>\n',
+        'line one  \nline two\n\n---\n\n[link](https://example.com "t")\n',
+      ]) {
+        expectStableRoundTrip(source);
+      }
+    });
+  });
 }
