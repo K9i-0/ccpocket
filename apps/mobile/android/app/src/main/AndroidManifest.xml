@@ -115,11 +115,6 @@
                 <action android:name="android.intent.action.MEDIA_BUTTON"/>
             </intent-filter>
         </receiver>
-        <provider
-            android:name="com.superlist.super_native_extensions.DataProvider"
-            android:authorities="com.k9i.ccpocket.SuperClipboardDataProvider"
-            android:exported="true"
-            android:grantUriPermissions="true" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
