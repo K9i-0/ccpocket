@@ -221,7 +221,7 @@ class GfmMarkdownParser implements MarkdownParser {
         }
         // Raw HTML blocks arrive with their surrounding newlines, and an HTML
         // comment is never meant to be seen.
-        if (_htmlCommentOnlyPattern.hasMatch(trimmed)) continue;
+        if (_isHtmlCommentsOnly(trimmed)) continue;
         final decoded = _decodeHtmlEntities(trimmed);
         blocks.add(ParagraphBlock(inlines: [TextInline(decoded)]));
         continue;
@@ -1546,7 +1546,27 @@ final _standaloneInlineHtmlPattern = RegExp(
   r'^<(?:br|img|b|strong|i|em|u|s|del|sub|sup|kbd|a)(?:\s|/|>)',
   caseSensitive: false,
 );
-final _htmlCommentOnlyPattern = RegExp(r'^(?:<!--[\s\S]*?-->\s*)+$');
+
+/// Whether [text] consists solely of HTML comments separated by whitespace.
+///
+/// A hand-written linear scan: the equivalent regular expression backtracks
+/// catastrophically on a long run of comments followed by other text.
+bool _isHtmlCommentsOnly(String text) {
+  var index = 0;
+  var sawComment = false;
+  while (index < text.length) {
+    if (!text.startsWith('<!--', index)) return false;
+    final close = text.indexOf('-->', index + 4);
+    if (close < 0) return false;
+    sawComment = true;
+    index = close + 3;
+    while (index < text.length && text.codeUnitAt(index) <= 0x20) {
+      index++;
+    }
+  }
+  return sawComment;
+}
+
 final _blockLatexCombinedPattern = RegExp(r'^ {0,3}(?:\\\[|\$\$)');
 final _blockLatexBracketOnlyPattern = RegExp(r'^ {0,3}\\\[');
 final _bracketSingleLinePattern = RegExp(r'^ {0,3}\\\[(.*)\\\][ \t]*$');
