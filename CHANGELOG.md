@@ -16,6 +16,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - Running sessions: the stop button in the session card header is now always tinted red so it is easier to find.
 - Session cards, the answered-question bubble in chat, and the tool suggestion card now share the same colors and layout as the chat approval UI.
 
+### Fixed
+
+- Thinking bubbles no longer show empty space at the bottom when the thinking text ends with blank lines.
+
 ## [1.187.1] - 2026-11-27
 
 ### Fixed
