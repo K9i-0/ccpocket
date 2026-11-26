@@ -151,6 +151,10 @@ class _TestSurface implements MarkdownSelectionSurface {
 }
 
 void main() {
+  // The controller defers surface notifications raised mid-frame, which needs
+  // the scheduler binding.
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('MarkdownSelectionController single-document clamping', () {
     late MarkdownSelectionController controller;
     late _TestSurface doc0Block0;

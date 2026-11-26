@@ -233,6 +233,7 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
     if (text.isNotEmpty) {
       await Clipboard.setData(ClipboardData(text: text));
     }
+    if (!mounted) return;
     hideToolbar();
   }
 
@@ -243,6 +244,7 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
     if (markdown.isNotEmpty) {
       await Clipboard.setData(ClipboardData(text: markdown));
     }
+    if (!mounted) return;
     hideToolbar();
   }
 
@@ -332,6 +334,7 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
       }
       controller.addListener(_onControllerChanged);
       _lastNotifiedSelection = controller.selection;
+      _hadSelection = controller.hasSelection;
     }
 
     if (oldWidget.focusNode != widget.focusNode) {
@@ -513,6 +516,16 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
     if (!mounted) return;
 
     if (!widget.enabled || !controller.hasSelection || !_isRouteActive) {
+      if (_isDraggingHandle) {
+        // Hiding the handles disposes the recognizer that owns the drag, so
+        // its end/cancel callback never arrives. Finish the drag here or the
+        // autoscroll ticker keeps running and later toolbars stay hidden.
+        _isDraggingHandle = false;
+        _handleFixedAnchor = null;
+        _handleDragAnchorOffset = Offset.zero;
+        _stopAutoscroll();
+        _handleOverlay.hideMagnifier();
+      }
       _handleOverlay.hideAll();
       return;
     }

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
 import '../ast/rendered_text.dart';
@@ -246,7 +247,7 @@ class MarkdownSelectionController extends ChangeNotifier {
     }
     _syncSurfaceHighlight(surface);
     if (hasSelection) {
-      notifyListeners();
+      _notifySurfaceChange();
     }
   }
 
@@ -255,8 +256,28 @@ class MarkdownSelectionController extends ChangeNotifier {
     if (_disposed) return;
     if (!_surfaces.remove(surface)) return;
     if (hasSelection) {
-      notifyListeners();
+      _notifySurfaceChange();
     }
+  }
+
+  bool _surfaceNotifyScheduled = false;
+
+  /// Surfaces attach and detach while the frame is being built and laid out.
+  /// Notifying right then would make any listener that rebuilds throw
+  /// "setState() called during build", so wait for the frame to finish.
+  void _notifySurfaceChange() {
+    if (SchedulerBinding.instance.schedulerPhase !=
+        SchedulerPhase.persistentCallbacks) {
+      notifyListeners();
+      return;
+    }
+    if (_surfaceNotifyScheduled) return;
+    _surfaceNotifyScheduled = true;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _surfaceNotifyScheduled = false;
+      if (_disposed) return;
+      notifyListeners();
+    });
   }
 
   /// Programmatically updates [selection] and optional [toolbarWanted].
@@ -311,10 +332,24 @@ class MarkdownSelectionController extends ChangeNotifier {
     if (surface == null) return false;
 
     final pos = surface.positionForGlobalOffset(global);
-    final localOffset = (pos.offset - surface.textOffsetInBlock).clamp(
+    var localOffset = (pos.offset - surface.textOffsetInBlock).clamp(
       0,
       surface.textLength,
     );
+    // The surface reports the nearest caret, which sits after the glyph when
+    // the pointer is on its trailing half. The word lookup wants the glyph
+    // under the pointer, so step back onto it.
+    if (localOffset > 0) {
+      final caret = surface.globalRectForLocalOffset(localOffset);
+      if (caret != null &&
+          global.dy >= caret.top &&
+          global.dy <= caret.bottom) {
+        final pointerIsBeforeCaret = surface.textDirection == TextDirection.ltr
+            ? global.dx < caret.left
+            : global.dx > caret.right;
+        if (pointerIsBeforeCaret) localOffset -= 1;
+      }
+    }
     final wordRange = surface.wordRangeAtLocal(localOffset);
 
     MarkdownSelection next;
@@ -1453,7 +1488,18 @@ class MarkdownSelectionController extends ChangeNotifier {
         codeUnit == 0x5F) {
       return true;
     }
-    return codeUnit >= 0x80;
+    if (codeUnit < 0x80) return false;
+    // General, CJK and full-width punctuation end a word like ASCII
+    // punctuation does.
+    if ((codeUnit >= 0x2000 && codeUnit <= 0x206F) ||
+        (codeUnit >= 0x3000 && codeUnit <= 0x303F) ||
+        (codeUnit >= 0xFF00 && codeUnit <= 0xFF0F) ||
+        (codeUnit >= 0xFF1A && codeUnit <= 0xFF20) ||
+        (codeUnit >= 0xFF3B && codeUnit <= 0xFF40) ||
+        (codeUnit >= 0xFF5B && codeUnit <= 0xFF65)) {
+      return false;
+    }
+    return true;
   }
 
   MarkdownSelectionSurface? _surfaceForPosition(
