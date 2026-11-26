@@ -395,12 +395,25 @@ Widget buildCcpocketCodeBlock(
       ..codeBlockBuildMicros += buildWatch.elapsedMicroseconds;
   }
 
+  // markdown_kit pins code to left-to-right by wrapping the paragraph in a
+  // Directionality; look through it, or the highlighted spans are never used.
+  final (
+    SelectableParagraph? paragraph,
+    TextDirection? pinnedDirection,
+  ) = switch (codeContent) {
+    SelectableParagraph() => (codeContent, null),
+    Directionality(:final textDirection, child: final SelectableParagraph p) =>
+      (p, textDirection),
+    _ => (null, null),
+  };
+
   final Widget effectiveCodeContent;
-  if (codeContent is SelectableParagraph) {
+  if (paragraph != null) {
+    final codeContent = paragraph;
     final safeSpans = _spansTextLength(highlightedSpans) == block.code.length
         ? highlightedSpans
         : <TextSpan>[TextSpan(text: block.code, style: baseStyle)];
-    effectiveCodeContent = SelectableParagraph(
+    final highlighted = SelectableParagraph(
       documentId: codeContent.documentId,
       blockIndex: codeContent.blockIndex,
       textOffsetInBlock: codeContent.textOffsetInBlock,
@@ -423,6 +436,9 @@ Widget buildCcpocketCodeBlock(
       onSurfaceAttach: codeContent.onSurfaceAttach,
       onSurfaceDetach: codeContent.onSurfaceDetach,
     );
+    effectiveCodeContent = pinnedDirection == null
+        ? highlighted
+        : Directionality(textDirection: pinnedDirection, child: highlighted);
   } else {
     effectiveCodeContent = codeContent;
   }

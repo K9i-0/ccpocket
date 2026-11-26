@@ -104,6 +104,29 @@ void main() {
       expect(find.byType(SelectableText), findsNothing);
     });
 
+    testWidgets('applies syntax highlight colors to the rendered code', (
+      tester,
+    ) async {
+      const markdown = '```typescript\n// note\nconst n: number = 28;\n```';
+
+      await tester.pumpWidget(
+        _wrap(AssistantBubble(message: _messageWithText(markdown))),
+      );
+      await tester.pumpAndSettle();
+
+      final paragraph = tester
+          .widgetList<SelectableParagraph>(find.byType(SelectableParagraph))
+          .firstWhere((p) => p.text.toPlainText().contains('const n'));
+      final colors = <Color?>{};
+      paragraph.text.visitChildren((span) {
+        if (span is TextSpan && (span.text?.isNotEmpty ?? false)) {
+          colors.add(span.style?.color);
+        }
+        return true;
+      });
+      expect(colors.length, greaterThan(2));
+    });
+
     testWidgets('normalizes sh language label to bash', (tester) async {
       const markdown = '```sh\necho hello\n```';
       await tester.pumpWidget(
