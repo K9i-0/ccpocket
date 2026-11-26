@@ -1,0 +1,5 @@
+• New Markdown rendering: select text across paragraphs, lists, tables, and code blocks, and "Copy as Markdown" keeps the structure. Wide tables scroll sideways.
+• Recent session filters are remembered after a restart or reconnect.
+• One image viewer for chat, gallery, and file previews, with pinch and double-tap zoom. Opened images load faster.
+• The interface uses your device's system font.
+• New Swarm coordinator icon, and search and filters in the debug log viewer.
