@@ -24,6 +24,7 @@ class MarkdownListItemWidget extends SingleChildRenderObjectWidget {
     this.checkboxFillColor,
     this.checkboxCheckColor,
     this.ordinalText,
+    this.ordinalSizingText,
     this.nestingDepth = 0,
     this.textDirection,
     this.textScaler,
@@ -38,6 +39,10 @@ class MarkdownListItemWidget extends SingleChildRenderObjectWidget {
   final Color? checkboxFillColor;
   final Color? checkboxCheckColor;
   final String? ordinalText;
+
+  /// Widest ordinal of the enclosing list (for example `10.`). When set, the
+  /// gutter is sized for it so every item's text starts in the same column.
+  final String? ordinalSizingText;
   final int nestingDepth;
   final TextDirection? textDirection;
   final TextScaler? textScaler;
@@ -53,6 +58,7 @@ class MarkdownListItemWidget extends SingleChildRenderObjectWidget {
       indent: indent,
       markerTextStyle: markerTextStyle,
       ordinalText: ordinalText,
+      ordinalSizingText: ordinalSizingText,
       nestingDepth: nestingDepth,
       textDirection: textDirection ?? Directionality.of(context),
       textScaler: textScaler ?? MediaQuery.textScalerOf(context),
@@ -73,6 +79,7 @@ class MarkdownListItemWidget extends SingleChildRenderObjectWidget {
       ..indent = indent
       ..markerTextStyle = markerTextStyle
       ..ordinalText = ordinalText
+      ..ordinalSizingText = ordinalSizingText
       ..nestingDepth = nestingDepth
       ..textDirection = textDirection ?? Directionality.of(context)
       ..textScaler = textScaler ?? MediaQuery.textScalerOf(context);
@@ -91,6 +98,7 @@ class RenderMarkdownListItem extends RenderShiftedBox {
     required double indent,
     required TextStyle markerTextStyle,
     String? ordinalText,
+    String? ordinalSizingText,
     int nestingDepth = 0,
     required TextDirection textDirection,
     TextScaler textScaler = TextScaler.noScaling,
@@ -103,6 +111,7 @@ class RenderMarkdownListItem extends RenderShiftedBox {
        _indent = indent,
        _markerTextStyle = markerTextStyle,
        _ordinalText = ordinalText,
+       _ordinalSizingText = ordinalSizingText,
        _nestingDepth = nestingDepth,
        _textDirection = textDirection,
        _textScaler = textScaler,
@@ -176,6 +185,14 @@ class RenderMarkdownListItem extends RenderShiftedBox {
     markNeedsLayout();
   }
 
+  String? _ordinalSizingText;
+  String? get ordinalSizingText => _ordinalSizingText;
+  set ordinalSizingText(String? value) {
+    if (_ordinalSizingText == value) return;
+    _ordinalSizingText = value;
+    markNeedsLayout();
+  }
+
   int _nestingDepth;
   int get nestingDepth => _nestingDepth;
   set nestingDepth(int value) {
@@ -238,7 +255,19 @@ class RenderMarkdownListItem extends RenderShiftedBox {
   double _computeGutterWidth() {
     if (_markerKind == MarkdownListMarkerKind.ordered) {
       final painter = _ensureOrdinalPainter();
-      return math.max(_indent, painter.width + _ordinalGap);
+      var ordinalWidth = painter.width;
+      final sizingText = _ordinalSizingText;
+      if (sizingText != null && sizingText != _ordinalText) {
+        final sizingPainter = TextPainter(
+          text: TextSpan(text: sizingText, style: _markerTextStyle),
+          textDirection: _textDirection,
+          textScaler: _textScaler,
+          maxLines: 1,
+        )..layout();
+        ordinalWidth = math.max(ordinalWidth, sizingPainter.width);
+        sizingPainter.dispose();
+      }
+      return math.max(_indent, ordinalWidth + _ordinalGap);
     }
     return _indent;
   }

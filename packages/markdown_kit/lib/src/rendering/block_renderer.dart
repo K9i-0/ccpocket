@@ -388,7 +388,9 @@ class MarkdownBlockRenderer extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 6.0),
-                    Text(title, style: alertStyle.titleStyle),
+                    // Flexible so a large text scale wraps the title
+                    // instead of overflowing the row.
+                    Flexible(child: Text(title, style: alertStyle.titleStyle)),
                   ],
                 ),
                 if (alert.children.isNotEmpty) ...[
@@ -418,6 +420,12 @@ class MarkdownBlockRenderer extends StatelessWidget {
     final itemSpacing = list.tight
         ? effectiveTheme.listItemSpacing
         : effectiveTheme.listItemSpacing * 2.0;
+
+    // Every item reserves room for the widest ordinal so "9." and "10." keep
+    // their text in one column.
+    final widestOrdinalText = list.ordered
+        ? '${list.start + list.items.length - 1}.'
+        : null;
 
     for (var i = 0; i < list.items.length; i++) {
       final item = list.items[i];
@@ -467,6 +475,7 @@ class MarkdownBlockRenderer extends StatelessWidget {
           indent: effectiveTheme.listIndent,
           markerTextStyle: style,
           ordinalText: ordinalText,
+          ordinalSizingText: widestOrdinalText,
           nestingDepth: listDepth,
           child: childContent,
         ),

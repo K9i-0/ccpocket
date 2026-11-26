@@ -93,6 +93,56 @@ class TappableTextSpan extends TextSpan {
   /// [TextSpan]s) while hovered with a pointer device.
   final TextStyle? hoverStyle;
 
+  /// Recognizers handed to the semantics tree only. Pointer taps never reach
+  /// them (see [RenderSelectableParagraph.handleEvent]); they exist because
+  /// [RenderParagraph] exposes a span to screen readers as a tappable link
+  /// only when its semantics information carries a recognizer. Held weakly per
+  /// span so the span itself can stay `const`.
+  static final Expando<TapGestureRecognizer> _semanticsRecognizers =
+      Expando<TapGestureRecognizer>('TappableTextSpan semantics');
+
+  @override
+  void computeSemanticsInformation(
+    List<InlineSpanSemanticsInformation> collector, {
+    Locale? inheritedLocale,
+    bool inheritedSpellOut = false,
+  }) {
+    final tap = onTap;
+    if (tap == null) {
+      super.computeSemanticsInformation(
+        collector,
+        inheritedLocale: inheritedLocale,
+        inheritedSpellOut: inheritedSpellOut,
+      );
+      return;
+    }
+    final own = <InlineSpanSemanticsInformation>[];
+    super.computeSemanticsInformation(
+      own,
+      inheritedLocale: inheritedLocale,
+      inheritedSpellOut: inheritedSpellOut,
+    );
+    final recognizer = _semanticsRecognizers[this] ??= TapGestureRecognizer()
+      ..onTap = tap;
+    for (final info in own) {
+      // Placeholders (inline widgets) describe themselves, and a nested span
+      // that already has its own recognizer keeps it.
+      if (info.isPlaceholder || info.recognizer != null) {
+        collector.add(info);
+        continue;
+      }
+      collector.add(
+        InlineSpanSemanticsInformation(
+          info.text,
+          semanticsLabel: info.semanticsLabel,
+          semanticsIdentifier: info.semanticsIdentifier,
+          stringAttributes: info.stringAttributes,
+          recognizer: recognizer,
+        ),
+      );
+    }
+  }
+
   @override
   RenderComparison compareTo(InlineSpan other) {
     final base = super.compareTo(other);

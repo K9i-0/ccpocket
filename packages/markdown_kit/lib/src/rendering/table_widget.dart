@@ -114,12 +114,33 @@ class MarkdownTableWidget extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableWidth = constraints.maxWidth;
+        // Inline widgets (images, chips) cannot be measured ahead of layout,
+        // so their columns size to the real content, capped at the maximum
+        // column width, and the table scrolls if that no longer fits.
+        final widgetColumns = <int>{
+          for (final row in builtRows)
+            for (var c = 0; c < columnCount; c++)
+              if (_countPlaceholders(row.cells[c].span) > 0) c,
+        };
         final needsHorizontalScroll =
-            availableWidth.isFinite && totalNaturalWidth > availableWidth;
+            widgetColumns.isNotEmpty ||
+            (availableWidth.isFinite && totalNaturalWidth > availableWidth);
+        final maxColumnWidth = math.max(
+          tableStyle.minColumnWidth,
+          tableStyle.maxColumnWidth,
+        );
 
         final columnWidths = <int, TableColumnWidth>{
           for (var c = 0; c < columnCount; c++)
-            c: FixedColumnWidth(naturalColumnWidths[c]),
+            c: widgetColumns.contains(c)
+                ? MinColumnWidth(
+                    FixedColumnWidth(maxColumnWidth),
+                    MaxColumnWidth(
+                      FixedColumnWidth(naturalColumnWidths[c]),
+                      const IntrinsicColumnWidth(),
+                    ),
+                  )
+                : FixedColumnWidth(naturalColumnWidths[c]),
         };
 
         final tableWidget = ClipRRect(

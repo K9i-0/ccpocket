@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../ast/markdown_ast.dart';
 import '../ast/rendered_text.dart';
+import '../parser/markdown_parser.dart' show BoundedLruCache;
 import '../selection/selection_model.dart';
 import 'markdown_theme.dart';
 import 'selectable_paragraph.dart';
@@ -57,10 +58,22 @@ class MarkdownDetailsWidget extends StatefulWidget {
 class _MarkdownDetailsWidgetState extends State<MarkdownDetailsWidget> {
   late bool _isOpen;
 
+  /// Open/closed choices made by the user, kept outside the element so a
+  /// block that is virtualized off-screen comes back the way it was left.
+  static final BoundedLruCache<String, bool> _userToggles =
+      BoundedLruCache<String, bool>(maxEntries: 512);
+
+  String get _toggleKey => [
+    widget.documentId,
+    widget.blockIndex,
+    widget.baseOffsetInBlock,
+    extractInlinesRenderedText(widget.block.summary),
+  ].join('\u0000');
+
   @override
   void initState() {
     super.initState();
-    _isOpen = widget.block.initiallyOpen;
+    _isOpen = _userToggles.get(_toggleKey) ?? widget.block.initiallyOpen;
   }
 
   @override
@@ -75,6 +88,7 @@ class _MarkdownDetailsWidgetState extends State<MarkdownDetailsWidget> {
     setState(() {
       _isOpen = !_isOpen;
     });
+    _userToggles.put(_toggleKey, _isOpen);
   }
 
   BuiltInlineSpans _buildSummarySpans(BuildContext context, TextStyle style) {
