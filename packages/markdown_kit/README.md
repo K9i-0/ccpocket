@@ -180,7 +180,7 @@ why.
 
 [CC Pocket](https://github.com/K9i-0/ccpocket), an open-source mobile client
 for coding agents, renders every chat message, plan and file preview with this
-package on iOS, Android and macOS. Its
+package on iOS, Android, macOS, Linux and Windows. Its
 [adapter layer](https://github.com/K9i-0/ccpocket/blob/main/apps/mobile/lib/widgets/markdown/ccpocket_markdown.dart)
 is a full-size example of wiring the package into a Material app: theme
 mapping, the platform's selection toolbar, syntax highlighting, tappable file
