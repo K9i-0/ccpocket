@@ -1105,6 +1105,7 @@ class ChatInputWithOverlays extends HookWidget {
       if (!clipboard.isAvailable) return false;
       try {
         final image = await clipboard.readImage();
+        if (!context.mounted) return false;
         if (image != null) {
           addImageBytes(image.bytes, image.mimeType);
           return true;

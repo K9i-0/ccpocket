@@ -7,11 +7,12 @@
 #include <flutter/event_sink.h>
 #include <flutter/flutter_view_controller.h>
 #include <flutter/method_channel.h>
-#include <shellapi.h>
 
 #include <memory>
 
 #include "win32_window.h"
+
+#include <shellapi.h>
 
 // A window that does nothing but host a Flutter view.
 class FlutterWindow : public Win32Window {

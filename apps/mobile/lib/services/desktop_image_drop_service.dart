@@ -83,7 +83,7 @@ class DesktopImageDropService {
     final sub = _channelSubscription;
     _channelSubscription = null;
     if (sub != null) {
-      unawaited(sub.cancel());
+      unawaited(sub.cancel().catchError((Object _, StackTrace _) {}));
     }
   }
 

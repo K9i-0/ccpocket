@@ -12,6 +12,7 @@ import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
 
 private const val APP_ICON_CHANNEL = "ccpocket/app_icon"
 private const val CLIPBOARD_CHANNEL = "ccpocket/clipboard"
@@ -110,19 +111,27 @@ class MainActivity : AudioServiceActivity() {
             return
         }
 
-        clipboardExecutor.execute {
-            try {
-                val payload = readFirstSupportedImage(uris)
-                runOnUiThread { result.success(payload) }
-            } catch (error: ImageTooLargeException) {
-                runOnUiThread { result.error("image_load_failed", error.message, null) }
-            } catch (error: SecurityException) {
-                runOnUiThread { result.error("image_load_failed", error.message, null) }
-            } catch (error: IOException) {
-                runOnUiThread { result.error("image_load_failed", error.message, null) }
-            } catch (error: RuntimeException) {
-                runOnUiThread { result.error("clipboard_read_failed", error.message, null) }
+        if (clipboardExecutor.isShutdown) {
+            result.success(null)
+            return
+        }
+        try {
+            clipboardExecutor.execute {
+                try {
+                    val payload = readFirstSupportedImage(uris)
+                    runOnUiThread { result.success(payload) }
+                } catch (error: ImageTooLargeException) {
+                    runOnUiThread { result.error("image_load_failed", error.message, null) }
+                } catch (error: SecurityException) {
+                    runOnUiThread { result.error("image_load_failed", error.message, null) }
+                } catch (error: IOException) {
+                    runOnUiThread { result.error("image_load_failed", error.message, null) }
+                } catch (error: RuntimeException) {
+                    runOnUiThread { result.error("clipboard_read_failed", error.message, null) }
+                }
             }
+        } catch (_: RejectedExecutionException) {
+            result.success(null)
         }
     }
 

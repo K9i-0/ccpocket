@@ -1,6 +1,5 @@
 import Cocoa
 import FlutterMacOS
-import UniformTypeIdentifiers
 
 class MainFlutterWindow: NSWindow {
   private static let frameAutosaveName = NSWindow.FrameAutosaveName("MainFlutterWindow")
@@ -279,9 +278,11 @@ private enum MacClipboardImageHelper {
     }
     if types.contains(.fileURL),
       let urls = readFileURLs(from: pasteboard),
-      urls.contains(where: { mimeTypeForFileURL($0) != nil })
+      !urls.isEmpty
     {
-      return true
+      // Finder places a .tiff file-icon preview alongside .fileURL even for
+      // non-image documents; do not fall through to .tiff when file URLs exist.
+      return urls.contains(where: { mimeTypeForFileURL($0) != nil })
     }
     return types.contains(.tiff)
   }
@@ -302,8 +303,8 @@ private enum MacClipboardImageHelper {
     }
 
     // 2. Local image file URLs (checked before TIFF so Finder file-icon TIFFs
-    //    do not shadow the copied image file).
-    if let urls = readFileURLs(from: pasteboard) {
+    //    do not shadow copied image files or turn non-image files into icons).
+    if let urls = readFileURLs(from: pasteboard), !urls.isEmpty {
       for url in urls {
         guard let fallbackMime = mimeTypeForFileURL(url) else { continue }
         switch readImageFile(at: url, fallbackMime: fallbackMime) {
@@ -315,6 +316,7 @@ private enum MacClipboardImageHelper {
           continue
         }
       }
+      return .none
     }
 
     // 3. TIFF fallback (e.g. macOS screenshots / Copy Image) encoded to PNG.
@@ -342,9 +344,7 @@ private enum MacClipboardImageHelper {
           results.append(payload)
         }
       }
-      if !results.isEmpty {
-        return results
-      }
+      return results
     }
 
     if case .found(let payload) = readSingleImage(from: pasteboard) {
