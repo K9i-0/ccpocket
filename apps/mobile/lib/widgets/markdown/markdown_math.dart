@@ -8,6 +8,13 @@ import 'package:material_ui/material_ui.dart';
 
 /// Typesets LaTeX math in chat Markdown with flutter_math_fork.
 ///
+/// Experimental (#238). flutter_math_fork has had no code release since
+/// 2025-05 and leaves fixes unmerged, so this stays only while the published
+/// package keeps building. If a Flutter upgrade breaks it, do not fork it:
+/// drop `inlineLatexBuilder` / `blockLatexBuilder` from `ccpocket_markdown.dart`,
+/// delete this file and its test, and remove the dependency. markdown_kit then
+/// shows its Unicode rendering again.
+///
 /// Both builders return `null` when the expression cannot be typeset (unknown
 /// commands, a formula that is still streaming), which makes markdown_kit fall
 /// back to its Unicode rendering instead of showing an error.
