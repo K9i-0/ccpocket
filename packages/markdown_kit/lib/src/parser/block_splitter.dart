@@ -21,9 +21,14 @@
 /// present. The chunks then no longer parse to the same result as the whole
 /// document (a reference link loses its definition), so this is only for
 /// isolating a chunk the parser cannot handle.
+///
+/// [bracketMath] and [dollarMath] say whether `\[` and `$$` lines open display
+/// math, and must match the options of the parser the chunks are meant for.
 List<String> splitMarkdownBlocks(
   String text, {
   bool ignoreCrossBlockConstructs = false,
+  bool bracketMath = true,
+  bool dollarMath = true,
 }) {
   if (text.isEmpty) return const [];
 
@@ -35,6 +40,10 @@ List<String> splitMarkdownBlocks(
   _BlockMathDelimiter? mathBlock;
   var detailsDepth = 0;
   var currentHasListItem = false;
+  // Whether the line being read can still belong to a list item. Used only
+  // to decide if a fence sits inside one; unlike [currentHasListItem] it is
+  // dropped as soon as a block that cannot be item content starts.
+  var listItemOpen = false;
   var currentHasContent = false;
   var sawBlankAfterContent = false;
 
@@ -42,9 +51,18 @@ List<String> splitMarkdownBlocks(
     final content = _stripLineEnding(line);
 
     if (fence != null) {
-      current.write(line);
-      if (fence.isClosedBy(content)) fence = null;
-      continue;
+      if (fence.isClosedBy(content)) {
+        current.write(line);
+        fence = null;
+        continue;
+      }
+      if (!fence.isEndedByContainer(content)) {
+        current.write(line);
+        continue;
+      }
+      // The list item holding the fence ended without a closing fence; this
+      // line is ordinary content again.
+      fence = null;
     }
 
     if (mathBlock != null) {
@@ -54,8 +72,13 @@ List<String> splitMarkdownBlocks(
     }
 
     if (detailsDepth > 0) {
+      // A definition inside `<details>` is visible to the whole document.
+      if (!ignoreCrossBlockConstructs &&
+          _referenceDefinition.hasMatch(content)) {
+        return [text];
+      }
       current.write(line);
-      fence = _Fence.tryOpen(content);
+      fence = _Fence.tryOpen(content, inListItem: true);
       if (fence == null) {
         detailsDepth = _updateDetailsDepth(detailsDepth, content);
       }
@@ -79,17 +102,27 @@ List<String> splitMarkdownBlocks(
       blocks.add(current.toString());
       current.clear();
       currentHasListItem = false;
+      listItemOpen = false;
     }
     sawBlankAfterContent = false;
     currentHasContent = true;
 
     current.write(line);
-    if (_isListItem(content)) currentHasListItem = true;
+    if (_isListItem(content)) {
+      currentHasListItem = true;
+      listItemOpen = true;
+    } else if (_endsListItem(content)) {
+      listItemOpen = false;
+    }
 
-    fence = _Fence.tryOpen(content);
+    fence = _Fence.tryOpen(content, inListItem: listItemOpen);
     if (fence != null) continue;
 
-    mathBlock = _BlockMathDelimiter.tryOpen(content);
+    mathBlock = _BlockMathDelimiter.tryOpen(
+      content,
+      bracket: bracketMath,
+      dollar: dollarMath,
+    );
     if (mathBlock != null) continue;
 
     detailsDepth = _updateDetailsDepth(detailsDepth, content);
@@ -122,13 +155,21 @@ List<String> splitMarkdownBlocks(
 ///
 /// Complete inputs ending in `\n` or without partial trailing syntax are
 /// returned unchanged.
-String sanitizeStreamingTail(String text) {
+String sanitizeStreamingTail(
+  String text, {
+  bool bracketMath = true,
+  bool dollarMath = true,
+}) {
   if (text.isEmpty) return text;
   final lastCodeUnit = text.codeUnitAt(text.length - 1);
   // A newline terminates the last line, so no trailing line is mid-token.
   if (lastCodeUnit == 0x0A || lastCodeUnit == 0x0D) return text;
 
-  final lastNewline = text.lastIndexOf('\n');
+  final lastLineFeed = text.lastIndexOf('\n');
+  final lastCarriageReturn = text.lastIndexOf('\r');
+  final lastNewline = lastLineFeed > lastCarriageReturn
+      ? lastLineFeed
+      : lastCarriageReturn;
   final trailingStart = lastNewline + 1;
   final trailingLine = text.substring(trailingStart);
 
@@ -136,26 +177,38 @@ String sanitizeStreamingTail(String text) {
   // are currently inside an open fenced code block or display math block.
   _Fence? openFence;
   _BlockMathDelimiter? openMath;
+  var sawListItem = false;
 
-  var lineStart = 0;
-  while (lineStart < trailingStart) {
-    final nl = text.indexOf('\n', lineStart);
-    final rawLine = text.substring(lineStart, nl + 1);
+  for (final rawLine in _splitLinesKeepingNewlines(
+    text.substring(0, trailingStart),
+  )) {
     final content = _stripLineEnding(rawLine);
-    lineStart = nl + 1;
 
     if (openFence != null) {
-      if (openFence.isClosedBy(content)) openFence = null;
-      continue;
+      if (openFence.isClosedBy(content)) {
+        openFence = null;
+        continue;
+      }
+      if (!openFence.isEndedByContainer(content)) continue;
+      openFence = null;
     }
     if (openMath != null) {
       if (openMath.isClosedBy(content)) openMath = null;
       continue;
     }
 
-    openFence = _Fence.tryOpen(content);
+    if (_isListItem(content)) {
+      sawListItem = true;
+    } else if (_endsListItem(content)) {
+      sawListItem = false;
+    }
+    openFence = _Fence.tryOpen(content, inListItem: sawListItem);
     if (openFence != null) continue;
-    openMath = _BlockMathDelimiter.tryOpen(content);
+    openMath = _BlockMathDelimiter.tryOpen(
+      content,
+      bracket: bracketMath,
+      dollar: dollarMath,
+    );
   }
 
   if (openFence != null) {
@@ -172,8 +225,12 @@ String sanitizeStreamingTail(String text) {
     return text;
   }
 
-  if (_isPartialOpeningFenceLine(trailingLine) ||
-      _isPartialOpeningMathLine(trailingLine)) {
+  if (_isPartialOpeningFenceLine(trailingLine, inListItem: sawListItem) ||
+      _isPartialOpeningMathLine(
+        trailingLine,
+        bracket: bracketMath,
+        dollar: dollarMath,
+      )) {
     return text.substring(0, trailingStart);
   }
 
@@ -193,15 +250,20 @@ String sanitizeStreamingTail(String text) {
   return text;
 }
 
-// Also inside block quotes, and with escaped brackets in the label.
+// Also inside block quotes and list items, and with escaped brackets in the
+// label. Matching too much only costs a split; matching too little separates
+// a link from its definition.
 final _referenceDefinition = RegExp(
-  r'^(?: {0,3}>)* {0,3}\[(?:[^\]\\]|\\.)+\]:',
+  r'^[ \t]*(?:>[ \t]*)*(?:(?:[-*+]|\d{1,9}[.)])[ \t]+)?\[(?:[^\]\\]|\\.)+\]:',
 );
 final _spanningHtmlBlock = RegExp(
   r'^ {0,3}<(!--|\?|!\[CDATA\[|![A-Za-z]|(script|pre|style|textarea)([\s>]|$))',
   caseSensitive: false,
 );
 final _listItem = RegExp(r'^ {0,3}([-*+]|\d{1,9}[.)])([ \t]|$)');
+final _nonItemBlockStart = RegExp(
+  r'^(?:>|#{1,6}(?:[ \t]|$)|<|(?:[-*_][ \t]*){3,}$)',
+);
 final _fenceOpen = RegExp(r'^([ \t]*)(`{3,}|~{3,})(.*)$');
 final _partialFenceStart = RegExp(r'^[ \t]*(`{1,2}|~{1,2})$');
 final _detailsBlockOpenLine = RegExp(
@@ -233,12 +295,21 @@ bool _startsNewBlock(String line, {required bool currentHasListItem}) {
 
 bool _isListItem(String line) => _listItem.hasMatch(line);
 
+/// Whether an unindented [line] starts a block that cannot be part of a list
+/// item (a quote, heading, rule or raw HTML). A plain text line does not
+/// count: it may be a lazy continuation of the item's paragraph.
+bool _endsListItem(String line) => _nonItemBlockStart.hasMatch(line);
+
 bool _isBlank(String line) => line.trim().isEmpty;
 
-bool _isPartialOpeningFenceLine(String line) {
-  if (_partialFenceStart.hasMatch(line)) return true;
+bool _isPartialOpeningFenceLine(String line, {required bool inListItem}) {
+  final partial = _partialFenceStart.firstMatch(line);
+  if (partial != null) {
+    return inListItem || _indentWidth(_leadingWhitespace(line)) <= 3;
+  }
   final match = _fenceOpen.firstMatch(line);
   if (match == null) return false;
+  if (!inListItem && _indentWidth(match.group(1)!) > 3) return false;
   final marker = match.group(2)!;
   final info = match.group(3)!;
   // Backtick fences cannot contain backticks in the info string (e.g. ```` ```foo` ````).
@@ -246,9 +317,22 @@ bool _isPartialOpeningFenceLine(String line) {
   return true;
 }
 
-bool _isPartialOpeningMathLine(String line) {
-  return _dollarMathOnlyLine.hasMatch(line) ||
-      _bracketMathOnlyOpen.hasMatch(line);
+bool _isPartialOpeningMathLine(
+  String line, {
+  required bool bracket,
+  required bool dollar,
+}) {
+  return (dollar && _dollarMathOnlyLine.hasMatch(line)) ||
+      (bracket && _bracketMathOnlyOpen.hasMatch(line));
+}
+
+String _leadingWhitespace(String line) {
+  var end = 0;
+  while (end < line.length &&
+      (line.codeUnitAt(end) == 0x20 || line.codeUnitAt(end) == 0x09)) {
+    end++;
+  }
+  return line.substring(0, end);
 }
 
 int _updateDetailsDepth(int depth, String line) {
@@ -272,36 +356,61 @@ String _stripLineEnding(String line) {
   return line.substring(0, end);
 }
 
+/// Splits at `\n`, `\r\n` and a lone `\r`, which the parser also treats as
+/// a line ending.
 List<String> _splitLinesKeepingNewlines(String text) {
   final lines = <String>[];
   var start = 0;
-  while (true) {
-    final newline = text.indexOf('\n', start);
-    if (newline < 0) {
-      if (start < text.length) lines.add(text.substring(start));
-      return lines;
+  for (var i = 0; i < text.length; i++) {
+    final unit = text.codeUnitAt(i);
+    if (unit == 0x0A) {
+      lines.add(text.substring(start, i + 1));
+      start = i + 1;
+    } else if (unit == 0x0D) {
+      if (i + 1 < text.length && text.codeUnitAt(i + 1) == 0x0A) i++;
+      lines.add(text.substring(start, i + 1));
+      start = i + 1;
     }
-    lines.add(text.substring(start, newline + 1));
-    start = newline + 1;
   }
+  if (start < text.length) lines.add(text.substring(start));
+  return lines;
 }
 
 class _Fence {
-  const _Fence(this.char, this.length, this.indent);
+  const _Fence(this.char, this.length, this.indent, {required this.inListItem});
 
   final String char;
   final int length;
   final int indent;
 
-  /// Opens on any indentation: over-detecting a fence only prevents splits.
-  static _Fence? tryOpen(String line) {
+  /// Whether the fence was opened as content of a list item (or `<details>`).
+  final bool inListItem;
+
+  /// At the top level a fence opens with at most three spaces of indentation;
+  /// four or more make an indented code line whose backticks are just text.
+  /// Inside a list item the fence sits at the item's content column, so any
+  /// indentation is accepted there.
+  static _Fence? tryOpen(String line, {required bool inListItem}) {
     final match = _fenceOpen.firstMatch(line);
     if (match == null) return null;
+    if (!inListItem && _indentWidth(match.group(1)!) > 3) return null;
     final marker = match.group(2)!;
     final info = match.group(3)!;
     // Backtick fences may not have backticks in the info string.
     if (marker.startsWith('`') && info.contains('`')) return null;
-    return _Fence(marker[0], marker.length, _indentWidth(match.group(1)!));
+    return _Fence(
+      marker[0],
+      marker.length,
+      _indentWidth(match.group(1)!),
+      inListItem: inListItem,
+    );
+  }
+
+  /// Whether [line] leaves the list item this fence was opened in. A fence is
+  /// closed by the end of its container even without a closing fence line.
+  bool isEndedByContainer(String line) {
+    if (!inListItem || indent == 0 || _isBlank(line)) return false;
+    return _indentWidth(_leadingWhitespace(line)) < indent;
   }
 
   bool isClosedBy(String line) {
@@ -346,11 +455,16 @@ class _BlockMathDelimiter {
 
   final _BlockMathKind kind;
 
-  static _BlockMathDelimiter? tryOpen(String line) {
-    if (_dollarMathOnlyLine.hasMatch(line)) {
+  static _BlockMathDelimiter? tryOpen(
+    String line, {
+    required bool bracket,
+    required bool dollar,
+  }) {
+    if (dollar && _dollarMathOnlyLine.hasMatch(line)) {
       return const _BlockMathDelimiter(_BlockMathKind.dollar);
     }
-    if (_bracketMathOnlyOpen.hasMatch(line) &&
+    if (bracket &&
+        _bracketMathOnlyOpen.hasMatch(line) &&
         !_bracketMathSingleLine.hasMatch(line)) {
       return const _BlockMathDelimiter(_BlockMathKind.bracket);
     }

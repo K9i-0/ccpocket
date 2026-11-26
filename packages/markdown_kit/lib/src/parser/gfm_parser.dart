@@ -73,7 +73,11 @@ class GfmMarkdownParser implements MarkdownParser {
   @override
   MarkdownDocument parse(String markdown, {bool isStreaming = false}) {
     final effectiveSource = isStreaming
-        ? sanitizeStreamingTail(markdown)
+        ? sanitizeStreamingTail(
+            markdown,
+            bracketMath: options.enableLatex,
+            dollarMath: options.enableLatex && options.enableDollarLatex,
+          )
         : markdown;
 
     if (effectiveSource.isEmpty) {
@@ -89,7 +93,11 @@ class GfmMarkdownParser implements MarkdownParser {
       return cachedDoc;
     }
 
-    final chunks = splitMarkdownBlocks(effectiveSource);
+    final chunks = splitMarkdownBlocks(
+      effectiveSource,
+      bracketMath: options.enableLatex,
+      dollarMath: options.enableLatex && options.enableDollarLatex,
+    );
     final List<MarkdownBlock> blocks;
 
     if (chunks.length <= 1) {
@@ -150,6 +158,8 @@ class GfmMarkdownParser implements MarkdownParser {
       final pieces = splitMarkdownBlocks(
         source,
         ignoreCrossBlockConstructs: true,
+        bracketMath: options.enableLatex,
+        dollarMath: options.enableLatex && options.enableDollarLatex,
       );
       if (pieces.length <= 1) return _rawTextFallback(source);
       final blocks = <MarkdownBlock>[];
@@ -194,7 +204,7 @@ class GfmMarkdownParser implements MarkdownParser {
 
   List<MarkdownBlock> _rawTextFallback(String source) {
     _rawTextFallbackCount++;
-    final text = source.replaceAll('\r\n', '\n').trim();
+    final text = source.replaceAll('\r\n', '\n').replaceAll('\r', '\n').trim();
     if (text.isEmpty) return const [];
     return List.unmodifiable([
       ParagraphBlock(inlines: [TextInline(text)]),
@@ -231,6 +241,33 @@ class GfmMarkdownParser implements MarkdownParser {
       inlineSyntaxes: inlineSyntaxes,
       encodeHtml: false,
     );
+  }
+
+  /// Deepest container nesting converted into nested blocks. Markdown that
+  /// nests further (only ever hostile input) is flattened to text, because
+  /// every later pass over the AST and the widget tree recurses per level.
+  static const int _maxNestingDepth = 500;
+  int _nestingDepth = 0;
+
+  List<MarkdownBlock> _convertNestedBlockNodes(
+    List<md.Node> nodes, {
+    required md.Document mdDoc,
+    required Map<String, FootnoteDefinition> footnotes,
+  }) {
+    if (_nestingDepth >= _maxNestingDepth) {
+      final text = nodes.map((node) => node.textContent).join('\n').trim();
+      return text.isEmpty
+          ? const []
+          : [
+              ParagraphBlock(inlines: [TextInline(text)]),
+            ];
+    }
+    _nestingDepth++;
+    try {
+      return _convertBlockNodes(nodes, mdDoc: mdDoc, footnotes: footnotes);
+    } finally {
+      _nestingDepth--;
+    }
   }
 
   List<MarkdownBlock> _convertBlockNodes(
@@ -282,7 +319,7 @@ class GfmMarkdownParser implements MarkdownParser {
           blocks.add(_convertCodeBlock(node));
 
         case 'blockquote':
-          final children = _convertBlockNodes(
+          final children = _convertNestedBlockNodes(
             node.children ?? const [],
             mdDoc: mdDoc,
             footnotes: footnotes,
@@ -320,7 +357,7 @@ class GfmMarkdownParser implements MarkdownParser {
         case 'mk-footnote-def':
           final label = node.attributes['label'] ?? '';
           if (label.isNotEmpty) {
-            final defChildren = _convertBlockNodes(
+            final defChildren = _convertNestedBlockNodes(
               node.children ?? const [],
               mdDoc: mdDoc,
               footnotes: footnotes,
@@ -525,7 +562,11 @@ class GfmMarkdownParser implements MarkdownParser {
           }
         } else {
           itemBlocks.addAll(
-            _convertBlockNodes([child], mdDoc: mdDoc, footnotes: footnotes),
+            _convertNestedBlockNodes(
+              [child],
+              mdDoc: mdDoc,
+              footnotes: footnotes,
+            ),
           );
         }
       } else {
@@ -621,7 +662,7 @@ class GfmMarkdownParser implements MarkdownParser {
         summary = _convertBlockInlines(child.children ?? const []);
       } else if (child.tag == 'mk-details-body') {
         children = List.unmodifiable(
-          _convertBlockNodes(
+          _convertNestedBlockNodes(
             child.children ?? const [],
             mdDoc: mdDoc,
             footnotes: footnotes,
@@ -751,7 +792,9 @@ class GfmMarkdownParser implements MarkdownParser {
               children.length == 1 &&
               children.first is TextInline &&
               ((children.first as TextInline).text == href ||
-                  'mailto:${(children.first as TextInline).text}' == href);
+                  'mailto:${(children.first as TextInline).text}' == href ||
+                  // GFM `www.` autolinks get an `http://` destination.
+                  'http://${(children.first as TextInline).text}' == href);
           emit(
             LinkInline(
               destination: href,
@@ -804,13 +847,15 @@ class GfmMarkdownParser implements MarkdownParser {
   void _emitTextWithBreaks(String rawText, void Function(MarkdownInline) emit) {
     if (rawText.isEmpty) return;
     if (!rawText.contains('\n')) {
-      emit(TextInline(_decodeHtmlEntities(rawText)));
+      // package:markdown has already decoded entities in inline text;
+      // decoding again would turn `&amp;lt;` into `<`.
+      emit(TextInline(rawText));
       return;
     }
     final parts = rawText.split('\n');
     for (var i = 0; i < parts.length; i++) {
       if (parts[i].isNotEmpty) {
-        emit(TextInline(_decodeHtmlEntities(parts[i])));
+        emit(TextInline(parts[i]));
       }
       if (i < parts.length - 1) {
         emit(LineBreakInline(isHard: options.softBreakAsHardBreak));
