@@ -9,7 +9,7 @@ import 'package:markdown_kit/markdown_kit.dart';
 
 import 'package:ccpocket/features/chat_session/state/chat_session_cubit.dart';
 import 'package:ccpocket/features/chat_session/state/streaming_state_cubit.dart';
-import 'package:ccpocket/features/chat_session/widgets/anchor_maintaining_auto_scroll_controller.dart';
+import 'package:ccpocket/widgets/indexed_scroll_controller.dart';
 import 'package:ccpocket/features/chat_session/widgets/chat_message_list.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/l10n/app_localizations_delegates.dart';
@@ -26,7 +26,7 @@ import 'package:ccpocket/widgets/markdown/ccpocket_markdown.dart';
 void main() {
   Future<
     ({
-      AnchorMaintainingAutoScrollController controller,
+      IndexedScrollController controller,
       _SelectionTestBridge bridge,
       StreamingStateCubit streamingCubit,
     })
@@ -48,7 +48,7 @@ void main() {
       bridge: bridge,
       streamingCubit: streamingCubit,
     );
-    final controller = AnchorMaintainingAutoScrollController();
+    final controller = IndexedScrollController();
     addTearDown(controller.dispose);
     addTearDown(chatCubit.close);
     addTearDown(streamingCubit.close);
@@ -122,7 +122,7 @@ void main() {
     );
   }
 
-  Future<AnchorMaintainingAutoScrollController> pumpList(
+  Future<IndexedScrollController> pumpList(
     WidgetTester tester, {
     Widget? footer,
     String role = 'user',

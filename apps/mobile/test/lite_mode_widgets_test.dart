@@ -1,7 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:ccpocket/features/chat_session/state/chat_session_cubit.dart';
@@ -16,6 +15,7 @@ import 'package:ccpocket/models/chat_display_filter.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/providers/bridge_cubits.dart';
 import 'package:ccpocket/theme/app_theme.dart';
+import 'package:ccpocket/widgets/indexed_scroll_controller.dart';
 import 'package:ccpocket/widgets/message_bubble.dart';
 
 import 'chat_session_cubit_test.dart' show MockBridgeService;
@@ -96,7 +96,7 @@ void main() {
       );
       final files = FileListCubit(const [], const Stream.empty());
       addTearDown(files.close);
-      final controller = AutoScrollController();
+      final controller = IndexedScrollController();
       final lite = ValueNotifier(false);
       addTearDown(bridge.dispose);
       addTearDown(streaming.close);

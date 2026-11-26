@@ -12,7 +12,6 @@ import 'package:flutter/rendering.dart'
         applyGrowthDirectionToAxisDirection;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:markdown_kit/markdown_kit.dart';
-import 'package:scroll_to_index/scroll_to_index.dart';
 
 import '../compaction_projection.dart';
 import '../../session_transcript/session_transcript_screen.dart';
@@ -27,6 +26,7 @@ import '../../../theme/app_theme.dart';
 import '../../../utils/codex_plan_update.dart';
 import '../../../utils/diff_parser.dart';
 import '../../../utils/platform_helper.dart';
+import '../../../widgets/indexed_scroll_controller.dart';
 import '../../../widgets/markdown/ccpocket_markdown.dart';
 import '../../../widgets/message_bubble.dart';
 import '../../generated_image_preview/generated_image_preview_mapper.dart';
@@ -41,7 +41,6 @@ import '../state/chat_session_cubit.dart';
 import '../state/chat_session_state.dart';
 import '../state/streaming_state.dart';
 import '../state/streaming_state_cubit.dart';
-import 'anchor_maintaining_auto_scroll_controller.dart';
 import 'maintain_reading_position_physics.dart';
 import 'floating_composer_layout.dart';
 
@@ -562,7 +561,7 @@ bool isEditableTextFocused() {
 
 class ChatMessageList extends StatefulWidget {
   final String sessionId;
-  final AutoScrollController scrollController;
+  final IndexedScrollController scrollController;
   final String? httpBaseUrl;
   final void Function(UserChatEntry)? onRetryMessage;
   final void Function(UserChatEntry)? onRewindMessage;
@@ -748,14 +747,15 @@ class _ChatMessageListState extends State<ChatMessageList> {
   void _attachLayoutAnchorCorrection() {
     final controller = widget.scrollController;
     controller.addListener(_scheduleAnchorMeasurement);
-    if (controller is AnchorMaintainingAutoScrollController) {
-      controller.layoutAnchorCorrection = _pendingAnchorCorrection;
-    }
+    controller.layoutAnchorCorrection = _pendingAnchorCorrection;
   }
 
-  void _detachLayoutAnchorCorrection(AutoScrollController controller) {
+  void _detachLayoutAnchorCorrection(IndexedScrollController controller) {
     controller.removeListener(_scheduleAnchorMeasurement);
-    if (controller is AnchorMaintainingAutoScrollController) {
+    if (identical(
+      controller.layoutAnchorCorrection,
+      _pendingAnchorCorrection,
+    )) {
       controller.layoutAnchorCorrection = null;
     }
   }
@@ -774,7 +774,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
 
   /// Scrolls the chat list to make the given [UserChatEntry] visible.
   ///
-  /// Uses [AutoScrollController.scrollToIndex] which handles both on-screen
+  /// Uses [IndexedScrollController.scrollToIndex] which handles both on-screen
   /// and off-screen items correctly with variable-height widgets.
   void _scrollToUserEntry(UserChatEntry entry) {
     final entries = _displayEntries(context.read<ChatSessionCubit>().state);
@@ -782,7 +782,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
     if (idx < 0) return;
     widget.scrollController.scrollToIndex(
       idx,
-      preferPosition: AutoScrollPosition.middle,
+      preferPosition: IndexedScrollPosition.middle,
       duration: const Duration(milliseconds: 300),
     );
   }
@@ -943,7 +943,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
           : currentStreamingHeight - previousStreamingHeight;
     }
 
-    AutoScrollTagState? matchingState;
+    IndexedScrollTagState? matchingState;
     for (final state in widget.scrollController.tagMap.values) {
       if (state.mounted && state.widget.key == anchor.key) {
         matchingState = state;
@@ -1188,7 +1188,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
                     // Streaming entry sits just above the activity bar (or at index 0)
                     if (hasStreaming && entryIndex == allEntries.length) {
                       // Scoped BlocBuilder: only this widget rebuilds on streaming deltas
-                      return AutoScrollTag(
+                      return IndexedScrollTag(
                         key: _streamingEntryKey,
                         controller: widget.scrollController,
                         index: entryIndex,
@@ -1335,9 +1335,9 @@ class _ChatMessageListState extends State<ChatMessageList> {
                         documentOrder: entryIndex * 100,
                       );
                     }
-                    // Wrap with AutoScrollTag for scroll-to-index support.
-                    // Use entryIndex (not reverse index) as the AutoScrollTag index.
-                    return AutoScrollTag(
+                    // Wrap with IndexedScrollTag for scroll-to-index support.
+                    // Use entryIndex (not reverse index) as the IndexedScrollTag index.
+                    return IndexedScrollTag(
                       key: ValueKey(entryKeys[entryIndex]),
                       controller: widget.scrollController,
                       index: entryIndex,

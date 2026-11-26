@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:ccpocket/features/chat_session/state/chat_session_cubit.dart';
 import 'package:ccpocket/features/chat_session/state/streaming_state_cubit.dart';
-import 'package:ccpocket/features/chat_session/widgets/anchor_maintaining_auto_scroll_controller.dart';
+import 'package:ccpocket/widgets/indexed_scroll_controller.dart';
 import 'package:ccpocket/features/chat_session/widgets/background_tasks_bar.dart';
 import 'package:ccpocket/features/chat_session/widgets/chat_message_list.dart';
 import 'package:ccpocket/features/chat_session/widgets/session_recap_card.dart';
@@ -240,7 +240,7 @@ void main() {
           bridge: bridge,
           streamingCubit: streamingCubit,
         );
-        final controller = AnchorMaintainingAutoScrollController();
+        final controller = IndexedScrollController();
 
         addTearDown(() async {
           controller.dispose();
@@ -439,7 +439,7 @@ void main() {
           bridge: bridge,
           streamingCubit: streamingCubit,
         );
-        final controller = AnchorMaintainingAutoScrollController();
+        final controller = IndexedScrollController();
 
         addTearDown(() async {
           controller.dispose();

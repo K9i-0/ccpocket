@@ -1,9 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
-import 'package:scroll_to_index/scroll_to_index.dart';
 
-import '../features/chat_session/widgets/anchor_maintaining_auto_scroll_controller.dart';
+import '../widgets/indexed_scroll_controller.dart';
 
 /// Cross-session scroll position persistence.
 final Map<String, double> _scrollOffsets = {};
@@ -26,7 +25,7 @@ bool shouldAutoCollapseToolResults(bool isReadingHistory) => !isReadingHistory;
 
 /// Result record returned by [useScrollTracking].
 typedef ScrollTrackingResult = ({
-  AutoScrollController controller,
+  IndexedScrollController controller,
   bool isReadingHistory,
   bool showScrollToLatest,
   bool Function() isReadingHistoryNow,
@@ -41,7 +40,7 @@ typedef ScrollTrackingResult = ({
 /// persists offsets across sessions and exposes an explicit way to return to
 /// latest; it does not infer intent from scroll direction or content extent.
 ScrollTrackingResult useScrollTracking(String sessionId) {
-  final controller = useMemoized(AnchorMaintainingAutoScrollController.new);
+  final controller = useMemoized(IndexedScrollController.new);
   useEffect(() => controller.dispose, const []);
 
   final isReadingHistory = useState(false);

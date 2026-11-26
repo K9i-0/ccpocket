@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
-import 'package:scroll_to_index/scroll_to_index.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../models/git_diff_interaction_mode.dart';
@@ -14,6 +13,7 @@ import '../../theme/app_theme.dart';
 import '../../utils/diff_parser.dart'
     show DiffSelection, reconstructDiff, reconstructUnifiedDiff;
 import '../../widgets/adaptive_context_menu.dart';
+import '../../widgets/indexed_scroll_controller.dart';
 import '../../widgets/workspace_pane_chrome.dart';
 import '../../services/draft_service.dart';
 import '../file_peek/file_peek_sheet.dart';
@@ -82,7 +82,7 @@ class GitScreen extends StatefulWidget {
 }
 
 class _GitScreenState extends State<GitScreen> {
-  late final AutoScrollController _scrollController;
+  late final IndexedScrollController _scrollController;
   late final ValueNotifier<int?> _scrollToFileIndex;
   GitViewCubit? _cachedCubit;
   String? _cachedCubitKey;
@@ -91,7 +91,7 @@ class _GitScreenState extends State<GitScreen> {
   @override
   void initState() {
     super.initState();
-    _scrollController = AutoScrollController();
+    _scrollController = IndexedScrollController();
     _scrollToFileIndex = ValueNotifier<int?>(null)
       ..addListener(_handleScrollTo);
   }
@@ -111,7 +111,7 @@ class _GitScreenState extends State<GitScreen> {
     _scrollToFileIndex.value = null;
     await _scrollController.scrollToIndex(
       index,
-      preferPosition: AutoScrollPosition.begin,
+      preferPosition: IndexedScrollPosition.begin,
       duration: const Duration(milliseconds: 280),
     );
   }
@@ -205,7 +205,7 @@ class _GitScreenState extends State<GitScreen> {
 class _GitScreenBody extends StatefulWidget {
   final String? title;
   final bool isProjectMode;
-  final AutoScrollController scrollController;
+  final IndexedScrollController scrollController;
   final ValueNotifier<int?> scrollToFileIndex;
   final bool embedded;
   final VoidCallback? onClose;
@@ -856,7 +856,7 @@ class _GitScreenContent extends StatelessWidget {
   final GitViewCubit cubit;
   final bool isProjectMode;
   final GitDiffInteractionMode interactionMode;
-  final AutoScrollController scrollController;
+  final IndexedScrollController scrollController;
   final Future<void> Function(
     BuildContext context, {
     required String title,

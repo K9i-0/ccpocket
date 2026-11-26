@@ -74,7 +74,6 @@ dependencies:
   collection: ^1.19.1
   extended_image: ^10.0.1
   flutter_svg: ^2.5.0
-  scroll_to_index: ^3.0.1
   highlight: ^0.7.0
   syntax_highlight: ^0.5.0
   in_app_review: ^2.0.11

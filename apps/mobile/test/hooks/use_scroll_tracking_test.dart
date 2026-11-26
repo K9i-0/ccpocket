@@ -2,7 +2,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ccpocket/features/chat_session/widgets/anchor_maintaining_auto_scroll_controller.dart';
 import 'package:ccpocket/hooks/use_scroll_tracking.dart';
 
 void main() {
@@ -135,8 +134,7 @@ void main() {
       result.controller.jumpTo(240);
       await tester.pump();
 
-      final controller =
-          result.controller as AnchorMaintainingAutoScrollController;
+      final controller = result.controller;
       var needsCorrection = true;
       controller.layoutAnchorCorrection = () {
         if (!needsCorrection) return 0;

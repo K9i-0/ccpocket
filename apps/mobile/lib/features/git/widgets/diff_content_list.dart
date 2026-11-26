@@ -1,9 +1,9 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:scroll_to_index/scroll_to_index.dart';
 
 import '../../../models/git_diff_interaction_mode.dart';
 import '../../../theme/code_text_style.dart';
 import '../../../utils/diff_parser.dart';
+import '../../../widgets/indexed_scroll_controller.dart';
 import 'diff_binary_notice.dart';
 import 'diff_file_header.dart';
 import 'diff_hunk_widget.dart';
@@ -19,7 +19,7 @@ typedef DiffHunkComments = ({
 
 class DiffContentList extends StatelessWidget {
   final List<DiffFile> files;
-  final AutoScrollController scrollController;
+  final IndexedScrollController scrollController;
   final Set<int> collapsedFileIndices;
   final ValueChanged<int> onToggleCollapse;
   final ValueChanged<int>? onLoadImage;
@@ -131,7 +131,7 @@ class DiffContentList extends StatelessWidget {
           : null,
     );
 
-    Widget section = AutoScrollTag(
+    Widget section = IndexedScrollTag(
       key: ValueKey('diff_file_tag_${file.filePath}'),
       controller: scrollController,
       index: fileIdx,

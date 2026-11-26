@@ -3,17 +3,16 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:scroll_to_index/scroll_to_index.dart';
 
 import 'package:ccpocket/features/chat_session/state/chat_session_cubit.dart';
 import 'package:ccpocket/features/chat_session/state/streaming_state_cubit.dart';
-import 'package:ccpocket/features/chat_session/widgets/anchor_maintaining_auto_scroll_controller.dart';
 import 'package:ccpocket/features/chat_session/widgets/chat_message_list.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
+import 'package:ccpocket/widgets/indexed_scroll_controller.dart';
 import 'package:ccpocket/widgets/message_bubble.dart';
 
 void main() {
@@ -29,7 +28,7 @@ void main() {
       bridge: bridge,
       streamingCubit: streamingCubit,
     );
-    final controller = AnchorMaintainingAutoScrollController();
+    final controller = IndexedScrollController();
     addTearDown(controller.dispose);
     addTearDown(chatCubit.close);
     addTearDown(streamingCubit.close);
@@ -86,7 +85,7 @@ void main() {
 
     final scrollFuture = controller.scrollToIndex(
       35,
-      preferPosition: AutoScrollPosition.middle,
+      preferPosition: IndexedScrollPosition.middle,
       duration: const Duration(milliseconds: 1),
     );
     await tester.pumpAndSettle();
@@ -120,7 +119,7 @@ void main() {
       bridge: bridge,
       streamingCubit: streamingCubit,
     );
-    final controller = AnchorMaintainingAutoScrollController();
+    final controller = IndexedScrollController();
     addTearDown(controller.dispose);
     addTearDown(chatCubit.close);
     addTearDown(streamingCubit.close);
@@ -171,7 +170,7 @@ void main() {
 
     final scrollFuture = controller.scrollToIndex(
       35,
-      preferPosition: AutoScrollPosition.middle,
+      preferPosition: IndexedScrollPosition.middle,
       duration: const Duration(milliseconds: 1),
     );
     await tester.pumpAndSettle();
@@ -243,7 +242,7 @@ void main() {
       bridge: bridge,
       streamingCubit: streamingCubit,
     );
-    final controller = AnchorMaintainingAutoScrollController();
+    final controller = IndexedScrollController();
     addTearDown(controller.dispose);
     addTearDown(chatCubit.close);
     addTearDown(streamingCubit.close);
