@@ -214,6 +214,103 @@ void main() {
     );
   });
 
+  group('whitespace package:markdown leaves at line edges', () {
+    List<MarkdownInline> firstItem(String source) {
+      final list = GfmMarkdownParser().parse(source).blocks.single as ListBlock;
+      return (list.items.first.children.first as ParagraphBlock).inlines;
+    }
+
+    test('extra spaces after a list marker do not indent the text', () {
+      expect(firstItem('-   item'), const [TextInline('item')]);
+      expect(firstItem('1.  item'), const [TextInline('item')]);
+    });
+
+    test('an indented continuation line joins with a single break', () {
+      final document = GfmMarkdownParser().parse(
+        'first line \n    second line',
+      );
+      expect(document.blocks, const [
+        ParagraphBlock(
+          inlines: [
+            TextInline('first line'),
+            LineBreakInline(isHard: false),
+            TextInline('second line'),
+          ],
+        ),
+      ]);
+      expect(extractDocumentRenderedText(document), 'first line second line');
+    });
+
+    test('indentation before inline markup at a line start is dropped', () {
+      expect(GfmMarkdownParser().parse('  *a*\n  **b** c').blocks, const [
+        ParagraphBlock(
+          inlines: [
+            EmphasisInline(children: [TextInline('a')]),
+            LineBreakInline(isHard: false),
+            StrongInline(children: [TextInline('b')]),
+            TextInline(' c'),
+          ],
+        ),
+      ]);
+    });
+
+    test('spaces inside a line and inside inline HTML are kept', () {
+      expect(GfmMarkdownParser().parse('a  b<b> c</b>').blocks, const [
+        ParagraphBlock(
+          inlines: [
+            TextInline('a  b'),
+            StrongInline(children: [TextInline(' c')]),
+          ],
+        ),
+      ]);
+    });
+
+    test('a paragraph holding only <br> stays a spacer', () {
+      expect(GfmMarkdownParser().parse('<br>').blocks, const [
+        ParagraphBlock(inlines: [LineBreakInline(isHard: true)]),
+      ]);
+    });
+  });
+
+  group('reference definitions keep the document in one chunk', () {
+    test('with an escaped bracket in the label', () {
+      const source = '[a\\]]: /url\n\n[a\\]]\n';
+      expect(splitMarkdownBlocks(source), [source]);
+      final paragraph =
+          GfmMarkdownParser().parse(source).blocks.single as ParagraphBlock;
+      expect(paragraph.inlines.single, isA<LinkInline>());
+    });
+
+    test('inside a block quote', () {
+      const source = '[foo]\n\n> [foo]: /url\n';
+      expect(splitMarkdownBlocks(source), [source]);
+      final paragraph =
+          GfmMarkdownParser().parse(source).blocks.first as ParagraphBlock;
+      expect(paragraph.inlines.single, isA<LinkInline>());
+    });
+  });
+
+  group('a trailing backslash while streaming', () {
+    test('is held until the next character arrives', () {
+      expect(sanitizeStreamingTail('[1] the formula \\'), '[1] the formula ');
+      expect(sanitizeStreamingTail('a \\\\'), 'a \\\\');
+      expect(sanitizeStreamingTail('line\\\n'), 'line\\\n');
+    });
+
+    test('is shown inside an open code fence', () {
+      expect(sanitizeStreamingTail('```\npath\\'), '```\npath\\');
+    });
+
+    test('does not degrade a paragraph that starts with a bracket', () {
+      final parser = GfmMarkdownParser();
+      const source = '[1] the formula \\(x\\) holds';
+      for (var end = 1; end <= source.length; end++) {
+        parser.parse(source.substring(0, end), isStreaming: true);
+      }
+      expect(parser.rawTextFallbackCount, 0);
+    });
+  });
+
   test('pathological inputs parse within a bounded time', () {
     final inputs = <String, String>{
       'open brackets': '[' * 20000,

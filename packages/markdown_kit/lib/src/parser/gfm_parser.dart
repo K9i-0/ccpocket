@@ -1,4 +1,5 @@
 import 'package:markdown/markdown.dart' as md;
+import 'package:meta/meta.dart';
 
 import '../ast/markdown_ast.dart';
 import 'block_splitter.dart';
@@ -51,6 +52,13 @@ class GfmMarkdownParser implements MarkdownParser {
 
   /// Number of entries currently stored in the block-level LRU cache.
   int get blockCacheLength => _blockCache.length;
+
+  /// Number of source pieces shown as raw text because `package:markdown`
+  /// rejected them. Tests use it to tell a real parse from a degraded one,
+  /// since [parse] itself never throws.
+  @visibleForTesting
+  int get rawTextFallbackCount => _rawTextFallbackCount;
+  int _rawTextFallbackCount = 0;
 
   /// Clears all document and block caches.
   void clearCache() {
@@ -185,6 +193,7 @@ class GfmMarkdownParser implements MarkdownParser {
   }
 
   List<MarkdownBlock> _rawTextFallback(String source) {
+    _rawTextFallbackCount++;
     final text = source.replaceAll('\r\n', '\n').trim();
     if (text.isEmpty) return const [];
     return List.unmodifiable([
@@ -237,7 +246,9 @@ class GfmMarkdownParser implements MarkdownParser {
         if (trimmed.isEmpty) continue;
         if (options.enableHtml &&
             _standaloneInlineHtmlPattern.hasMatch(trimmed)) {
-          final parsedInlines = _convertInlineNodes(mdDoc.parseInline(trimmed));
+          final parsedInlines = _convertBlockInlines(
+            mdDoc.parseInline(trimmed),
+          );
           if (parsedInlines.isNotEmpty) {
             blocks.add(ParagraphBlock(inlines: parsedInlines));
             continue;
@@ -255,14 +266,14 @@ class GfmMarkdownParser implements MarkdownParser {
 
       switch (node.tag) {
         case 'p':
-          final inlines = _convertInlineNodes(node.children ?? const []);
+          final inlines = _convertBlockInlines(node.children ?? const []);
           if (inlines.isNotEmpty) {
             blocks.add(ParagraphBlock(inlines: inlines));
           }
 
         case 'h1' || 'h2' || 'h3' || 'h4' || 'h5' || 'h6':
           final level = int.parse(node.tag.substring(1));
-          final inlines = _convertInlineNodes(node.children ?? const []);
+          final inlines = _convertBlockInlines(node.children ?? const []);
           blocks.add(
             HeadingBlock(level: level, inlines: inlines, id: node.generatedId),
           );
@@ -325,7 +336,7 @@ class GfmMarkdownParser implements MarkdownParser {
 
         default:
           // Graceful fallback for unrecognised block elements (e.g. raw HTML).
-          final inlines = _convertInlineNodes(node.children ?? const []);
+          final inlines = _convertBlockInlines(node.children ?? const []);
           if (inlines.isNotEmpty) {
             blocks.add(ParagraphBlock(inlines: inlines));
           } else if (node.textContent.trim().isNotEmpty) {
@@ -475,7 +486,7 @@ class GfmMarkdownParser implements MarkdownParser {
 
     void flushPendingInlines() {
       if (pendingInlines.isEmpty) return;
-      var inlines = _convertInlineNodes(pendingInlines);
+      var inlines = _convertBlockInlines(pendingInlines);
       pendingInlines.clear();
       if (checked != null && itemBlocks.isEmpty) {
         inlines = _trimLeadingSpace(inlines);
@@ -505,7 +516,7 @@ class GfmMarkdownParser implements MarkdownParser {
               pChildren = pChildren.sublist(1);
             }
           }
-          var inlines = _convertInlineNodes(pChildren);
+          var inlines = _convertBlockInlines(pChildren);
           if (checked != null && itemBlocks.isEmpty) {
             inlines = _trimLeadingSpace(inlines);
           }
@@ -548,7 +559,7 @@ class GfmMarkdownParser implements MarkdownParser {
               continue;
             }
             alignments.add(_parseTableAlign(th));
-            cells.add(_convertInlineNodes(th.children ?? const []));
+            cells.add(_convertBlockInlines(th.children ?? const []));
           }
           header ??= TableRowNode(cells: List.unmodifiable(cells));
         }
@@ -560,7 +571,7 @@ class GfmMarkdownParser implements MarkdownParser {
             if (td is! md.Element || (td.tag != 'td' && td.tag != 'th')) {
               continue;
             }
-            cells.add(_convertInlineNodes(td.children ?? const []));
+            cells.add(_convertBlockInlines(td.children ?? const []));
           }
           bodyRows.add(TableRowNode(cells: List.unmodifiable(cells)));
         }
@@ -607,7 +618,7 @@ class GfmMarkdownParser implements MarkdownParser {
     for (final child in detailsEl.children ?? const <md.Node>[]) {
       if (child is! md.Element) continue;
       if (child.tag == 'mk-summary') {
-        summary = _convertInlineNodes(child.children ?? const []);
+        summary = _convertBlockInlines(child.children ?? const []);
       } else if (child.tag == 'mk-details-body') {
         children = List.unmodifiable(
           _convertBlockNodes(
@@ -624,6 +635,13 @@ class GfmMarkdownParser implements MarkdownParser {
       children: children,
       initiallyOpen: initiallyOpen,
     );
+  }
+
+  /// Converts the inline content of one block (paragraph, heading, table
+  /// cell, summary) and drops the whitespace `package:markdown` leaves at the
+  /// edges of each line.
+  List<MarkdownInline> _convertBlockInlines(List<md.Node> nodes) {
+    return _trimLineEdges(_convertInlineNodes(nodes));
   }
 
   List<MarkdownInline> _convertInlineNodes(List<md.Node> nodes) {
@@ -1801,6 +1819,112 @@ List<MarkdownInline> _trimLeadingSpace(List<MarkdownInline> inlines) {
     return List.unmodifiable(inlines.sublist(1));
   }
   return List.unmodifiable([TextInline(trimmed), ...inlines.sublist(1)]);
+}
+
+/// Removes spaces and tabs at the start of every line and before every line
+/// break of a block's inline content.
+///
+/// `package:markdown` keeps that whitespace in its text nodes (the extra
+/// spaces of `-   item`, the indentation of a continuation line) and only
+/// drops it when writing HTML. Flutter does not collapse whitespace, so
+/// without this it shows up as indented or double-spaced text.
+List<MarkdownInline> _trimLineEdges(List<MarkdownInline> inlines) {
+  if (inlines.isEmpty) return inlines;
+  final state = _LineEdgeState();
+  final trimmed = _trimLineEdgesIn(inlines, state);
+  // A soft break at either end is a leftover newline. A hard one is kept: a
+  // paragraph holding only `<br>` is a deliberate spacer.
+  bool isSoftBreak(MarkdownInline inline) =>
+      inline is LineBreakInline && !inline.isHard;
+  while (trimmed.isNotEmpty && isSoftBreak(trimmed.first)) {
+    trimmed.removeAt(0);
+  }
+  while (trimmed.isNotEmpty && isSoftBreak(trimmed.last)) {
+    trimmed.removeLast();
+  }
+  return List.unmodifiable(trimmed);
+}
+
+class _LineEdgeState {
+  bool atLineStart = true;
+}
+
+List<MarkdownInline> _trimLineEdgesIn(
+  List<MarkdownInline> inlines,
+  _LineEdgeState state,
+) {
+  final result = <MarkdownInline>[];
+  for (var i = 0; i < inlines.length; i++) {
+    final inline = inlines[i];
+    switch (inline) {
+      case TextInline(:final text):
+        var next = text;
+        if (state.atLineStart) next = _trimLeftSpaces(next);
+        final beforeBreak =
+            i + 1 < inlines.length && inlines[i + 1] is LineBreakInline;
+        if (beforeBreak) next = _trimRightSpaces(next);
+        if (next.isEmpty) continue;
+        state.atLineStart = false;
+        result.add(identical(next, text) ? inline : TextInline(next));
+      case LineBreakInline():
+        state.atLineStart = true;
+        result.add(inline);
+      case EmphasisInline(:final children):
+        result.add(EmphasisInline(children: _trimNested(children, state)));
+      case StrongInline(:final children):
+        result.add(StrongInline(children: _trimNested(children, state)));
+      case StrikethroughInline(:final children):
+        result.add(StrikethroughInline(children: _trimNested(children, state)));
+      case UnderlineInline(:final children):
+        result.add(UnderlineInline(children: _trimNested(children, state)));
+      case SubscriptInline(:final children):
+        result.add(SubscriptInline(children: _trimNested(children, state)));
+      case SuperscriptInline(:final children):
+        result.add(SuperscriptInline(children: _trimNested(children, state)));
+      case KeyboardInline(:final children):
+        result.add(KeyboardInline(children: _trimNested(children, state)));
+      case LinkInline():
+        result.add(
+          LinkInline(
+            destination: inline.destination,
+            title: inline.title,
+            isAutolink: inline.isAutolink,
+            children: _trimNested(inline.children, state),
+          ),
+        );
+      case InlineCodeInline() ||
+          ImageInline() ||
+          FootnoteRefInline() ||
+          InlineLatexInline() ||
+          CustomInline():
+        state.atLineStart = false;
+        result.add(inline);
+    }
+  }
+  return result;
+}
+
+List<MarkdownInline> _trimNested(
+  List<MarkdownInline> children,
+  _LineEdgeState state,
+) => List.unmodifiable(_trimLineEdgesIn(children, state));
+
+String _trimLeftSpaces(String text) {
+  var start = 0;
+  while (start < text.length &&
+      (text.codeUnitAt(start) == 0x20 || text.codeUnitAt(start) == 0x09)) {
+    start++;
+  }
+  return start == 0 ? text : text.substring(start);
+}
+
+String _trimRightSpaces(String text) {
+  var end = text.length;
+  while (end > 0 &&
+      (text.codeUnitAt(end - 1) == 0x20 || text.codeUnitAt(end - 1) == 0x09)) {
+    end--;
+  }
+  return end == text.length ? text : text.substring(0, end);
 }
 
 List<MarkdownInline> _coalesceTextInlines(List<MarkdownInline> inlines) {

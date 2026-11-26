@@ -114,6 +114,8 @@ List<String> splitMarkdownBlocks(
 ///      run (`1 .. openingLength - 1` matching fence characters, optionally
 ///      indented), preventing stray `` ` `` / `` `` `` flicker at the bottom of
 ///      the code block before the closing fence completes.
+///    - A final backslash with nothing after it yet (half of an escape, of
+///      `\(`, or of a hard break).
 /// 3. Inside an open display math block:
 ///    - A trailing line with no newline yet containing a partial closing
 ///      delimiter (`$` inside `$$`, or `\` inside `\[`).
@@ -175,10 +177,26 @@ String sanitizeStreamingTail(String text) {
     return text.substring(0, trailingStart);
   }
 
+  // A backslash with nothing after it yet is half of an escape, of `\(`, or
+  // of a hard break. Hold it until the next character says which: shown
+  // alone it flickers, and `package:markdown` throws on a paragraph that
+  // starts with `[` and ends with one.
+  var trailingBackslashes = 0;
+  for (var i = text.length - 1; i >= trailingStart; i--) {
+    if (text.codeUnitAt(i) != 0x5C) break;
+    trailingBackslashes++;
+  }
+  if (trailingBackslashes.isOdd) {
+    return text.substring(0, text.length - 1);
+  }
+
   return text;
 }
 
-final _referenceDefinition = RegExp(r'^ {0,3}\[[^\]]+\]:');
+// Also inside block quotes, and with escaped brackets in the label.
+final _referenceDefinition = RegExp(
+  r'^(?: {0,3}>)* {0,3}\[(?:[^\]\\]|\\.)+\]:',
+);
 final _spanningHtmlBlock = RegExp(
   r'^ {0,3}<(!--|\?|!\[CDATA\[|![A-Za-z]|(script|pre|style|textarea)([\s>]|$))',
   caseSensitive: false,
