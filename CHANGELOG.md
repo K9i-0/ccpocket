@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.187.1] - 2026-11-27
+
+### Fixed
+
+- Android: the app crashed immediately on launch in 1.186.1 and 1.187.0 because of a leftover declaration for a clipboard component that had been removed. The declaration is gone and the app starts normally again.
+
 ## [1.187.0] - 2026-11-26
 
 ### Changed
