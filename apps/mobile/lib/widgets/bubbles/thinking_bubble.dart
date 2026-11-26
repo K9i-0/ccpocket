@@ -90,8 +90,12 @@ class _ThinkingBubbleState extends State<ThinkingBubble>
     super.dispose();
   }
 
+  /// Claude ends each thinking block with a blank line; showing it as-is
+  /// leaves an empty gap at the bottom and inflates the line count.
+  String get _thinking => widget.thinking.trim();
+
   void _copyThinking() {
-    Clipboard.setData(ClipboardData(text: widget.thinking));
+    Clipboard.setData(ClipboardData(text: _thinking));
     HapticFeedback.lightImpact();
     _copiedResetTimer?.cancel();
     setState(() => _copied = true);
@@ -106,11 +110,12 @@ class _ThinkingBubbleState extends State<ThinkingBubble>
     final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
     final codeSettings = codeTextSettingsOf(context);
+    final thinking = _thinking;
     final preview = buildThinkingPreview(
-      widget.thinking,
+      thinking,
       isStreaming: widget.isStreaming,
     );
-    final lineCount = '\n'.allMatches(widget.thinking).length + 1;
+    final lineCount = '\n'.allMatches(thinking).length + 1;
 
     final cardBg = isDark ? cs.surfaceContainerLow : cs.surfaceContainerLowest;
     final borderColor = cs.outlineVariant.withValues(alpha: 0.85);
@@ -256,7 +261,7 @@ class _ThinkingBubbleState extends State<ThinkingBubble>
                     child: SingleChildScrollView(
                       child: GoogleSearchSelectionArea(
                         child: Text(
-                          widget.thinking,
+                          thinking,
                           style: codeSettings.style(
                             color: cs.onSurface.withValues(alpha: 0.88),
                             height: 1.5,

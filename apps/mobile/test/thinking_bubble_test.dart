@@ -75,4 +75,44 @@ void main() {
       );
     });
   });
+
+  group('ThinkingBubble trailing blank lines', () {
+    testWidgets('drops the blank lines Claude appends to a thinking block', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(
+          const ThinkingBubble(
+            thinking: 'Only paragraph.\n\n',
+            initiallyExpanded: true,
+          ),
+        ),
+      );
+
+      expect(find.text('Only paragraph.'), findsOneWidget);
+      expect(find.text('1 lines'), findsOneWidget);
+    });
+
+    testWidgets('keeps blank lines between paragraphs', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          const ThinkingBubble(
+            thinking: 'First.\n\nSecond.\n\n',
+            initiallyExpanded: true,
+          ),
+        ),
+      );
+
+      expect(find.text('First.\n\nSecond.'), findsOneWidget);
+      expect(find.text('3 lines'), findsOneWidget);
+    });
+
+    testWidgets('collapsed preview has no trailing blank line', (tester) async {
+      await tester.pumpWidget(
+        _wrap(const ThinkingBubble(thinking: 'Short thought.\n\n')),
+      );
+
+      expect(find.text('Short thought.'), findsOneWidget);
+    });
+  });
 }
