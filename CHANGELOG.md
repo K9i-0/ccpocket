@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.187.0] - 2026-11-26
+
+### Changed
+
+- Markdown rendering: the `markdown_kit` renderer now has a deliberate public API and a proper code-highlighting extension point, which chat code blocks use; tables always sit in a horizontal scroller that stays inert when the table fits.
+- Housekeeping: removed the Reflex prototype, Voice Lab, the old macOS menubar app, and other unused code and scripts.
+
+### Fixed
+
+- Text selection: long-pressing in the space between lines of a paragraph now starts a selection instead of doing nothing.
+- Text selection: content switched to non-selectable is no longer included in "Select all".
+- Collapsible `<details>` sections keep their open state per screen instead of sharing it across the whole app.
+- Usage page: the full-size usage bars (including the two-pane desktop layout) now show the expected-usage marker.
+
 ## [1.186.1] - 2026-11-26
 
 ### Changed
