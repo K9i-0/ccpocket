@@ -4,54 +4,88 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:markdown_kit/markdown_kit.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:re_highlight/languages/apache.dart';
+import 'package:re_highlight/languages/arduino.dart';
+import 'package:re_highlight/languages/armasm.dart';
+import 'package:re_highlight/languages/awk.dart';
 import 'package:re_highlight/languages/bash.dart';
 import 'package:re_highlight/languages/c.dart';
 import 'package:re_highlight/languages/clojure.dart';
 import 'package:re_highlight/languages/cmake.dart';
+import 'package:re_highlight/languages/coffeescript.dart';
 import 'package:re_highlight/languages/cpp.dart';
+import 'package:re_highlight/languages/crystal.dart';
 import 'package:re_highlight/languages/csharp.dart';
 import 'package:re_highlight/languages/css.dart';
+import 'package:re_highlight/languages/d.dart';
 import 'package:re_highlight/languages/dart.dart';
+import 'package:re_highlight/languages/delphi.dart';
 import 'package:re_highlight/languages/diff.dart';
 import 'package:re_highlight/languages/dockerfile.dart';
+import 'package:re_highlight/languages/dos.dart';
 import 'package:re_highlight/languages/elixir.dart';
+import 'package:re_highlight/languages/elm.dart';
+import 'package:re_highlight/languages/erb.dart';
+import 'package:re_highlight/languages/erlang.dart';
+import 'package:re_highlight/languages/fortran.dart';
+import 'package:re_highlight/languages/fsharp.dart';
+import 'package:re_highlight/languages/gherkin.dart';
 import 'package:re_highlight/languages/glsl.dart';
 import 'package:re_highlight/languages/go.dart';
 import 'package:re_highlight/languages/gradle.dart';
 import 'package:re_highlight/languages/graphql.dart';
 import 'package:re_highlight/languages/groovy.dart';
+import 'package:re_highlight/languages/haml.dart';
+import 'package:re_highlight/languages/handlebars.dart';
 import 'package:re_highlight/languages/haskell.dart';
 import 'package:re_highlight/languages/http.dart';
 import 'package:re_highlight/languages/ini.dart';
 import 'package:re_highlight/languages/java.dart';
 import 'package:re_highlight/languages/javascript.dart';
 import 'package:re_highlight/languages/json.dart';
+import 'package:re_highlight/languages/julia.dart';
 import 'package:re_highlight/languages/kotlin.dart';
 import 'package:re_highlight/languages/latex.dart';
 import 'package:re_highlight/languages/less.dart';
+import 'package:re_highlight/languages/lisp.dart';
+import 'package:re_highlight/languages/llvm.dart';
 import 'package:re_highlight/languages/lua.dart';
 import 'package:re_highlight/languages/makefile.dart';
 import 'package:re_highlight/languages/markdown.dart';
+import 'package:re_highlight/languages/matlab.dart';
 import 'package:re_highlight/languages/nginx.dart';
 import 'package:re_highlight/languages/nix.dart';
 import 'package:re_highlight/languages/objectivec.dart';
+import 'package:re_highlight/languages/ocaml.dart';
 import 'package:re_highlight/languages/perl.dart';
+import 'package:re_highlight/languages/pgsql.dart';
 import 'package:re_highlight/languages/php.dart';
 import 'package:re_highlight/languages/powershell.dart';
+import 'package:re_highlight/languages/prolog.dart';
 import 'package:re_highlight/languages/properties.dart';
 import 'package:re_highlight/languages/protobuf.dart';
+import 'package:re_highlight/languages/puppet.dart';
 import 'package:re_highlight/languages/python.dart';
+import 'package:re_highlight/languages/qml.dart';
 import 'package:re_highlight/languages/r.dart';
 import 'package:re_highlight/languages/ruby.dart';
 import 'package:re_highlight/languages/rust.dart';
 import 'package:re_highlight/languages/scala.dart';
+import 'package:re_highlight/languages/scheme.dart';
 import 'package:re_highlight/languages/scss.dart';
 import 'package:re_highlight/languages/shell.dart';
 import 'package:re_highlight/languages/sql.dart';
+import 'package:re_highlight/languages/stylus.dart';
 import 'package:re_highlight/languages/swift.dart';
+import 'package:re_highlight/languages/tcl.dart';
+import 'package:re_highlight/languages/twig.dart';
 import 'package:re_highlight/languages/typescript.dart';
+import 'package:re_highlight/languages/verilog.dart';
+import 'package:re_highlight/languages/vhdl.dart';
 import 'package:re_highlight/languages/vim.dart';
+import 'package:re_highlight/languages/vue.dart';
 import 'package:re_highlight/languages/wasm.dart';
+import 'package:re_highlight/languages/x86asm.dart';
 import 'package:re_highlight/languages/xml.dart';
 import 'package:re_highlight/languages/yaml.dart';
 import 'package:re_highlight/re_highlight.dart';
@@ -693,54 +727,88 @@ List<TextSpan> highlightToTextSpans({
 Highlight _createReHighlight() {
   final highlight = Highlight()
     ..registerLanguages({
+      'apache': langApache,
+      'arduino': langArduino,
+      'armasm': langArmasm,
+      'awk': langAwk,
       'bash': langBash,
       'c': langC,
       'clojure': langClojure,
       'cmake': langCmake,
+      'coffeescript': langCoffeescript,
       'cpp': langCpp,
+      'crystal': langCrystal,
       'csharp': langCsharp,
       'css': langCss,
+      'd': langD,
       'dart': langDart,
+      'delphi': langDelphi,
       'diff': langDiff,
       'dockerfile': langDockerfile,
+      'dos': langDos,
       'elixir': langElixir,
+      'elm': langElm,
+      'erb': langErb,
+      'erlang': langErlang,
+      'fortran': langFortran,
+      'fsharp': langFsharp,
+      'gherkin': langGherkin,
       'glsl': langGlsl,
       'go': langGo,
       'gradle': langGradle,
       'graphql': langGraphql,
       'groovy': langGroovy,
+      'haml': langHaml,
+      'handlebars': langHandlebars,
       'haskell': langHaskell,
       'http': langHttp,
       'ini': langIni,
       'java': langJava,
       'javascript': langJavascript,
       'json': langJson,
+      'julia': langJulia,
       'kotlin': langKotlin,
       'latex': langLatex,
       'less': langLess,
+      'lisp': langLisp,
+      'llvm': langLlvm,
       'lua': langLua,
       'makefile': langMakefile,
       'markdown': langMarkdown,
+      'matlab': langMatlab,
       'nginx': langNginx,
       'nix': langNix,
       'objectivec': langObjectivec,
+      'ocaml': langOcaml,
       'perl': langPerl,
+      'pgsql': langPgsql,
       'php': langPhp,
       'powershell': langPowershell,
+      'prolog': langProlog,
       'properties': langProperties,
       'protobuf': langProtobuf,
+      'puppet': langPuppet,
       'python': langPython,
+      'qml': langQml,
       'r': langR,
       'ruby': langRuby,
       'rust': langRust,
       'scala': langScala,
+      'scheme': langScheme,
       'scss': langScss,
       'shell': langShell,
       'sql': langSql,
+      'stylus': langStylus,
       'swift': langSwift,
+      'tcl': langTcl,
+      'twig': langTwig,
       'typescript': langTypescript,
+      'verilog': langVerilog,
+      'vhdl': langVhdl,
       'vim': langVim,
+      'vue': langVue,
       'wasm': langWasm,
+      'x86asm': langX86Asm,
       'xml': langXml,
       'yaml': langYaml,
     })
