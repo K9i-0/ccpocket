@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.189.0] - 2026-11-27
+
+### Added
+
+- Math rendering (preview): LaTeX written as `\(...\)` and `\[...\]` in chat messages is now typeset as mathematical notation, including fractions, integrals, sums, roots, and matrices. A formula that cannot be typeset, or a display formula that is still streaming, keeps the previous plain-text rendering. `$...$` is not treated as math, so prices are left alone. This relies on a third-party library that is no longer actively maintained, so it is offered as a preview and may be removed without notice if it stops working with a future update (#238).
+
 ## [1.188.0] - 2026-11-27
 
 ### Added
