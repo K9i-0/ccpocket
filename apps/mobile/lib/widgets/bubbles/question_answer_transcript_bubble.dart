@@ -3,7 +3,6 @@ import 'package:material_ui/material_ui.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
 import '../../theme/app_spacing.dart';
-import '../../theme/app_theme.dart';
 import 'ask_question_option_button.dart';
 
 class QuestionAnswerTranscriptBubble extends StatelessWidget {
@@ -13,8 +12,13 @@ class QuestionAnswerTranscriptBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appColors = Theme.of(context).extension<AppColors>()!;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     final l = AppLocalizations.of(context);
+    final borderColor = cs.outlineVariant.withValues(
+      alpha: isDark ? 0.65 : 0.8,
+    );
 
     return Align(
       alignment: Alignment.centerLeft,
@@ -22,54 +26,53 @@ class QuestionAnswerTranscriptBubble extends StatelessWidget {
         key: const ValueKey('question_answer_transcript_bubble'),
         margin: const EdgeInsets.symmetric(
           horizontal: AppSpacing.bubbleMarginH,
-          vertical: 4,
+          vertical: AppSpacing.bubbleMarginV,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              appColors.askBubble,
-              appColors.askBubble.withValues(alpha: 0.78),
-            ],
-          ),
+          color: cs.surfaceContainerLow,
           borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-          border: Border.all(color: appColors.askBubbleBorder),
+          border: Border.all(color: borderColor, width: 1),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(3),
-                  decoration: BoxDecoration(
-                    color: appColors.askIcon.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    Icons.help_outline,
-                    size: 17,
-                    color: appColors.askIcon,
-                  ),
-                ),
-                const SizedBox(width: 9),
+                Icon(Icons.help_outline, size: 15, color: cs.onSurfaceVariant),
+                const SizedBox(width: 8),
                 Text(
                   l.questionLabel,
                   style: TextStyle(
-                    color: appColors.askIcon,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
+                    color: cs.onSurface.withValues(alpha: 0.86),
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const Spacer(),
-                Text(
-                  l.answered,
-                  style: TextStyle(
-                    color: appColors.subtleText,
-                    fontSize: 11,
-                    fontStyle: FontStyle.italic,
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: cs.onSurface.withValues(alpha: isDark ? 0.08 : 0.06),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: cs.onSurfaceVariant.withValues(
+                        alpha: isDark ? 0.22 : 0.18,
+                      ),
+                      width: 0.75,
+                    ),
+                  ),
+                  child: Text(
+                    l.answered,
+                    style: TextStyle(
+                      color: cs.onSurfaceVariant,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      height: 1.2,
+                    ),
                   ),
                 ),
               ],
@@ -80,12 +83,7 @@ class QuestionAnswerTranscriptBubble extends StatelessWidget {
               index < transcript.questions.length;
               index++
             ) ...[
-              if (index > 0) ...[
-                Divider(
-                  height: 20,
-                  color: appColors.askBubbleBorder.withValues(alpha: 0.55),
-                ),
-              ],
+              if (index > 0) ...[Divider(height: 20, color: borderColor)],
               _AnsweredQuestionContent(question: transcript.questions[index]),
             ],
           ],
@@ -102,9 +100,10 @@ class _AnsweredQuestionContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appColors = Theme.of(context).extension<AppColors>()!;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     final l = AppLocalizations.of(context);
-    final textColor = Theme.of(context).colorScheme.onSurface;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -113,41 +112,45 @@ class _AnsweredQuestionContent extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: appColors.askIcon.withValues(alpha: 0.12),
+              color: cs.onSurface.withValues(alpha: isDark ? 0.08 : 0.05),
               borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: cs.outlineVariant.withValues(alpha: 0.65),
+                width: 0.75,
+              ),
             ),
             child: Text(
               question.header!,
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: appColors.askIcon,
+                color: cs.onSurfaceVariant,
               ),
             ),
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 6),
         ],
         SelectableText(
           question.question,
           style: TextStyle(
-            color: textColor,
+            color: cs.onSurface,
             fontSize: 14,
             height: 1.35,
             fontWeight: FontWeight.w600,
           ),
         ),
         if (question.multiSelect) ...[
-          const SizedBox(height: 2),
+          const SizedBox(height: 3),
           Text(
             l.selectAllThatApply,
-            style: TextStyle(fontSize: 11, color: appColors.subtleText),
+            style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant),
           ),
         ],
         if (question.options.isNotEmpty) ...[
           const SizedBox(height: 8),
           for (final option in question.options)
             Padding(
-              padding: const EdgeInsets.only(bottom: 4),
+              padding: const EdgeInsets.only(bottom: 6),
               child: AskQuestionOptionButton(
                 optionKey: ValueKey('question_answer_option_${option.label}'),
                 label: option.label,
@@ -181,17 +184,22 @@ class _AnsweredFreeText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appColors = Theme.of(context).extension<AppColors>()!;
-    final surface = Theme.of(context).colorScheme.surface;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
 
     return Container(
       key: const ValueKey('question_answer_free_text'),
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
-        color: surface.withValues(alpha: 0.8),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: appColors.askBubbleBorder),
+        color: isDark
+            ? cs.onSurface.withValues(alpha: 0.045)
+            : cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.7 : 0.8),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -199,13 +207,16 @@ class _AnsweredFreeText extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              color: appColors.askIcon,
+              color: cs.onSurfaceVariant,
               fontSize: 11,
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 3),
-          SelectableText(answer, style: const TextStyle(fontSize: 13)),
+          SelectableText(
+            answer,
+            style: TextStyle(fontSize: 13, color: cs.onSurface),
+          ),
         ],
       ),
     );

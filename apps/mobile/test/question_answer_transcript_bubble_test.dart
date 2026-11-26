@@ -112,4 +112,54 @@ void main() {
     expect(find.text('••••'), findsOneWidget);
     expect(find.text('top-secret-value'), findsNothing);
   });
+
+  testWidgets(
+    'uses neutral resolved transcript surface aligned with PermissionRequestBubble',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.darkTheme,
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('en'),
+          home: const Scaffold(
+            body: QuestionAnswerTranscriptBubble(
+              transcript: QuestionAnswerTranscript(
+                plainText: 'Question: Which sound?\nAnswer: Cave',
+                questions: [
+                  AnsweredQuestion(
+                    header: 'Sound',
+                    question: 'Which sound?',
+                    freeTextAnswer: 'Cave',
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final theme = AppTheme.darkTheme;
+      final cs = theme.colorScheme;
+      final appColors = theme.extension<AppColors>()!;
+      final container = tester.widget<Container>(
+        find.byKey(const ValueKey('question_answer_transcript_bubble')),
+      );
+      final deco = container.decoration! as BoxDecoration;
+      expect(deco.color, cs.surfaceContainerLow);
+      expect(deco.gradient, isNull);
+
+      final titleText = tester.widget<Text>(find.text('Question'));
+      expect(titleText.style?.color, isNot(appColors.askIcon));
+
+      final freeTextContainer = tester.widget<Container>(
+        find.byKey(const ValueKey('question_answer_free_text')),
+      );
+      final freeTextDeco = freeTextContainer.decoration! as BoxDecoration;
+      expect(
+        freeTextDeco.border,
+        isNot(Border.all(color: appColors.askBubbleBorder)),
+      );
+    },
+  );
 }

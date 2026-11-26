@@ -160,4 +160,46 @@ void main() {
     );
     expect(find.text('Try Again'), findsOneWidget);
   });
+
+  testWidgets(
+    'uses approval bar bottom-sheet surface and neutral/primary actions',
+    (tester) async {
+      await tester.pumpWidget(
+        buildSubject(
+          permission: const PermissionRequestMessage(
+            toolUseId: 'approval-style',
+            toolName: 'ToolSuggestion',
+            input: {
+              'toolName': 'GitHub',
+              'toolType': 'plugin',
+              'suggestReason': 'Inspect forks.',
+              'installState': 'idle',
+            },
+          ),
+        ),
+      );
+
+      final cs = AppTheme.darkTheme.colorScheme;
+      final card = tester.widget<Container>(
+        find.byKey(const ValueKey('tool_suggestion_card')),
+      );
+      expect(card.decoration, isA<ShapeDecoration>());
+      final deco = card.decoration! as ShapeDecoration;
+      expect(deco.color, cs.surfaceContainerHigh);
+
+      final declineButton = tester.widget<OutlinedButton>(
+        find.byKey(const ValueKey('tool_suggestion_decline_button')),
+      );
+      expect(
+        declineButton.style?.foregroundColor?.resolve({}),
+        cs.onSurfaceVariant,
+      );
+
+      final installButton = tester.widget<FilledButton>(
+        find.byKey(const ValueKey('tool_suggestion_install_button')),
+      );
+      expect(installButton.style?.backgroundColor?.resolve({}), cs.primary);
+      expect(installButton.style?.foregroundColor?.resolve({}), cs.onPrimary);
+    },
+  );
 }
