@@ -53,8 +53,9 @@ class MarkdownDocumentRegistration {
   /// Registers or updates [ref] on [controller].
   ///
   /// When [controller] is `null` or [selectable] is `false`, detaches any
-  /// prior registration (removing the document only if the prior registration
-  /// had `keepDocumentOnDispose == false`).
+  /// prior registration. The document is removed from the controller when the
+  /// view was switched to not selectable, or when the prior registration had
+  /// `keepDocumentOnDispose == false`.
   void sync({
     required MarkdownSelectionController? controller,
     required MarkdownDocumentRef ref,
@@ -71,7 +72,13 @@ class MarkdownDocumentRegistration {
     if (prevController != null &&
         prevDocId != null &&
         (prevController != targetController || prevDocId != ref.id)) {
-      if (!prevKeep) {
+      // Keeping the document is for widgets that go away (virtualization, a
+      // streaming bubble handing over to the final one). A view that stays
+      // and is switched to not selectable must leave the selection entirely,
+      // or Select all would still copy its text.
+      final turnedUnselectable =
+          !selectable && prevController == controller && prevDocId == ref.id;
+      if (!prevKeep || turnedUnselectable) {
         _removeSafely(prevController, prevDocId);
       }
       _registeredController = null;

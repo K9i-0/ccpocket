@@ -929,16 +929,12 @@ void main() {
       Widget scoped({required bool selectable}) => _app(
         child: MarkdownSelectionScope(
           controller: controller,
-          // INTENDED SPEC DIFFERENCE: with the default
-          // `keepDocumentOnDispose: true` the document stays registered in a
-          // shared controller after `selectable` turns false (see the doc
-          // comment of `MarkdownDocumentRegistration.sync` in
-          // would still reach it. This test opts out to check the toggle.
+          // The default keepDocumentOnDispose: true must not keep a view that
+          // was switched to not selectable within reach of Select all.
           child: MarkdownView(
             documentId: 'probe',
             data: _doc,
             selectable: selectable,
-            keepDocumentOnDispose: false,
           ),
         ),
       );
