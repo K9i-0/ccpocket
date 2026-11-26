@@ -32,7 +32,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:provider/provider.dart' hide Provider;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _TestBridgeService extends BridgeService {
@@ -355,7 +354,7 @@ Future<_WorkspaceTestHarness> _pumpWorkspace(
         RepositoryProvider<GitHubViewCacheService>.value(
           value: githubViewCacheService,
         ),
-        ChangeNotifierProvider<SupportBannerService>.value(
+        RepositoryProvider<SupportBannerService>.value(
           value: supportBannerService,
         ),
       ],

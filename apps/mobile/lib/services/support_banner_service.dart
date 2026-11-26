@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'in_app_review_service.dart';
 import 'revenuecat_service.dart';
 
-class SupportBannerService extends ChangeNotifier {
+class SupportBannerService {
   SupportBannerService({
     required SharedPreferences prefs,
     required InAppReviewService reviewService,
@@ -18,6 +18,10 @@ class SupportBannerService extends ChangeNotifier {
   final SharedPreferences _prefs;
   final InAppReviewService _reviewService;
   final bool forceShowInDebug;
+  final ValueNotifier<int> _changes = ValueNotifier<int>(0);
+  bool _disposed = false;
+
+  Listenable get listenable => _changes;
 
   bool get debugForceShowOverride =>
       _prefs.getBool(debugForceShowKey) ?? forceShowInDebug;
@@ -50,6 +54,14 @@ class SupportBannerService extends ChangeNotifier {
 
   Future<void> setDebugForceShowOverride(bool value) async {
     await _prefs.setBool(debugForceShowKey, value);
-    notifyListeners();
+    if (!_disposed) {
+      _changes.value++;
+    }
+  }
+
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    _changes.dispose();
   }
 }

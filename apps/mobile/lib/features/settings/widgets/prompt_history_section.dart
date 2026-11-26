@@ -1,5 +1,5 @@
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:provider/provider.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../services/bridge_service.dart';
@@ -451,8 +451,8 @@ class PromptHistorySectionSlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final promptHistoryService = _readOptional<PromptHistoryService>(context);
-    final machineManagerService = _readOptional<MachineManagerService>(context);
+    final promptHistoryService = context.read<PromptHistoryService?>();
+    final machineManagerService = context.read<MachineManagerService?>();
 
     if (promptHistoryService == null || machineManagerService == null) {
       return const SizedBox.shrink();
@@ -468,13 +468,5 @@ class PromptHistorySectionSlot extends StatelessWidget {
         const SizedBox(height: 8),
       ],
     );
-  }
-
-  T? _readOptional<T>(BuildContext context) {
-    try {
-      return context.read<T>();
-    } on ProviderNotFoundException {
-      return null;
-    }
   }
 }

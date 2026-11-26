@@ -309,11 +309,13 @@ class HomeContentState extends State<HomeContent> {
     final supportBannerService = context.read<SupportBannerService>();
     if (!identical(_supportBannerService, supportBannerService)) {
       if (_supportBannerService != null && _supportBannerListener != null) {
-        _supportBannerService!.removeListener(_supportBannerListener!);
+        _supportBannerService!.listenable.removeListener(
+          _supportBannerListener!,
+        );
       }
       _supportBannerService = supportBannerService;
       _supportBannerListener = () => _refreshSupportBannerVisibility();
-      supportBannerService.addListener(_supportBannerListener!);
+      supportBannerService.listenable.addListener(_supportBannerListener!);
       _refreshSupportBannerVisibility();
     }
   }
@@ -429,7 +431,7 @@ class HomeContentState extends State<HomeContent> {
       _revenueCatService!.catalogState.removeListener(_catalogStateListener!);
     }
     if (_supportBannerService != null && _supportBannerListener != null) {
-      _supportBannerService!.removeListener(_supportBannerListener!);
+      _supportBannerService!.listenable.removeListener(_supportBannerListener!);
     }
     super.dispose();
   }

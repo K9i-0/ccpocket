@@ -5,9 +5,9 @@ import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/theme/provider_style.dart';
 import 'package:ccpocket/widgets/session_name_title.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart' as provider;
 
 class _TitleBridgeService extends BridgeService {
   _TitleBridgeService({
@@ -60,7 +60,7 @@ void main() {
     addTearDown(bridge.dispose);
 
     await tester.pumpWidget(
-      provider.Provider<BridgeService>.value(
+      RepositoryProvider<BridgeService>.value(
         value: bridge,
         child: const MaterialApp(
           home: Scaffold(
@@ -93,7 +93,7 @@ void main() {
     addTearDown(bridge.dispose);
 
     await tester.pumpWidget(
-      provider.Provider<BridgeService>.value(
+      RepositoryProvider<BridgeService>.value(
         value: bridge,
         child: const MaterialApp(
           home: Scaffold(
@@ -142,7 +142,7 @@ void main() {
       addTearDown(bridge.dispose);
 
       await tester.pumpWidget(
-        provider.Provider<BridgeService>.value(
+        RepositoryProvider<BridgeService>.value(
           value: bridge,
           child: MaterialApp(
             theme: brightness == Brightness.dark

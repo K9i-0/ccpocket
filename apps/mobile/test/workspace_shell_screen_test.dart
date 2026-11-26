@@ -38,7 +38,6 @@ import 'package:ccpocket/features/git/git_screen.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart' hide Provider;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'helpers/bridge_version_test_values.dart';
@@ -462,7 +461,7 @@ Widget _buildWorkspaceApp({
       RepositoryProvider<BridgeService>.value(value: bridge),
       RepositoryProvider<DraftService>.value(value: draftService),
       RepositoryProvider<RevenueCatService>.value(value: revenueCatService),
-      ChangeNotifierProvider<SupportBannerService>.value(
+      RepositoryProvider<SupportBannerService>.value(
         value: supportBannerService,
       ),
     ],

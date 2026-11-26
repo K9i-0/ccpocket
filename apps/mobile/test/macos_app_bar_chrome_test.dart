@@ -11,7 +11,6 @@ import 'package:ccpocket/widgets/workspace_pane_chrome.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -49,11 +48,12 @@ Future<Widget> _wrapDebugScreen() async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
 
-  return ChangeNotifierProvider<SupportBannerService>(
+  return RepositoryProvider<SupportBannerService>(
     create: (_) => SupportBannerService(
       prefs: prefs,
       reviewService: InAppReviewService(prefs: prefs),
     ),
+    dispose: (service) => service.dispose(),
     child: BlocProvider<SettingsCubit>(
       create: (_) => SettingsCubit(prefs),
       child: MaterialApp(

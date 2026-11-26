@@ -34,7 +34,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'helpers/bridge_version_test_values.dart';
@@ -388,7 +387,7 @@ Future<Widget> _buildScreen({
     ),
   );
   if (supportBannerService == null) return screen;
-  return ChangeNotifierProvider<SupportBannerService>.value(
+  return RepositoryProvider<SupportBannerService>.value(
     value: supportBannerService,
     child: screen,
   );

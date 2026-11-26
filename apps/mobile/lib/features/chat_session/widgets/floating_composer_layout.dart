@@ -3,8 +3,8 @@ import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:provider/provider.dart';
 
 import '../../../services/floating_keyboard_service.dart';
 import '../../../widgets/frosted_composer.dart';
@@ -166,10 +166,7 @@ class _FloatingComposerLayoutState extends State<FloatingComposerLayout> {
   void _resolveKeyboardFrame() {
     final next =
         widget.keyboardFrame ??
-        Provider.of<FloatingKeyboardService?>(
-          context,
-          listen: false,
-        )?.floatingFrame;
+        context.read<FloatingKeyboardService?>()?.floatingFrame;
     if (identical(next, _keyboardFrame)) return;
     _keyboardFrame?.removeListener(_onKeyboardFrameChanged);
     _keyboardFrame = next;

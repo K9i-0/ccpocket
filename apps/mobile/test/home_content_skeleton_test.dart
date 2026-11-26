@@ -19,7 +19,6 @@ import 'package:ccpocket/theme/app_theme.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Minimal mock for BridgeService that satisfies SessionListCubit.
@@ -142,7 +141,7 @@ Widget _buildHomeContent({
     providers: [
       RepositoryProvider<DraftService>.value(value: draftService),
       RepositoryProvider<RevenueCatService>.value(value: revenueCatService),
-      ChangeNotifierProvider<SupportBannerService>.value(
+      RepositoryProvider<SupportBannerService>.value(
         value: supportBannerService,
       ),
     ],

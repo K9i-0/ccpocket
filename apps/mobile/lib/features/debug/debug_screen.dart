@@ -28,7 +28,7 @@ class DebugScreen extends StatelessWidget {
       body: BlocBuilder<SettingsCubit, SettingsState>(
         builder: (context, settings) {
           return ListenableBuilder(
-            listenable: supportBannerService,
+            listenable: supportBannerService.listenable,
             builder: (context, _) {
               return ListView(
                 children: [

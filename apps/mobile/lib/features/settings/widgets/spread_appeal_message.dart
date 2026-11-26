@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:provider/provider.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../services/in_app_review_service.dart';
@@ -26,11 +25,23 @@ class _SpreadAppealMessageState extends State<SpreadAppealMessage> {
 
   @override
   Widget build(BuildContext context) {
-    final supportBannerService = context.watch<SupportBannerService?>();
-    if (supportBannerService?.shouldForceShowInDebug ?? false) {
-      return const _SpreadAppealMessageContent();
+    final supportBannerService = context.read<SupportBannerService?>();
+    if (supportBannerService == null) {
+      return _buildEligibilityContent();
     }
 
+    return ListenableBuilder(
+      listenable: supportBannerService.listenable,
+      builder: (context, _) {
+        if (supportBannerService.shouldForceShowInDebug) {
+          return const _SpreadAppealMessageContent();
+        }
+        return _buildEligibilityContent();
+      },
+    );
+  }
+
+  Widget _buildEligibilityContent() {
     final eligibilityFuture = _eligibilityFuture;
     if (eligibilityFuture == null) return const SizedBox.shrink();
 

@@ -24,7 +24,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:marionette_flutter/marionette_flutter.dart';
 import 'package:media_kit/media_kit.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/app_bloc_observer.dart';
@@ -265,9 +264,10 @@ Future<CcpocketBootstrap> bootstrapCcpocket() async {
           lazy: false,
           dispose: (service) => service.dispose(),
         ),
-        ChangeNotifierProvider<SupportBannerService>(
+        RepositoryProvider<SupportBannerService>(
           create: (_) => supportBannerService,
           lazy: false,
+          dispose: (service) => service.dispose(),
         ),
         RepositoryProvider<PromptHistoryService>.value(
           value: promptHistoryService,
