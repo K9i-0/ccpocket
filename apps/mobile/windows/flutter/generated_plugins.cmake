@@ -7,10 +7,8 @@ list(APPEND FLUTTER_PLUGIN_LIST
   file_selector_windows
   firebase_core
   flutter_secure_storage_windows
-  irondash_engine_context
   media_kit_libs_windows_video
   speech_to_text_windows
-  super_native_extensions
   url_launcher_windows
   share_plus
   media_kit_video

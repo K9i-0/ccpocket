@@ -9,8 +9,6 @@ PODS:
   - CwlCatchException (2.2.1):
     - CwlCatchExceptionSupport (~> 2.2.1)
   - CwlCatchExceptionSupport (2.2.1)
-  - device_info_plus (0.0.1):
-    - Flutter
   - duo_kit (0.2.0):
     - Flutter
   - file_selector_ios (0.0.1):
@@ -84,8 +82,6 @@ PODS:
     - Flutter
   - in_app_review (2.0.0):
     - Flutter
-  - irondash_engine_context (0.0.1):
-    - Flutter
   - media_kit_libs_ios_video (1.0.4):
     - Flutter
   - media_kit_video (0.0.1):
@@ -122,8 +118,6 @@ PODS:
   - sqflite_darwin (0.0.4):
     - Flutter
     - FlutterMacOS
-  - super_native_extensions (0.0.1):
-    - Flutter
   - url_launcher_ios (0.0.1):
     - Flutter
   - wakelock_plus (0.0.1):
@@ -136,7 +130,6 @@ DEPENDENCIES:
   - app_links (from `.symlinks/plugins/app_links/ios`)
   - audio_service (from `.symlinks/plugins/audio_service/darwin`)
   - audio_session (from `.symlinks/plugins/audio_session/ios`)
-  - device_info_plus (from `.symlinks/plugins/device_info_plus/ios`)
   - duo_kit (from `.symlinks/plugins/duo_kit/ios`)
   - file_selector_ios (from `.symlinks/plugins/file_selector_ios/ios`)
   - firebase_core (from `.symlinks/plugins/firebase_core/ios`)
@@ -146,7 +139,6 @@ DEPENDENCIES:
   - flutter_secure_storage_darwin (from `.symlinks/plugins/flutter_secure_storage_darwin/darwin`)
   - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
   - in_app_review (from `.symlinks/plugins/in_app_review/ios`)
-  - irondash_engine_context (from `.symlinks/plugins/irondash_engine_context/ios`)
   - media_kit_libs_ios_video (from `.symlinks/plugins/media_kit_libs_ios_video/ios`)
   - media_kit_video (from `.symlinks/plugins/media_kit_video/ios`)
   - mobile_scanner (from `.symlinks/plugins/mobile_scanner/darwin`)
@@ -157,7 +149,6 @@ DEPENDENCIES:
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
   - speech_to_text (from `.symlinks/plugins/speech_to_text/darwin`)
   - sqflite_darwin (from `.symlinks/plugins/sqflite_darwin/darwin`)
-  - super_native_extensions (from `.symlinks/plugins/super_native_extensions/ios`)
   - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
   - wakelock_plus (from `.symlinks/plugins/wakelock_plus/ios`)
   - webview_flutter_wkwebview (from `.symlinks/plugins/webview_flutter_wkwebview/darwin`)
@@ -185,8 +176,6 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/audio_service/darwin"
   audio_session:
     :path: ".symlinks/plugins/audio_session/ios"
-  device_info_plus:
-    :path: ".symlinks/plugins/device_info_plus/ios"
   duo_kit:
     :path: ".symlinks/plugins/duo_kit/ios"
   file_selector_ios:
@@ -205,8 +194,6 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/image_picker_ios/ios"
   in_app_review:
     :path: ".symlinks/plugins/in_app_review/ios"
-  irondash_engine_context:
-    :path: ".symlinks/plugins/irondash_engine_context/ios"
   media_kit_libs_ios_video:
     :path: ".symlinks/plugins/media_kit_libs_ios_video/ios"
   media_kit_video:
@@ -227,8 +214,6 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/speech_to_text/darwin"
   sqflite_darwin:
     :path: ".symlinks/plugins/sqflite_darwin/darwin"
-  super_native_extensions:
-    :path: ".symlinks/plugins/super_native_extensions/ios"
   url_launcher_ios:
     :path: ".symlinks/plugins/url_launcher_ios/ios"
   wakelock_plus:
@@ -242,7 +227,6 @@ SPEC CHECKSUMS:
   audio_session: 9bb7f6c970f21241b19f5a3658097ae459681ba0
   CwlCatchException: 7acc161b299a6de7f0a46a6ed741eae2c8b4d75a
   CwlCatchExceptionSupport: 54ccab8d8c78907b57f99717fb19d4cc3bce02dc
-  device_info_plus: 21fcca2080fbcd348be798aa36c3e5ed849eefbe
   duo_kit: 3657a552df1412828980b653f2058b0ca5e649e3
   file_selector_ios: fb1dd93b450e9c1ac595c0c8cf29cc855ea24d61
   Firebase: e3c5ab38229ae085490d02398d97b9f5374bbe6e
@@ -259,7 +243,6 @@ SPEC CHECKSUMS:
   GoogleUtilities: 7dc09b3fa9ecb5c2298b952313d14628b61b9da3
   image_picker_ios: 872ad7b7cb44bf470e7324191b51ee0e26f45cb9
   in_app_review: 7dd1ea365263f834b8464673f9df72c80c17c937
-  irondash_engine_context: 8e58ca8e0212ee9d1c7dc6a42121849986c88486
   media_kit_libs_ios_video: 5a18affdb97d1f5d466dc79988b13eff6c5e2854
   media_kit_video: 1746e198cb697d1ffb734b1d05ec429d1fcd1474
   mobile_scanner: 9157936403f5a0644ca3779a38ff8404c5434a93
@@ -274,7 +257,6 @@ SPEC CHECKSUMS:
   shared_preferences_foundation: a7c3904f2dedb3701dd1903cb152ef5e7df92422
   speech_to_text: 3b313d98516d3d0406cea424782ec25470c59d19
   sqflite_darwin: 20b2a3a3b70e43edae938624ce550a3cbf66a3d0
-  super_native_extensions: b763c02dc3a8fd078389f410bf15149179020cb4
   url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b
   wakelock_plus: e29112ab3ef0b318e58cfa5c32326458be66b556
   webview_flutter_wkwebview: 8ebf4fded22593026f7dbff1fbff31ea98573c8d

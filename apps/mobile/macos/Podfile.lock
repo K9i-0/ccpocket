@@ -9,8 +9,6 @@ PODS:
   - CwlCatchException (2.2.1):
     - CwlCatchExceptionSupport (~> 2.2.1)
   - CwlCatchExceptionSupport (2.2.1)
-  - device_info_plus (0.0.1):
-    - FlutterMacOS
   - file_selector_macos (0.0.1):
     - FlutterMacOS
   - Firebase/CoreOnly (12.19.3):
@@ -81,8 +79,6 @@ PODS:
     - GoogleUtilities/Privacy
   - in_app_review (2.0.0):
     - FlutterMacOS
-  - irondash_engine_context (0.0.1):
-    - FlutterMacOS
   - media_kit_libs_macos_video (1.0.4):
     - FlutterMacOS
   - media_kit_video (0.0.1):
@@ -120,8 +116,6 @@ PODS:
   - sqflite_darwin (0.0.4):
     - Flutter
     - FlutterMacOS
-  - super_native_extensions (0.0.1):
-    - FlutterMacOS
   - url_launcher_macos (0.0.1):
     - FlutterMacOS
   - wakelock_plus (0.0.1):
@@ -134,7 +128,6 @@ DEPENDENCIES:
   - app_links (from `Flutter/ephemeral/.symlinks/plugins/app_links/macos`)
   - audio_service (from `Flutter/ephemeral/.symlinks/plugins/audio_service/darwin`)
   - audio_session (from `Flutter/ephemeral/.symlinks/plugins/audio_session/macos`)
-  - device_info_plus (from `Flutter/ephemeral/.symlinks/plugins/device_info_plus/macos`)
   - file_selector_macos (from `Flutter/ephemeral/.symlinks/plugins/file_selector_macos/macos`)
   - firebase_core (from `Flutter/ephemeral/.symlinks/plugins/firebase_core/macos`)
   - firebase_messaging (from `Flutter/ephemeral/.symlinks/plugins/firebase_messaging/macos`)
@@ -142,7 +135,6 @@ DEPENDENCIES:
   - flutter_secure_storage_darwin (from `Flutter/ephemeral/.symlinks/plugins/flutter_secure_storage_darwin/darwin`)
   - FlutterMacOS (from `Flutter/ephemeral`)
   - in_app_review (from `Flutter/ephemeral/.symlinks/plugins/in_app_review/macos`)
-  - irondash_engine_context (from `Flutter/ephemeral/.symlinks/plugins/irondash_engine_context/macos`)
   - media_kit_libs_macos_video (from `Flutter/ephemeral/.symlinks/plugins/media_kit_libs_macos_video/macos`)
   - media_kit_video (from `Flutter/ephemeral/.symlinks/plugins/media_kit_video/macos`)
   - mobile_scanner (from `Flutter/ephemeral/.symlinks/plugins/mobile_scanner/darwin`)
@@ -154,7 +146,6 @@ DEPENDENCIES:
   - Sparkle (~> 2.9)
   - speech_to_text (from `Flutter/ephemeral/.symlinks/plugins/speech_to_text/darwin`)
   - sqflite_darwin (from `Flutter/ephemeral/.symlinks/plugins/sqflite_darwin/darwin`)
-  - super_native_extensions (from `Flutter/ephemeral/.symlinks/plugins/super_native_extensions/macos`)
   - url_launcher_macos (from `Flutter/ephemeral/.symlinks/plugins/url_launcher_macos/macos`)
   - wakelock_plus (from `Flutter/ephemeral/.symlinks/plugins/wakelock_plus/macos`)
   - webview_flutter_wkwebview (from `Flutter/ephemeral/.symlinks/plugins/webview_flutter_wkwebview/darwin`)
@@ -183,8 +174,6 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/audio_service/darwin
   audio_session:
     :path: Flutter/ephemeral/.symlinks/plugins/audio_session/macos
-  device_info_plus:
-    :path: Flutter/ephemeral/.symlinks/plugins/device_info_plus/macos
   file_selector_macos:
     :path: Flutter/ephemeral/.symlinks/plugins/file_selector_macos/macos
   firebase_core:
@@ -199,8 +188,6 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral
   in_app_review:
     :path: Flutter/ephemeral/.symlinks/plugins/in_app_review/macos
-  irondash_engine_context:
-    :path: Flutter/ephemeral/.symlinks/plugins/irondash_engine_context/macos
   media_kit_libs_macos_video:
     :path: Flutter/ephemeral/.symlinks/plugins/media_kit_libs_macos_video/macos
   media_kit_video:
@@ -221,8 +208,6 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/speech_to_text/darwin
   sqflite_darwin:
     :path: Flutter/ephemeral/.symlinks/plugins/sqflite_darwin/darwin
-  super_native_extensions:
-    :path: Flutter/ephemeral/.symlinks/plugins/super_native_extensions/macos
   url_launcher_macos:
     :path: Flutter/ephemeral/.symlinks/plugins/url_launcher_macos/macos
   wakelock_plus:
@@ -236,7 +221,6 @@ SPEC CHECKSUMS:
   audio_session: eaca2512cf2b39212d724f35d11f46180ad3a33e
   CwlCatchException: 7acc161b299a6de7f0a46a6ed741eae2c8b4d75a
   CwlCatchExceptionSupport: 54ccab8d8c78907b57f99717fb19d4cc3bce02dc
-  device_info_plus: 4fb280989f669696856f8b129e4a5e3cd6c48f76
   file_selector_macos: 3af0fddc391c32a6a3956a7d3898ca3a86057a4f
   Firebase: e3c5ab38229ae085490d02398d97b9f5374bbe6e
   firebase_core: 0d27202319f742c61e9c066c2b6f563a3a83c29f
@@ -251,7 +235,6 @@ SPEC CHECKSUMS:
   GoogleDataTransport: a24e58982ab3ba2f64d79613e027fe7f57e88539
   GoogleUtilities: 7dc09b3fa9ecb5c2298b952313d14628b61b9da3
   in_app_review: 66e7680752b632d83f4f0e88b34d52ed303fbff4
-  irondash_engine_context: 893c7d96d20ce361d7e996f39d360c4c2f9869ba
   media_kit_libs_macos_video: 85a23e549b5f480e72cae3e5634b5514bc692f65
   media_kit_video: fa6564e3799a0a28bff39442334817088b7ca758
   mobile_scanner: 9157936403f5a0644ca3779a38ff8404c5434a93
@@ -267,7 +250,6 @@ SPEC CHECKSUMS:
   Sparkle: b8c9cf4ced217ffc708a1ca5f988a7ba877658db
   speech_to_text: 3b313d98516d3d0406cea424782ec25470c59d19
   sqflite_darwin: 20b2a3a3b70e43edae938624ce550a3cbf66a3d0
-  super_native_extensions: c2795d6d9aedf4a79fae25cb6160b71b50549189
   url_launcher_macos: f87a979182d112f911de6820aefddaf56ee9fbfd
   wakelock_plus: 917609be14d812ddd9e9528876538b2263aaa03b
   webview_flutter_wkwebview: 8ebf4fded22593026f7dbff1fbff31ea98573c8d

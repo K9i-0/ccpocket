@@ -64,7 +64,6 @@ dependencies:
   url_launcher: ^6.3.3
   dartssh2: ^4.1.0
   flutter_secure_storage: ^10.0.0
-  super_clipboard: ^0.9.1
   firebase_core: ^5.2.0
   firebase_messaging: ^17.1.0
   # 10.2.3 includes RevenueCat iOS 5.78.0, which fixes Xcode 27 compilation.
@@ -76,7 +75,6 @@ dependencies:
   re_highlight: ^0.0.3
   in_app_review: ^2.0.11
   flutter_slidable: ^5.2.0
-  super_drag_and_drop: ^0.9.1
   media_kit: ^1.2.6
   media_kit_video: ^2.0.1
   media_kit_libs_video: ^1.0.7
@@ -92,13 +90,6 @@ dependencies:
   ffi: ^2.1.4
   objective_c: ^9.6.4
   qr_flutter: ^4.1.0
-
-dependency_overrides:
-  # Temporary: use 16KB page-aligned fork until irondash/irondash#77 is merged
-  irondash_engine_context:
-    git:
-      url: https://github.com/Sabbar-Engineering/irondash
-      path: engine_context/dart
 
 dev_dependencies:
   flutter_test:
