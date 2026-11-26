@@ -115,6 +115,11 @@ Flutter の `SelectionArea` を使用せず、**カスタム `RenderSelectablePa
   - `splitMarkdownBlocks` は `chunks.join() == text` を常に満たす形でトップレベルブロックを分割し、リンク参照定義・脚注定義・複数段落 HTML ブロックがある場合は単一チャンクへフォールバックする。
   - `isStreaming: true` 時は `sanitizeStreamingTail` で未閉じ構文のチラつきを抑えつつ、確定済みチャンクを `BoundedLruCache`（文書キャッシュ＋ブロックキャッシュ）から再利用する。変化し続ける末尾チャンクは専用スロットに保持し、ストリーミングの中間フレームが共有 LRU キャッシュをスラッシングしないようにしている。
   - `CodeBlock.closed` フラグにより、未閉じフェンスのコードブロックをアプリ側ハイライターへ明示的に伝えられる。
+- **パース失敗時のフォールバック**
+  - `package:markdown` は一部の入力で例外を投げる（例: `> [!NOTE]` の直後に表の区切り行 `| --- | :-: |` が続くと "BlockParser.parseLines is not advancing"）。チャット本文はモデル出力であり内容を制御できないため、`GfmMarkdownParser` は例外を外へ出さない。
+  - 失敗したチャンクを `splitMarkdownBlocks(..., ignoreCrossBlockConstructs: true)` で分け直し、失敗した部分だけを生テキストの段落として表示する。この縮退時は、分けた部分をまたぐ脚注番号・参照リンクは解決されない。
+- **生 HTML ブロック**
+  - 対応タグ以外の HTML ブロックはタグを含む生テキストとして表示する。HTML コメントだけのブロックは表示しない。
 
 ### 2.6 3 つの公開ウィジェットの使い分け
 
@@ -158,4 +163,17 @@ ccpocket 本体は `apps/mobile/pubspec.yaml` から `path: ../../packages/markd
    - ローカルリリース前チェック（`scripts/release/run-checks.sh`）でも `packages/markdown_kit` の `dart analyze` と `flutter test` を `apps/mobile` と併せて実行する。
    - git worktree 作成時は `scripts/worktree-bootstrap.sh` が `packages/markdown_kit/.dart_tool` を複製し `flutter pub get --offline` を実行する。
 4. **回帰テストの基準**: ハンドルの不透明ヒットテスト・150ms 待機後の縦ドラッグ貫通防止・`ListView(reverse: true)` での自動スクロール・仮想化スクロールアウト後の選択復元・プレーンテキスト／Markdown 復元コピー・ストリーミング分割不変条件は `packages/markdown_kit/test/` の自動テストで担保し、変更時は必ず全件通す。
+   - `parser_robustness_test.dart` は固定シードのランダム文書で、分割の連結不変条件・チャンク単位と全文のパース一致・全プレフィックスのストリーミング収束・病的入力の処理時間を検査する。正規表現を追加・変更したら必ず通す（コメント判定の正規表現が指数的バックトラックを起こした前例がある）。
+   - `rendering_regression_test.dart` / `selection_regression_test.dart` は独立レビューで見つかった欠陥の再現テスト。
 5. **パーサー差し替え互換性**: AST（`MarkdownDocument` / `MarkdownBlock` / `MarkdownInline`）と `MarkdownParser` インターフェースを安定境界として維持し、将来 `package:markdown` 以外のパーサーへ移行する場合も選択エンジンとレンダラーへの影響を最小化する。
+
+---
+
+## 5. 既知の制限
+
+- **「Markdown としてコピー」**: リテラルの記号はエスケープしない（`\*文字\*` は `*文字*` として出力される）。数式は元の区切りに関わらず `$...$` / `$$...$$` で出力する。マーカーが異なる隣接リスト（`*` と `-`）は 1 つのリストとして再解釈されうる。
+- **内容アンカー再照合 (`contentAnchored`)**: 追記以外の書き換えで選択文字列が元の位置から消え、同じ文字列が別の場所にある場合、選択はそちらへ移る。追記のみのストリーミングと確定バブルへの切り替えは高速経路を通るため影響しない。
+- **`keepDocumentOnDispose: true`**: コントローラは破棄されるまで、登録された文書（AST 参照）を保持し続ける。チャットではリスト単位のコントローラなので、画面を閉じれば解放される。
+- **処理時間**: 閉じない `\(` が 1 行に数千個並ぶ入力、数千段に入れ子の `<details>` は入力長の 2 乗で遅くなる。
+- **`<sub>` / `<sup>`**: フォントが対応する OpenType 機能を持たない場合、文字は小さくなるが上下にはずれない。
+- **`<details>` の開閉状態**: `documentId`・ブロック位置・summary 文字列をキーにプロセス内で最大 512 件保持する（仮想化で画面外へ出ても開閉が戻らないようにするため）。
