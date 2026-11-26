@@ -2,6 +2,7 @@ import 'package:ccpocket/core/logger.dart';
 import 'package:ccpocket/features/debug/log_viewer_screen.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -212,5 +213,27 @@ void main() {
       await tester.pump();
       expect(testLogger.length, 6);
     });
+
+    testWidgets(
+      'RepositoryProvider<AppLogger>.value mounts cleanly without Listenable assertion',
+      (tester) async {
+        testLogger.info('provided log');
+        await tester.pumpWidget(
+          RepositoryProvider<AppLogger>.value(
+            value: testLogger,
+            child: MaterialApp(
+              theme: AppTheme.lightTheme,
+              home: Builder(
+                builder: (context) =>
+                    LogViewerScreen(logger: context.read<AppLogger>()),
+              ),
+            ),
+          ),
+        );
+
+        expect(tester.takeException(), isNull);
+        expect(find.text('provided log'), findsOneWidget);
+      },
+    );
   });
 }

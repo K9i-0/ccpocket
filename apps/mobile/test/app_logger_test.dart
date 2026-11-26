@@ -1,4 +1,5 @@
 import 'package:ccpocket/core/logger.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -81,28 +82,30 @@ void main() {
       expect(log.entries.map((e) => e.id), [3, 4, 5]);
     });
 
-    test(
-      'notifies listeners on log and clear, and ignores redundant clear',
-      () {
-        final log = AppLogger(useConsoleLogs: false);
-        var notifications = 0;
-        log.addListener(() => notifications++);
+    test('notifies listenable on log and clear, ignores redundant clear, and is not a Listenable', () {
+      final log = AppLogger(useConsoleLogs: false);
+      expect(log, isNot(isA<Listenable>()));
+      expect(log.listenable, isA<Listenable>());
 
-        log.clear();
-        expect(notifications, 0);
+      var notifications = 0;
+      log.listenable.addListener(() => notifications++);
 
-        log.info('first');
-        log.warning('second');
-        expect(notifications, 2);
+      log.clear();
+      expect(notifications, 0);
 
-        log.clear();
-        expect(log.isEmpty, isTrue);
-        expect(notifications, 3);
+      log.info('first');
+      log.warning('second');
+      expect(notifications, 2);
 
-        log.clear();
-        expect(notifications, 3);
-      },
-    );
+      log.clear();
+      expect(log.isEmpty, isTrue);
+      expect(notifications, 3);
+
+      log.clear();
+      expect(notifications, 3);
+
+      log.dispose();
+    });
 
     test('respects useConsoleLogs = false', () {
       final consoleLines = <String>[];

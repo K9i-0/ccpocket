@@ -103,9 +103,17 @@ class AppLogEntry {
   }
 }
 
-/// Lightweight in-memory ring-buffer logger with [ChangeNotifier] updates
-/// for live UI inspection and debug/profile console output.
-class AppLogger extends ChangeNotifier {
+class _LogNotifier extends ChangeNotifier {
+  void notify() => notifyListeners();
+}
+
+/// Lightweight in-memory ring-buffer logger with a [Listenable] change
+/// notification channel for live UI inspection and debug/profile console output.
+///
+/// Intentionally does not extend [ChangeNotifier] directly so instances can be
+/// provided via `RepositoryProvider.value` without triggering `Provider`'s
+/// `Listenable` debug assertion.
+class AppLogger {
   AppLogger({
     this.maxEntries = 1000,
     this.useConsoleLogs = true,
@@ -124,8 +132,12 @@ class AppLogger extends ChangeNotifier {
   final void Function(String line)? consoleOutput;
 
   final DateTime Function() _clock;
+  final _LogNotifier _notifier = _LogNotifier();
   final ListQueue<AppLogEntry> _buffer = ListQueue<AppLogEntry>();
   int _nextId = 0;
+
+  /// Notifies listeners whenever entries are added or cleared.
+  Listenable get listenable => _notifier;
 
   /// Chronological snapshot of retained log entries (oldest first).
   List<AppLogEntry> get entries => List<AppLogEntry>.unmodifiable(_buffer);
@@ -183,7 +195,12 @@ class AppLogger extends ChangeNotifier {
   void clear() {
     if (_buffer.isEmpty) return;
     _buffer.clear();
-    notifyListeners();
+    _notifier.notify();
+  }
+
+  /// Releases the internal change notifier for non-singleton instances.
+  void dispose() {
+    _notifier.dispose();
   }
 
   /// Exports [entries] (or all buffered entries if omitted) as newline-delimited
@@ -212,7 +229,7 @@ class AppLogger extends ChangeNotifier {
     }
     _buffer.addLast(entry);
     _emitConsole(entry);
-    notifyListeners();
+    _notifier.notify();
   }
 
   void _emitConsole(AppLogEntry entry) {

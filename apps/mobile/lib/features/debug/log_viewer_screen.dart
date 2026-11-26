@@ -59,22 +59,22 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   @override
   void initState() {
     super.initState();
-    widget.logger.addListener(_onLoggerChanged);
+    widget.logger.listenable.addListener(_onLoggerChanged);
   }
 
   @override
   void didUpdateWidget(covariant LogViewerScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.logger != widget.logger) {
-      oldWidget.logger.removeListener(_onLoggerChanged);
+      oldWidget.logger.listenable.removeListener(_onLoggerChanged);
       _expandedIds.clear();
-      widget.logger.addListener(_onLoggerChanged);
+      widget.logger.listenable.addListener(_onLoggerChanged);
     }
   }
 
   @override
   void dispose() {
-    widget.logger.removeListener(_onLoggerChanged);
+    widget.logger.listenable.removeListener(_onLoggerChanged);
     _searchController.dispose();
     super.dispose();
   }
