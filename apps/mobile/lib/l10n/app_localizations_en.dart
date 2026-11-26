@@ -3190,6 +3190,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get googleSearchSelectionAction => 'Search with Google';
 
   @override
+  String get copyAsMarkdownSelectionAction => 'Copy as Markdown';
+
+  @override
   String get approvalQuestionNotificationTitle => 'Question - ccpocket';
 
   @override

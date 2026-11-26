@@ -11,6 +11,7 @@ import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/providers/bridge_cubits.dart';
 import 'package:ccpocket/services/bridge_service.dart';
+import 'package:ccpocket/services/performance_probe_extension.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/widgets/bubbles/thinking_bubble.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -426,5 +427,156 @@ void main() {
         'Explore auth — Checking JWT middleware',
       );
     });
+
+    testWidgets(
+      'activity text and elapsed updates rebuild only the activity bar, not ChatMessageList',
+      (tester) async {
+        final bridge = _TestBridge();
+        final streamingCubit = StreamingStateCubit();
+        final chatCubit = ChatSessionCubit(
+          sessionId: 'claude-perf',
+          provider: Provider.claude,
+          bridge: bridge,
+          streamingCubit: streamingCubit,
+        );
+        final controller = AnchorMaintainingAutoScrollController();
+
+        addTearDown(() async {
+          controller.dispose();
+          await chatCubit.close();
+          await streamingCubit.close();
+          bridge.dispose();
+        });
+
+        await tester.pumpWidget(
+          RepositoryProvider<BridgeService>.value(
+            value: bridge,
+            child: MultiBlocProvider(
+              providers: [
+                BlocProvider<ChatSessionCubit>.value(value: chatCubit),
+                BlocProvider<StreamingStateCubit>.value(value: streamingCubit),
+                BlocProvider<FileListCubit>(
+                  create: (_) => FileListCubit(
+                    const [],
+                    const Stream<List<String>>.empty(),
+                  ),
+                ),
+              ],
+              child: MaterialApp(
+                theme: AppTheme.darkTheme,
+                localizationsDelegates: appLocalizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                locale: const Locale('en'),
+                home: Scaffold(
+                  body: ChatMessageList(
+                    sessionId: 'claude-perf',
+                    scrollController: controller,
+                    httpBaseUrl: null,
+                    onRetryMessage: null,
+                    collapseToolResults: null,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        bridge.emit(
+          const StatusMessage(status: ProcessStatus.running),
+          sessionId: 'claude-perf',
+        );
+        await tester.pump(Duration.zero);
+        await tester.pump();
+        expect(find.text('Thinking...'), findsOneWidget);
+
+        chatListPerformanceProbe.reset();
+
+        bridge.emit(
+          const AgentActivityMessage(
+            sessionId: 'claude-perf',
+            activity: AgentActivityInfo(thinkingTokens: 1200),
+          ),
+          sessionId: 'claude-perf',
+        );
+        await tester.pump(Duration.zero);
+        await tester.pump();
+        expect(find.text('Thinking (1.2k tokens)...'), findsOneWidget);
+        expect(chatListPerformanceProbe.summary()['buildCount'], 0);
+
+        bridge.emit(
+          const AgentActivityMessage(
+            sessionId: 'claude-perf',
+            activity: AgentActivityInfo(
+              toolName: 'Bash',
+              toolHint: 'flutter test',
+              elapsedSeconds: 3,
+            ),
+          ),
+          sessionId: 'claude-perf',
+        );
+        await tester.pump(Duration.zero);
+        await tester.pump();
+        expect(find.text('Running: flutter test... · 3s'), findsOneWidget);
+        expect(chatListPerformanceProbe.summary()['buildCount'], 0);
+
+        bridge.emit(
+          const AgentActivityMessage(
+            sessionId: 'claude-perf',
+            activity: AgentActivityInfo(
+              toolName: 'Bash',
+              toolHint: 'flutter test',
+              elapsedSeconds: 4,
+            ),
+          ),
+          sessionId: 'claude-perf',
+        );
+        await tester.pump(Duration.zero);
+        await tester.pump();
+        expect(find.text('Running: flutter test... · 4s'), findsOneWidget);
+        expect(chatListPerformanceProbe.summary()['buildCount'], 0);
+
+        // Stream text hides the activity bar, then preparingTool reveals it
+        // again; subsequent preparingTool hint changes must not rebuild the list.
+        bridge.emit(
+          const StreamDeltaMessage(text: 'Streaming answer'),
+          sessionId: 'claude-perf',
+        );
+        await tester.pump(Duration.zero);
+        await tester.pump();
+        expect(find.byKey(const ValueKey('agent_activity_bar')), findsNothing);
+
+        bridge.emit(
+          const AgentActivityMessage(
+            sessionId: 'claude-perf',
+            activity: AgentActivityInfo(
+              toolName: 'Edit',
+              toolHint: 'first.dart',
+              preparingTool: true,
+            ),
+          ),
+          sessionId: 'claude-perf',
+        );
+        await tester.pump(Duration.zero);
+        await tester.pump();
+        expect(find.text('Editing first.dart...'), findsOneWidget);
+
+        chatListPerformanceProbe.reset();
+        bridge.emit(
+          const AgentActivityMessage(
+            sessionId: 'claude-perf',
+            activity: AgentActivityInfo(
+              toolName: 'Edit',
+              toolHint: 'second.dart',
+              preparingTool: true,
+            ),
+          ),
+          sessionId: 'claude-perf',
+        );
+        await tester.pump(Duration.zero);
+        await tester.pump();
+        expect(find.text('Editing second.dart...'), findsOneWidget);
+        expect(chatListPerformanceProbe.summary()['buildCount'], 0);
+      },
+    );
   });
 }

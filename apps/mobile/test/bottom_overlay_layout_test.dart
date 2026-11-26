@@ -1,4 +1,5 @@
 import 'package:ccpocket/features/chat_session/widgets/bottom_overlay_layout.dart';
+import 'package:ccpocket/features/chat_session/widgets/chat_message_list.dart';
 import 'package:ccpocket/features/chat_session/widgets/floating_composer_layout.dart';
 import 'package:ccpocket/features/chat_session/widgets/maintain_reading_position_physics.dart';
 import 'package:material_ui/material_ui.dart';
@@ -178,6 +179,79 @@ void main() {
       }
     },
   );
+
+  testWidgets('dragging the overlay does not steal non-editable focus', (
+    tester,
+  ) async {
+    final nonEditableFocus = FocusNode();
+    addTearDown(nonEditableFocus.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: BottomOverlayLayout(
+            content: Focus(
+              focusNode: nonEditableFocus,
+              child: const SizedBox.expand(),
+            ),
+            overlay: const ColoredBox(
+              key: ValueKey('bottom_overlay'),
+              color: Colors.transparent,
+              child: SizedBox(height: 100, width: double.infinity),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    nonEditableFocus.requestFocus();
+    await tester.pump();
+    expect(nonEditableFocus.hasFocus, isTrue);
+    expect(isEditableTextFocused(), isFalse);
+
+    await tester.drag(
+      find.byKey(const ValueKey('bottom_overlay')),
+      const Offset(0, 40),
+    );
+    await tester.pump();
+
+    expect(nonEditableFocus.hasFocus, isTrue);
+  });
+
+  testWidgets('dragging the overlay still dismisses editable text focus', (
+    tester,
+  ) async {
+    final inputFocus = FocusNode();
+    addTearDown(inputFocus.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: BottomOverlayLayout(
+            content: TextField(focusNode: inputFocus),
+            overlay: const ColoredBox(
+              key: ValueKey('bottom_overlay'),
+              color: Colors.transparent,
+              child: SizedBox(height: 100, width: double.infinity),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    inputFocus.requestFocus();
+    await tester.pump();
+    expect(inputFocus.hasFocus, isTrue);
+    expect(isEditableTextFocused(), isTrue);
+
+    await tester.drag(
+      find.byKey(const ValueKey('bottom_overlay')),
+      const Offset(0, 40),
+    );
+    await tester.pump();
+
+    expect(inputFocus.hasFocus, isFalse);
+  });
 }
 
 class _BuildCounter extends StatelessWidget {

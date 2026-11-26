@@ -3038,6 +3038,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get googleSearchSelectionAction => '用 Google 搜索';
 
   @override
+  String get copyAsMarkdownSelectionAction => '复制为 Markdown';
+
+  @override
   String get approvalQuestionNotificationTitle => '有一个问题 - ccpocket';
 
   @override

@@ -1354,6 +1354,7 @@
   "gitDiscardFileUnstagedChangesMessage": "放弃此文件中的所有未暂存更改。",
   "gitDiscardHunkUnstagedChangesMessage": "放弃此代码块中的未暂存更改。",
   "googleSearchSelectionAction": "用 Google 搜索",
+  "copyAsMarkdownSelectionAction": "复制为 Markdown",
   "approvalQuestionNotificationTitle": "有一个问题 - ccpocket",
   "approvalRequiredNotificationTitle": "等待审批 - ccpocket",
   "exitPlanModeNotificationBody": "生成的计划需要你确认",

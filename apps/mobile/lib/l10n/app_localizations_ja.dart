@@ -3075,6 +3075,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get googleSearchSelectionAction => 'Google で検索';
 
   @override
+  String get copyAsMarkdownSelectionAction => 'Markdown でコピー';
+
+  @override
   String get approvalQuestionNotificationTitle => '質問があります - ccpocket';
 
   @override

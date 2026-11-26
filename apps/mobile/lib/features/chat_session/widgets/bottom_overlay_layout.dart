@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'chat_message_list.dart' show isEditableTextFocused;
 import 'floating_composer_layout.dart';
 
 class BottomOverlayLayout extends StatefulWidget {
@@ -90,8 +91,11 @@ class _BottomOverlayLayoutState extends State<BottomOverlayLayout> {
                       alignment: Alignment.bottomCenter,
                       child: GestureDetector(
                         behavior: HitTestBehavior.translucent,
-                        onVerticalDragStart: (_) =>
-                            FocusScope.of(context).unfocus(),
+                        onVerticalDragStart: (_) {
+                          if (isEditableTextFocused()) {
+                            FocusScope.of(context).unfocus();
+                          }
+                        },
                         child:
                             NotificationListener<SizeChangedLayoutNotification>(
                               onNotification: (_) {

@@ -5,6 +5,7 @@ import '../file_browser/file_browser_reference.dart';
 import 'dart:async';
 
 import 'package:auto_route/auto_route.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -1295,7 +1296,10 @@ class _ChatScreenBody extends HookWidget {
                           ? null
                           : NotificationListener<ScrollNotification>(
                               onNotification: (notification) {
-                                if (notification is UserScrollNotification) {
+                                if (notification is UserScrollNotification &&
+                                    notification.direction !=
+                                        ScrollDirection.idle &&
+                                    isEditableTextFocused()) {
                                   FocusScope.of(context).unfocus();
                                 }
                                 return false;

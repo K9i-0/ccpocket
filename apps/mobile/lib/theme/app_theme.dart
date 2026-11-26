@@ -169,12 +169,10 @@ class AppTheme {
 
       // Checkbox
       checkboxTheme: CheckboxThemeData(
-        fillColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return colorScheme.primary;
-          }
-          return Colors.transparent;
-        }),
+        fillColor: _SelectedStateColorProperty(
+          selected: colorScheme.primary,
+          unselected: Colors.transparent,
+        ),
         checkColor: WidgetStateProperty.all(colorScheme.onPrimary),
         side: BorderSide(color: colorScheme.outline, width: 2),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
@@ -221,18 +219,12 @@ class AppTheme {
       // SegmentedButton
       segmentedButtonTheme: SegmentedButtonThemeData(
         style: ButtonStyle(
-          backgroundColor: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.selected)) {
-              return colorScheme.primary;
-            }
-            return null;
-          }),
-          foregroundColor: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.selected)) {
-              return colorScheme.onPrimary;
-            }
-            return null;
-          }),
+          backgroundColor: _SelectedStateColorProperty(
+            selected: colorScheme.primary,
+          ),
+          foregroundColor: _SelectedStateColorProperty(
+            selected: colorScheme.onPrimary,
+          ),
         ),
       ),
 
@@ -290,34 +282,14 @@ class AppTheme {
         crossAxisMargin: 2,
         mainAxisMargin: 4,
         minThumbLength: 32,
-        thickness: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.dragged) ||
-              states.contains(WidgetState.hovered)) {
-            return 8.0;
-          }
-          return 6.0;
-        }),
-        thumbColor: WidgetStateProperty.resolveWith((states) {
-          final isDark = brightness == Brightness.dark;
-          if (states.contains(WidgetState.dragged)) {
-            return colorScheme.onSurface.withValues(
-              alpha: isDark ? 0.62 : 0.58,
-            );
-          }
-          if (states.contains(WidgetState.hovered)) {
-            return colorScheme.onSurface.withValues(
-              alpha: isDark ? 0.44 : 0.42,
-            );
-          }
-          return colorScheme.onSurface.withValues(alpha: isDark ? 0.24 : 0.22);
-        }),
-        trackColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.hovered) ||
-              states.contains(WidgetState.dragged)) {
-            return colorScheme.onSurface.withValues(alpha: 0.04);
-          }
-          return Colors.transparent;
-        }),
+        thickness: const _ScrollbarThicknessProperty(),
+        thumbColor: _ScrollbarThumbColorProperty(
+          baseColor: colorScheme.onSurface,
+          isDark: brightness == Brightness.dark,
+        ),
+        trackColor: _ScrollbarTrackColorProperty(
+          hoverColor: colorScheme.onSurface.withValues(alpha: 0.04),
+        ),
         trackBorderColor: WidgetStateProperty.all(Colors.transparent),
       ),
 
@@ -852,4 +824,199 @@ class AppColors extends ThemeExtension<AppColors> {
       )!,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other.runtimeType != runtimeType) return false;
+    return other is AppColors &&
+        other.userBubble == userBubble &&
+        other.userBubbleText == userBubbleText &&
+        other.assistantBubble == assistantBubble &&
+        other.toolBubble == toolBubble &&
+        other.toolBubbleBorder == toolBubbleBorder &&
+        other.toolIcon == toolIcon &&
+        other.errorBubble == errorBubble &&
+        other.errorBubbleBorder == errorBubbleBorder &&
+        other.errorText == errorText &&
+        other.warningBubble == warningBubble &&
+        other.warningBubbleBorder == warningBubbleBorder &&
+        other.warningText == warningText &&
+        other.permissionBubble == permissionBubble &&
+        other.permissionBubbleBorder == permissionBubbleBorder &&
+        other.permissionIcon == permissionIcon &&
+        other.askBubble == askBubble &&
+        other.askBubbleBorder == askBubbleBorder &&
+        other.askIcon == askIcon &&
+        other.systemChip == systemChip &&
+        other.successChip == successChip &&
+        other.errorChip == errorChip &&
+        other.approvalBar == approvalBar &&
+        other.approvalBarBorder == approvalBarBorder &&
+        other.statusStarting == statusStarting &&
+        other.statusRunning == statusRunning &&
+        other.statusApproval == statusApproval &&
+        other.statusCompacting == statusCompacting &&
+        other.statusIdle == statusIdle &&
+        other.statusOnline == statusOnline &&
+        other.statusPlan == statusPlan &&
+        other.statusPlanGlow == statusPlanGlow &&
+        other.subtleText == subtleText &&
+        other.codeBackground == codeBackground &&
+        other.codeBorder == codeBorder &&
+        other.toolResultBackground == toolResultBackground &&
+        other.toolResultText == toolResultText &&
+        other.toolResultTextExpanded == toolResultTextExpanded &&
+        other.diffAdditionBackground == diffAdditionBackground &&
+        other.diffAdditionText == diffAdditionText &&
+        other.diffDeletionBackground == diffDeletionBackground &&
+        other.diffDeletionText == diffDeletionText;
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    userBubble,
+    userBubbleText,
+    assistantBubble,
+    toolBubble,
+    toolBubbleBorder,
+    toolIcon,
+    errorBubble,
+    errorBubbleBorder,
+    errorText,
+    warningBubble,
+    warningBubbleBorder,
+    warningText,
+    permissionBubble,
+    permissionBubbleBorder,
+    permissionIcon,
+    askBubble,
+    askBubbleBorder,
+    askIcon,
+    systemChip,
+    successChip,
+    errorChip,
+    approvalBar,
+    approvalBarBorder,
+    statusStarting,
+    statusRunning,
+    statusApproval,
+    statusCompacting,
+    statusIdle,
+    statusOnline,
+    statusPlan,
+    statusPlanGlow,
+    subtleText,
+    codeBackground,
+    codeBorder,
+    toolResultBackground,
+    toolResultText,
+    toolResultTextExpanded,
+    diffAdditionBackground,
+    diffAdditionText,
+    diffDeletionBackground,
+    diffDeletionText,
+  ]);
+}
+
+class _SelectedStateColorProperty implements WidgetStateProperty<Color?> {
+  final Color selected;
+  final Color? unselected;
+
+  const _SelectedStateColorProperty({required this.selected, this.unselected});
+
+  @override
+  Color? resolve(Set<WidgetState> states) {
+    if (states.contains(WidgetState.selected)) {
+      return selected;
+    }
+    return unselected;
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is _SelectedStateColorProperty &&
+        other.selected == selected &&
+        other.unselected == unselected;
+  }
+
+  @override
+  int get hashCode => Object.hash(selected, unselected);
+}
+
+class _ScrollbarThicknessProperty implements WidgetStateProperty<double> {
+  const _ScrollbarThicknessProperty();
+
+  @override
+  double resolve(Set<WidgetState> states) {
+    if (states.contains(WidgetState.dragged) ||
+        states.contains(WidgetState.hovered)) {
+      return 8.0;
+    }
+    return 6.0;
+  }
+
+  @override
+  bool operator ==(Object other) => other is _ScrollbarThicknessProperty;
+
+  @override
+  int get hashCode => runtimeType.hashCode;
+}
+
+class _ScrollbarThumbColorProperty implements WidgetStateProperty<Color> {
+  final Color baseColor;
+  final bool isDark;
+
+  const _ScrollbarThumbColorProperty({
+    required this.baseColor,
+    required this.isDark,
+  });
+
+  @override
+  Color resolve(Set<WidgetState> states) {
+    if (states.contains(WidgetState.dragged)) {
+      return baseColor.withValues(alpha: isDark ? 0.62 : 0.58);
+    }
+    if (states.contains(WidgetState.hovered)) {
+      return baseColor.withValues(alpha: isDark ? 0.44 : 0.42);
+    }
+    return baseColor.withValues(alpha: isDark ? 0.24 : 0.22);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is _ScrollbarThumbColorProperty &&
+        other.baseColor == baseColor &&
+        other.isDark == isDark;
+  }
+
+  @override
+  int get hashCode => Object.hash(baseColor, isDark);
+}
+
+class _ScrollbarTrackColorProperty implements WidgetStateProperty<Color> {
+  final Color hoverColor;
+
+  const _ScrollbarTrackColorProperty({required this.hoverColor});
+
+  @override
+  Color resolve(Set<WidgetState> states) {
+    if (states.contains(WidgetState.hovered) ||
+        states.contains(WidgetState.dragged)) {
+      return hoverColor;
+    }
+    return Colors.transparent;
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is _ScrollbarTrackColorProperty &&
+        other.hoverColor == hoverColor;
+  }
+
+  @override
+  int get hashCode => hoverColor.hashCode;
 }

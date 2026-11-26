@@ -3101,6 +3101,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get googleSearchSelectionAction => 'Google 검색';
 
   @override
+  String get copyAsMarkdownSelectionAction => '마크다운으로 복사';
+
+  @override
   String get approvalQuestionNotificationTitle => '질문이 있습니다 - ccpocket';
 
   @override

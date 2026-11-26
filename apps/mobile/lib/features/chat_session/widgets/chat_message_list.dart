@@ -377,6 +377,19 @@ String formatAgentActivityLabel(ToolUseContent tool) {
 }
 
 @visibleForTesting
+bool shouldShowLiveAgentActivityBar({
+  required ProcessStatus status,
+  required bool hasApproval,
+  required bool isPreparingTool,
+  required bool hasStreamingText,
+  required bool hasThinkingText,
+}) {
+  if (status != ProcessStatus.running || hasApproval) return false;
+  if (isPreparingTool) return true;
+  return !hasStreamingText && !hasThinkingText;
+}
+
+@visibleForTesting
 String? resolveLiveAgentActivityLabel({
   required ProcessStatus status,
   required bool hasApproval,
@@ -536,8 +549,8 @@ Set<String> redundantFileChangeToolUseIds(List<ChatEntry> entries) {
 /// Whether the primary focus is an editable (keyboard-driven) text field.
 ///
 /// Read-only focus owners such as [SelectionArea] or [SelectableText] return
-/// false so that scrolling does not clear an in-progress text selection.
-@visibleForTesting
+/// false so that scrolling or dragging overlays does not clear an in-progress
+/// text selection.
 bool isEditableTextFocused() {
   final focusContext = FocusManager.instance.primaryFocus?.context;
   if (focusContext == null) return false;
@@ -989,10 +1002,11 @@ class _ChatMessageListState extends State<ChatMessageList> {
       _ => null,
     };
 
-    // Watch only coarse streaming flags (not the full streaming text) so the
-    // list rebuilds when streaming/text presence transitions (to adjust
-    // itemCount) but NOT on every delta. The actual streaming content is
-    // rendered inside a scoped BlocBuilder on the streaming item only.
+    // Watch only coarse streaming flags (not the full streaming text or
+    // per-second activity updates) so the list rebuilds only when row
+    // visibility transitions (to adjust itemCount) and NOT on every delta or
+    // elapsed-seconds tick. Streaming content and live activity text are
+    // rendered inside scoped child widgets.
     final streamingFlags = context
         .select<
           StreamingStateCubit,
@@ -1000,14 +1014,17 @@ class _ChatMessageListState extends State<ChatMessageList> {
             bool isStreaming,
             bool hasText,
             bool hasThinking,
-            AgentActivityInfo? activity,
+            bool isPreparingTool,
           })
         >(
           (cubit) => (
             isStreaming: cubit.state.isStreaming,
             hasText: cubit.state.text.isNotEmpty,
             hasThinking: cubit.state.thinking.trim().isNotEmpty,
-            activity: cubit.state.activity,
+            isPreparingTool:
+                cubit.state.activity != null &&
+                cubit.state.activity!.preparingTool &&
+                cubit.state.activity!.toolName != null,
           ),
         );
     final showThinking = _effectiveDisplayFilter.thinking;
@@ -1020,14 +1037,14 @@ class _ChatMessageListState extends State<ChatMessageList> {
       allEntries,
       activePermissionId: activePermissionId,
     );
-    final activityLabel = _resolveActivityLabel(
-      chatState: chatState,
-      incompleteTool: derivedData.latestIncompleteToolUse,
-      activity: streamingFlags.activity,
+    final hasApproval = chatState.approval is! ApprovalNone;
+    final hasActivityBar = shouldShowLiveAgentActivityBar(
+      status: chatState.status,
+      hasApproval: hasApproval,
+      isPreparingTool: streamingFlags.isPreparingTool,
       hasStreamingText: streamingFlags.hasText,
       hasThinkingText: hasVisibleThinking,
     );
-    final hasActivityBar = activityLabel != null;
     final totalCount =
         allEntries.length + (hasStreaming ? 1 : 0) + (hasActivityBar ? 1 : 0);
     final entryKeys = _entryKeys(allEntries);
@@ -1049,6 +1066,14 @@ class _ChatMessageListState extends State<ChatMessageList> {
           listener: (_, _) => _captureVisibleAnchor(),
         ),
         BlocListener<StreamingStateCubit, StreamingState>(
+          listenWhen: (previous, current) =>
+              previous.isStreaming != current.isStreaming ||
+              previous.text != current.text ||
+              previous.thinking != current.thinking ||
+              (previous.activity?.preparingTool == true &&
+                      previous.activity?.toolName != null) !=
+                  (current.activity?.preparingTool == true &&
+                      current.activity?.toolName != null),
           listener: (_, _) => _captureVisibleAnchor(),
         ),
       ],
@@ -1107,7 +1132,11 @@ class _ChatMessageListState extends State<ChatMessageList> {
                   if (hasActivityBar && entryIndex == totalCount - 1) {
                     return _AgentActivityBar(
                       key: const ValueKey<String>('agent_activity_bar'),
-                      label: activityLabel,
+                      status: chatState.status,
+                      hasApproval: hasApproval,
+                      incompleteTool: derivedData.latestIncompleteToolUse,
+                      hasStreamingText: streamingFlags.hasText,
+                      hasThinkingText: hasVisibleThinking,
                     );
                   }
 
@@ -1426,23 +1455,6 @@ class _ChatMessageListState extends State<ChatMessageList> {
     };
   }
 
-  String? _resolveActivityLabel({
-    required ChatSessionState chatState,
-    required ToolUseContent? incompleteTool,
-    required AgentActivityInfo? activity,
-    required bool hasStreamingText,
-    required bool hasThinkingText,
-  }) {
-    return resolveLiveAgentActivityLabel(
-      status: chatState.status,
-      hasApproval: chatState.approval is! ApprovalNone,
-      incompleteTool: incompleteTool,
-      activity: activity,
-      hasStreamingText: hasStreamingText,
-      hasThinkingText: hasThinkingText,
-    );
-  }
-
   int _assistantContentKey(List<AssistantContent> contents) {
     final signature = contents
         .map((content) {
@@ -1527,12 +1539,38 @@ class _ChatListDerivedData {
 }
 
 class _AgentActivityBar extends StatelessWidget {
-  final String label;
+  final ProcessStatus status;
+  final bool hasApproval;
+  final ToolUseContent? incompleteTool;
+  final bool hasStreamingText;
+  final bool hasThinkingText;
 
-  const _AgentActivityBar({super.key, required this.label});
+  const _AgentActivityBar({
+    super.key,
+    required this.status,
+    required this.hasApproval,
+    required this.incompleteTool,
+    required this.hasStreamingText,
+    required this.hasThinkingText,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final activity = context.select<StreamingStateCubit, AgentActivityInfo?>(
+      (cubit) => cubit.state.activity,
+    );
+    final label = resolveLiveAgentActivityLabel(
+      status: status,
+      hasApproval: hasApproval,
+      incompleteTool: incompleteTool,
+      activity: activity,
+      hasStreamingText: hasStreamingText,
+      hasThinkingText: hasThinkingText,
+    );
+    if (label == null) {
+      return const SizedBox.shrink();
+    }
+
     final appColors = Theme.of(context).extension<AppColors>()!;
     final color = appColors.subtleText;
     final staticSpinner =

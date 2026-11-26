@@ -1249,6 +1249,7 @@
   "gitDiscardFileUnstagedChangesMessage": "Discard all unstaged changes in this file.",
   "gitDiscardHunkUnstagedChangesMessage": "Discard unstaged changes in this hunk.",
   "googleSearchSelectionAction": "Search with Google",
+  "copyAsMarkdownSelectionAction": "Copy as Markdown",
   "approvalQuestionNotificationTitle": "Question - ccpocket",
   "approvalRequiredNotificationTitle": "Approval Required - ccpocket",
   "exitPlanModeNotificationBody": "The generated plan needs your review",

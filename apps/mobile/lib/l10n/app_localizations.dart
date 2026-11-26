@@ -5753,6 +5753,12 @@ abstract class AppLocalizations {
   /// **'Google で検索'**
   String get googleSearchSelectionAction;
 
+  /// No description provided for @copyAsMarkdownSelectionAction.
+  ///
+  /// In ja, this message translates to:
+  /// **'Markdown でコピー'**
+  String get copyAsMarkdownSelectionAction;
+
   /// No description provided for @approvalQuestionNotificationTitle.
   ///
   /// In ja, this message translates to:

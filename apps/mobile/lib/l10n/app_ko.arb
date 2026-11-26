@@ -1213,6 +1213,7 @@
   "gitDiscardFileUnstagedChangesMessage": "이 파일의 모든 스테이징되지 않은 변경 사항을 버립니다.",
   "gitDiscardHunkUnstagedChangesMessage": "이 헝크의 스테이징되지 않은 변경 사항을 버립니다.",
   "googleSearchSelectionAction": "Google 검색",
+  "copyAsMarkdownSelectionAction": "마크다운으로 복사",
   "approvalQuestionNotificationTitle": "질문이 있습니다 - ccpocket",
   "approvalRequiredNotificationTitle": "승인 대기 중 - ccpocket",
   "exitPlanModeNotificationBody": "작성된 계획을 확인해야 합니다",
