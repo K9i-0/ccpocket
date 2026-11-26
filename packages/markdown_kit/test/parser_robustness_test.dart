@@ -143,8 +143,11 @@ void main() {
         final fresh = GfmMarkdownParser().parse(prefix, isStreaming: true);
         expect(last.blocks, fresh.blocks, reason: _visible(prefix));
       }
+      // While streaming, unfinished syntax at the end may still be held. The
+      // finished reply is parsed without the flag, on the same parser.
+      last = streaming.parse(source);
       final complete = GfmMarkdownParser().parse(source);
-      expect(last!.blocks, complete.blocks, reason: _visible(source));
+      expect(last.blocks, complete.blocks, reason: _visible(source));
     }
   });
 

@@ -379,9 +379,9 @@ void main() {
       }
     });
 
-    test('unfinished inline constructs agree in both modes', () {
-      // Only fences and display math are held back while streaming; inline
-      // constructs are shown as typed, exactly as a finished reply would.
+    test('unfinished constructs are parsed as the text that is not held', () {
+      // What is still missing its closing half is held back; the rest must
+      // parse exactly as it would on its own.
       for (final source in [
         'say _hello',
         'Run `npm inst',
@@ -414,8 +414,13 @@ void main() {
         '![alt](https://example.com/a.p',
       ]) {
         final streamed = GfmMarkdownParser().parse(source, isStreaming: true);
-        final whole = GfmMarkdownParser().parse(source);
-        expect(streamed.blocks, whole.blocks, reason: _visible(source));
+        final shown = sanitizeStreamingTail(source);
+        expect(source.startsWith(shown), isTrue, reason: _visible(source));
+        expect(
+          streamed.blocks,
+          GfmMarkdownParser().parse(shown).blocks,
+          reason: _visible(source),
+        );
       }
     });
 
@@ -842,7 +847,6 @@ void main() {
         'a `closed` span',
         r'pay $5 now',
         r'so $x',
-        'inline ``` not a fence',
       ]) {
         expect(sanitizeStreamingTail(source), source);
       }

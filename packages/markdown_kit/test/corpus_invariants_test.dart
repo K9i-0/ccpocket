@@ -56,8 +56,11 @@ void main() {
         last = streaming.parse(prefix, isStreaming: true);
         if (streaming.rawTextFallbackCount > before) degraded.add(prefix);
       }
+      // While streaming, unfinished syntax at the end may still be held. The
+      // finished text is parsed without the flag, on the same parser.
+      last = streaming.parse(complete);
       expect(
-        last?.blocks ?? const <MarkdownBlock>[],
+        last.blocks,
         GfmMarkdownParser().parse(complete).blocks,
         reason: _visible(complete),
       );

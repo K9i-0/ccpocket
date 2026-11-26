@@ -135,10 +135,14 @@ List<String> splitMarkdownBlocks(
 }
 
 /// Guards an in-progress streaming Markdown string against incomplete trailing
-/// block syntax that would otherwise flicker visually as tokens arrive.
+/// syntax that would otherwise flicker visually as tokens arrive.
 ///
 /// Specifically holds (omits from the returned tail):
 /// 1. Outside a fence/math block:
+///    - A table header row until its delimiter row is complete.
+///    - Inline syntax on the last line that is missing its closing half:
+///      `**bold`, `~~strike`, a code span, `[label](destination`. The opener
+///      must be within 300 characters of the end; older ones are literal.
 ///    - A trailing line with no newline yet that looks like a partial opening
 ///      fence (1-2 backticks/tildes, or 3+ backticks/tildes with an incomplete
 ///      info-string line).
@@ -155,17 +159,15 @@ List<String> splitMarkdownBlocks(
 ///    - A trailing line with no newline yet containing a partial closing
 ///      delimiter (`$` inside `$$`, or `\` inside `\[`).
 ///
-/// Complete inputs ending in `\n` or without partial trailing syntax are
-/// returned unchanged.
+/// Text without partial trailing syntax is returned unchanged. The result is
+/// always a prefix of [text]; once the stream ends, parse the full text
+/// without `isStreaming` so nothing stays held.
 String sanitizeStreamingTail(
   String text, {
   bool bracketMath = true,
   bool dollarMath = true,
 }) {
   if (text.isEmpty) return text;
-  final lastCodeUnit = text.codeUnitAt(text.length - 1);
-  // A newline terminates the last line, so no trailing line is mid-token.
-  if (lastCodeUnit == 0x0A || lastCodeUnit == 0x0D) return text;
 
   final lastLineFeed = text.lastIndexOf('\n');
   final lastCarriageReturn = text.lastIndexOf('\r');
@@ -180,15 +182,24 @@ String sanitizeStreamingTail(
   _Fence? openFence;
   _BlockMathDelimiter? openMath;
   int? listContentIndent;
+  // The last two complete lines outside fences and math, for spotting a
+  // table whose delimiter row has not arrived yet.
+  String? lastLine;
+  String? lineBeforeLast;
+  var lastLineStart = 0;
+  var scanned = 0;
 
   for (final rawLine in _splitLinesKeepingNewlines(
     text.substring(0, trailingStart),
   )) {
     final content = _stripLineEnding(rawLine);
+    final lineStart = scanned;
+    scanned += rawLine.length;
 
     if (openFence != null) {
       if (openFence.isClosedBy(content)) {
         openFence = null;
+        lastLine = lineBeforeLast = null;
         continue;
       }
       if (!openFence.isEndedByContainer(content)) continue;
@@ -196,8 +207,12 @@ String sanitizeStreamingTail(
     }
     if (openMath != null) {
       if (openMath.isClosedBy(content)) openMath = null;
+      lastLine = lineBeforeLast = null;
       continue;
     }
+    lineBeforeLast = lastLine;
+    lastLine = content;
+    lastLineStart = lineStart;
 
     final itemIndent = _listItemContentIndent(content);
     if (itemIndent != null) {
@@ -249,11 +264,174 @@ String sanitizeStreamingTail(
     if (text.codeUnitAt(i) != 0x5C) break;
     trailingBackslashes++;
   }
-  if (trailingBackslashes.isOdd) {
-    return text.substring(0, text.length - 1);
+  var end = trailingBackslashes.isOdd ? text.length - 1 : text.length;
+
+  // A table only becomes a table once its delimiter row is complete. Until
+  // then its header would show as a line of raw pipes.
+  final tableStart = _pendingTableStart(
+    trailingLine: text.substring(trailingStart, end),
+    trailingStart: trailingStart,
+    lastLine: lastLine,
+    lastLineStart: lastLineStart,
+    lineBeforeLast: lineBeforeLast,
+  );
+  if (tableStart != null) return text.substring(0, tableStart);
+
+  // Inline syntax still missing its closing half: `**bold`, `` `code ``,
+  // `[label](url`. Hold from the opener so the markers never show raw.
+  final inlineStart = _unfinishedInlineStart(
+    text.substring(trailingStart, end),
+  );
+  if (inlineStart != null) {
+    end = trailingStart + inlineStart;
+    // Holding may have exposed a backslash as the last character.
+    var backslashes = 0;
+    for (var i = end - 1; i >= trailingStart; i--) {
+      if (text.codeUnitAt(i) != 0x5C) break;
+      backslashes++;
+    }
+    if (backslashes.isOdd) end--;
   }
 
-  return text;
+  return text.substring(0, end);
+}
+
+final _pipeLine = RegExp(r'^ {0,3}\|');
+final _partialDelimiterRow = RegExp(r'^[ \t|:\-]*$');
+
+int? _pendingTableStart({
+  required String trailingLine,
+  required int trailingStart,
+  required String? lastLine,
+  required int lastLineStart,
+  required String? lineBeforeLast,
+}) {
+  final previousIsBlank = lastLine == null || _isBlank(lastLine);
+  // The header row itself is still being written.
+  if (previousIsBlank && _pipeLine.hasMatch(trailingLine)) {
+    return trailingStart;
+  }
+  // The header row is complete and the delimiter row is not.
+  if (lastLine != null &&
+      _pipeLine.hasMatch(lastLine) &&
+      (lineBeforeLast == null || _isBlank(lineBeforeLast)) &&
+      _partialDelimiterRow.hasMatch(trailingLine)) {
+    return lastLineStart;
+  }
+  return null;
+}
+
+/// How far back an unfinished inline construct may start and still be held.
+/// Past this the opener is taken as literal text; without a bound a stray
+/// `**` would hide the rest of a long paragraph until its line ends.
+const int _inlineHoldLimit = 300;
+
+/// Index in [line] where inline syntax that is still missing its closing
+/// half begins, or null when there is none.
+int? _unfinishedInlineStart(String line) {
+  final length = line.length;
+  int? openStrong;
+  int? openStrike;
+  int? result;
+
+  void hold(int index) {
+    if (result == null || index < result!) result = index;
+  }
+
+  var i = 0;
+  while (i < length) {
+    final unit = line.codeUnitAt(i);
+    if (unit == 0x5C) {
+      i += 2;
+      continue;
+    }
+    if (unit == 0x60) {
+      var run = 1;
+      while (i + run < length && line.codeUnitAt(i + run) == 0x60) {
+        run++;
+      }
+      final close = _closingBacktickRun(line, i + run, run);
+      if (close < 0) {
+        hold(i);
+        break;
+      }
+      i = close + run;
+      continue;
+    }
+    final isPair = i + 1 < length && line.codeUnitAt(i + 1) == unit;
+    if (unit == 0x2A && isPair) {
+      openStrong = openStrong == null ? i : null;
+      i += 2;
+      continue;
+    }
+    if (unit == 0x7E && isPair) {
+      openStrike = openStrike == null ? i : null;
+      i += 2;
+      continue;
+    }
+    // `[!` is an alert marker, never a link.
+    if (unit == 0x5B && i + 1 < length && line.codeUnitAt(i + 1) == 0x21) {
+      i += 2;
+      continue;
+    }
+    if (unit == 0x5B) {
+      final start = i > 0 && line.codeUnitAt(i - 1) == 0x21 ? i - 1 : i;
+      final labelEnd = line.indexOf(']', i + 1);
+      if (labelEnd < 0) {
+        hold(start);
+        break;
+      }
+      if (labelEnd + 1 == length) {
+        // `[label]` with nothing after it yet: a `(` may still follow.
+        hold(start);
+        break;
+      }
+      if (line.codeUnitAt(labelEnd + 1) == 0x28) {
+        final destinationEnd = line.indexOf(')', labelEnd + 2);
+        if (destinationEnd < 0) {
+          hold(start);
+          break;
+        }
+        i = destinationEnd + 1;
+        continue;
+      }
+      i = labelEnd + 1;
+      continue;
+    }
+    i++;
+  }
+
+  if (openStrong != null) hold(openStrong);
+  if (openStrike != null) hold(openStrike);
+  // A lone `*` or `~` at the very end may be the first half of a pair.
+  if (length > 0) {
+    final last = line.codeUnitAt(length - 1);
+    final previous = length > 1 ? line.codeUnitAt(length - 2) : null;
+    final lone =
+        (last == 0x2A || last == 0x7E) && previous != last && previous != 0x5C;
+    if (lone && result == null) hold(length - 1);
+  }
+
+  final start = result;
+  if (start == null || length - start > _inlineHoldLimit) return null;
+  return start;
+}
+
+int _closingBacktickRun(String line, int from, int run) {
+  var i = from;
+  while (i < line.length) {
+    if (line.codeUnitAt(i) != 0x60) {
+      i++;
+      continue;
+    }
+    var length = 1;
+    while (i + length < line.length && line.codeUnitAt(i + length) == 0x60) {
+      length++;
+    }
+    if (length == run) return i;
+    i += length;
+  }
+  return -1;
 }
 
 // Also inside block quotes and list items, and with escaped brackets in the

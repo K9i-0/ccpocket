@@ -8,6 +8,104 @@ List<String> _split(String text) {
 }
 
 void main() {
+  group('sanitizeStreamingTail holds unfinished inline syntax', () {
+    test('bold and strikethrough appear once closed', () {
+      expect(sanitizeStreamingTail('This is **impor'), 'This is ');
+      expect(
+        sanitizeStreamingTail('This is **important**'),
+        'This is **important**',
+      );
+      expect(sanitizeStreamingTail('This is ~~wro'), 'This is ');
+      // The first half of a pair is not shown alone.
+      expect(sanitizeStreamingTail('This is *'), 'This is ');
+      expect(sanitizeStreamingTail(r'An escaped \*'), r'An escaped \*');
+    });
+
+    test('a link appears once its destination is closed', () {
+      expect(sanitizeStreamingTail('See [the do'), 'See ');
+      expect(sanitizeStreamingTail('See [the docs]'), 'See ');
+      expect(sanitizeStreamingTail('See [the docs](https://exa'), 'See ');
+      expect(
+        sanitizeStreamingTail('See [the docs](https://example.com)'),
+        'See [the docs](https://example.com)',
+      );
+      expect(sanitizeStreamingTail('An image ![alt](https://e'), 'An image ');
+      // Brackets that turn out not to be a link are released.
+      expect(sanitizeStreamingTail('Item [1] is'), 'Item [1] is');
+      expect(sanitizeStreamingTail('- [ ] todo'), '- [ ] todo');
+      expect(sanitizeStreamingTail('> [!NOTE]'), '> [!NOTE]');
+    });
+
+    test('ordinary punctuation is not held', () {
+      for (final source in [
+        'Compute 2 * 3 * 4 and then carry on',
+        'call snake_case_name now',
+        'a `closed` span and **closed** bold',
+        r'pay $5 now',
+      ]) {
+        expect(sanitizeStreamingTail(source), source);
+      }
+    });
+
+    test('only the last line is held, and a new line releases it', () {
+      expect(sanitizeStreamingTail('a **b\nnext'), 'a **b\nnext');
+      expect(sanitizeStreamingTail('a **b\n'), 'a **b\n');
+    });
+
+    test('an opener far behind is taken as literal text', () {
+      final long = 'a **b ${'word ' * 80}';
+      expect(sanitizeStreamingTail(long), long);
+    });
+
+    test('nothing is held inside a code block', () {
+      const source = '```\nprint("**not bold") # [not a link](';
+      expect(sanitizeStreamingTail(source), source);
+    });
+  });
+
+  group('sanitizeStreamingTail holds a table until it is one', () {
+    test('header and delimiter rows appear together', () {
+      expect(sanitizeStreamingTail('Intro\n\n| a | b'), 'Intro\n\n');
+      expect(sanitizeStreamingTail('Intro\n\n| a | b |\n'), 'Intro\n\n');
+      expect(
+        sanitizeStreamingTail('Intro\n\n| a | b |\n| --- | -'),
+        'Intro\n\n',
+      );
+      expect(
+        sanitizeStreamingTail('Intro\n\n| a | b |\n| --- | --- |\n'),
+        'Intro\n\n| a | b |\n| --- | --- |\n',
+      );
+      expect(
+        sanitizeStreamingTail('Intro\n\n| a | b |\n| --- | --- |\n| 1 | 2'),
+        'Intro\n\n| a | b |\n| --- | --- |\n| 1 | 2',
+      );
+    });
+
+    test('a pipe line that is not a table is released', () {
+      expect(sanitizeStreamingTail('| just text\nmore'), '| just text\nmore');
+    });
+
+    test('a streamed table never shows as raw pipes', () {
+      const source = 'Intro\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n\nAfter\n';
+      final parser = GfmMarkdownParser();
+      for (var end = 1; end <= source.length; end++) {
+        final document = parser.parse(
+          source.substring(0, end),
+          isStreaming: true,
+        );
+        for (final block in document.blocks) {
+          if (block is ParagraphBlock) {
+            expect(
+              extractBlockRenderedText(block).contains('|'),
+              isFalse,
+              reason: source.substring(0, end),
+            );
+          }
+        }
+      }
+    });
+  });
+
   group('splitMarkdownBlocks', () {
     test('returns no blocks for empty text', () {
       expect(splitMarkdownBlocks(''), isEmpty);
@@ -213,12 +311,15 @@ void main() {
       );
     });
 
-    test('does not hold inline backtick code spans on a line', () {
+    test('shows a closed code span and holds an unclosed one', () {
       expect(sanitizeStreamingTail('Hello\n\n`code`'), 'Hello\n\n`code`');
-      expect(sanitizeStreamingTail('Hello\n\n`in'), 'Hello\n\n`in');
+      expect(sanitizeStreamingTail('Hello\n\n`in'), 'Hello\n\n');
+      // Three backticks with a backtick in the "info string" are not a fence
+      // but the start of a code span, which is still open here.
+      expect(sanitizeStreamingTail('Hello\n\n```inline`'), 'Hello\n\n');
       expect(
-        sanitizeStreamingTail('Hello\n\n```inline`'),
-        'Hello\n\n```inline`',
+        sanitizeStreamingTail('Hello\n\n```inline` then ```'),
+        'Hello\n\n```inline` then ```',
       );
     });
 
