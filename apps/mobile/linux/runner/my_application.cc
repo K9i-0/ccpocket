@@ -254,23 +254,24 @@ static FlMethodErrorResponse* image_drop_cancel_cb(FlEventChannel* /*channel*/,
   return nullptr;
 }
 
+// The destination is registered with GTK_DEST_DEFAULT_ALL, so GTK calls
+// gtk_drag_finish itself after this handler returns; calling it here as well
+// would finish the same drag twice.
 static void on_drag_data_received(GtkWidget* /*widget*/,
-                                  GdkDragContext* context,
+                                  GdkDragContext* /*context*/,
                                   gint /*x*/,
                                   gint /*y*/,
                                   GtkSelectionData* selection_data,
                                   guint /*info*/,
-                                  guint time,
+                                  guint /*time*/,
                                   gpointer user_data) {
   MyApplication* self = MY_APPLICATION(user_data);
   if (!self->image_drop_listening || self->image_drop_channel == nullptr) {
-    gtk_drag_finish(context, FALSE, FALSE, time);
     return;
   }
 
   gchar** uris = gtk_selection_data_get_uris(selection_data);
   if (uris == nullptr) {
-    gtk_drag_finish(context, FALSE, FALSE, time);
     return;
   }
 
@@ -286,11 +287,9 @@ static void on_drag_data_received(GtkWidget* /*widget*/,
   }
   g_strfreev(uris);
 
-  const gboolean accepted = fl_value_get_length(list) > 0;
-  if (accepted) {
+  if (fl_value_get_length(list) > 0) {
     fl_event_channel_send(self->image_drop_channel, list, nullptr, nullptr);
   }
-  gtk_drag_finish(context, accepted, FALSE, time);
 }
 
 // Called when first Flutter frame received.

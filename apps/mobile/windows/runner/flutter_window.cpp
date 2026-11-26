@@ -178,8 +178,9 @@ enum class FileReadStatus {
 FileReadStatus ReadFileToBytes(const std::wstring& path,
                                std::vector<uint8_t>* out) {
   HANDLE file =
-      ::CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
-                    OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+      ::CreateFileW(path.c_str(), GENERIC_READ,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                    nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
   if (file == INVALID_HANDLE_VALUE) {
     return FileReadStatus::kFailed;
   }
