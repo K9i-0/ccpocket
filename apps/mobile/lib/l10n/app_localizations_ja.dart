@@ -4261,6 +4261,76 @@ class AppLocalizationsJa extends AppLocalizations {
   String get localBridgeAddFolder => 'フォルダを追加';
 
   @override
+  String get localBridgePermissionsTitle => 'macOSの権限';
+
+  @override
+  String get localBridgePermissionsFooter =>
+      '「プライバシーとセキュリティ」では「CC Pocket」として表示されます。変更はBridgeを再起動すると反映されます。';
+
+  @override
+  String get localBridgePermissionsDialogTitle => 'macOSの権限を確認';
+
+  @override
+  String get localBridgePermissionsDialogBody =>
+      'Bridgeを起動しました。エージェントが途中で止まらないよう、足りない権限をシステム設定で有効にしてください。あとからこの画面でも変更できます。';
+
+  @override
+  String get localBridgePermissionLoginItem => 'バックグラウンドでの実行';
+
+  @override
+  String get localBridgePermissionLoginItemDesc =>
+      'ログイン時にBridgeを起動し、アプリを閉じても動かし続けます';
+
+  @override
+  String get localBridgePermissionFullDisk => 'フルディスクアクセス';
+
+  @override
+  String get localBridgePermissionFullDiskDesc =>
+      '書類・デスクトップ・ダウンロードや外付けディスクにあるプロジェクトを、Macでの確認ダイアログなしで扱えます';
+
+  @override
+  String get localBridgePermissionScreenCapture => '画面収録';
+
+  @override
+  String get localBridgePermissionScreenCaptureDesc =>
+      'スマホからこのMacのスクリーンショットを撮る機能に使います';
+
+  @override
+  String get localBridgePermissionLocalNetwork => 'ローカルネットワーク';
+
+  @override
+  String get localBridgePermissionLocalNetworkDesc =>
+      'エージェントが同じネットワークの機器（開発サーバーや実機など）に接続するときに使います';
+
+  @override
+  String get localBridgePermissionRequired => '必須';
+
+  @override
+  String get localBridgePermissionRecommended => '推奨';
+
+  @override
+  String get localBridgePermissionOptional => '任意';
+
+  @override
+  String get localBridgePermissionGranted => '許可済み';
+
+  @override
+  String get localBridgePermissionMissing => '許可されていません';
+
+  @override
+  String get localBridgePermissionUnknown => '状態はシステム設定で確認してください';
+
+  @override
+  String get localBridgePermissionOpenSettings => '設定を開く';
+
+  @override
+  String get guideLocalBridgeStepPermissions => 'macOSの権限を許可する';
+
+  @override
+  String get guideLocalBridgeStepPermissionsDetail =>
+      '起動後に出る案内から、フルディスクアクセスなどをシステム設定で有効にします。Bridgeの管理画面でいつでも確認できます。';
+
+  @override
   String get localBridgeSettingPortDesc => 'スマホなどが接続するポート番号（既定: 8765）';
 
   @override

@@ -3,12 +3,12 @@
 The macOS app can start and manage a Bridge on the same Mac. The Bridge keeps
 working standalone (`npx @ccpocket/bridge@1`, `setup`, environment variables).
 
-Status (2026-11-23):
+Status (2026-11-26):
 
 - Done: Bridge side (config file, `/admin/*`, `/tools`, safe mode); the macOS
   management screen (Settings > Connection > "Bridge on this Mac"): start and
   stop, status, restart, pairing QR, connect this app, tools checklist,
-  settings, logs; the macOS setup guide.
+  settings, logs, macOS permissions; the macOS setup guide.
 - Verified by tests and on a hand-signed sandboxed build: everything except
   the last step of "start" (registering the agent from the real app) and
   "stop", which register a login item and were left to a manual check.
@@ -135,6 +135,49 @@ Bridge per platform; user-facing texts are localized in the app by tool id.
 - Verified on a sandboxed, Developer ID signed debug build against a test
   Bridge (save -> restart -> setting applied) and against Bridge 1.119.0,
   which shows the "update the Bridge" state.
+
+## macOS permissions
+
+The management screen lists the permissions of the Bridge the app runs, with
+their state and a button to the System Settings page
+(`LocalBridgePermissionsCard`). It moves to the top while something that
+matters is missing, and a dialog with the same list appears once after the
+Bridge is started from the app while Full Disk Access is missing.
+
+| Permission | Importance | State from |
+|---|---|---|
+| Login item (background run) | required | `SMAppService` status (`requiresApproval` = turned off) |
+| Full Disk Access | recommended | helper: opening a protected path |
+| Screen Recording (`screenshot.ts`) | optional | helper: `CGPreflightScreenCaptureAccess` |
+| Local Network | optional | none: macOS has no query; only the link |
+
+Measured on macOS 27.2 (2026-11-26) with a signed test bundle and the TCC log
+(`/usr/bin/log stream --info --debug --predicate 'subsystem == "com.apple.TCC"'`):
+
+- TCC attributes the agent's processes to the **outermost app bundle** that
+  contains the agent program (`BUNDLE_ATTRIBUTION: ... resolves to attributed
+  bundle`). For the helper nested in `CC Pocket.app/Contents/Helpers/` the
+  subject is `com.k9i.ccpocket`: Privacy & Security lists the Bridge as
+  "CC Pocket", not as "CC Pocket Bridge", `bridge-launcher` or `node`.
+- This is the same whether the launcher `execv`s into the Bridge or spawns it,
+  and whether the agent program is the bundle's main executable or not. The
+  responsible process stays the launcher after `execv`.
+- The helper app is attributed the same way, so it answers for the Bridge:
+  its `status` result carries `permissions: {fullDiskAccess?, screenCapture}`.
+  The sandboxed main app cannot check this itself. The failed read also makes
+  "CC Pocket" appear in the Full Disk Access list.
+- `~/Library/Application Support/com.apple.TCC/TCC.db` does not exist on
+  macOS 27; the helper tries the system `TCC.db`, `~/Library/Safari` and
+  `~/Library/Mail` and reports nothing when none of them tells.
+- Links that open the right page from the sandboxed app (`NSWorkspace.open`):
+  `x-apple.systempreferences:com.apple.LoginItems-Settings.extension`,
+  `...:com.apple.preference.security?Privacy_AllFiles`, `?Privacy_ScreenCapture`.
+  `?Privacy_LocalNetwork` is not among the pane's anchors on macOS 27.2 and
+  was only seen to open Privacy & Security.
+- A change applies to processes started afterwards: the Bridge must restart.
+- A Bridge started another way (`setup`, manual `npx`) runs under its own
+  identity (Terminal, `node`), so the list is hidden unless the app's agent is
+  registered.
 
 ## Known gaps
 

@@ -243,6 +243,84 @@ void main() {
     expect(key('local_bridge_start_button'), findsOneWidget);
   });
 
+  testWidgets('guides to the macOS permissions after the first start', (
+    tester,
+  ) async {
+    final bridge = FakeLocalBridge()..running = false;
+    final launcher = FakeLauncher(bridge)
+      ..permissions = const LauncherPermissions(
+        fullDiskAccess: false,
+        screenCapture: false,
+      );
+    await pumpScreen(tester, bridge, launcher: launcher);
+
+    await tester.tap(key('local_bridge_start_button'));
+    await tester.pumpAndSettle();
+    expect(key('local_bridge_permissions_dialog'), findsOneWidget);
+    Finder inDialog(String value) => find.descendant(
+      of: key('local_bridge_permissions_dialog'),
+      matching: key(value),
+    );
+    expect(
+      inDialog('local_bridge_permission_status:loginItem:true'),
+      findsOneWidget,
+    );
+    expect(
+      inDialog('local_bridge_permission_status:fullDiskAccess:false'),
+      findsOneWidget,
+    );
+    // macOS cannot tell whether local network access is allowed.
+    expect(
+      inDialog('local_bridge_permission_status:localNetwork:null'),
+      findsOneWidget,
+    );
+
+    await tester.tap(inDialog('local_bridge_permission_open:screenCapture'));
+    await tester.pumpAndSettle();
+    // Asking first lists the app under Screen Recording.
+    expect(launcher.actions.last, 'requestScreenCapture');
+    expect(launcher.openedSettings, [BridgePermission.screenCapture]);
+
+    await tester.tap(key('local_bridge_permissions_dialog_done'));
+    await tester.pumpAndSettle();
+    // Still missing: the card stays at the top of the screen.
+    expect(key('local_bridge_permissions_card'), findsOneWidget);
+
+    // Granted in System Settings, then back to the app.
+    launcher.permissions = const LauncherPermissions(
+      fullDiskAccess: true,
+      screenCapture: true,
+    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(
+      key('local_bridge_permission_status:fullDiskAccess:true'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('hides the permissions for a Bridge the app does not run', (
+    tester,
+  ) async {
+    await pumpScreen(tester, FakeLocalBridge(), launcher: null);
+    expect(key('local_bridge_permissions_card'), findsNothing);
+  });
+
+  testWidgets('opens Login Items when the agent was turned off there', (
+    tester,
+  ) async {
+    final bridge = FakeLocalBridge()..running = false;
+    final launcher = FakeLauncher(bridge)..approvalRequired = true;
+    await pumpScreen(tester, bridge, launcher: launcher);
+
+    await tester.tap(key('local_bridge_start_button'));
+    await tester.pumpAndSettle();
+    await tester.tap(key('local_bridge_open_login_items_button'));
+    await tester.pumpAndSettle();
+    expect(launcher.openedSettings, [BridgePermission.loginItem]);
+  });
+
   testWidgets('shows how to install Node when the launcher misses it', (
     tester,
   ) async {

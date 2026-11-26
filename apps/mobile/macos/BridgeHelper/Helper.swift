@@ -6,6 +6,7 @@
 // bundled in the helper, writes the result to ~/.ccpocket/launcher-helper.json
 // and quits. See docs/design/local-bridge-management.md.
 import AppKit
+import CoreGraphics
 import ServiceManagement
 
 let agentPlistName = "com.k9i.ccpocket.bridge-agent.plist"
@@ -48,6 +49,34 @@ func statusName(_ status: SMAppService.Status) -> String {
   }
 }
 
+/// Whether the Bridge may read protected folders. macOS attributes the
+/// Bridge's processes and this helper alike to the app that contains the
+/// helper, so this answers for the Bridge. The attempt also makes that app
+/// appear in System Settings > Privacy & Security > Full Disk Access.
+func hasFullDiskAccess() -> Bool? {
+  // Readable only with Full Disk Access. Not every Mac has each of them.
+  let protected = [
+    "/Library/Application Support/com.apple.TCC/TCC.db",
+    home + "/Library/Safari",
+    home + "/Library/Mail",
+  ]
+  for path in protected {
+    let fd = open(path, O_RDONLY)
+    if fd >= 0 {
+      close(fd)
+      return true
+    }
+    if errno == EPERM || errno == EACCES { return false }
+  }
+  return nil
+}
+
+func permissions() -> [String: Any] {
+  var result: [String: Any] = ["screenCapture": CGPreflightScreenCaptureAccess()]
+  if let fullDiskAccess = hasFullDiskAccess() { result["fullDiskAccess"] = fullDiskAccess }
+  return result
+}
+
 func handleRequest() {
   guard let request = readRequest() else { return }
   let service = SMAppService.agent(plistName: agentPlistName)
@@ -61,6 +90,9 @@ func handleRequest() {
       if service.status != .notRegistered { try service.unregister() }
     case "status":
       break
+    case "requestScreenCapture":
+      // Lists the app under Screen Recording so the user can turn it on.
+      _ = CGRequestScreenCaptureAccess()
     default:
       result["ok"] = false
       result["error"] = "unknown action"
@@ -70,6 +102,7 @@ func handleRequest() {
     result["error"] = "\(error)"
   }
   result["status"] = statusName(service.status)
+  result["permissions"] = permissions()
   result["updatedAt"] = Int(Date().timeIntervalSince1970 * 1000)
 
   let dir = home + "/.ccpocket"

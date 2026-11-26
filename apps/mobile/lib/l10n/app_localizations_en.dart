@@ -4431,6 +4431,77 @@ class AppLocalizationsEn extends AppLocalizations {
   String get localBridgeAddFolder => 'Add folder';
 
   @override
+  String get localBridgePermissionsTitle => 'macOS permissions';
+
+  @override
+  String get localBridgePermissionsFooter =>
+      'Privacy & Security lists these under \"CC Pocket\". Changes apply after the Bridge restarts.';
+
+  @override
+  String get localBridgePermissionsDialogTitle => 'Check macOS permissions';
+
+  @override
+  String get localBridgePermissionsDialogBody =>
+      'The Bridge is running. So agents are not stopped midway, turn on the missing permissions in System Settings. You can change them later on this screen.';
+
+  @override
+  String get localBridgePermissionLoginItem => 'Run in the background';
+
+  @override
+  String get localBridgePermissionLoginItemDesc =>
+      'Starts the Bridge at login and keeps it running after the app is closed';
+
+  @override
+  String get localBridgePermissionFullDisk => 'Full Disk Access';
+
+  @override
+  String get localBridgePermissionFullDiskDesc =>
+      'Lets agents work on projects in Documents, Desktop, Downloads and external disks without confirmation dialogs on the Mac';
+
+  @override
+  String get localBridgePermissionScreenCapture => 'Screen Recording';
+
+  @override
+  String get localBridgePermissionScreenCaptureDesc =>
+      'Used to take screenshots of this Mac from your phone';
+
+  @override
+  String get localBridgePermissionLocalNetwork => 'Local Network';
+
+  @override
+  String get localBridgePermissionLocalNetworkDesc =>
+      'Used when agents connect to devices on the same network, such as dev servers and test devices';
+
+  @override
+  String get localBridgePermissionRequired => 'Required';
+
+  @override
+  String get localBridgePermissionRecommended => 'Recommended';
+
+  @override
+  String get localBridgePermissionOptional => 'Optional';
+
+  @override
+  String get localBridgePermissionGranted => 'Allowed';
+
+  @override
+  String get localBridgePermissionMissing => 'Not allowed';
+
+  @override
+  String get localBridgePermissionUnknown =>
+      'Check the state in System Settings';
+
+  @override
+  String get localBridgePermissionOpenSettings => 'Open Settings';
+
+  @override
+  String get guideLocalBridgeStepPermissions => 'Allow the macOS permissions';
+
+  @override
+  String get guideLocalBridgeStepPermissionsDetail =>
+      'After starting, a prompt takes you to System Settings to turn on Full Disk Access and others. You can review them any time on the Bridge screen.';
+
+  @override
   String get localBridgeSettingPortDesc =>
       'Port that phones and other devices connect to (default: 8765)';
 

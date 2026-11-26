@@ -16,6 +16,10 @@ class GuidePageLocalBridge extends StatelessWidget {
     final l = AppLocalizations.of(context);
     final steps = [
       (l.guideLocalBridgeStep1, l.guideLocalBridgeStep1Detail),
+      (
+        l.guideLocalBridgeStepPermissions,
+        l.guideLocalBridgeStepPermissionsDetail,
+      ),
       (l.guideLocalBridgeStep2, l.guideLocalBridgeStep2Detail),
       (l.guideLocalBridgeStep3, l.guideLocalBridgeStep3Detail),
     ];

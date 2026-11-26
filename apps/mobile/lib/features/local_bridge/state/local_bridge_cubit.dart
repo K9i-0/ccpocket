@@ -112,8 +112,25 @@ class LocalBridgeCubit extends Cubit<LocalBridgeState> {
         launcherPort: launcherPort,
         launcherRegistration: result.registration,
         launcherStatus: status,
+        launcherPermissions: result.permissions,
       ),
     );
+  }
+
+  /// Check the macOS permissions again (the user may have just changed them
+  /// in System Settings).
+  Future<void> refreshPermissions() async {
+    if (state.busy != LocalBridgeBusy.none || !state.showsPermissions) return;
+    await _refreshLauncher();
+  }
+
+  Future<void> openPermissionSettings(BridgePermission permission) async {
+    if (permission == BridgePermission.screenCapture &&
+        state.launcherPermissions?.screenCapture == false) {
+      // The app is only listed under Screen Recording once it has asked.
+      await launcher.run('requestScreenCapture');
+    }
+    await launcher.openSystemSettings(permission);
   }
 
   /// Register the LaunchAgent and wait for the Bridge it starts.

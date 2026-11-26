@@ -4296,6 +4296,76 @@ class AppLocalizationsKo extends AppLocalizations {
   String get localBridgeAddFolder => '폴더 추가';
 
   @override
+  String get localBridgePermissionsTitle => 'macOS 권한';
+
+  @override
+  String get localBridgePermissionsFooter =>
+      '\'개인정보 보호 및 보안\'에서는 \'CC Pocket\'으로 표시됩니다. 변경 사항은 Bridge를 재시작하면 적용됩니다.';
+
+  @override
+  String get localBridgePermissionsDialogTitle => 'macOS 권한 확인';
+
+  @override
+  String get localBridgePermissionsDialogBody =>
+      'Bridge를 시작했습니다. 에이전트가 중간에 멈추지 않도록 부족한 권한을 시스템 설정에서 켜 주세요. 나중에 이 화면에서도 변경할 수 있습니다.';
+
+  @override
+  String get localBridgePermissionLoginItem => '백그라운드 실행';
+
+  @override
+  String get localBridgePermissionLoginItemDesc =>
+      '로그인할 때 Bridge를 시작하고 앱을 닫아도 계속 실행합니다';
+
+  @override
+  String get localBridgePermissionFullDisk => '전체 디스크 접근 권한';
+
+  @override
+  String get localBridgePermissionFullDiskDesc =>
+      '문서·데스크탑·다운로드 폴더나 외장 디스크의 프로젝트를 Mac의 확인 대화상자 없이 다룰 수 있습니다';
+
+  @override
+  String get localBridgePermissionScreenCapture => '화면 기록';
+
+  @override
+  String get localBridgePermissionScreenCaptureDesc =>
+      '휴대폰에서 이 Mac의 스크린샷을 찍는 기능에 사용합니다';
+
+  @override
+  String get localBridgePermissionLocalNetwork => '로컬 네트워크';
+
+  @override
+  String get localBridgePermissionLocalNetworkDesc =>
+      '에이전트가 같은 네트워크의 기기(개발 서버나 테스트 기기 등)에 연결할 때 사용합니다';
+
+  @override
+  String get localBridgePermissionRequired => '필수';
+
+  @override
+  String get localBridgePermissionRecommended => '권장';
+
+  @override
+  String get localBridgePermissionOptional => '선택';
+
+  @override
+  String get localBridgePermissionGranted => '허용됨';
+
+  @override
+  String get localBridgePermissionMissing => '허용되지 않음';
+
+  @override
+  String get localBridgePermissionUnknown => '상태는 시스템 설정에서 확인하세요';
+
+  @override
+  String get localBridgePermissionOpenSettings => '설정 열기';
+
+  @override
+  String get guideLocalBridgeStepPermissions => 'macOS 권한 허용하기';
+
+  @override
+  String get guideLocalBridgeStepPermissionsDetail =>
+      '시작 후 나오는 안내에서 전체 디스크 접근 권한 등을 시스템 설정에서 켭니다. Bridge 관리 화면에서 언제든지 확인할 수 있습니다.';
+
+  @override
   String get localBridgeSettingPortDesc => '휴대폰 등이 연결하는 포트 번호 (기본값: 8765)';
 
   @override

@@ -7961,6 +7961,132 @@ abstract class AppLocalizations {
   /// **'フォルダを追加'**
   String get localBridgeAddFolder;
 
+  /// No description provided for @localBridgePermissionsTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'macOSの権限'**
+  String get localBridgePermissionsTitle;
+
+  /// No description provided for @localBridgePermissionsFooter.
+  ///
+  /// In ja, this message translates to:
+  /// **'「プライバシーとセキュリティ」では「CC Pocket」として表示されます。変更はBridgeを再起動すると反映されます。'**
+  String get localBridgePermissionsFooter;
+
+  /// No description provided for @localBridgePermissionsDialogTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'macOSの権限を確認'**
+  String get localBridgePermissionsDialogTitle;
+
+  /// No description provided for @localBridgePermissionsDialogBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridgeを起動しました。エージェントが途中で止まらないよう、足りない権限をシステム設定で有効にしてください。あとからこの画面でも変更できます。'**
+  String get localBridgePermissionsDialogBody;
+
+  /// No description provided for @localBridgePermissionLoginItem.
+  ///
+  /// In ja, this message translates to:
+  /// **'バックグラウンドでの実行'**
+  String get localBridgePermissionLoginItem;
+
+  /// No description provided for @localBridgePermissionLoginItemDesc.
+  ///
+  /// In ja, this message translates to:
+  /// **'ログイン時にBridgeを起動し、アプリを閉じても動かし続けます'**
+  String get localBridgePermissionLoginItemDesc;
+
+  /// No description provided for @localBridgePermissionFullDisk.
+  ///
+  /// In ja, this message translates to:
+  /// **'フルディスクアクセス'**
+  String get localBridgePermissionFullDisk;
+
+  /// No description provided for @localBridgePermissionFullDiskDesc.
+  ///
+  /// In ja, this message translates to:
+  /// **'書類・デスクトップ・ダウンロードや外付けディスクにあるプロジェクトを、Macでの確認ダイアログなしで扱えます'**
+  String get localBridgePermissionFullDiskDesc;
+
+  /// No description provided for @localBridgePermissionScreenCapture.
+  ///
+  /// In ja, this message translates to:
+  /// **'画面収録'**
+  String get localBridgePermissionScreenCapture;
+
+  /// No description provided for @localBridgePermissionScreenCaptureDesc.
+  ///
+  /// In ja, this message translates to:
+  /// **'スマホからこのMacのスクリーンショットを撮る機能に使います'**
+  String get localBridgePermissionScreenCaptureDesc;
+
+  /// No description provided for @localBridgePermissionLocalNetwork.
+  ///
+  /// In ja, this message translates to:
+  /// **'ローカルネットワーク'**
+  String get localBridgePermissionLocalNetwork;
+
+  /// No description provided for @localBridgePermissionLocalNetworkDesc.
+  ///
+  /// In ja, this message translates to:
+  /// **'エージェントが同じネットワークの機器（開発サーバーや実機など）に接続するときに使います'**
+  String get localBridgePermissionLocalNetworkDesc;
+
+  /// No description provided for @localBridgePermissionRequired.
+  ///
+  /// In ja, this message translates to:
+  /// **'必須'**
+  String get localBridgePermissionRequired;
+
+  /// No description provided for @localBridgePermissionRecommended.
+  ///
+  /// In ja, this message translates to:
+  /// **'推奨'**
+  String get localBridgePermissionRecommended;
+
+  /// No description provided for @localBridgePermissionOptional.
+  ///
+  /// In ja, this message translates to:
+  /// **'任意'**
+  String get localBridgePermissionOptional;
+
+  /// No description provided for @localBridgePermissionGranted.
+  ///
+  /// In ja, this message translates to:
+  /// **'許可済み'**
+  String get localBridgePermissionGranted;
+
+  /// No description provided for @localBridgePermissionMissing.
+  ///
+  /// In ja, this message translates to:
+  /// **'許可されていません'**
+  String get localBridgePermissionMissing;
+
+  /// No description provided for @localBridgePermissionUnknown.
+  ///
+  /// In ja, this message translates to:
+  /// **'状態はシステム設定で確認してください'**
+  String get localBridgePermissionUnknown;
+
+  /// No description provided for @localBridgePermissionOpenSettings.
+  ///
+  /// In ja, this message translates to:
+  /// **'設定を開く'**
+  String get localBridgePermissionOpenSettings;
+
+  /// No description provided for @guideLocalBridgeStepPermissions.
+  ///
+  /// In ja, this message translates to:
+  /// **'macOSの権限を許可する'**
+  String get guideLocalBridgeStepPermissions;
+
+  /// No description provided for @guideLocalBridgeStepPermissionsDetail.
+  ///
+  /// In ja, this message translates to:
+  /// **'起動後に出る案内から、フルディスクアクセスなどをシステム設定で有効にします。Bridgeの管理画面でいつでも確認できます。'**
+  String get guideLocalBridgeStepPermissionsDetail;
+
   /// No description provided for @localBridgeSettingPortDesc.
   ///
   /// In ja, this message translates to:

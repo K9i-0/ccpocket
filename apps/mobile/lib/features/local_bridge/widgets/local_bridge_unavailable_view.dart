@@ -18,6 +18,7 @@ class LocalBridgeUnavailableView extends StatelessWidget {
     this.detail,
     this.onStart,
     this.onUnregister,
+    this.onOpenLoginItems,
     this.busy = LocalBridgeBusy.none,
     this.registration = LauncherRegistration.unavailable,
     this.problem,
@@ -32,6 +33,10 @@ class LocalBridgeUnavailableView extends StatelessWidget {
   /// Bridge of its own is running (waiting for Node, port taken, ...), so the
   /// user is never left with an agent they cannot turn off here.
   final VoidCallback? onUnregister;
+
+  /// Opens System Settings > Login Items, offered while the agent is off
+  /// there.
+  final VoidCallback? onOpenLoginItems;
   final LocalBridgeBusy busy;
   final LauncherRegistration registration;
 
@@ -114,6 +119,7 @@ class LocalBridgeUnavailableView extends StatelessWidget {
                 problemNodeVersion: problemNodeVersion,
                 startFailed: startFailed,
                 onStart: onStart!,
+                onOpenLoginItems: onOpenLoginItems,
               ),
               const SizedBox(height: 20),
               Text(
@@ -162,11 +168,13 @@ class LocalBridgeStartPanel extends StatelessWidget {
     required this.busy,
     required this.registration,
     required this.onStart,
+    this.onOpenLoginItems,
     this.problem,
     this.problemNodeVersion,
     this.startFailed = false,
   });
 
+  final VoidCallback? onOpenLoginItems;
   final int port;
   final LocalBridgeBusy busy;
   final LauncherRegistration registration;
@@ -208,6 +216,18 @@ class LocalBridgeStartPanel extends StatelessWidget {
             key: const ValueKey('local_bridge_start_problem'),
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(color: cs.error),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (registration == LauncherRegistration.requiresApproval &&
+            onOpenLoginItems != null) ...[
+          Center(
+            child: OutlinedButton.icon(
+              key: const ValueKey('local_bridge_open_login_items_button'),
+              onPressed: onOpenLoginItems,
+              icon: const Icon(Icons.open_in_new_rounded, size: 18),
+              label: Text(l.localBridgePermissionOpenSettings),
+            ),
           ),
           const SizedBox(height: 12),
         ],

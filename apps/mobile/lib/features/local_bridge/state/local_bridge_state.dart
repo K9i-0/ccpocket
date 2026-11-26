@@ -73,6 +73,9 @@ abstract class LocalBridgeState with _$LocalBridgeState {
     /// What the launcher last reported (missing Node, port in use, ...).
     LauncherStatus? launcherStatus,
 
+    /// macOS permissions of the Bridge the app runs, as last checked.
+    LauncherPermissions? launcherPermissions,
+
     /// Starting from the app did not bring the Bridge up in time.
     @Default(false) bool startFailed,
   }) = _LocalBridgeState;
@@ -91,6 +94,17 @@ abstract class LocalBridgeState with _$LocalBridgeState {
       managedByApp && phase == LocalBridgePhase.notRunning
       ? launcherStatus?.problem
       : null;
+
+  /// The macOS permissions apply: the Bridge is (or was) run by the app's
+  /// agent. A Bridge started another way runs under its own identity.
+  bool get showsPermissions =>
+      launcherRegistration == LauncherRegistration.enabled ||
+      launcherRegistration == LauncherRegistration.requiresApproval;
+
+  /// A permission worth pointing out is missing.
+  bool get permissionsNeedAttention =>
+      launcherRegistration == LauncherRegistration.requiresApproval ||
+      (managedByApp && launcherPermissions?.fullDiskAccess == false);
 
   bool get hasEdits => edits.isNotEmpty;
 

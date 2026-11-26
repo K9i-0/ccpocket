@@ -4212,6 +4212,74 @@ class AppLocalizationsZh extends AppLocalizations {
   String get localBridgeAddFolder => '添加文件夹';
 
   @override
+  String get localBridgePermissionsTitle => 'macOS 权限';
+
+  @override
+  String get localBridgePermissionsFooter =>
+      '在“隐私与安全性”中显示为“CC Pocket”。更改在重新启动 Bridge 后生效。';
+
+  @override
+  String get localBridgePermissionsDialogTitle => '检查 macOS 权限';
+
+  @override
+  String get localBridgePermissionsDialogBody =>
+      'Bridge 已启动。为避免代理中途停下，请在系统设置中开启缺少的权限。之后也可以在此页面更改。';
+
+  @override
+  String get localBridgePermissionLoginItem => '后台运行';
+
+  @override
+  String get localBridgePermissionLoginItemDesc => '登录时启动 Bridge，关闭应用后仍继续运行';
+
+  @override
+  String get localBridgePermissionFullDisk => '完全磁盘访问权限';
+
+  @override
+  String get localBridgePermissionFullDiskDesc =>
+      '让代理处理“文稿”“桌面”“下载”或外置磁盘中的项目时，不再在 Mac 上弹出确认对话框';
+
+  @override
+  String get localBridgePermissionScreenCapture => '屏幕录制';
+
+  @override
+  String get localBridgePermissionScreenCaptureDesc => '用于从手机截取这台 Mac 的屏幕';
+
+  @override
+  String get localBridgePermissionLocalNetwork => '本地网络';
+
+  @override
+  String get localBridgePermissionLocalNetworkDesc =>
+      '代理连接同一网络中的设备（开发服务器、测试设备等）时使用';
+
+  @override
+  String get localBridgePermissionRequired => '必需';
+
+  @override
+  String get localBridgePermissionRecommended => '推荐';
+
+  @override
+  String get localBridgePermissionOptional => '可选';
+
+  @override
+  String get localBridgePermissionGranted => '已允许';
+
+  @override
+  String get localBridgePermissionMissing => '未允许';
+
+  @override
+  String get localBridgePermissionUnknown => '请在系统设置中查看状态';
+
+  @override
+  String get localBridgePermissionOpenSettings => '打开设置';
+
+  @override
+  String get guideLocalBridgeStepPermissions => '允许 macOS 权限';
+
+  @override
+  String get guideLocalBridgeStepPermissionsDetail =>
+      '启动后会出现提示，引导你在系统设置中开启完全磁盘访问权限等。之后可随时在 Bridge 管理页面查看。';
+
+  @override
   String get localBridgeSettingPortDesc => '手机等设备连接的端口号（默认：8765）';
 
   @override

@@ -9,10 +9,12 @@ import '../../widgets/workspace_pane_chrome.dart';
 import '../session_list/workspace_shell_screen.dart';
 import '../settings/widgets/settings_tiles.dart';
 import 'data/local_bridge_client.dart';
+import 'data/local_bridge_launcher.dart';
 import 'state/local_bridge_cubit.dart';
 import 'state/local_bridge_state.dart';
 import 'widgets/local_bridge_logs_screen.dart';
 import 'widgets/local_bridge_pairing_card.dart';
+import 'widgets/local_bridge_permissions_card.dart';
 import 'widgets/local_bridge_setting_editors.dart';
 import 'widgets/local_bridge_settings_section.dart';
 import 'widgets/local_bridge_status_card.dart';
@@ -157,7 +159,19 @@ class LocalBridgeView extends StatelessWidget {
             port: state.port,
             detail: state.errorDetail,
             onRetry: cubit.load,
-            onStart: state.canStart ? cubit.start : null,
+            onStart: state.canStart
+                ? () async {
+                    // First start from the app: the moment to grant the
+                    // macOS permissions.
+                    if (await cubit.start() &&
+                        cubit.state.permissionsNeedAttention &&
+                        context.mounted) {
+                      await showLocalBridgePermissionsDialog(context);
+                    }
+                  }
+                : null,
+            onOpenLoginItems: () =>
+                cubit.openPermissionSettings(BridgePermission.loginItem),
             onUnregister: cubit.stop,
             busy: state.busy,
             registration: state.launcherRegistration,
@@ -405,6 +419,10 @@ class LocalBridgeReadyBody extends StatelessWidget {
                       onClose();
                     },
             ),
+            // Missing permissions come first; otherwise they sit with the
+            // settings below.
+            if (state.showsPermissions && state.permissionsNeedAttention)
+              const LocalBridgePermissionsCard(),
             if (pairing != null) ...[
               SettingsSectionHeader(title: l.localBridgePairingTitle),
               LocalBridgePairingCard(
@@ -422,6 +440,8 @@ class LocalBridgeReadyBody extends StatelessWidget {
               unsupported: state.toolsUnsupported,
               onRecheck: () => cubit.refreshTools(force: true),
             ),
+            if (state.showsPermissions && !state.permissionsNeedAttention)
+              const LocalBridgePermissionsCard(),
             LocalBridgeSettingsSection(state: state, onEdit: cubit.edit),
             SettingsGroup(
               children: [

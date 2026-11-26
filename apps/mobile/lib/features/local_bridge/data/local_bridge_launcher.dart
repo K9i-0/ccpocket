@@ -18,16 +18,49 @@ enum LauncherRegistration {
   unknown,
 }
 
+/// A macOS permission the Bridge run by the app depends on.
+enum BridgePermission { loginItem, fullDiskAccess, screenCapture, localNetwork }
+
+/// What macOS currently grants the Bridge; null where it could not be told.
+class LauncherPermissions {
+  const LauncherPermissions({this.fullDiskAccess, this.screenCapture});
+
+  static LauncherPermissions? fromJson(Object? json) => json is Map
+      ? LauncherPermissions(
+          fullDiskAccess: json['fullDiskAccess'] is bool
+              ? json['fullDiskAccess'] as bool
+              : null,
+          screenCapture: json['screenCapture'] is bool
+              ? json['screenCapture'] as bool
+              : null,
+        )
+      : null;
+
+  final bool? fullDiskAccess;
+  final bool? screenCapture;
+
+  @override
+  bool operator ==(Object other) =>
+      other is LauncherPermissions &&
+      other.fullDiskAccess == fullDiskAccess &&
+      other.screenCapture == screenCapture;
+
+  @override
+  int get hashCode => Object.hash(fullDiskAccess, screenCapture);
+}
+
 class LauncherResult {
   const LauncherResult({
     required this.ok,
     required this.registration,
     this.error,
+    this.permissions,
   });
 
   final bool ok;
   final LauncherRegistration registration;
   final String? error;
+  final LauncherPermissions? permissions;
 }
 
 /// Why the launcher could not start the Bridge.
@@ -74,8 +107,12 @@ class LauncherStatus {
 abstract class LocalBridgeLauncher {
   Future<bool> isAvailable();
 
-  /// `register` (start now and at login), `unregister` (stop) or `status`.
+  /// `register` (start now and at login), `unregister` (stop), `status` or
+  /// `requestScreenCapture` (list the app under Screen Recording).
   Future<LauncherResult> run(String action);
+
+  /// Opens the System Settings page where [permission] is granted.
+  Future<bool> openSystemSettings(BridgePermission permission);
 
   Future<LauncherStatus?> readStatus();
 
@@ -118,6 +155,7 @@ class HelperLocalBridgeLauncher implements LocalBridgeLauncher {
           _ => LauncherRegistration.unknown,
         },
         error: result?['error'] is String ? result!['error']! as String : null,
+        permissions: LauncherPermissions.fromJson(result?['permissions']),
       );
     } on PlatformException catch (err) {
       return LauncherResult(
@@ -130,6 +168,20 @@ class HelperLocalBridgeLauncher implements LocalBridgeLauncher {
         ok: false,
         registration: LauncherRegistration.unavailable,
       );
+    }
+  }
+
+  @override
+  Future<bool> openSystemSettings(BridgePermission permission) async {
+    try {
+      return await _channel.invokeMethod<bool>('openSettings', {
+            'pane': permission.name,
+          }) ??
+          false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
     }
   }
 

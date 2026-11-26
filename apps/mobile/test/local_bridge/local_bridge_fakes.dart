@@ -213,9 +213,17 @@ class FakeLauncher implements LocalBridgeLauncher {
   int? savedPort;
   LauncherStatus? status;
   final actions = <String>[];
+  LauncherPermissions? permissions;
+  final openedSettings = <BridgePermission>[];
 
   @override
   Future<bool> isAvailable() async => available;
+
+  @override
+  Future<bool> openSystemSettings(BridgePermission permission) async {
+    openedSettings.add(permission);
+    return true;
+  }
 
   @override
   Future<int?> configuredPort() async => savedPort;
@@ -229,7 +237,11 @@ class FakeLauncher implements LocalBridgeLauncher {
     if (action == 'register') {
       if (approvalRequired) {
         registration = LauncherRegistration.requiresApproval;
-        return LauncherResult(ok: false, registration: registration);
+        return LauncherResult(
+          ok: false,
+          registration: registration,
+          permissions: permissions,
+        );
       }
       registration = LauncherRegistration.enabled;
       if (problemOnStart != null) {
@@ -241,6 +253,10 @@ class FakeLauncher implements LocalBridgeLauncher {
       registration = LauncherRegistration.notRegistered;
       bridge.running = false;
     }
-    return LauncherResult(ok: true, registration: registration);
+    return LauncherResult(
+      ok: true,
+      registration: registration,
+      permissions: permissions,
+    );
   }
 }

@@ -22,6 +22,9 @@ final class LocalBridgeHelper {
       case "run":
         let action = (call.arguments as? [String: Any])?["action"] as? String ?? ""
         self.run(action: action, result: result)
+      case "openSettings":
+        let pane = (call.arguments as? [String: Any])?["pane"] as? String ?? ""
+        result(self.openSettings(pane: pane))
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -35,6 +38,21 @@ final class LocalBridgeHelper {
     let url = Bundle.main.bundleURL
       .appendingPathComponent("Contents/Helpers/CC Pocket Bridge.app")
     return FileManager.default.fileExists(atPath: url.path) ? url : nil
+  }
+
+  /// Opens the System Settings page where the user grants [pane].
+  private func openSettings(pane: String) -> Bool {
+    let privacy = "x-apple.systempreferences:com.apple.preference.security?"
+    let address: String
+    switch pane {
+    case "loginItem": address = "x-apple.systempreferences:com.apple.LoginItems-Settings.extension"
+    case "fullDiskAccess": address = privacy + "Privacy_AllFiles"
+    case "screenCapture": address = privacy + "Privacy_ScreenCapture"
+    case "localNetwork": address = privacy + "Privacy_LocalNetwork"
+    default: return false
+    }
+    guard let url = URL(string: address) else { return false }
+    return NSWorkspace.shared.open(url)
   }
 
   private var realHome: String {
