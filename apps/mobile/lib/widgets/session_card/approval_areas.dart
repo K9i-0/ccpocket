@@ -7,10 +7,10 @@ import '../../theme/code_text_style.dart';
 import '../expandable_summary_text.dart';
 import 'ask_user_widgets.dart';
 
-class _SessionApprovalSection extends StatelessWidget {
+class SessionApprovalSection extends StatelessWidget {
   final Widget child;
 
-  const _SessionApprovalSection({super.key, required this.child});
+  const SessionApprovalSection({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -97,7 +97,7 @@ class SessionCardToolSuggestionArea extends StatelessWidget {
     final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
-    return _SessionApprovalSection(
+    return SessionApprovalSection(
       key: const ValueKey('session_tool_suggestion_area'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -263,7 +263,7 @@ class SessionCardToolApprovalArea extends StatelessWidget {
         ),
     ];
 
-    return _SessionApprovalSection(
+    return SessionApprovalSection(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -358,7 +358,7 @@ class SessionCardPlanApprovalArea extends StatelessWidget {
       borderRadius: BorderRadius.circular(10),
     );
 
-    return _SessionApprovalSection(
+    return SessionApprovalSection(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -557,7 +557,7 @@ class SessionCardCodexPlanApprovalArea extends StatelessWidget {
       borderRadius: BorderRadius.circular(10),
     );
 
-    return _SessionApprovalSection(
+    return SessionApprovalSection(
       key: const ValueKey('codex_plan_approval_area'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

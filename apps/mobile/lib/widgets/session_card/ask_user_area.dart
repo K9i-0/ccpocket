@@ -5,7 +5,6 @@ import 'package:material_ui/material_ui.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
 import '../../services/question_draft_store.dart';
-import '../../theme/app_theme.dart';
 import 'approval_areas.dart';
 import 'ask_user_widgets.dart';
 
@@ -328,16 +327,13 @@ class _AskUserAreaState extends State<SessionCardAskUserArea> {
     if (questions.isEmpty) return const SizedBox.shrink();
 
     if (_draft.answered) {
-      return _AnsweredQuestionNotice(statusColor: widget.statusColor);
+      return const _AnsweredQuestionNotice();
     }
 
     final firstQ = questions[0] as Map<String, dynamic>;
     final options = firstQ['options'] as List<dynamic>? ?? [];
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      color: widget.statusColor.withValues(alpha: 0.06),
+    return SessionApprovalSection(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -396,34 +392,25 @@ class _AskUserAreaState extends State<SessionCardAskUserArea> {
 
 /// Shown once the shared question draft was answered on any surface.
 class _AnsweredQuestionNotice extends StatelessWidget {
-  final Color statusColor;
-
-  const _AnsweredQuestionNotice({required this.statusColor});
+  const _AnsweredQuestionNotice();
 
   @override
   Widget build(BuildContext context) {
-    final appColors = Theme.of(context).extension<AppColors>()!;
-    return Container(
+    final cs = Theme.of(context).colorScheme;
+    return SessionApprovalSection(
       key: const ValueKey('session_card_question_answered'),
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      color: statusColor.withValues(alpha: 0.06),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
             Icons.check_circle_outline,
             size: 16,
-            color: appColors.subtleText,
+            color: cs.onSurfaceVariant,
           ),
           const SizedBox(width: 6),
           Text(
             AppLocalizations.of(context).answered,
-            style: TextStyle(
-              color: appColors.subtleText,
-              fontStyle: FontStyle.italic,
-              fontSize: 12,
-            ),
+            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12.5),
           ),
         ],
       ),

@@ -20,8 +20,9 @@ class SessionCardQuestionText extends StatelessWidget {
       text,
       style: TextStyle(
         fontSize: 13,
-        fontWeight: FontWeight.w500,
-        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
+        fontWeight: FontWeight.w600,
+        color: Theme.of(context).colorScheme.onSurface,
+        height: 1.35,
       ),
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
@@ -34,54 +35,69 @@ class _SingleSelectChips extends StatelessWidget {
   final int questionIndex;
   final List<dynamic> options;
   final String? selectedLabel;
-  final Color statusColor;
   final void Function(int questionIndex, String label) onAnswerSingle;
 
   const _SingleSelectChips({
     required this.questionIndex,
     required this.options,
     required this.selectedLabel,
-    required this.statusColor,
     required this.onAnswerSingle,
   });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final opt in options)
           if (opt is Map<String, dynamic>)
             Padding(
-              padding: const EdgeInsets.only(bottom: 4.0),
+              padding: const EdgeInsets.only(bottom: 6.0),
               child: Builder(
                 builder: (context) {
                   final label = opt['label'] as String? ?? '';
                   final value = opt['value'] as String? ?? label;
                   final isChosen = selectedLabel == value;
+                  final bgColor = isChosen
+                      ? cs.primary.withValues(alpha: isDark ? 0.14 : 0.07)
+                      : (isDark
+                            ? cs.onSurface.withValues(alpha: 0.045)
+                            : cs.surfaceContainerHigh);
+                  final borderColor = isChosen
+                      ? cs.primary.withValues(alpha: isDark ? 0.65 : 0.55)
+                      : cs.outlineVariant.withValues(
+                          alpha: isDark ? 0.75 : 0.85,
+                        );
                   return OutlinedButton.icon(
                     onPressed: () => onAnswerSingle(questionIndex, value),
                     icon: isChosen
-                        ? Icon(Icons.check_circle, size: 16, color: statusColor)
+                        ? Icon(Icons.check_circle, size: 16, color: cs.primary)
                         : const SizedBox.shrink(),
-                    label: Text(label, style: const TextStyle(fontSize: 13)),
+                    label: Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 10,
                       ),
                       minimumSize: const Size(0, sessionCardButtonHeight),
-                      foregroundColor: statusColor,
-                      backgroundColor: isChosen
-                          ? statusColor.withValues(alpha: 0.15)
-                          : Colors.transparent,
+                      foregroundColor: cs.onSurface,
+                      backgroundColor: bgColor,
                       side: BorderSide(
-                        color: statusColor.withValues(
-                          alpha: isChosen ? 0.6 : 0.3,
-                        ),
+                        color: borderColor,
+                        width: isChosen ? 1.5 : 1,
                       ),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
                   );
@@ -98,31 +114,43 @@ class _MultiSelectChips extends StatelessWidget {
   final int questionIndex;
   final List<dynamic> options;
   final Set<String> selected;
-  final Color statusColor;
   final void Function(int questionIndex, String label) onToggleLabel;
 
   const _MultiSelectChips({
     required this.questionIndex,
     required this.options,
     required this.selected,
-    required this.statusColor,
     required this.onToggleLabel,
   });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final opt in options)
           if (opt is Map<String, dynamic>)
             Padding(
-              padding: const EdgeInsets.only(bottom: 4.0),
+              padding: const EdgeInsets.only(bottom: 6.0),
               child: Builder(
                 builder: (context) {
                   final label = opt['label'] as String? ?? '';
                   final value = opt['value'] as String? ?? label;
                   final isSelected = selected.contains(value);
+                  final bgColor = isSelected
+                      ? cs.primary.withValues(alpha: isDark ? 0.14 : 0.07)
+                      : (isDark
+                            ? cs.onSurface.withValues(alpha: 0.045)
+                            : cs.surfaceContainerHigh);
+                  final borderColor = isSelected
+                      ? cs.primary.withValues(alpha: isDark ? 0.65 : 0.55)
+                      : cs.outlineVariant.withValues(
+                          alpha: isDark ? 0.75 : 0.85,
+                        );
                   return OutlinedButton.icon(
                     onPressed: () => onToggleLabel(questionIndex, value),
                     icon: Icon(
@@ -131,10 +159,16 @@ class _MultiSelectChips extends StatelessWidget {
                           : Icons.check_box_outline_blank,
                       size: 18,
                       color: isSelected
-                          ? statusColor
-                          : statusColor.withValues(alpha: 0.5),
+                          ? cs.primary
+                          : cs.onSurfaceVariant.withValues(alpha: 0.75),
                     ),
-                    label: Text(label, style: const TextStyle(fontSize: 13)),
+                    label: Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -142,17 +176,14 @@ class _MultiSelectChips extends StatelessWidget {
                       ),
                       minimumSize: const Size(0, sessionCardButtonHeight),
                       alignment: Alignment.centerLeft,
-                      foregroundColor: statusColor,
-                      backgroundColor: isSelected
-                          ? statusColor.withValues(alpha: 0.15)
-                          : Colors.transparent,
+                      foregroundColor: cs.onSurface,
+                      backgroundColor: bgColor,
                       side: BorderSide(
-                        color: statusColor.withValues(
-                          alpha: isSelected ? 0.6 : 0.3,
-                        ),
+                        color: borderColor,
+                        width: isSelected ? 1.5 : 1,
                       ),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
                   );
@@ -168,18 +199,17 @@ class _MultiSelectChips extends StatelessWidget {
 class _ConfirmButton extends StatelessWidget {
   final int questionIndex;
   final Set<String> selected;
-  final Color statusColor;
   final void Function(int questionIndex) onConfirmMultiSelect;
 
   const _ConfirmButton({
     required this.questionIndex,
     required this.selected,
-    required this.statusColor,
     required this.onConfirmMultiSelect,
   });
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(top: 2),
       child: SizedBox(
@@ -192,13 +222,14 @@ class _ConfirmButton extends StatelessWidget {
           icon: const Icon(Icons.check, size: 16),
           label: Text('Confirm (${selected.length})'),
           style: FilledButton.styleFrom(
-            textStyle: const TextStyle(fontSize: 13),
-            backgroundColor: statusColor.withValues(alpha: 0.15),
-            foregroundColor: statusColor,
-            disabledBackgroundColor: statusColor.withValues(alpha: 0.05),
-            disabledForegroundColor: statusColor.withValues(alpha: 0.3),
+            textStyle: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+            backgroundColor: cs.primary,
+            foregroundColor: cs.onPrimary,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
             ),
           ),
         ),
@@ -212,7 +243,6 @@ class _OtherAnswerSection extends StatelessWidget {
   final int questionIndex;
   final bool isCustomInputShown;
   final bool isMultiQuestion;
-  final Color statusColor;
   final TextEditingController controller;
   final void Function(int questionIndex, String text) onCustomTextChanged;
   final void Function(int questionIndex) onSubmitCustomText;
@@ -222,7 +252,6 @@ class _OtherAnswerSection extends StatelessWidget {
     required this.questionIndex,
     required this.isCustomInputShown,
     required this.isMultiQuestion,
-    required this.statusColor,
     required this.controller,
     required this.onCustomTextChanged,
     required this.onSubmitCustomText,
@@ -232,6 +261,9 @@ class _OtherAnswerSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     final canSubmit = controller.text.trim().isNotEmpty;
 
     if (isCustomInputShown) {
@@ -252,28 +284,30 @@ class _OtherAnswerSection extends StatelessWidget {
                 decoration: InputDecoration(
                   hintText: 'Type your answer...',
                   hintStyle: TextStyle(
-                    fontSize: 13,
-                    color: statusColor.withValues(alpha: 0.4),
+                    fontSize: 12.5,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.75),
                   ),
+                  filled: true,
+                  fillColor: isDark ? cs.surface : cs.surfaceContainerHigh,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 10,
                   ),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide(
-                      color: statusColor.withValues(alpha: 0.3),
+                      color: cs.outlineVariant.withValues(alpha: 0.8),
                     ),
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide(
-                      color: statusColor.withValues(alpha: 0.3),
+                      color: cs.outlineVariant.withValues(alpha: 0.8),
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: statusColor),
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: cs.primary, width: 1.5),
                   ),
                   isDense: true,
                 ),
@@ -292,17 +326,18 @@ class _OtherAnswerSection extends StatelessWidget {
                     : null,
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  backgroundColor: statusColor.withValues(alpha: 0.15),
-                  foregroundColor: statusColor,
-                  disabledBackgroundColor: statusColor.withValues(alpha: 0.08),
-                  disabledForegroundColor: statusColor.withValues(alpha: 0.35),
+                  backgroundColor: cs.primary,
+                  foregroundColor: cs.onPrimary,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
                 child: Text(
                   isMultiQuestion ? l.next : l.send,
-                  style: const TextStyle(fontSize: 13),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
@@ -319,8 +354,11 @@ class _OtherAnswerSection extends StatelessWidget {
           style: TextButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             minimumSize: const Size(0, 36),
-            textStyle: const TextStyle(fontSize: 12),
-            foregroundColor: statusColor.withValues(alpha: 0.7),
+            textStyle: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+            foregroundColor: cs.onSurfaceVariant,
           ),
           child: const Text('Other answer...'),
         ),
@@ -378,13 +416,12 @@ class SessionCardQuestionLayout extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         SessionCardQuestionText(question: question),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         if (isMulti && opts.isNotEmpty)
           _MultiSelectChips(
             questionIndex: questionIndex,
             options: opts,
             selected: multiAnswers.putIfAbsent(questionIndex, () => {}),
-            statusColor: statusColor,
             onToggleLabel: onToggleMultiSelectLabel,
           )
         else if (opts.isNotEmpty)
@@ -392,7 +429,6 @@ class SessionCardQuestionLayout extends StatelessWidget {
             questionIndex: questionIndex,
             options: opts,
             selectedLabel: singleAnswers[questionIndex],
-            statusColor: statusColor,
             onAnswerSingle: onAnswerSingle,
           ),
         if (allowsCustomInput)
@@ -400,7 +436,6 @@ class SessionCardQuestionLayout extends StatelessWidget {
             questionIndex: questionIndex,
             isCustomInputShown: customInputs.contains(questionIndex),
             isMultiQuestion: isMultiQuestion,
-            statusColor: statusColor,
             controller: getOrCreateController(questionIndex),
             onCustomTextChanged: onCustomTextChanged,
             onSubmitCustomText: onSubmitCustomText,
@@ -410,7 +445,6 @@ class SessionCardQuestionLayout extends StatelessWidget {
           _ConfirmButton(
             questionIndex: questionIndex,
             selected: multiAnswers[questionIndex] ?? {},
-            statusColor: statusColor,
             onConfirmMultiSelect: onConfirmMultiSelect,
           ),
       ],
@@ -469,9 +503,17 @@ class SessionCardQuestionPageView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     final totalPages = isMultiQuestion
         ? questions.length + 1
         : questions.length;
+    final headerText = currentPage < questions.length
+        ? ((questions[currentPage] as Map<String, dynamic>)['header']
+                  as String? ??
+              'Q${currentPage + 1}')
+        : 'Review Summary';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -480,40 +522,57 @@ class SessionCardQuestionPageView extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Expanded(
+            Flexible(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: cs.onSurface.withValues(alpha: isDark ? 0.08 : 0.05),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: cs.outlineVariant.withValues(alpha: 0.65),
+                    width: 0.75,
+                  ),
+                ),
+                child: Text(
+                  headerText,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: cs.onSurfaceVariant,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: cs.onSurface.withValues(alpha: isDark ? 0.08 : 0.05),
+                borderRadius: BorderRadius.circular(999),
+              ),
               child: Text(
-                currentPage < questions.length
-                    ? ((questions[currentPage]
-                                  as Map<String, dynamic>)['header']
-                              as String? ??
-                          'Q${currentPage + 1}')
-                    : 'Review Summary',
+                '${currentPage + 1} of $totalPages',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: statusColor.withValues(alpha: 0.8),
+                  color: cs.onSurfaceVariant,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            Text(
-              '${currentPage + 1} of $totalPages',
-              style: TextStyle(
-                fontSize: 11,
-                color: Theme.of(context).colorScheme.onSurfaceVariant
-                    .withValues(alpha: 0.6),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 6),
-        // Progress bar instead of bulky chips
-        LinearProgressIndicator(
-          value: (currentPage + 1) / totalPages,
-          backgroundColor: statusColor.withValues(alpha: 0.1),
-          valueColor: AlwaysStoppedAnimation<Color>(statusColor),
-          minHeight: 2,
+        const SizedBox(height: 8),
+        // Progress bar matching AskUserQuestionWidget
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+            value: (currentPage + 1) / totalPages,
+            backgroundColor: cs.outlineVariant.withValues(alpha: 0.5),
+            valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
+            minHeight: 3,
+          ),
         ),
         const SizedBox(height: 10),
         // Dynamic height container based on content, avoiding rigid PageView size
@@ -525,7 +584,6 @@ class SessionCardQuestionPageView extends StatelessWidget {
             if (index == questions.length) {
               return _SummaryPage(
                 questions: questions,
-                statusColor: statusColor,
                 singleAnswers: singleAnswers,
                 multiAnswers: multiAnswers,
                 customControllers: getOrCreateController,
@@ -561,7 +619,6 @@ class SessionCardQuestionPageView extends StatelessWidget {
 /// Summary page showing all answers with Submit/Cancel buttons.
 class _SummaryPage extends StatelessWidget {
   final List<dynamic> questions;
-  final Color statusColor;
   final Map<int, String> singleAnswers;
   final Map<int, Set<String>> multiAnswers;
   final TextEditingController Function(int) customControllers;
@@ -571,7 +628,6 @@ class _SummaryPage extends StatelessWidget {
 
   const _SummaryPage({
     required this.questions,
-    required this.statusColor,
     required this.singleAnswers,
     required this.multiAnswers,
     required this.customControllers,
@@ -582,7 +638,13 @@ class _SummaryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final buttonShape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(10),
+    );
+
     return Padding(
       padding: const EdgeInsets.only(right: 4),
       child: Column(
@@ -594,7 +656,7 @@ class _SummaryPage extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: cs.onSurface.withValues(alpha: 0.8),
+              color: cs.onSurface,
             ),
           ),
           const SizedBox(height: 8),
@@ -602,7 +664,6 @@ class _SummaryPage extends StatelessWidget {
             _SummaryRow(
               index: i,
               question: questions[i] as Map<String, dynamic>,
-              statusColor: statusColor,
               singleAnswers: singleAnswers,
               multiAnswers: multiAnswers,
               customControllers: customControllers,
@@ -620,13 +681,21 @@ class _SummaryPage extends StatelessWidget {
                     onPressed: onResetAll,
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      side: BorderSide(color: cs.outlineVariant),
+                      side: BorderSide(
+                        color: cs.outlineVariant.withValues(
+                          alpha: isDark ? 0.85 : 1.0,
+                        ),
+                      ),
                       foregroundColor: cs.onSurfaceVariant,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6),
+                      shape: buttonShape,
+                    ),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                    child: const Text('Cancel', style: TextStyle(fontSize: 13)),
                   ),
                 ),
               ),
@@ -639,17 +708,13 @@ class _SummaryPage extends StatelessWidget {
                     onPressed: onSubmitAll,
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      backgroundColor: statusColor,
-                      foregroundColor: statusColor.computeLuminance() > 0.5
-                          ? Colors.black
-                          : Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6),
-                      ),
+                      backgroundColor: cs.primary,
+                      foregroundColor: cs.onPrimary,
+                      shape: buttonShape,
                     ),
-                    child: Row(
+                    child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
+                      children: [
                         Text(
                           'Submit',
                           style: TextStyle(
@@ -676,7 +741,6 @@ class _SummaryPage extends StatelessWidget {
 class _SummaryRow extends StatelessWidget {
   final int index;
   final Map<String, dynamic> question;
-  final Color statusColor;
   final Map<int, String> singleAnswers;
   final Map<int, Set<String>> multiAnswers;
   final TextEditingController Function(int) customControllers;
@@ -685,7 +749,6 @@ class _SummaryRow extends StatelessWidget {
   const _SummaryRow({
     required this.index,
     required this.question,
-    required this.statusColor,
     required this.singleAnswers,
     required this.multiAnswers,
     required this.customControllers,
@@ -710,53 +773,62 @@ class _SummaryRow extends StatelessWidget {
     }
 
     final hasAnswer = answer != null && answer.isNotEmpty;
-    final cs = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: () => onGoToPage(index),
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(6),
-          color: cs.surfaceContainerLowest,
-          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.3)),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              hasAnswer ? Icons.check_circle : Icons.error_outline,
-              size: 14,
-              color: hasAnswer ? statusColor : cs.error,
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    return Material(
+      color: isDark
+          ? cs.onSurface.withValues(alpha: 0.045)
+          : cs.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: () => onGoToPage(index),
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: cs.outlineVariant.withValues(alpha: isDark ? 0.7 : 0.8),
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    header,
-                    style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    hasAnswer ? answer : '(No answer selected)',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: hasAnswer ? cs.onSurface : cs.error,
-                    ),
-                  ),
-                ],
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                hasAnswer ? Icons.check_circle : Icons.error_outline,
+                size: 14,
+                color: hasAnswer ? cs.primary : cs.error,
               ),
-            ),
-            Icon(
-              Icons.edit,
-              size: 14,
-              color: statusColor.withValues(alpha: 0.3),
-            ),
-          ],
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      header,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      hasAnswer ? answer : '(No answer selected)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: hasAnswer ? cs.onSurface : cs.error,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.edit_outlined, size: 15, color: cs.onSurfaceVariant),
+            ],
+          ),
         ),
       ),
     );
