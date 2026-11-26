@@ -1,9 +1,9 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:talker_flutter/talker_flutter.dart';
 
 import '../../core/logger.dart';
+import 'log_viewer_screen.dart';
 import '../../features/settings/state/settings_cubit.dart';
 import '../../features/settings/state/settings_state.dart';
 import '../../features/settings/widgets/app_locale_bottom_sheet.dart';
@@ -77,7 +77,7 @@ class DebugScreen extends StatelessWidget {
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
-                        builder: (_) => TalkerScreen(talker: logger),
+                        builder: (_) => LogViewerScreen(logger: logger),
                       ),
                     ),
                   ),

@@ -868,14 +868,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.3.2"
-  group_button:
-    dependency: transitive
-    description:
-      name: group_button
-      sha256: "0610fcf28ed122bfb4b410fce161a390f7f2531d55d1d65c5375982001415940"
-      url: "https://pub.dev"
-    source: hosted
-    version: "5.3.4"
   highlight:
     dependency: "direct main"
     description:
@@ -1961,38 +1953,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.5.0"
-  talker:
-    dependency: "direct main"
-    description:
-      name: talker
-      sha256: "8ff6a942960ffdecc659dbf2ae339630ca0484ddc64345c89dd18a30e9d997bd"
-      url: "https://pub.dev"
-    source: hosted
-    version: "5.2.0"
-  talker_bloc_logger:
-    dependency: "direct main"
-    description:
-      name: talker_bloc_logger
-      sha256: "5a80e841511291b674ff0b98e644fc50b3283098e442fac77ba3fc9a59464505"
-      url: "https://pub.dev"
-    source: hosted
-    version: "5.2.0"
-  talker_flutter:
-    dependency: "direct main"
-    description:
-      name: talker_flutter
-      sha256: "54cbbf852101721664faf4a05639fd2fdefdc37178327990abea00390690d4bc"
-      url: "https://pub.dev"
-    source: hosted
-    version: "5.1.16"
-  talker_logger:
-    dependency: transitive
-    description:
-      name: talker_logger
-      sha256: cb06b63799a38afd13887de2f5230b051952a69f0bce5c21c81906d6e8400228
-      url: "https://pub.dev"
-    source: hosted
-    version: "5.2.0"
   term_glyph:
     dependency: transitive
     description:

@@ -79,9 +79,6 @@ dependencies:
   extended_image: ^10.0.1
   flutter_svg: ^2.5.0
   smooth_page_indicator: ^3.0.0
-  talker: ^5.2.0
-  talker_flutter: ^5.1.13
-  talker_bloc_logger: ^5.2.0
   scroll_to_index: ^3.0.1
   skeletonizer: ^3.0.0
   expandable_page_view: ^1.3.1

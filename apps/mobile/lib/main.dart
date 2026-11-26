@@ -26,8 +26,8 @@ import 'package:marionette_flutter/marionette_flutter.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:talker_bloc_logger/talker_bloc_logger.dart';
 
+import 'core/app_bloc_observer.dart';
 import 'core/logger.dart';
 import 'core/reflex/reflex_registry.dart';
 import 'l10n/app_localizations.dart';
@@ -132,7 +132,7 @@ Future<CcpocketBootstrap> bootstrapCcpocket() async {
   } catch (error) {
     logger.error('[main] Media service init failed', error);
   }
-  Bloc.observer = TalkerBlocObserver(talker: logger);
+  Bloc.observer = AppBlocObserver(logger: logger);
 
   FlutterError.onError = (details) {
     logger.error(
