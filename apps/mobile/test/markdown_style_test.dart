@@ -1,3 +1,4 @@
+import 'package:ccpocket/features/file_peek/file_peek_sheet.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/theme/markdown_style.dart';
 import 'package:ccpocket/widgets/markdown/ccpocket_markdown.dart';
@@ -219,11 +220,9 @@ void main() {
     });
 
     testWidgets(
-      'falls back safely when TypeScript syntax highlighting throws',
+      'highlights TypeScript with JSDoc cleanly and preserves exact text',
       (tester) async {
-        await initializeMarkdownSyntaxHighlight();
-
-        final source = '''
+        const source = '''
 /**
  * Formats a value for display.
  */
@@ -240,7 +239,7 @@ export const formatValue = (value: string): string => value.trim();
                 spans = highlightToTextSpans(
                   context: context,
                   source: source,
-                  baseStyle: const TextStyle(),
+                  baseStyle: const TextStyle(color: Color(0xFF18181B)),
                   language: 'typescript',
                 );
                 return const SizedBox.shrink();
@@ -251,6 +250,202 @@ export const formatValue = (value: string): string => value.trim();
 
         expect(tester.takeException(), isNull);
         expect(_flattenText(spans), source);
+        expect(spans.length, greaterThan(1));
+        expect(_distinctColors(spans).length, greaterThan(2));
+      },
+    );
+
+    testWidgets(
+      'applies distinct light and dark token palettes aligned with theme brightness',
+      (tester) async {
+        const source = '''
+// Greet user
+final greeting = 'hello';
+int count = 42;
+''';
+        const baseStyle = TextStyle(
+          fontFamily: 'JetBrainsMono',
+          fontSize: 13,
+          color: Color(0xFF888888),
+        );
+
+        late List<TextSpan> lightSpans;
+        late List<TextSpan> darkSpans;
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.lightTheme,
+            home: Builder(
+              builder: (context) {
+                lightSpans = highlightToTextSpans(
+                  context: context,
+                  source: source,
+                  baseStyle: baseStyle,
+                  language: 'dart',
+                );
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            key: UniqueKey(),
+            theme: AppTheme.darkTheme,
+            home: Builder(
+              builder: (context) {
+                darkSpans = highlightToTextSpans(
+                  context: context,
+                  source: source,
+                  baseStyle: baseStyle,
+                  language: 'dart',
+                );
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+        );
+
+        expect(_flattenText(lightSpans), source);
+        expect(_flattenText(darkSpans), source);
+
+        final lightKeyword = _findSpanContaining(lightSpans, 'final');
+        final darkKeyword = _findSpanContaining(darkSpans, 'final');
+        final lightString = _findSpanContaining(lightSpans, "'hello'");
+        final darkString = _findSpanContaining(darkSpans, "'hello'");
+        final lightComment = _findSpanContaining(lightSpans, '// Greet user');
+        final darkComment = _findSpanContaining(darkSpans, '// Greet user');
+
+        expect(lightKeyword?.style?.color, isNot(baseStyle.color));
+        expect(darkKeyword?.style?.color, isNot(baseStyle.color));
+        expect(lightKeyword?.style?.color, isNot(darkKeyword?.style?.color));
+        expect(lightString?.style?.color, isNot(darkString?.style?.color));
+        expect(lightComment?.style?.fontStyle, FontStyle.italic);
+        expect(darkComment?.style?.fontStyle, FontStyle.italic);
+        expect(lightKeyword?.style?.fontFamily, 'JetBrainsMono');
+        expect(darkKeyword?.style?.fontSize, 13);
+        expect(highlightCacheLengthForTesting, 2);
+      },
+    );
+
+    testWidgets(
+      'preserves exact source length across common languages and aliases',
+      (tester) async {
+        const samples = <String, String>{
+          'dart': 'class Foo { final int x = 1; }\n',
+          'ts': 'export type Id = string | number;\n',
+          'tsx': 'export const App = () => <div>Hello</div>;\n',
+          'js': 'const fn = (a) => a + 1;\n',
+          'jsx': 'const el = <span className="a">ok</span>;\n',
+          'py': 'def greet(name: str) -> str:\n    return f"hi {name}"\n',
+          'sh': '#!/usr/bin/env bash\necho "hello"\n',
+          'zsh': 'export PATH="\$HOME/bin:\$PATH"\n',
+          'json': '{"key": [1, true, null, "val"]}\n',
+          'yml': 'name: ccpocket\nversion: 1\n',
+          'toml': '[package]\nname = "ccpocket"\n',
+          'html': '<div class="card"><p>Text</p></div>\n',
+          'css': '.card { color: #fff; padding: 8px; }\n',
+          'rs': 'fn main() { println!("hi"); }\n',
+          'go': 'package main\nfunc main() {}\n',
+          'java': 'public class A { static int x = 0; }\n',
+          'kt': 'data class User(val name: String)\n',
+          'swift': 'struct Point { let x: Int }\n',
+          'sql': 'SELECT id, name FROM users WHERE active = 1;\n',
+          'c': 'int main(void) { return 0; }\n',
+          'cpp': 'std::vector<int> v{1, 2, 3};\n',
+          'csharp': 'public record Item(string Name);\n',
+          'ruby': 'def hello(name)\n  puts name\nend\n',
+          'php': '<?php echo "hello"; ?>\n',
+          'markdown': '# Heading\n\n- **bold** and `code`\n',
+          'diff': '--- a/file\n+++ b/file\n-old\n+new\n',
+          'dockerfile': 'FROM node:22-alpine\nRUN npm ci\n',
+          'objc': '@interface Foo : NSObject\n@end\n',
+        };
+
+        await tester.pumpWidget(
+          MaterialApp(
+            key: UniqueKey(),
+            theme: AppTheme.darkTheme,
+            home: Builder(
+              builder: (context) {
+                for (final entry in samples.entries) {
+                  final spans = highlightToTextSpans(
+                    context: context,
+                    source: entry.value,
+                    baseStyle: const TextStyle(color: Colors.white),
+                    language: entry.key,
+                  );
+                  expect(
+                    _flattenText(spans),
+                    entry.value,
+                    reason: 'Exact text mismatch for ${entry.key}',
+                  );
+                  expect(
+                    _distinctColors(spans).length,
+                    greaterThan(1),
+                    reason: 'Expected highlighted tokens for ${entry.key}',
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+        );
+      },
+    );
+
+    testWidgets(
+      'falls back cleanly to plain baseStyle for unknown, plain, or oversized code',
+      (tester) async {
+        const baseStyle = TextStyle(fontSize: 13, color: Colors.white);
+        late List<TextSpan> unknownSpans;
+        late List<TextSpan> plainSpans;
+        late List<TextSpan> oversizedSpans;
+        final oversizedSource = List.filled(6001, 'a').join();
+
+        await tester.pumpWidget(
+          MaterialApp(
+            key: UniqueKey(),
+            theme: AppTheme.darkTheme,
+            home: Builder(
+              builder: (context) {
+                unknownSpans = highlightToTextSpans(
+                  context: context,
+                  source: 'some unknown syntax 123',
+                  baseStyle: baseStyle,
+                  language: 'nonexistent_lang_xyz',
+                );
+                plainSpans = highlightToTextSpans(
+                  context: context,
+                  source: 'plain text',
+                  baseStyle: baseStyle,
+                  language: 'plaintext',
+                );
+                oversizedSpans = highlightToTextSpans(
+                  context: context,
+                  source: oversizedSource,
+                  baseStyle: baseStyle,
+                  language: 'dart',
+                );
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+        );
+
+        expect(tester.takeException(), isNull);
+        expect(unknownSpans, hasLength(1));
+        expect(unknownSpans.single.text, 'some unknown syntax 123');
+        expect(unknownSpans.single.style, baseStyle);
+
+        expect(plainSpans, hasLength(1));
+        expect(plainSpans.single.text, 'plain text');
+        expect(plainSpans.single.style, baseStyle);
+
+        expect(oversizedSpans, hasLength(1));
+        expect(oversizedSpans.single.text, oversizedSource);
+        expect(markdownPerformanceProbe.highlightSkipped, 1);
       },
     );
 
@@ -263,6 +458,7 @@ export const formatValue = (value: string): string => value.trim();
 
         await tester.pumpWidget(
           MaterialApp(
+            key: UniqueKey(),
             theme: AppTheme.darkTheme,
             home: Builder(
               builder: (context) {
@@ -310,10 +506,14 @@ export const formatValue = (value: string): string => value.trim();
     );
 
     testWidgets(
-      'isolates unclosed streaming code blocks from the shared LRU cache',
+      'isolates unclosed streaming code blocks from the shared LRU cache and hits streaming slot',
       (tester) async {
+        late List<TextSpan> streamFirst;
+        late List<TextSpan> streamHit;
+
         await tester.pumpWidget(
           MaterialApp(
+            key: UniqueKey(),
             theme: AppTheme.darkTheme,
             home: Builder(
               builder: (context) {
@@ -327,7 +527,7 @@ export const formatValue = (value: string): string => value.trim();
                 );
                 // Many incremental streaming tokens do NOT pollute shared LRU.
                 for (var i = 0; i < 100; i++) {
-                  highlightToTextSpans(
+                  streamFirst = highlightToTextSpans(
                     context: context,
                     source: 'final streaming = $i;',
                     baseStyle: const TextStyle(fontSize: 12),
@@ -335,6 +535,14 @@ export const formatValue = (value: string): string => value.trim();
                     isStreaming: true,
                   );
                 }
+                // Re-querying the latest streaming snapshot hits the single-slot cache.
+                streamHit = highlightToTextSpans(
+                  context: context,
+                  source: 'final streaming = 99;',
+                  baseStyle: const TextStyle(fontSize: 12),
+                  language: 'dart',
+                  isStreaming: true,
+                );
                 return const SizedBox.shrink();
               },
             ),
@@ -342,9 +550,102 @@ export const formatValue = (value: string): string => value.trim();
         );
 
         expect(highlightCacheLengthForTesting, 1);
+        expect(identical(streamFirst, streamHit), isTrue);
+        expect(markdownPerformanceProbe.highlightCacheHits, 1);
       },
     );
   });
+
+  group('FilePeekCode syntax highlighting', () {
+    setUp(() {
+      resetHighlightCacheForTesting();
+    });
+
+    testWidgets(
+      'renders highlighted multi-line code and preserves single-token highlight styles',
+      (tester) async {
+        final controller = ScrollController();
+        addTearDown(controller.dispose);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            key: UniqueKey(),
+            theme: AppTheme.darkTheme,
+            home: Scaffold(
+              body: SizedBox(
+                height: 200,
+                child: FilePeekCode(
+                  content: '// comment only',
+                  language: 'dart',
+                  controller: controller,
+                ),
+              ),
+            ),
+          ),
+        );
+
+        final commentText = tester.widget<Text>(
+          find.byKey(const ValueKey('file_peek_code_content')),
+        );
+        expect(commentText.textSpan!.toPlainText(), '// comment only');
+        final commentSpan = _findTextSpan(
+          commentText.textSpan!,
+          '// comment only',
+        );
+        expect(commentSpan, isNotNull);
+        expect(commentSpan!.style?.fontStyle, FontStyle.italic);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.lightTheme,
+            home: Scaffold(
+              body: SizedBox(
+                height: 200,
+                child: FilePeekCode(
+                  content: 'final a = 1;\nfinal b = "two";',
+                  language: 'dart',
+                  controller: controller,
+                ),
+              ),
+            ),
+          ),
+        );
+
+        final multiLineText = tester.widget<Text>(
+          find.byKey(const ValueKey('file_peek_code_content')),
+        );
+        expect(
+          multiLineText.textSpan!.toPlainText(),
+          'final a = 1;\nfinal b = "two";',
+        );
+      },
+    );
+  });
+}
+
+Set<Color?> _distinctColors(List<TextSpan> spans) {
+  final colors = <Color?>{};
+  void visit(TextSpan span) {
+    if (span.text != null && span.text!.trim().isNotEmpty) {
+      colors.add(span.style?.color);
+    }
+    for (final child in span.children ?? const <InlineSpan>[]) {
+      if (child is TextSpan) visit(child);
+    }
+  }
+
+  for (final span in spans) {
+    visit(span);
+  }
+  return colors;
+}
+
+TextSpan? _findSpanContaining(List<TextSpan> spans, String text) {
+  for (final span in spans) {
+    final found = _findTextSpan(span, text);
+    if (found != null) return found;
+  }
+  return null;
 }
 
 CodeTextSpan? _findCodeTextSpan(InlineSpan span, String text) {

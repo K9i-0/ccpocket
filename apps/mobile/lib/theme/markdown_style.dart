@@ -2,10 +2,59 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:highlight/highlight.dart' as hl;
 import 'package:markdown_kit/markdown_kit.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:syntax_highlight/syntax_highlight.dart';
+import 'package:re_highlight/languages/bash.dart';
+import 'package:re_highlight/languages/c.dart';
+import 'package:re_highlight/languages/clojure.dart';
+import 'package:re_highlight/languages/cmake.dart';
+import 'package:re_highlight/languages/cpp.dart';
+import 'package:re_highlight/languages/csharp.dart';
+import 'package:re_highlight/languages/css.dart';
+import 'package:re_highlight/languages/dart.dart';
+import 'package:re_highlight/languages/diff.dart';
+import 'package:re_highlight/languages/dockerfile.dart';
+import 'package:re_highlight/languages/elixir.dart';
+import 'package:re_highlight/languages/glsl.dart';
+import 'package:re_highlight/languages/go.dart';
+import 'package:re_highlight/languages/gradle.dart';
+import 'package:re_highlight/languages/graphql.dart';
+import 'package:re_highlight/languages/groovy.dart';
+import 'package:re_highlight/languages/haskell.dart';
+import 'package:re_highlight/languages/http.dart';
+import 'package:re_highlight/languages/ini.dart';
+import 'package:re_highlight/languages/java.dart';
+import 'package:re_highlight/languages/javascript.dart';
+import 'package:re_highlight/languages/json.dart';
+import 'package:re_highlight/languages/kotlin.dart';
+import 'package:re_highlight/languages/latex.dart';
+import 'package:re_highlight/languages/less.dart';
+import 'package:re_highlight/languages/lua.dart';
+import 'package:re_highlight/languages/makefile.dart';
+import 'package:re_highlight/languages/markdown.dart';
+import 'package:re_highlight/languages/nginx.dart';
+import 'package:re_highlight/languages/nix.dart';
+import 'package:re_highlight/languages/objectivec.dart';
+import 'package:re_highlight/languages/perl.dart';
+import 'package:re_highlight/languages/php.dart';
+import 'package:re_highlight/languages/powershell.dart';
+import 'package:re_highlight/languages/properties.dart';
+import 'package:re_highlight/languages/protobuf.dart';
+import 'package:re_highlight/languages/python.dart';
+import 'package:re_highlight/languages/r.dart';
+import 'package:re_highlight/languages/ruby.dart';
+import 'package:re_highlight/languages/rust.dart';
+import 'package:re_highlight/languages/scala.dart';
+import 'package:re_highlight/languages/scss.dart';
+import 'package:re_highlight/languages/shell.dart';
+import 'package:re_highlight/languages/sql.dart';
+import 'package:re_highlight/languages/swift.dart';
+import 'package:re_highlight/languages/typescript.dart';
+import 'package:re_highlight/languages/vim.dart';
+import 'package:re_highlight/languages/wasm.dart';
+import 'package:re_highlight/languages/xml.dart';
+import 'package:re_highlight/languages/yaml.dart';
+import 'package:re_highlight/re_highlight.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/logger.dart';
@@ -13,7 +62,7 @@ import '../l10n/app_localizations.dart';
 import 'app_theme.dart';
 import 'code_text_style.dart';
 
-final _syntaxHighlight = _SyntaxHighlightRegistry();
+final Highlight _reHighlight = _createReHighlight();
 final markdownPerformanceProbe = MarkdownPerformanceProbe();
 final _highlightCache = _HighlightSpanCache(maxEntries: 80);
 
@@ -77,10 +126,6 @@ class MarkdownPerformanceProbe {
   double _roundMs(num micros) {
     return (micros / 1000 * 10).roundToDouble() / 10;
   }
-}
-
-Future<void> initializeMarkdownSyntaxHighlight() async {
-  await _syntaxHighlight.initialize();
 }
 
 /// Handles tapping on markdown links by opening them in browser.
@@ -548,9 +593,10 @@ List<TextSpan> highlightToTextSpans({
     return [TextSpan(text: source, style: baseStyle)];
   }
 
+  final normalizedLanguage = normalizeCodeLanguage(language);
   final isDark = Theme.of(context).brightness == Brightness.dark;
   final cacheKey = _HighlightCacheKey(
-    language: language ?? 'text',
+    language: normalizedLanguage ?? 'text',
     source: source,
     brightness: isDark ? Brightness.dark : Brightness.light,
     fontFamily: baseStyle.fontFamily,
@@ -589,133 +635,321 @@ List<TextSpan> highlightToTextSpans({
     return spans;
   }
 
-  if (language == null) {
+  if (normalizedLanguage == null ||
+      source.isEmpty ||
+      _reHighlight.getLanguage(normalizedLanguage) == null) {
     return finish([TextSpan(text: source, style: baseStyle)]);
   }
 
-  TextSpan? editorStyleSpan;
   try {
-    // Temporary fallback until syntax_highlight merges
-    // https://github.com/serverpod/syntax_highlight/pull/21.
-    editorStyleSpan = _syntaxHighlight.highlight(
-      context: context,
-      source: source,
-      language: language,
+    final result = _reHighlight.highlight(
+      code: source,
+      language: normalizedLanguage,
     );
+    if (result.errorRaised != null) {
+      logger.warning(
+        '[markdown] re_highlight raised error for language=$normalizedLanguage',
+        result.errorRaised,
+      );
+      return finish([TextSpan(text: source, style: baseStyle)]);
+    }
+
+    final renderer = _FlatTextSpanRenderer(
+      baseStyle: baseStyle,
+      theme: isDark ? _darkCodeTheme : _lightCodeTheme,
+    );
+    result.render(renderer);
+    final spans = renderer.buildSpans();
+    if (spans.isEmpty || renderer.emittedLength != source.length) {
+      return finish([TextSpan(text: source, style: baseStyle)]);
+    }
+    return finish(spans);
   } catch (error, stackTrace) {
     logger.warning(
-      '[markdown] syntax_highlight failed for language=$language',
+      '[markdown] re_highlight failed for language=$normalizedLanguage',
       error,
       stackTrace,
     );
-  }
-  if (editorStyleSpan != null) {
-    return finish([editorStyleSpan]);
-  }
-
-  hl.Result? result;
-  try {
-    result = hl.highlight.parse(source, language: language);
-  } catch (_) {
-    result = null;
-  }
-
-  if (result == null || result.nodes == null || result.nodes!.isEmpty) {
     return finish([TextSpan(text: source, style: baseStyle)]);
   }
-
-  return finish(
-    _nodesToTextSpans(
-      context: context,
-      nodes: result.nodes!,
-      baseStyle: baseStyle,
-    ),
-  );
 }
 
-List<TextSpan> _nodesToTextSpans({
-  required BuildContext context,
-  required List<hl.Node> nodes,
-  required TextStyle baseStyle,
-}) {
-  final spans = <TextSpan>[];
-  for (final node in nodes) {
-    if (node.value != null) {
-      spans.add(
-        TextSpan(
-          text: node.value,
-          style: _styleForHighlightClass(context, baseStyle, node.className),
-        ),
-      );
-      continue;
-    }
-    if (node.children != null && node.children!.isNotEmpty) {
-      spans.add(
-        TextSpan(
-          style: _styleForHighlightClass(context, baseStyle, node.className),
-          children: _nodesToTextSpans(
-            context: context,
-            nodes: node.children!,
-            baseStyle: baseStyle,
-          ),
-        ),
-      );
-    }
-  }
-  return spans;
+Highlight _createReHighlight() {
+  final highlight = Highlight()
+    ..registerLanguages({
+      'bash': langBash,
+      'c': langC,
+      'clojure': langClojure,
+      'cmake': langCmake,
+      'cpp': langCpp,
+      'csharp': langCsharp,
+      'css': langCss,
+      'dart': langDart,
+      'diff': langDiff,
+      'dockerfile': langDockerfile,
+      'elixir': langElixir,
+      'glsl': langGlsl,
+      'go': langGo,
+      'gradle': langGradle,
+      'graphql': langGraphql,
+      'groovy': langGroovy,
+      'haskell': langHaskell,
+      'http': langHttp,
+      'ini': langIni,
+      'java': langJava,
+      'javascript': langJavascript,
+      'json': langJson,
+      'kotlin': langKotlin,
+      'latex': langLatex,
+      'less': langLess,
+      'lua': langLua,
+      'makefile': langMakefile,
+      'markdown': langMarkdown,
+      'nginx': langNginx,
+      'nix': langNix,
+      'objectivec': langObjectivec,
+      'perl': langPerl,
+      'php': langPhp,
+      'powershell': langPowershell,
+      'properties': langProperties,
+      'protobuf': langProtobuf,
+      'python': langPython,
+      'r': langR,
+      'ruby': langRuby,
+      'rust': langRust,
+      'scala': langScala,
+      'scss': langScss,
+      'shell': langShell,
+      'sql': langSql,
+      'swift': langSwift,
+      'typescript': langTypescript,
+      'vim': langVim,
+      'wasm': langWasm,
+      'xml': langXml,
+      'yaml': langYaml,
+    })
+    ..registerAliases(['sh', 'zsh'], 'bash')
+    ..registerAliases(['ts', 'tsx', 'mts', 'cts'], 'typescript')
+    ..registerAliases(['js', 'jsx', 'mjs', 'cjs'], 'javascript')
+    ..registerAliases(['py'], 'python')
+    ..registerAliases(['kt', 'kts'], 'kotlin')
+    ..registerAliases(['rs'], 'rust')
+    ..registerAliases(['yml'], 'yaml')
+    ..registerAliases(['rb'], 'ruby')
+    ..registerAliases(['cs'], 'csharp')
+    ..registerAliases(['objc', 'mm'], 'objectivec')
+    ..registerAliases(['toml'], 'ini')
+    ..registerAliases(['html', 'htm', 'svg'], 'xml')
+    ..registerAliases(['md'], 'markdown')
+    ..registerAliases(['docker'], 'dockerfile')
+    ..registerAliases(['patch'], 'diff')
+    ..registerAliases(['proto'], 'protobuf')
+    ..registerAliases(['gql'], 'graphql')
+    ..registerAliases(['ps1', 'pwsh'], 'powershell')
+    ..registerAliases(['tex'], 'latex');
+  return highlight;
 }
 
-TextStyle _styleForHighlightClass(
-  BuildContext context,
-  TextStyle baseStyle,
-  String? className,
-) {
-  if (className == null || className.isEmpty) return baseStyle;
+/// Renders a [HighlightResult] token tree into a flat, coalesced list of
+/// [TextSpan]s in O(N) time while preserving exact character offsets and full
+/// inherited [TextStyle]s for both `markdown_kit` `SelectableParagraph` and
+/// `FilePeekCode` line splitting.
+class _FlatTextSpanRenderer implements HighlightRenderer {
+  _FlatTextSpanRenderer({required this.baseStyle, required this.theme})
+    : _styleStack = <TextStyle>[baseStyle];
 
-  final cs = Theme.of(context).colorScheme;
-  final appColors = Theme.of(context).extension<AppColors>()!;
-  final token = className.toLowerCase();
+  final TextStyle baseStyle;
+  final Map<String, TextStyle> theme;
+  final List<TextStyle> _styleStack;
+  final List<TextSpan> _spans = <TextSpan>[];
+  final StringBuffer _buffer = StringBuffer();
+  TextStyle? _bufferStyle;
+  int _emittedLength = 0;
 
-  if (token.contains('comment') || token.contains('quote')) {
-    return baseStyle.copyWith(
-      color: appColors.subtleText,
-      fontStyle: FontStyle.italic,
+  int get emittedLength => _emittedLength;
+
+  @override
+  void openNode(DataNode node) {
+    final parentStyle = _styleStack.last;
+    final scopeStyle = _resolveScopeStyle(node.scope);
+    _styleStack.add(
+      scopeStyle != null ? parentStyle.merge(scopeStyle) : parentStyle,
     );
   }
-  if (token.contains('string') ||
-      token.contains('regexp') ||
-      token.contains('subst')) {
-    return baseStyle.copyWith(color: cs.tertiary);
+
+  @override
+  void closeNode(DataNode node) {
+    if (_styleStack.length > 1) {
+      _styleStack.removeLast();
+    }
   }
-  if (token.contains('number') ||
-      token.contains('literal') ||
-      token.contains('symbol')) {
-    return baseStyle.copyWith(color: cs.secondary);
+
+  @override
+  void addText(String text) {
+    if (text.isEmpty) return;
+    _emittedLength += text.length;
+    final currentStyle = _styleStack.last;
+    if (_buffer.isNotEmpty && _bufferStyle != currentStyle) {
+      _flush();
+    }
+    _bufferStyle = currentStyle;
+    _buffer.write(text);
   }
-  if (token.contains('keyword') ||
-      token.contains('selector-tag') ||
-      token.contains('doctag')) {
-    return baseStyle.copyWith(color: cs.primary, fontWeight: FontWeight.w600);
+
+  List<TextSpan> buildSpans() {
+    _flush();
+    return _spans;
   }
-  if (token.contains('title') ||
-      token.contains('function') ||
-      token.contains('class') ||
-      token.contains('type') ||
-      token.contains('built_in')) {
-    return baseStyle.copyWith(color: cs.primary, fontWeight: FontWeight.w600);
+
+  void _flush() {
+    if (_buffer.isEmpty) return;
+    _spans.add(TextSpan(text: _buffer.toString(), style: _bufferStyle));
+    _buffer.clear();
+    _bufferStyle = null;
   }
-  if (token.contains('attr') ||
-      token.contains('attribute') ||
-      token.contains('variable') ||
-      token.contains('name') ||
-      token.contains('params')) {
-    return baseStyle.copyWith(color: cs.onSurface);
+
+  TextStyle? _resolveScopeStyle(String? scope) {
+    if (scope == null || scope.isEmpty) return null;
+    final direct = theme[scope];
+    if (direct != null) return direct;
+    // Highlight.js v11 emits dotted sub-scopes (e.g. `title.function_.invoke__`
+    // or `keyword.control`). Walk up to the most specific registered prefix.
+    var dot = scope.lastIndexOf('.');
+    while (dot > 0) {
+      final parentScope = scope.substring(0, dot);
+      final match = theme[parentScope];
+      if (match != null) return match;
+      dot = parentScope.lastIndexOf('.');
+    }
+    return null;
   }
-  if (token.contains('meta') || token.contains('bullet')) {
-    return baseStyle.copyWith(color: cs.secondary, fontWeight: FontWeight.w500);
-  }
-  return baseStyle;
 }
+
+// Light syntax palette aligned with ccpocket's Graphite & Ember light theme
+// (WCAG AA contrast on AppColors.light().codeBackground #F4F4F5).
+const Map<String, TextStyle> _lightCodeTheme = {
+  'keyword': TextStyle(color: Color(0xFFC2410C), fontWeight: FontWeight.w600),
+  'doctag': TextStyle(color: Color(0xFFC2410C), fontWeight: FontWeight.w600),
+  'meta-keyword': TextStyle(
+    color: Color(0xFFC2410C),
+    fontWeight: FontWeight.w600,
+  ),
+  'template-tag': TextStyle(color: Color(0xFFC2410C)),
+  'template-variable': TextStyle(color: Color(0xFFC2410C)),
+  'variable.language_': TextStyle(color: Color(0xFFC2410C)),
+  'title': TextStyle(color: Color(0xFF6D28D9), fontWeight: FontWeight.w500),
+  'title.function_': TextStyle(
+    color: Color(0xFF6D28D9),
+    fontWeight: FontWeight.w500,
+  ),
+  'section': TextStyle(color: Color(0xFF6D28D9), fontWeight: FontWeight.w600),
+  'type': TextStyle(color: Color(0xFF0F766E)),
+  'title.class_': TextStyle(
+    color: Color(0xFF0F766E),
+    fontWeight: FontWeight.w500,
+  ),
+  'class-title': TextStyle(
+    color: Color(0xFF0F766E),
+    fontWeight: FontWeight.w500,
+  ),
+  'built_in': TextStyle(color: Color(0xFF0F766E)),
+  'string': TextStyle(color: Color(0xFF15803D)),
+  'regexp': TextStyle(color: Color(0xFF15803D)),
+  'meta-string': TextStyle(color: Color(0xFF15803D)),
+  'number': TextStyle(color: Color(0xFF1D4ED8)),
+  'literal': TextStyle(color: Color(0xFF1D4ED8)),
+  'symbol': TextStyle(color: Color(0xFF1D4ED8)),
+  'variable.constant_': TextStyle(color: Color(0xFF1D4ED8)),
+  'bullet': TextStyle(color: Color(0xFF1D4ED8)),
+  'attr': TextStyle(color: Color(0xFF92400E)),
+  'attribute': TextStyle(color: Color(0xFF92400E)),
+  'property': TextStyle(color: Color(0xFF92400E)),
+  'name': TextStyle(color: Color(0xFF92400E)),
+  'selector-tag': TextStyle(color: Color(0xFF92400E)),
+  'selector-attr': TextStyle(color: Color(0xFF92400E)),
+  'selector-class': TextStyle(color: Color(0xFF92400E)),
+  'selector-id': TextStyle(color: Color(0xFF92400E)),
+  'selector-pseudo': TextStyle(color: Color(0xFF92400E)),
+  'meta': TextStyle(color: Color(0xFF0369A1)),
+  'link': TextStyle(color: Color(0xFF0369A1)),
+  'comment': TextStyle(color: Color(0xFF63636B), fontStyle: FontStyle.italic),
+  'quote': TextStyle(color: Color(0xFF63636B), fontStyle: FontStyle.italic),
+  'code': TextStyle(color: Color(0xFF63636B)),
+  'formula': TextStyle(color: Color(0xFF63636B)),
+  'emphasis': TextStyle(fontStyle: FontStyle.italic),
+  'strong': TextStyle(fontWeight: FontWeight.w700),
+  'addition': TextStyle(
+    color: Color(0xFF166534),
+    backgroundColor: Color(0xFFDCFCE7),
+  ),
+  'deletion': TextStyle(
+    color: Color(0xFF991B1B),
+    backgroundColor: Color(0xFFFEE2E2),
+  ),
+};
+
+// Dark syntax palette aligned with ccpocket's Graphite & Ember dark theme
+// (high contrast on AppColors.dark().codeBackground #161618).
+const Map<String, TextStyle> _darkCodeTheme = {
+  'keyword': TextStyle(color: Color(0xFFFB923C), fontWeight: FontWeight.w600),
+  'doctag': TextStyle(color: Color(0xFFFB923C), fontWeight: FontWeight.w600),
+  'meta-keyword': TextStyle(
+    color: Color(0xFFFB923C),
+    fontWeight: FontWeight.w600,
+  ),
+  'template-tag': TextStyle(color: Color(0xFFFB923C)),
+  'template-variable': TextStyle(color: Color(0xFFFB923C)),
+  'variable.language_': TextStyle(color: Color(0xFFFB923C)),
+  'title': TextStyle(color: Color(0xFFC4B5FD), fontWeight: FontWeight.w500),
+  'title.function_': TextStyle(
+    color: Color(0xFFC4B5FD),
+    fontWeight: FontWeight.w500,
+  ),
+  'section': TextStyle(color: Color(0xFFC4B5FD), fontWeight: FontWeight.w600),
+  'type': TextStyle(color: Color(0xFF2DD4BF)),
+  'title.class_': TextStyle(
+    color: Color(0xFF2DD4BF),
+    fontWeight: FontWeight.w500,
+  ),
+  'class-title': TextStyle(
+    color: Color(0xFF2DD4BF),
+    fontWeight: FontWeight.w500,
+  ),
+  'built_in': TextStyle(color: Color(0xFF2DD4BF)),
+  'string': TextStyle(color: Color(0xFF86EFAC)),
+  'regexp': TextStyle(color: Color(0xFF86EFAC)),
+  'meta-string': TextStyle(color: Color(0xFF86EFAC)),
+  'number': TextStyle(color: Color(0xFF60A5FA)),
+  'literal': TextStyle(color: Color(0xFF60A5FA)),
+  'symbol': TextStyle(color: Color(0xFF60A5FA)),
+  'variable.constant_': TextStyle(color: Color(0xFF60A5FA)),
+  'bullet': TextStyle(color: Color(0xFF60A5FA)),
+  'attr': TextStyle(color: Color(0xFFFBBF24)),
+  'attribute': TextStyle(color: Color(0xFFFBBF24)),
+  'property': TextStyle(color: Color(0xFFFBBF24)),
+  'name': TextStyle(color: Color(0xFFFBBF24)),
+  'selector-tag': TextStyle(color: Color(0xFFFBBF24)),
+  'selector-attr': TextStyle(color: Color(0xFFFBBF24)),
+  'selector-class': TextStyle(color: Color(0xFFFBBF24)),
+  'selector-id': TextStyle(color: Color(0xFFFBBF24)),
+  'selector-pseudo': TextStyle(color: Color(0xFFFBBF24)),
+  'meta': TextStyle(color: Color(0xFF38BDF8)),
+  'link': TextStyle(color: Color(0xFF38BDF8)),
+  'comment': TextStyle(color: Color(0xFFA1A1AA), fontStyle: FontStyle.italic),
+  'quote': TextStyle(color: Color(0xFFA1A1AA), fontStyle: FontStyle.italic),
+  'code': TextStyle(color: Color(0xFFA1A1AA)),
+  'formula': TextStyle(color: Color(0xFFA1A1AA)),
+  'emphasis': TextStyle(fontStyle: FontStyle.italic),
+  'strong': TextStyle(fontWeight: FontWeight.w700),
+  'addition': TextStyle(
+    color: Color(0xFF86EFAC),
+    backgroundColor: Color(0xFF14532D),
+  ),
+  'deletion': TextStyle(
+    color: Color(0xFFFCA5A5),
+    backgroundColor: Color(0xFF7F1D1D),
+  ),
+};
 
 class _HighlightCacheKey {
   final String language;
@@ -780,89 +1014,6 @@ class _HighlightSpanCache {
   }
 
   void clear() => _entries.clear();
-}
-
-class _SyntaxHighlightRegistry {
-  static const _supportedLanguages = <String>[
-    'css',
-    'dart',
-    'go',
-    'html',
-    'java',
-    'javascript',
-    'json',
-    'kotlin',
-    'python',
-    'rust',
-    'sql',
-    'swift',
-    'typescript',
-    'yaml',
-  ];
-
-  final Map<String, Highlighter> _light = {};
-  final Map<String, Highlighter> _dark = {};
-  bool _initialized = false;
-
-  Future<void> initialize() async {
-    if (_initialized) return;
-    await Highlighter.initialize(_supportedLanguages);
-    final lightTheme = await HighlighterTheme.loadLightTheme();
-    final darkTheme = await HighlighterTheme.loadDarkTheme();
-    for (final language in _supportedLanguages) {
-      _light[language] = Highlighter(language: language, theme: lightTheme);
-      _dark[language] = Highlighter(language: language, theme: darkTheme);
-    }
-    _initialized = true;
-  }
-
-  TextSpan? highlight({
-    required BuildContext context,
-    required String source,
-    required String language,
-  }) {
-    if (!_initialized) return null;
-    final normalized = _syntaxLanguage(language);
-    if (normalized == null) return null;
-
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final highlighter = isDark ? _dark[normalized] : _light[normalized];
-    return highlighter?.highlight(source);
-  }
-
-  String? _syntaxLanguage(String language) {
-    switch (language) {
-      case 'js':
-        return 'javascript';
-      case 'ts':
-        return 'typescript';
-      case 'py':
-        return 'python';
-      case 'kt':
-        return 'kotlin';
-      case 'rs':
-        return 'rust';
-      case 'yml':
-        return 'yaml';
-      case 'dart':
-      case 'go':
-      case 'html':
-      case 'java':
-      case 'javascript':
-      case 'json':
-      case 'kotlin':
-      case 'python':
-      case 'rust':
-      case 'sql':
-      case 'swift':
-      case 'typescript':
-      case 'yaml':
-      case 'css':
-        return language;
-      default:
-        return null;
-    }
-  }
 }
 
 /// Parses a HEX color string into a [Color].

@@ -757,7 +757,9 @@ class FilePeekCode extends StatelessWidget {
     );
 
     // Split highlighted spans into per-line lists.
-    if (highlighted.length == 1 && highlighted.first.text == content) {
+    if (highlighted.length == 1 &&
+        highlighted.first.text == content &&
+        highlighted.first.style == baseStyle) {
       // No highlighting — split plain text by line.
       for (final line in lines) {
         highlightedLines.add([TextSpan(text: line, style: baseStyle)]);

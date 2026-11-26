@@ -73,7 +73,6 @@ import 'services/support_banner_service.dart';
 import 'theme/app_theme.dart';
 import 'services/store_screenshot_extension.dart';
 import 'theme/legacy_material_bridge.dart';
-import 'theme/markdown_style.dart';
 import 'theme/provider_style.dart';
 import 'utils/platform_helper.dart';
 import 'widgets/duo/duo_control_strip.dart';
@@ -149,11 +148,6 @@ Future<CcpocketBootstrap> bootstrapCcpocket() async {
     await NotificationService.instance.init();
   } catch (e) {
     logger.error('[main] NotificationService init failed', e);
-  }
-  try {
-    await initializeMarkdownSyntaxHighlight();
-  } catch (e) {
-    logger.error('[main] syntax_highlight init failed', e);
   }
 
   // Initialize SharedPreferences and services
