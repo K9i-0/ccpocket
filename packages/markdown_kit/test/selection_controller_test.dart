@@ -293,25 +293,16 @@ void main() {
       },
     );
 
-    test(
-      'starting a new selection in another document replaces prior selection cleanly',
-      () {
-        controller.selectWordAtGlobal(const Offset(15, 10));
-        expect(controller.getText(), 'Hello');
-        expect(
-          doc0Block0.lastHighlightRange,
-          const TextRange(start: 0, end: 5),
-        );
+    test('starting a new selection in another document replaces prior selection cleanly', () {
+      controller.selectWordAtGlobal(const Offset(15, 10));
+      expect(controller.getText(), 'Hello');
+      expect(doc0Block0.lastHighlightRange, const TextRange(start: 0, end: 5));
 
-        controller.selectWordAtGlobal(const Offset(15, 90));
-        expect(controller.getText(), 'Another');
-        expect(doc0Block0.lastHighlightRange, isNull);
-        expect(
-          doc1Block0.lastHighlightRange,
-          const TextRange(start: 0, end: 7),
-        );
-      },
-    );
+      controller.selectWordAtGlobal(const Offset(15, 90));
+      expect(controller.getText(), 'Another');
+      expect(doc0Block0.lastHighlightRange, isNull);
+      expect(doc1Block0.lastHighlightRange, const TextRange(start: 0, end: 7));
+    });
 
     test('keyboard extensions respect single-document boundary', () {
       controller.selectWordAtGlobal(const Offset(15, 10));
@@ -323,128 +314,122 @@ void main() {
   });
 
   group('MarkdownSelectionController cross-document selection', () {
-    test(
-      'spans multiple documents in reading order and handles reversed selections',
-      () {
-        final controller = MarkdownSelectionController(
-          allowCrossDocumentSelection: true,
-        );
-        addTearDown(controller.dispose);
+    test('spans multiple documents in reading order and handles reversed selections', () {
+      final controller = MarkdownSelectionController(
+        allowCrossDocumentSelection: true,
+      );
+      addTearDown(controller.dispose);
 
-        controller.putDocument(
-          MarkdownDocumentRef(
-            id: 'doc-b',
-            order: 2,
-            document: _doc(['Bravo delta']),
-          ),
-        );
-        controller.putDocument(
-          MarkdownDocumentRef(
-            id: 'doc-a',
-            order: 1,
-            document: _doc(['Alpha charlie']),
-          ),
-        );
+      controller.putDocument(
+        MarkdownDocumentRef(
+          id: 'doc-b',
+          order: 2,
+          document: _doc(['Bravo delta']),
+        ),
+      );
+      controller.putDocument(
+        MarkdownDocumentRef(
+          id: 'doc-a',
+          order: 1,
+          document: _doc(['Alpha charlie']),
+        ),
+      );
 
-        final surfaceA = _TestSurface(
-          documentId: 'doc-a',
-          blockIndex: 0,
-          text: 'Alpha charlie',
-          origin: const Offset(0, 0),
-        );
-        final surfaceB = _TestSurface(
-          documentId: 'doc-b',
-          blockIndex: 0,
-          text: 'Bravo delta',
-          origin: const Offset(0, 40),
-        );
-        controller.registerSurface(surfaceA);
-        controller.registerSurface(surfaceB);
+      final surfaceA = _TestSurface(
+        documentId: 'doc-a',
+        blockIndex: 0,
+        text: 'Alpha charlie',
+        origin: const Offset(0, 0),
+      );
+      final surfaceB = _TestSurface(
+        documentId: 'doc-b',
+        blockIndex: 0,
+        text: 'Bravo delta',
+        origin: const Offset(0, 40),
+      );
+      controller.registerSurface(surfaceA);
+      controller.registerSurface(surfaceB);
 
-        // Reversed selection starting in doc-b and dragging up into doc-a.
-        controller.startAtGlobal(const Offset(50, 50));
-        controller.extendToGlobal(const Offset(60, 10));
+      // Reversed selection starting in doc-b and dragging up into doc-a.
+      controller.startAtGlobal(const Offset(50, 50));
+      controller.extendToGlobal(const Offset(60, 10));
 
-        expect(controller.isSelectionReversed, isTrue);
-        expect(controller.getText(), 'charlie\n\nBravo');
-        expect(surfaceA.lastHighlightRange, const TextRange(start: 6, end: 13));
-        expect(surfaceB.lastHighlightRange, const TextRange(start: 0, end: 5));
+      expect(controller.isSelectionReversed, isTrue);
+      expect(controller.getText(), 'charlie\n\nBravo');
+      expect(surfaceA.lastHighlightRange, const TextRange(start: 6, end: 13));
+      expect(surfaceB.lastHighlightRange, const TextRange(start: 0, end: 5));
 
-        // selectAll selects across all documents.
-        expect(controller.selectAll(), isTrue);
-        expect(controller.getText(), 'Alpha charlie\n\nBravo delta');
-      },
-    );
+      // selectAll selects across all documents.
+      expect(controller.selectAll(), isTrue);
+      expect(controller.getText(), 'Alpha charlie\n\nBravo delta');
+    });
   });
 
   group('Off-screen disposal preservation & streaming reconciliation', () {
-    test(
-      'preserves selection and copy output when surfaces unmount and restores highlights on remount',
-      () {
-        final controller = MarkdownSelectionController();
-        addTearDown(controller.dispose);
+    test('preserves selection and copy output when surfaces unmount and restores highlights on remount', () {
+      final controller = MarkdownSelectionController();
+      addTearDown(controller.dispose);
 
-        controller.putDocument(
-          MarkdownDocumentRef(
-            id: 'd1',
-            document: _doc(['First paragraph', 'Second paragraph']),
-          ),
-        );
+      controller.putDocument(
+        MarkdownDocumentRef(
+          id: 'd1',
+          document: _doc(['First paragraph', 'Second paragraph']),
+        ),
+      );
 
-        final s0 = _TestSurface(
-          documentId: 'd1',
-          blockIndex: 0,
-          text: 'First paragraph',
-          origin: const Offset(0, 0),
-        );
-        final s1 = _TestSurface(
-          documentId: 'd1',
-          blockIndex: 1,
-          text: 'Second paragraph',
-          origin: const Offset(0, 30),
-        );
-        controller.registerSurface(s0);
-        controller.registerSurface(s1);
+      final s0 = _TestSurface(
+        documentId: 'd1',
+        blockIndex: 0,
+        text: 'First paragraph',
+        origin: const Offset(0, 0),
+      );
+      final s1 = _TestSurface(
+        documentId: 'd1',
+        blockIndex: 1,
+        text: 'Second paragraph',
+        origin: const Offset(0, 30),
+      );
+      controller.registerSurface(s0);
+      controller.registerSurface(s1);
 
-        controller.startAtGlobal(const Offset(60, 10));
-        controller.extendToGlobal(const Offset(60, 40));
-        expect(controller.getText(), 'paragraph\n\nSecond');
+      controller.startAtGlobal(const Offset(60, 10));
+      controller.extendToGlobal(const Offset(60, 40));
+      expect(controller.getText(), 'paragraph\n\nSecond');
 
-        // Simulate block 0 scrolling off-screen and disposing.
-        controller.unregisterSurface(s0);
+      // Simulate block 0 scrolling off-screen and disposing.
+      controller.unregisterSurface(s0);
 
-        expect(controller.hasSelection, isTrue);
-        expect(controller.getText(), 'paragraph\n\nSecond');
+      expect(controller.hasSelection, isTrue);
+      expect(controller.getText(), 'paragraph\n\nSecond');
 
-        final partialEndpoints = controller.selectionHandleEndpoints();
-        expect(partialEndpoints, isNotNull);
-        expect(partialEndpoints!.hasStart, isFalse);
-        expect(partialEndpoints.hasEnd, isTrue);
+      final partialEndpoints = controller.selectionHandleEndpoints();
+      expect(partialEndpoints, isNotNull);
+      expect(partialEndpoints!.hasStart, isFalse);
+      expect(partialEndpoints.hasEnd, isTrue);
 
-        // Simulate block 1 also scrolling off-screen.
-        controller.unregisterSurface(s1);
-        expect(controller.hasSelection, isTrue);
-        expect(controller.getText(), 'paragraph\n\nSecond');
-        expect(controller.selectionHandleEndpoints(), isNull);
+      // Simulate block 1 also scrolling off-screen.
+      controller.unregisterSurface(s1);
+      expect(controller.hasSelection, isTrue);
+      expect(controller.getText(), 'paragraph\n\nSecond');
+      expect(controller.selectionHandleEndpoints(), isNull);
 
-        // Simulate block 0 scrolling back into view with a fresh surface instance.
-        final s0Remounted = _TestSurface(
-          documentId: 'd1',
-          blockIndex: 0,
-          text: 'First paragraph',
-          origin: const Offset(0, 0),
-        );
-        controller.registerSurface(s0Remounted);
-        expect(
-          s0Remounted.lastHighlightRange,
-          const TextRange(start: 6, end: 15),
-        );
-        final restoredEndpoints = controller.selectionHandleEndpoints();
-        expect(restoredEndpoints, isNotNull);
-        expect(restoredEndpoints!.hasStart, isTrue);
-        expect(restoredEndpoints.startLocalOffset, 6);
-      },
-    );
+      // Simulate block 0 scrolling back into view with a fresh surface instance.
+      final s0Remounted = _TestSurface(
+        documentId: 'd1',
+        blockIndex: 0,
+        text: 'First paragraph',
+        origin: const Offset(0, 0),
+      );
+      controller.registerSurface(s0Remounted);
+      expect(
+        s0Remounted.lastHighlightRange,
+        const TextRange(start: 6, end: 15),
+      );
+      final restoredEndpoints = controller.selectionHandleEndpoints();
+      expect(restoredEndpoints, isNotNull);
+      expect(restoredEndpoints!.hasStart, isTrue);
+      expect(restoredEndpoints.startLocalOffset, 6);
+    });
 
     test(
       'reconciles streaming updates via contentAnchored and syncs highlights',
@@ -608,57 +593,51 @@ void main() {
       expect(item1.lastHighlightRange, isNull);
     });
 
-    test(
-      'supports character, word, line-break, and adjacent-line keyboard extensions',
-      () {
-        final controller = MarkdownSelectionController();
-        addTearDown(controller.dispose);
+    test('supports character, word, line-break, and adjacent-line keyboard extensions', () {
+      final controller = MarkdownSelectionController();
+      addTearDown(controller.dispose);
 
-        controller.putDocument(
-          MarkdownDocumentRef(
-            id: 'd1',
-            document: _doc(['Hello world', 'Second line with more text']),
-          ),
-        );
-        final s0 = _TestSurface(
-          documentId: 'd1',
-          blockIndex: 0,
-          text: 'Hello world',
-          origin: const Offset(0, 0),
-        );
-        final s1 = _TestSurface(
-          documentId: 'd1',
-          blockIndex: 1,
-          text: 'Second line with more text',
-          origin: const Offset(0, 25),
-        );
-        controller.registerSurface(s0);
-        controller.registerSurface(s1);
+      controller.putDocument(
+        MarkdownDocumentRef(
+          id: 'd1',
+          document: _doc(['Hello world', 'Second line with more text']),
+        ),
+      );
+      final s0 = _TestSurface(
+        documentId: 'd1',
+        blockIndex: 0,
+        text: 'Hello world',
+        origin: const Offset(0, 0),
+      );
+      final s1 = _TestSurface(
+        documentId: 'd1',
+        blockIndex: 1,
+        text: 'Second line with more text',
+        origin: const Offset(0, 25),
+      );
+      controller.registerSurface(s0);
+      controller.registerSurface(s1);
 
-        controller.setSelection(
-          const MarkdownSelection.collapsed(
-            MarkdownPosition(documentId: 'd1', blockIndex: 0, offset: 0),
-          ),
-        );
+      controller.setSelection(
+        const MarkdownSelection.collapsed(
+          MarkdownPosition(documentId: 'd1', blockIndex: 0, offset: 0),
+        ),
+      );
 
-        expect(controller.extendByCharacter(forward: true), isTrue);
-        expect(controller.getText(), 'H');
+      expect(controller.extendByCharacter(forward: true), isTrue);
+      expect(controller.getText(), 'H');
 
-        expect(controller.extendByWord(forward: true), isTrue);
-        expect(controller.getText(), 'Hello');
+      expect(controller.extendByWord(forward: true), isTrue);
+      expect(controller.getText(), 'Hello');
 
-        expect(controller.extendToLineBreak(forward: true), isTrue);
-        expect(controller.getText(), 'Hello world');
+      expect(controller.extendToLineBreak(forward: true), isTrue);
+      expect(controller.getText(), 'Hello world');
 
-        expect(controller.extendToAdjacentLine(forward: true), isTrue);
-        expect(controller.selection!.extent.blockIndex, 1);
+      expect(controller.extendToAdjacentLine(forward: true), isTrue);
+      expect(controller.selection!.extent.blockIndex, 1);
 
-        expect(controller.extendToDocumentBoundary(forward: true), isTrue);
-        expect(
-          controller.getText(),
-          'Hello world\n\nSecond line with more text',
-        );
-      },
-    );
+      expect(controller.extendToDocumentBoundary(forward: true), isTrue);
+      expect(controller.getText(), 'Hello world\n\nSecond line with more text');
+    });
   });
 }

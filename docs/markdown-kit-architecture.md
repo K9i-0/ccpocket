@@ -50,7 +50,8 @@ packages/markdown_kit/lib/
     │   ├── selection_handles.dart         # MarkdownSelectionHandleOverlay（不透明 44pt・低 slop ハンドル＆ルーペ）
     │   ├── selection_autoscroll.dart      # MarkdownSelectionAutoscrollConfig / AxisDirection.up 対応エッジ自動スクロール
     │   ├── selection_formatter.dart       # MarkdownPlainTextFormatter / MarkdownMarkupFormatter
-    │   └── selection_scope.dart           # MarkdownSelectionScope（タッチ・デスクトップ入力統合）
+    │   ├── selection_scope.dart           # MarkdownSelectionScope（タッチ・デスクトップ入力統合）
+    │   └── default_context_menu.dart      # MarkdownDefaultContextMenu（ビルダー未指定時の既定メニュー）
     ├── rendering/
     │   ├── markdown_theme.dart            # MarkdownThemeData / MarkdownTheme / MarkdownInlineCodeStyle
     │   ├── markdown_builders.dart         # MarkdownBuilders（code/inlineCode/link/image/table/alert/latex/customInline）
@@ -142,7 +143,8 @@ ccpocket 本体は `apps/mobile/pubspec.yaml` から `path: ../../packages/markd
 - **`CcpocketMarkdown`**: `MarkdownView` のアプリ標準ラッパー。`Theme.of(context)` + `AppColors`（値等価性実装済み）+ `CodeTextSettings` から生成・キャッシュした `MarkdownThemeData` を渡し、以下を接続する：
   - `inlineCodeBuilder`: バッククォート内ファイルパス（`TappableTextSpan` で File Peek を開く）、Hex カラーコード（ベースライン揃えの丸スウォッチ `WidgetSpan` + 等幅 `TextSpan`）、通常インラインコード（`CodeTextSpan`）。
   - `MarkdownInlineRule`: 既知パス接尾辞に一致する裸のファイルパス検出、および `http://localhost:...` 等の単一ラベルホストオートリンク。
-  - `codeBlockBuilder`: 選択対象外の言語ヘッダー＋コピーボタン＋横スクロール、`syntax_highlight`（フォント種別・サイズ・色を含むキャッシュキー、および `CodeBlock.closed == false` 時の単一スロット分離キャッシュ）。
+  - `codeHighlighter`: シンタックスハイライト（フォント種別・サイズ・色を含むキャッシュキー、および `CodeBlock.closed == false` 時の単一スロット分離キャッシュ）。
+  - `codeBlockBuilder`: 選択対象外の言語ヘッダー＋コピーボタン＋横スクロールの枠。
   - `imageBuilder`: ホスト側ローカルパスはタップ可能な画像チップ、リモート URL は `Image.network`（エラー時はチップへフォールバック）。
 - **`CcpocketSliverMarkdown`**: `SliverMarkdownView` のアプリ標準ラッパー。`FilePeekMarkdown`、`PlanDetailSheet`、`AuthHelpScreen`、`ChangelogScreen` の長文ドキュメント画面で使用する。
 - **`CcpocketSelectableText`**: `SelectablePlainText` のアプリ標準ラッパー。`UserBubble` やアシスタントメッセージのプレーンテキスト表示モードで使用し、チャット内の全メッセージ選択体験を統一する。
@@ -158,7 +160,7 @@ ccpocket 本体は `apps/mobile/pubspec.yaml` から `path: ../../packages/markd
 ## 4. 互換性・保守方針
 
 1. **依存境界の維持**: `packages/markdown_kit/lib/` 配下に `material.dart` / `cupertino.dart` / `material_ui` / アプリ固有パッケージのインポートを持ち込まない。見た目・アクション・業務ルールは必ずビルダーまたはコールバック経由で `apps/mobile/` から注入する。
-2. **SDK 互換性**: `packages/markdown_kit/pubspec.yaml` の SDK 制約は `.mise.toml` で固定する Flutter バージョン（現行 3.50.1 / Dart 3.14）と整合させ、Flutter アップグレード時も `apps/mobile` と同時検証する。
+2. **SDK 互換性**: `pubspec.yaml` の下限は Flutter 3.50.0 / Dart 3.14。3.50.0 と 3.50.1 で全テストが通ることを確認済み。3.47.2 では 21 件が失敗する（表セル内のベースライン揃えウィジェットの Intrinsic 計測、RTL でのインライン画像の並びなど、フレームワーク側の挙動差）。下限を下げるときは、その版で実際にテストを通してから変更する。
 3. **CI・リリースゲート**:
    - `.github/workflows/test.yml` の `markdown-kit` ジョブで `flutter pub get`・`dart format --output=none --set-exit-if-changed .`・`dart analyze .`・`flutter test --no-pub` を実行し、集約ジョブ `mobile` およびリリースゲート（`.github/workflows/app-release-test-gate.yml`）の必須条件とする。
    - ローカルリリース前チェック（`scripts/release/run-checks.sh`）でも `packages/markdown_kit` の `dart analyze` と `flutter test` を `apps/mobile` と併せて実行する。
@@ -173,7 +175,32 @@ ccpocket 本体は `apps/mobile/pubspec.yaml` から `path: ../../packages/markd
 
 ---
 
-## 5. ライセンス
+## 5. 公開 API と 1.0.0 公開手順
+
+### 5.1 公開 API の範囲
+
+- 公開 API は `lib/markdown_kit.dart` が `show` で列挙したものだけ。`lib/src/` にあっても列挙されていないもの（ブロックごとのウィジェット、ハンドルのオーバーレイ、自動スクロールのセッション、文書登録のヘルパー、LRU キャッシュなど）は内部実装で、互換性を保証しない。
+- パッケージ自身のテストは内部を検証するために `src/` を import してよい。利用側（ccpocket を含む）は barrel だけを import する。例外は `apps/mobile/test/streaming_bubble_test.dart` の 1 箇所で、理由をその場に書いてある。
+- コードブロックの見た目を変える拡張点は 2 つに分かれている。中身（ハイライト）は `codeHighlighter`、枠（ヘッダーやコピーボタン）は `codeBlockBuilder`。`codeBlockBuilder` に渡る `codeContent` は不透明なウィジェットとして配置だけ行い、型を調べたり作り直したりしない。以前 ccpocket がこれを行っていて、パッケージ側が段落を `Directionality` で包んだ際にハイライトが無効になった。
+- `contextMenuBuilder` を渡さない場合は `MarkdownDefaultContextMenu` が出る（widgets のみで描画、ラベル差し替え可）。ccpocket は常に自前のビルダーを渡すので影響しない。
+- `example/` は barrel だけを import する最小アプリで、widget test を CI で実行している。公開 API に不足が出ると、まずここで気づける。
+- `analysis_options.yaml` で `public_member_api_docs` を有効にしている。公開メンバーに doc コメントが無いと解析が失敗する。
+
+### 5.2 公開当日の手順
+
+`packages/markdown_kit` は `publish_to: none`・version `0.1.0` のまま運用している。一時コピーで `publish_to` を外し version を `1.0.0` にした状態の `flutter pub publish --dry-run` は、警告が「`repository` 欄が無い」の 1 件だけであることを確認済み。公開時に行うこと:
+
+1. 新しいリポジトリへ `packages/markdown_kit/` を移す（履歴を残すなら `git filter-repo --subdirectory-filter packages/markdown_kit`）。この文書のうち 1〜2 章と 5〜7 章はパッケージ側へ移し、3 章（ccpocket への統合）は ccpocket に残す。
+2. `pubspec.yaml`: `publish_to: none` を削除、`version: 1.0.0`、`repository:`（と必要なら `issue_tracker:`）を追加。
+3. `CHANGELOG.md` の `1.0.0` の内容を最終確認する。
+4. 新リポジトリに CI を用意する（`flutter pub get` → `dart format --output=none --set-exit-if-changed .` → `dart analyze .` → `flutter test`、`example/` でも `flutter test`）。
+5. `flutter pub publish --dry-run` で警告ゼロを確認してから `flutter pub publish`。公開は取り消せない。
+6. ccpocket の `apps/mobile/pubspec.yaml` を path 依存から `markdown_kit: ^1.0.0` に切り替え、`packages/markdown_kit/`、CI の `markdown-kit` ジョブ、`scripts/release/run-checks.sh` と `scripts/worktree-bootstrap.sh` の該当行を削除する。
+7. 上流の dart-lang/tools #2932・#2933 が修正されたら、生テキストへのフォールバックとストリーミング末尾の保留が不要になっていないかを見直す。
+
+---
+
+## 6. ライセンス
 
 - パッケージは MIT（`packages/markdown_kit/LICENSE`）。
 - 例外は `test/commonmark_spec/spec.json` のみ。CommonMark 仕様の例集で CC BY-SA 4.0、無改変でテスト入力として同梱している。このファイルは MIT の対象外で、`packages/markdown_kit/NOTICE.md` とルートの README に明記している。
@@ -181,18 +208,16 @@ ccpocket 本体は `apps/mobile/pubspec.yaml` から `path: ../../packages/markd
 
 ---
 
-## 6. 既知の制限
+## 7. 既知の制限
 
 - **「Markdown としてコピー」**: リテラルの記号はエスケープしない（`\*文字\*` は `*文字*` として出力される）。数式は元の区切りに関わらず `$...$` / `$$...$$` で出力する。マーカーが異なる隣接リスト（`*` と `-`）は 1 つのリストとして再解釈されうる。
 - **内容アンカー再照合 (`contentAnchored`)**: 追記以外の書き換えで選択文字列が元の位置から消え、同じ文字列が別の場所にある場合、選択はそちらへ移る。追記のみのストリーミングと確定バブルへの切り替えは高速経路を通るため影響しない。
 - **`keepDocumentOnDispose: true`**: コントローラは破棄されるまで、登録された文書（AST 参照）を保持し続ける。チャットではリスト単位のコントローラなので、画面を閉じれば解放される。
 - **処理時間**: 閉じない `\(` が 1 行に数千個並ぶ入力、数千段に入れ子の `<details>` は入力長の 2 乗で遅くなる。
 - **`<sub>` / `<sup>`**: フォントが対応する OpenType 機能を持たない場合、文字は小さくなるが上下にはずれない。
-- **`<details>` の開閉状態**: `documentId`・ブロック位置・summary 文字列をキーにプロセス内で最大 512 件保持する（仮想化で画面外へ出ても開閉が戻らないようにするため）。
-- **幅が無制限の親**: コードブロック・アラート・リスト・脚注・`<details>` は利用可能な幅いっぱいに伸びるため、横スクロールビュー直下など幅が無制限の場所には置けない（段落・見出し・引用・表・数式・画像は可）。
-- **Intrinsic 計測**: 表は `LayoutBuilder` で自身を計測するため、`IntrinsicWidth` / `IntrinsicHeight` の内側では例外になる。
-- **`textScaler` / `textDirection` の後付け**: `MarkdownView` のこれらを `null` から値へ（または逆へ）切り替えるとサブツリーが作り直され、選択とスクロール位置が失われる。値から値への変更は問題ない。常時ラップしないのは、全ビューが `MediaQuery` を購読してキーボードのアニメーションごとに再ビルドされるのを避けるため。
 - **参照定義**: ラベルが 2 行にまたがる参照定義（`[Foo\n  bar]: /url`）は分割器が認識できず、リンクが解決されない。フェンスの情報文字列では一般的でない名前付き実体参照（`&ouml;` など）を復号しない。
 - **閉じた `<details>` をまたぐ選択**: 終端が閉じた本文の中にある場合、ハンドルは summary の末尾に出る。コピーには見えていない本文も含まれる。
+- **`<details>` の開閉状態**: ルートの `PageStorage` に保持する。`PageStorage` が祖先に無い場合（ルートの外）は State の寿命のみで、仮想化で画面外へ出ると初期状態に戻る。
+- **幅 24lp 未満**: 脚注のラベルが行からはみ出す（テストフォントで 24lp、実フォントでは 20lp 程度から）。
 - **入れ子の深さ**: 引用・リスト・`<details>` の入れ子は 500 段まで。それより深い部分はテキストとして表示する（AST とウィジェットツリーを辿る処理が段数ぶん再帰するため）。
 - **上流 `package:markdown` 7.3.1 起因**: `~~~x~~~` が二重の取り消し線になる。コードスパン内の U+2028 / U+2029 でバッククォートが解釈されない。数千文字の空白を挟んだ行、`www` に続く大量のドット、閉じない `[a](<…` などは入力長の 2 乗で遅くなる。該当テストは理由つきでスキップしている。

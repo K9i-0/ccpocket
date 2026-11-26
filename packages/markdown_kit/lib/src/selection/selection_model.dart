@@ -11,6 +11,7 @@ import '../ast/rendered_text.dart';
 /// `document.blocks[blockIndex]`.
 @immutable
 class MarkdownPosition {
+  /// Creates a position in block [blockIndex] of document [documentId].
   const MarkdownPosition({
     required this.documentId,
     required this.blockIndex,
@@ -27,6 +28,7 @@ class MarkdownPosition {
   /// UTF-16 code unit offset inside the block's canonical rendered text.
   final int offset;
 
+  /// Returns a copy of this position with the given fields replaced.
   MarkdownPosition copyWith({
     String? documentId,
     int? blockIndex,
@@ -88,6 +90,8 @@ class MarkdownPosition {
 /// An active model-anchored selection between [base] and [extent].
 @immutable
 class MarkdownSelection {
+  /// Creates a selection from [base] to [extent]. The two may be in either
+  /// order.
   const MarkdownSelection({required this.base, required this.extent});
 
   /// Creates a collapsed (zero-length) selection at [position].
@@ -120,6 +124,7 @@ class MarkdownSelection {
     return cmp <= 0 ? (start: base, end: extent) : (start: extent, end: base);
   }
 
+  /// Returns a copy of this selection with the given endpoints replaced.
   MarkdownSelection copyWith({
     MarkdownPosition? base,
     MarkdownPosition? extent,
@@ -148,6 +153,7 @@ class MarkdownSelection {
 /// Registration entry associating a document ID, parsed AST, and reading order.
 @immutable
 class MarkdownDocumentRef {
+  /// Creates a registration entry for [document] under [id].
   const MarkdownDocumentRef({
     required this.id,
     required this.document,
@@ -164,6 +170,7 @@ class MarkdownDocumentRef {
   /// Smaller values precede larger values.
   final int order;
 
+  /// Returns a copy of this entry with the given fields replaced.
   MarkdownDocumentRef copyWith({
     String? id,
     MarkdownDocument? document,
@@ -196,6 +203,8 @@ class MarkdownDocumentRef {
 /// A slice of a single [MarkdownBlock] covered by a selection.
 @immutable
 class MarkdownSelectedBlock {
+  /// Creates a slice of [block] covering `[startOffset, endOffset)` of
+  /// [fullText].
   const MarkdownSelectedBlock({
     required this.blockIndex,
     required this.block,
@@ -207,10 +216,21 @@ class MarkdownSelectedBlock {
        assert(endOffset >= startOffset),
        assert(endOffset <= fullText.length);
 
+  /// Zero-based index of [block] among its document's top-level blocks.
   final int blockIndex;
+
+  /// The block the slice belongs to.
   final MarkdownBlock block;
+
+  /// The whole rendered text of [block], as returned by
+  /// [extractBlockRenderedText].
   final String fullText;
+
+  /// UTF-16 code unit offset in [fullText] where the selected part starts.
   final int startOffset;
+
+  /// UTF-16 code unit offset in [fullText] just past the end of the selected
+  /// part.
   final int endOffset;
 
   /// The selected substring of [fullText].
@@ -249,18 +269,26 @@ class MarkdownSelectedBlock {
 /// Selected blocks belonging to a single document.
 @immutable
 class MarkdownSelectedDocument {
+  /// Creates the selected part of one document.
   const MarkdownSelectedDocument({
     required this.documentId,
     required this.document,
     required this.blocks,
   });
 
+  /// Identifier the document was registered under.
   final String documentId;
+
+  /// The document the selected blocks come from.
   final MarkdownDocument document;
+
+  /// The blocks touched by the selection, in reading order.
   final List<MarkdownSelectedBlock> blocks;
 
+  /// Whether no block of this document is selected.
   bool get isEmpty => blocks.isEmpty;
 
+  /// Whether at least one block of this document is selected.
   bool get isNotEmpty => blocks.isNotEmpty;
 
   @override
@@ -289,6 +317,8 @@ class MarkdownSelectedDocument {
 /// Structured selection snapshot passed to [MarkdownSelectionFormatter]s.
 @immutable
 class MarkdownSelectedContent {
+  /// Creates a snapshot from already-extracted [documents]. Use
+  /// [MarkdownSelectedContent.extract] to compute one from a selection.
   const MarkdownSelectedContent({
     required this.selection,
     required this.documents,
@@ -391,11 +421,17 @@ class MarkdownSelectedContent {
     );
   }
 
+  /// The selection this snapshot was taken from.
   final MarkdownSelection selection;
+
+  /// The selected part of each document, in reading order. Documents with
+  /// nothing selected are left out.
   final List<MarkdownSelectedDocument> documents;
 
+  /// Whether nothing is selected.
   bool get isEmpty => documents.isEmpty || documents.every((d) => d.isEmpty);
 
+  /// Whether anything is selected.
   bool get isNotEmpty => !isEmpty;
 
   @override
@@ -423,6 +459,7 @@ class MarkdownSelectedContent {
 /// Formats a [MarkdownSelectedContent] snapshot into a clipboard string
 /// (e.g. plain text or reconstructed Markdown).
 abstract interface class MarkdownSelectionFormatter {
+  /// Returns [content] as a single string.
   String format(MarkdownSelectedContent content);
 }
 
@@ -430,6 +467,7 @@ abstract interface class MarkdownSelectionFormatter {
 /// document's AST updates (such as during streaming or live editing).
 @immutable
 abstract class MarkdownReconciliationPolicy {
+  /// Const constructor for subclasses that implement a custom policy.
   const MarkdownReconciliationPolicy();
 
   /// Preserves selection when [nextDocument] is an append-only extension of

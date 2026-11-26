@@ -13,10 +13,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:markdown_kit/markdown_kit.dart';
 
 List<String> _corpus() {
-  final examples =
-      (jsonDecode(File('test/commonmark_spec/spec.json').readAsStringSync())
-              as List)
-          .cast<Map<String, dynamic>>();
+  final examples = (jsonDecode(
+    File('test/commonmark_spec/spec.json').readAsStringSync(),
+  ) as List).cast<Map<String, dynamic>>();
   return [
     for (final example in examples) example['markdown'] as String,
     // A few documents joining several examples, so blocks follow one another.

@@ -153,166 +153,159 @@ print(count);
 ''';
 
     for (final platform in const [TargetPlatform.iOS, TargetPlatform.android]) {
-      testWidgets(
-        'long-press + 150ms paused opaque handle drag across blocks in '
-        'reverse ListView never steals scroll and formats plain text & '
-        'Markdown cleanly ($platform)',
-        (tester) async {
-          debugDefaultTargetPlatformOverride = platform;
-          addTearDown(() {
-            debugDefaultTargetPlatformOverride = null;
-          });
+      testWidgets('long-press + 150ms paused opaque handle drag across blocks in '
+          'reverse ListView never steals scroll and formats plain text & '
+          'Markdown cleanly ($platform)', (tester) async {
+        debugDefaultTargetPlatformOverride = platform;
+        addTearDown(() {
+          debugDefaultTargetPlatformOverride = null;
+        });
 
-          final controller = MarkdownSelectionController();
-          addTearDown(controller.dispose);
-          final scrollController = ScrollController();
-          addTearDown(scrollController.dispose);
+        final controller = MarkdownSelectionController();
+        addTearDown(controller.dispose);
+        final scrollController = ScrollController();
+        addTearDown(scrollController.dispose);
 
-          // Reverse ListView: index 0 sits at the bottom, higher indices stack
-          // above it, creating genuine scrollable overflow.
-          await tester.pumpWidget(
-            _testApp(
-              size: const Size(420, 720),
-              child: MarkdownSelectionScope(
-                controller: controller,
-                child: ListView(
-                  reverse: true,
-                  controller: scrollController,
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.only(top: 12),
-                      child: SelectablePlainText(
-                        'Latest user reply below assistant message',
-                        documentId: 'user-bottom',
-                        documentOrder: 20,
-                        style: TextStyle(fontSize: 15, height: 1.4),
+        // Reverse ListView: index 0 sits at the bottom, higher indices stack
+        // above it, creating genuine scrollable overflow.
+        await tester.pumpWidget(
+          _testApp(
+            size: const Size(420, 720),
+            child: MarkdownSelectionScope(
+              controller: controller,
+              child: ListView(
+                reverse: true,
+                controller: scrollController,
+                padding: const EdgeInsets.all(16),
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 12),
+                    child: SelectablePlainText(
+                      'Latest user reply below assistant message',
+                      documentId: 'user-bottom',
+                      documentOrder: 20,
+                      style: TextStyle(fontSize: 15, height: 1.4),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: MarkdownView(
+                      documentId: 'assistant-rich',
+                      documentOrder: 10,
+                      data: richMarkdown,
+                      theme: MarkdownThemeData.fallback().copyWith(
+                        blockSpacing: 8.0,
                       ),
                     ),
+                  ),
+                  for (var i = 0; i < 8; i++)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: MarkdownView(
-                        documentId: 'assistant-rich',
-                        documentOrder: 10,
-                        data: richMarkdown,
-                        theme: MarkdownThemeData.fallback().copyWith(
-                          blockSpacing: 8.0,
-                        ),
+                      child: SelectablePlainText(
+                        'Older history message number $i with extra text '
+                        'to guarantee scrollable list overflow.',
+                        documentId: 'older-$i',
+                        documentOrder: 9 - i,
+                        style: const TextStyle(fontSize: 15, height: 1.4),
                       ),
                     ),
-                    for (var i = 0; i < 8; i++)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: SelectablePlainText(
-                          'Older history message number $i with extra text '
-                          'to guarantee scrollable list overflow.',
-                          documentId: 'older-$i',
-                          documentOrder: 9 - i,
-                          style: const TextStyle(fontSize: 15, height: 1.4),
-                        ),
-                      ),
-                  ],
-                ),
+                ],
               ),
             ),
-          );
-          await tester.pumpAndSettle();
+          ),
+        );
+        await tester.pumpAndSettle();
 
-          expect(scrollController.position.maxScrollExtent, greaterThan(0));
-          final initialScrollOffset = scrollController.offset;
+        expect(scrollController.position.maxScrollExtent, greaterThan(0));
+        final initialScrollOffset = scrollController.offset;
 
-          final headingPara = _findParagraphContaining(
-            tester,
-            'Report Title',
-            documentId: 'assistant-rich',
-          );
-          final lastTableCellPara = _findParagraphContaining(
-            tester,
-            'Val2',
-            documentId: 'assistant-rich',
-          );
+        final headingPara = _findParagraphContaining(
+          tester,
+          'Report Title',
+          documentId: 'assistant-rich',
+        );
+        final lastTableCellPara = _findParagraphContaining(
+          tester,
+          'Val2',
+          documentId: 'assistant-rich',
+        );
 
-          // 1. Long-press on the heading to start word selection.
-          await _longPressTouchAt(tester, _firstGlyphGlobalCenter(headingPara));
+        // 1. Long-press on the heading to start word selection.
+        await _longPressTouchAt(tester, _firstGlyphGlobalCenter(headingPara));
 
-          expect(controller.hasSelection, isTrue);
-          expect(controller.getText(), 'Report');
-          expect(
-            find.byKey(MarkdownSelectionHandleOverlay.startHandleKey),
-            findsOneWidget,
-          );
-          expect(
-            find.byKey(MarkdownSelectionHandleOverlay.endHandleKey),
-            findsOneWidget,
-          );
+        expect(controller.hasSelection, isTrue);
+        expect(controller.getText(), 'Report');
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.startHandleKey),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.endHandleKey),
+          findsOneWidget,
+        );
 
-          // 2. Touch down on end handle, pause 150ms (regression check: list
-          // must NOT claim the gesture), then drag down through paragraph,
-          // list, code block, and table to the last table cell.
-          final endHandleCenter = tester.getCenter(
-            find.byKey(MarkdownSelectionHandleOverlay.endHandleKey),
-          );
-          final targetCellEnd = lastTableCellPara.localToGlobal(
-            Offset(
-              lastTableCellPara.size.width - 1,
-              lastTableCellPara.size.height / 2,
-            ),
-          );
-          final endCaretCenter = Offset(
-            controller.selectionHandleEndpoints()!.endGlobal!.dx,
-            controller.selectionHandleEndpoints()!.endGlobal!.dy -
-                (controller.selectionHandleEndpoints()!.endLineHeight ?? 20) /
-                    2,
-          );
-          final anchorCompensation = endCaretCenter - endHandleCenter;
-          final dragDestination = targetCellEnd - anchorCompensation;
+        // 2. Touch down on end handle, pause 150ms (regression check: list
+        // must NOT claim the gesture), then drag down through paragraph,
+        // list, code block, and table to the last table cell.
+        final endHandleCenter = tester.getCenter(
+          find.byKey(MarkdownSelectionHandleOverlay.endHandleKey),
+        );
+        final targetCellEnd = lastTableCellPara.localToGlobal(
+          Offset(
+            lastTableCellPara.size.width - 1,
+            lastTableCellPara.size.height / 2,
+          ),
+        );
+        final endCaretCenter = Offset(
+          controller.selectionHandleEndpoints()!.endGlobal!.dx,
+          controller.selectionHandleEndpoints()!.endGlobal!.dy -
+              (controller.selectionHandleEndpoints()!.endLineHeight ?? 20) / 2,
+        );
+        final anchorCompensation = endCaretCenter - endHandleCenter;
+        final dragDestination = targetCellEnd - anchorCompensation;
 
-          final handleGesture = await tester.startGesture(
-            endHandleCenter,
-            kind: PointerDeviceKind.touch,
-          );
-          await tester.pump(const Duration(milliseconds: 150));
+        final handleGesture = await tester.startGesture(
+          endHandleCenter,
+          kind: PointerDeviceKind.touch,
+        );
+        await tester.pump(const Duration(milliseconds: 150));
 
-          const steps = 16;
-          for (var s = 1; s <= steps; s++) {
-            final t = s / steps;
-            final nextPoint = Offset.lerp(endHandleCenter, dragDestination, t)!;
-            await handleGesture.moveTo(nextPoint);
-            await tester.pump(const Duration(milliseconds: 16));
-          }
-          await handleGesture.up();
-          await tester.pumpAndSettle();
+        const steps = 16;
+        for (var s = 1; s <= steps; s++) {
+          final t = s / steps;
+          final nextPoint = Offset.lerp(endHandleCenter, dragDestination, t)!;
+          await handleGesture.moveTo(nextPoint);
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        await handleGesture.up();
+        await tester.pumpAndSettle();
 
-          // ListView must NOT have stolen the scroll gesture during handle drag.
-          expect(scrollController.offset, closeTo(initialScrollOffset, 0.5));
-          expect(controller.hasSelection, isTrue);
+        // ListView must NOT have stolen the scroll gesture during handle drag.
+        expect(scrollController.offset, closeTo(initialScrollOffset, 0.5));
+        expect(controller.hasSelection, isTrue);
 
-          final plain = controller.getText();
-          // Paragraphs / blocks separated by \n\n.
-          expect(
-            plain,
-            contains('Report Title\n\nIntro alpha beta paragraph.'),
-          );
-          // List items separated by \n without bullet glyphs or "- ".
-          expect(plain, contains('First bullet item\nSecond bullet item'));
-          expect(plain, isNot(contains('•')));
-          expect(plain, isNot(contains('- First bullet item')));
-          // Code block raw text without language header "dart".
-          expect(plain, contains('final count = 42;\nprint(count);'));
-          expect(plain, isNot(contains('dart\nfinal count')));
-          // Table cells separated by \t and rows by \n.
-          expect(plain, contains('ColA\tColB\nVal1\tVal2'));
+        final plain = controller.getText();
+        // Paragraphs / blocks separated by \n\n.
+        expect(plain, contains('Report Title\n\nIntro alpha beta paragraph.'));
+        // List items separated by \n without bullet glyphs or "- ".
+        expect(plain, contains('First bullet item\nSecond bullet item'));
+        expect(plain, isNot(contains('•')));
+        expect(plain, isNot(contains('- First bullet item')));
+        // Code block raw text without language header "dart".
+        expect(plain, contains('final count = 42;\nprint(count);'));
+        expect(plain, isNot(contains('dart\nfinal count')));
+        // Table cells separated by \t and rows by \n.
+        expect(plain, contains('ColA\tColB\nVal1\tVal2'));
 
-          // Markdown reconstruction restores #, -, ```, and | table pipes.
-          final reconstructed = controller.getMarkdown();
-          expect(reconstructed, contains('# Report Title'));
-          expect(reconstructed, contains('- First bullet item'));
-          expect(reconstructed, contains('- Second bullet item'));
-          expect(reconstructed, contains('```dart'));
-          expect(reconstructed, contains('| ColA | ColB |'));
-          expect(reconstructed, contains('| Val1 | Val2 |'));
-        },
-      );
+        // Markdown reconstruction restores #, -, ```, and | table pipes.
+        final reconstructed = controller.getMarkdown();
+        expect(reconstructed, contains('# Report Title'));
+        expect(reconstructed, contains('- First bullet item'));
+        expect(reconstructed, contains('- Second bullet item'));
+        expect(reconstructed, contains('```dart'));
+        expect(reconstructed, contains('| ColA | ColB |'));
+        expect(reconstructed, contains('| Val1 | Val2 |'));
+      });
     }
 
     testWidgets(
@@ -518,8 +511,7 @@ print(count);
           buildStreamingTree(
             viewKey: const ValueKey<String>('streaming-bubble'),
             isStreaming: true,
-            data:
-                '# Stream Heading\n\nSettled middle paragraph text.\n\nTail start',
+            data: '# Stream Heading\n\nSettled middle paragraph text.\n\nTail start',
           ),
         );
         await tester.pumpAndSettle();
@@ -552,8 +544,7 @@ print(count);
           buildStreamingTree(
             viewKey: const ValueKey<String>('streaming-bubble'),
             isStreaming: true,
-            data:
-                '# Stream Heading\n\nSettled middle paragraph text.\n\nTail start with more tokens',
+            data: '# Stream Heading\n\nSettled middle paragraph text.\n\nTail start with more tokens',
           ),
         );
         await tester.pump();
@@ -758,97 +749,94 @@ print(count);
       },
     );
 
-    testWidgets(
-      'TappableTextSpan link tap and hover underline work inside MarkdownView '
-      'alongside MarkdownSelectionScope',
-      (tester) async {
-        final controller = MarkdownSelectionController();
-        addTearDown(controller.dispose);
+    testWidgets('TappableTextSpan link tap and hover underline work inside MarkdownView '
+        'alongside MarkdownSelectionScope', (tester) async {
+      final controller = MarkdownSelectionController();
+      addTearDown(controller.dispose);
 
-        final tappedLinks = <(String, String)>[];
+      final tappedLinks = <(String, String)>[];
 
-        await tester.pumpWidget(
-          _testApp(
-            child: MarkdownSelectionScope(
-              controller: controller,
-              child: MarkdownView(
-                documentId: 'link-doc',
-                data: 'Visit [DocsLink](https://example.com "Docs") today',
-                builders: MarkdownBuilders(
-                  onLinkTap: (url, title) => tappedLinks.add((url, title)),
-                ),
+      await tester.pumpWidget(
+        _testApp(
+          child: MarkdownSelectionScope(
+            controller: controller,
+            child: MarkdownView(
+              documentId: 'link-doc',
+              data: 'Visit [DocsLink](https://example.com "Docs") today',
+              builders: MarkdownBuilders(
+                onLinkTap: (url, title) => tappedLinks.add((url, title)),
               ),
             ),
           ),
-        );
-        await tester.pumpAndSettle();
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        final para = _findParagraphContaining(
-          tester,
-          'Visit DocsLink today',
-          documentId: 'link-doc',
-        );
-        // 'Visit ' is indices 0..6, 'DocsLink' is indices 6..14.
-        final linkCenter = _rangeGlobalCenter(para, 6, 14);
-        final outsideLink = _rangeGlobalCenter(para, 0, 5);
+      final para = _findParagraphContaining(
+        tester,
+        'Visit DocsLink today',
+        documentId: 'link-doc',
+      );
+      // 'Visit ' is indices 0..6, 'DocsLink' is indices 6..14.
+      final linkCenter = _rangeGlobalCenter(para, 6, 14);
+      final outsideLink = _rangeGlobalCenter(para, 0, 5);
 
-        // 1. Desktop hover activates hoverStyle (underline) and click cursor.
-        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-        addTearDown(mouse.removePointer);
-        await mouse.addPointer(location: Offset.zero);
-        await tester.pump();
+      // 1. Desktop hover activates hoverStyle (underline) and click cursor.
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer(location: Offset.zero);
+      await tester.pump();
 
-        await mouse.moveTo(linkCenter);
-        await tester.pump();
+      await mouse.moveTo(linkCenter);
+      await tester.pump();
 
-        expect(para.hoveredSpanIndex, isNotNull);
-        final hoveredMouseRegion = tester.widget<MouseRegion>(
-          find.descendant(
-            of: find.byType(SelectableParagraph),
-            matching: find.byType(MouseRegion),
-          ),
-        );
-        expect(hoveredMouseRegion.cursor, SystemMouseCursors.click);
+      expect(para.hoveredSpanIndex, isNotNull);
+      final hoveredMouseRegion = tester.widget<MouseRegion>(
+        find.descendant(
+          of: find.byType(SelectableParagraph),
+          matching: find.byType(MouseRegion),
+        ),
+      );
+      expect(hoveredMouseRegion.cursor, SystemMouseCursors.click);
 
-        // Confirm rendered TextSpan under hover contains underline decoration.
-        var foundUnderline = false;
-        para.text.visitChildren((span) {
-          if (span is TextSpan &&
-              span.style?.decoration == TextDecoration.underline) {
-            foundUnderline = true;
-          }
-          return true;
-        });
-        expect(foundUnderline, isTrue);
+      // Confirm rendered TextSpan under hover contains underline decoration.
+      var foundUnderline = false;
+      para.text.visitChildren((span) {
+        if (span is TextSpan &&
+            span.style?.decoration == TextDecoration.underline) {
+          foundUnderline = true;
+        }
+        return true;
+      });
+      expect(foundUnderline, isTrue);
 
-        // Moving pointer off link clears hover styling and restores text cursor.
-        await mouse.moveTo(outsideLink);
-        await tester.pump();
-        expect(para.hoveredSpanIndex, isNull);
+      // Moving pointer off link clears hover styling and restores text cursor.
+      await mouse.moveTo(outsideLink);
+      await tester.pump();
+      expect(para.hoveredSpanIndex, isNull);
 
-        // 2. Touch tap activates the link callback without starting selection.
-        await tester.tapAt(linkCenter);
-        await tester.pumpAndSettle();
-        expect(tappedLinks, [('https://example.com', 'Docs')]);
-        expect(controller.hasSelection, isFalse);
+      // 2. Touch tap activates the link callback without starting selection.
+      await tester.tapAt(linkCenter);
+      await tester.pumpAndSettle();
+      expect(tappedLinks, [('https://example.com', 'Docs')]);
+      expect(controller.hasSelection, isFalse);
 
-        // 3. Mouse primary click also activates the link callback.
-        await mouse.down(linkCenter);
-        await tester.pump(const Duration(milliseconds: 20));
-        await mouse.up();
-        await tester.pumpAndSettle();
-        expect(tappedLinks.length, 2);
+      // 3. Mouse primary click also activates the link callback.
+      await mouse.down(linkCenter);
+      await tester.pump(const Duration(milliseconds: 20));
+      await mouse.up();
+      await tester.pumpAndSettle();
+      expect(tappedLinks.length, 2);
 
-        // 4. Touch long-press on the link starts selection WITHOUT firing onLinkTap.
-        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
-        addTearDown(() {
-          debugDefaultTargetPlatformOverride = null;
-        });
-        await _longPressTouchAt(tester, linkCenter);
-        expect(tappedLinks.length, 2);
-        expect(controller.hasSelection, isTrue);
-        expect(controller.getText(), 'DocsLink');
-      },
-    );
+      // 4. Touch long-press on the link starts selection WITHOUT firing onLinkTap.
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      addTearDown(() {
+        debugDefaultTargetPlatformOverride = null;
+      });
+      await _longPressTouchAt(tester, linkCenter);
+      expect(tappedLinks.length, 2);
+      expect(controller.hasSelection, isTrue);
+      expect(controller.getText(), 'DocsLink');
+    });
   });
 }

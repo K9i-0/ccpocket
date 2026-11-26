@@ -3,6 +3,7 @@ import 'package:meta/meta.dart';
 /// Root AST node representing a parsed Markdown document.
 @immutable
 class MarkdownDocument {
+  /// Creates a document from already-parsed [blocks].
   const MarkdownDocument({required this.blocks, this.source = ''});
 
   /// Empty document with no blocks.
@@ -14,8 +15,10 @@ class MarkdownDocument {
   /// The Markdown source string that produced this document.
   final String source;
 
+  /// Whether the document has no blocks.
   bool get isEmpty => blocks.isEmpty;
 
+  /// Whether the document has at least one block.
   bool get isNotEmpty => blocks.isNotEmpty;
 
   @override
@@ -43,8 +46,10 @@ sealed class MarkdownBlock {
 /// A paragraph consisting of inline nodes.
 @immutable
 final class ParagraphBlock extends MarkdownBlock {
+  /// Creates a paragraph.
   const ParagraphBlock({required this.inlines});
 
+  /// Inline contents of the paragraph.
   final List<MarkdownInline> inlines;
 
   @override
@@ -63,6 +68,7 @@ final class ParagraphBlock extends MarkdownBlock {
 /// An ATX or Setext heading (`h1` through `h6`).
 @immutable
 final class HeadingBlock extends MarkdownBlock {
+  /// Creates a heading. [level] must be between 1 and 6.
   const HeadingBlock({required this.level, required this.inlines, this.id})
     : assert(level >= 1 && level <= 6);
 
@@ -96,6 +102,7 @@ final class HeadingBlock extends MarkdownBlock {
 /// A fenced or indented code block.
 @immutable
 final class CodeBlock extends MarkdownBlock {
+  /// Creates a code block.
   const CodeBlock({
     required this.code,
     this.language,
@@ -146,8 +153,10 @@ final class CodeBlock extends MarkdownBlock {
 /// A standard blockquote containing nested blocks.
 @immutable
 final class BlockquoteBlock extends MarkdownBlock {
+  /// Creates a blockquote.
   const BlockquoteBlock({required this.children});
 
+  /// The quoted blocks, in reading order.
   final List<MarkdownBlock> children;
 
   @override
@@ -164,14 +173,34 @@ final class BlockquoteBlock extends MarkdownBlock {
 }
 
 /// Semantic kind of a GitHub-Flavored Markdown alert callout.
-enum AlertKind { note, tip, important, warning, caution }
+enum AlertKind {
+  /// `> [!NOTE]`: information worth knowing even when skimming.
+  note,
+
+  /// `> [!TIP]`: optional advice that helps the reader.
+  tip,
+
+  /// `> [!IMPORTANT]`: information the reader needs in order to succeed.
+  important,
+
+  /// `> [!WARNING]`: something that needs attention to avoid a problem.
+  warning,
+
+  /// `> [!CAUTION]`: a risk or negative outcome of an action.
+  caution,
+}
 
 /// A GitHub-Flavored Markdown alert (`> [!NOTE]`, `> [!TIP]`, etc.).
 @immutable
 final class AlertBlock extends MarkdownBlock {
+  /// Creates an alert.
   const AlertBlock({required this.kind, required this.children});
 
+  /// Which of the five GitHub alert types this is. It selects the title, icon
+  /// and colors the alert is rendered with.
   final AlertKind kind;
+
+  /// The alert's content, without the `[!NOTE]`-style marker line.
   final List<MarkdownBlock> children;
 
   @override
@@ -192,6 +221,7 @@ final class AlertBlock extends MarkdownBlock {
 /// A single item inside a [ListBlock].
 @immutable
 class ListItemNode {
+  /// Creates a list item.
   const ListItemNode({required this.children, this.checked});
 
   /// Nested blocks inside this list item.
@@ -200,6 +230,8 @@ class ListItemNode {
   /// Checkbox state for GFM task list items (`null` for regular items).
   final bool? checked;
 
+  /// Whether this is a GFM task list item (`- [ ]` or `- [x]`), drawn with a
+  /// checkbox instead of a bullet or number.
   bool get isTaskItem => checked != null;
 
   @override
@@ -221,6 +253,7 @@ class ListItemNode {
 /// An ordered, unordered, or task list.
 @immutable
 final class ListBlock extends MarkdownBlock {
+  /// Creates a list.
   const ListBlock({
     required this.ordered,
     required this.items,
@@ -260,11 +293,25 @@ final class ListBlock extends MarkdownBlock {
 }
 
 /// Horizontal column alignment inside a [TableBlock].
-enum TableColumnAlign { none, left, center, right }
+enum TableColumnAlign {
+  /// No alignment given (`---`). Cells align to the start of the text
+  /// direction.
+  none,
+
+  /// Left-aligned (`:---`).
+  left,
+
+  /// Centered (`:---:`).
+  center,
+
+  /// Right-aligned (`---:`).
+  right,
+}
 
 /// A single row of inline cell contents inside a [TableBlock].
 @immutable
 class TableRowNode {
+  /// Creates a table row.
   const TableRowNode({required this.cells});
 
   /// Inline nodes for each cell in column order.
@@ -293,16 +340,25 @@ class TableRowNode {
 /// A GitHub-Flavored Markdown table.
 @immutable
 final class TableBlock extends MarkdownBlock {
+  /// Creates a table.
   const TableBlock({
     required this.alignments,
     required this.header,
     required this.rows,
   });
 
+  /// Alignment of each column, in column order, taken from the delimiter row. A
+  /// column beyond the end of this list is treated as [TableColumnAlign.none].
   final List<TableColumnAlign> alignments;
+
+  /// The header row.
   final TableRowNode header;
+
+  /// The body rows, in reading order. A row may have fewer or more cells than
+  /// the header.
   final List<TableRowNode> rows;
 
+  /// Number of cells in the header row.
   int get columnCount => header.cells.length;
 
   @override
@@ -330,6 +386,7 @@ final class TableBlock extends MarkdownBlock {
 /// A thematic break / horizontal rule (`---`, `***`, `___`).
 @immutable
 final class ThematicBreakBlock extends MarkdownBlock {
+  /// Creates a thematic break.
   const ThematicBreakBlock();
 
   @override
@@ -345,6 +402,7 @@ final class ThematicBreakBlock extends MarkdownBlock {
 /// An HTML `<details>` disclosure block with optional `<summary>` header.
 @immutable
 final class HtmlDetailsBlock extends MarkdownBlock {
+  /// Creates a details block.
   const HtmlDetailsBlock({
     required this.summary,
     required this.children,
@@ -386,6 +444,7 @@ final class HtmlDetailsBlock extends MarkdownBlock {
 /// A single footnote definition (`[^label]: ...`).
 @immutable
 class FootnoteDefinition {
+  /// Creates a footnote definition.
   const FootnoteDefinition({
     required this.label,
     required this.children,
@@ -425,8 +484,10 @@ class FootnoteDefinition {
 /// A section containing resolved footnote definitions for the document.
 @immutable
 final class FootnoteDefinitionsBlock extends MarkdownBlock {
+  /// Creates a footnote section.
   const FootnoteDefinitionsBlock({required this.definitions});
 
+  /// The footnote definitions, in the order they are displayed.
   final List<FootnoteDefinition> definitions;
 
   @override
@@ -447,6 +508,7 @@ final class FootnoteDefinitionsBlock extends MarkdownBlock {
 /// A display-mode LaTeX math block (`\[...\]` or opt-in `$$...$$`).
 @immutable
 final class BlockLatexBlock extends MarkdownBlock {
+  /// Creates a display-mode LaTeX block.
   const BlockLatexBlock({required this.expression, this.closed = true});
 
   /// Raw LaTeX expression without surrounding delimiters.
@@ -480,8 +542,10 @@ sealed class MarkdownInline {
 /// Plain literal text.
 @immutable
 final class TextInline extends MarkdownInline {
+  /// Creates a text node.
   const TextInline(this.text);
 
+  /// The literal text.
   final String text;
 
   @override
@@ -500,8 +564,10 @@ final class TextInline extends MarkdownInline {
 /// Emphasized (italic) inline content.
 @immutable
 final class EmphasisInline extends MarkdownInline {
+  /// Creates an emphasis node.
   const EmphasisInline({required this.children});
 
+  /// The emphasized content.
   final List<MarkdownInline> children;
 
   @override
@@ -520,8 +586,10 @@ final class EmphasisInline extends MarkdownInline {
 /// Strongly emphasized (bold) inline content.
 @immutable
 final class StrongInline extends MarkdownInline {
+  /// Creates a strong emphasis node.
   const StrongInline({required this.children});
 
+  /// The strongly emphasized content.
   final List<MarkdownInline> children;
 
   @override
@@ -540,8 +608,10 @@ final class StrongInline extends MarkdownInline {
 /// Strikethrough inline content (`~~text~~`, `<s>`, `<del>`).
 @immutable
 final class StrikethroughInline extends MarkdownInline {
+  /// Creates a strikethrough node.
   const StrikethroughInline({required this.children});
 
+  /// The struck-through content.
   final List<MarkdownInline> children;
 
   @override
@@ -562,8 +632,10 @@ final class StrikethroughInline extends MarkdownInline {
 /// Underlined inline content (`<u>text</u>`).
 @immutable
 final class UnderlineInline extends MarkdownInline {
+  /// Creates an underline node.
   const UnderlineInline({required this.children});
 
+  /// The underlined content.
   final List<MarkdownInline> children;
 
   @override
@@ -582,8 +654,10 @@ final class UnderlineInline extends MarkdownInline {
 /// Subscript inline content (`<sub>text</sub>`).
 @immutable
 final class SubscriptInline extends MarkdownInline {
+  /// Creates a subscript node.
   const SubscriptInline({required this.children});
 
+  /// The subscript content.
   final List<MarkdownInline> children;
 
   @override
@@ -602,8 +676,10 @@ final class SubscriptInline extends MarkdownInline {
 /// Superscript inline content (`<sup>text</sup>`).
 @immutable
 final class SuperscriptInline extends MarkdownInline {
+  /// Creates a superscript node.
   const SuperscriptInline({required this.children});
 
+  /// The superscript content.
   final List<MarkdownInline> children;
 
   @override
@@ -622,8 +698,10 @@ final class SuperscriptInline extends MarkdownInline {
 /// Keyboard input inline content (`<kbd>Ctrl</kbd>`).
 @immutable
 final class KeyboardInline extends MarkdownInline {
+  /// Creates a keyboard input node.
   const KeyboardInline({required this.children});
 
+  /// The content of the keycap.
   final List<MarkdownInline> children;
 
   @override
@@ -642,8 +720,10 @@ final class KeyboardInline extends MarkdownInline {
 /// Inline code span (`` `code` ``).
 @immutable
 final class InlineCodeInline extends MarkdownInline {
+  /// Creates an inline code span.
   const InlineCodeInline(this.code);
 
+  /// The code, without the surrounding backticks.
   final String code;
 
   @override
@@ -662,6 +742,7 @@ final class InlineCodeInline extends MarkdownInline {
 /// Hyperlink (`[label](destination "title")`, autolink, or `<a href=...>`).
 @immutable
 final class LinkInline extends MarkdownInline {
+  /// Creates a link.
   const LinkInline({
     required this.destination,
     required this.children,
@@ -669,9 +750,20 @@ final class LinkInline extends MarkdownInline {
     this.isAutolink = false,
   });
 
+  /// Where the link points: a URL, a relative path or an anchor. It is passed
+  /// unchanged to `MarkdownBuilders.onLinkTap`.
   final String destination;
+
+  /// The optional link title (`[label](destination "title")`), or null when
+  /// none was given.
   final String? title;
+
+  /// The link's label.
   final List<MarkdownInline> children;
+
+  /// Whether the link's label is its own address, as in
+  /// `<https://example.com>` or a bare `www.example.com`, rather than separate
+  /// link text.
   final bool isAutolink;
 
   @override
@@ -702,10 +794,18 @@ final class LinkInline extends MarkdownInline {
 /// Inline image (`![alt](source "title")` or `<img src=...>`).
 @immutable
 final class ImageInline extends MarkdownInline {
+  /// Creates an image.
   const ImageInline({required this.source, this.alt = '', this.title});
 
+  /// Where the image comes from: a URL or a path.
   final String source;
+
+  /// The alternative text, empty when none was given. It stands in for the
+  /// image in selected and copied text.
   final String alt;
+
+  /// The optional image title (`![alt](source "title")`), or null when none was
+  /// given.
   final String? title;
 
   @override
@@ -727,8 +827,11 @@ final class ImageInline extends MarkdownInline {
 /// A hard (`<br>`, two trailing spaces, `\`) or soft line break.
 @immutable
 final class LineBreakInline extends MarkdownInline {
+  /// Creates a line break, hard by default.
   const LineBreakInline({this.isHard = true});
 
+  /// Whether this is a hard break, rendered as a new line. A soft break (a
+  /// plain newline in the source) is rendered as a space.
   final bool isHard;
 
   @override
@@ -747,6 +850,7 @@ final class LineBreakInline extends MarkdownInline {
 /// Inline reference to a footnote (`[^1]`).
 @immutable
 final class FootnoteRefInline extends MarkdownInline {
+  /// Creates a footnote reference.
   const FootnoteRefInline({required this.label, this.index});
 
   /// Raw footnote identifier (without leading `^`).
@@ -776,6 +880,7 @@ final class FootnoteRefInline extends MarkdownInline {
 /// Inline LaTeX math expression (`\(...\)` or opt-in `$...$`).
 @immutable
 final class InlineLatexInline extends MarkdownInline {
+  /// Creates an inline LaTeX expression.
   const InlineLatexInline(this.expression);
 
   /// Raw LaTeX expression without surrounding delimiters.
@@ -797,6 +902,7 @@ final class InlineLatexInline extends MarkdownInline {
 /// Extension inline node produced by custom [MarkdownInlineRule] scanners.
 @immutable
 final class CustomInline extends MarkdownInline {
+  /// Creates a custom inline node of the given [kind].
   const CustomInline({
     required this.kind,
     required this.text,

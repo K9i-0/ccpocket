@@ -21,6 +21,7 @@ import 'markdown_widget_helpers.dart';
 /// [MarkdownSelectionScope] so model-anchored selection and copying continue
 /// to work seamlessly across mounted and scrolled-off blocks.
 class SliverMarkdownView extends StatefulWidget {
+  /// Creates a sliver that renders [data], or [document] when one is given.
   const SliverMarkdownView({
     super.key,
     this.data = '',

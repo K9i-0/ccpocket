@@ -12,4 +12,5 @@ linter:
   rules:
     avoid_dynamic_calls: true
     prefer_single_quotes: true
+    public_member_api_docs: true
     unawaited_futures: true

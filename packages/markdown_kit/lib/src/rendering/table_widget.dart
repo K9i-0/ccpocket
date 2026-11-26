@@ -14,17 +14,17 @@ typedef BuiltInlineSpans = ({InlineSpan span, TextOffsetMapping mapping});
 
 /// Callback that builds an [InlineSpan] and [TextOffsetMapping] for cell
 /// inlines with a given [baseStyle].
-typedef MarkdownCellInlineBuilder =
-    BuiltInlineSpans Function(
-      BuildContext context,
-      List<MarkdownInline> inlines,
-      TextStyle baseStyle,
-    );
+typedef MarkdownCellInlineBuilder = BuiltInlineSpans Function(
+  BuildContext context,
+  List<MarkdownInline> inlines,
+  TextStyle baseStyle,
+);
 
 /// Renders a GFM [TableBlock] with natural column sizing, horizontal scroll
 /// when content exceeds the viewport width, and exact per-cell selection
 /// offsets matching [extractBlockRenderedText].
 class MarkdownTableWidget extends StatelessWidget {
+  /// Creates a table widget.
   const MarkdownTableWidget({
     super.key,
     required this.documentId,
@@ -40,16 +40,40 @@ class MarkdownTableWidget extends StatelessWidget {
     this.onSurfaceDetach,
   });
 
+  /// Identifier of the document this table belongs to.
   final String documentId;
+
+  /// Index of the enclosing top-level block in the document.
   final int blockIndex;
+
+  /// The table to render.
   final TableBlock table;
+
+  /// Theme the table is drawn with.
   final MarkdownThemeData theme;
+
+  /// Offset of [table]'s first character within the enclosing top-level block's
+  /// rendered text.
   final int baseOffsetInBlock;
+
+  /// Text style of body cells. When null, the theme's body style is used.
   final TextStyle? baseTextStyle;
+
+  /// Color of the selection highlight. When null, the theme's selection color
+  /// is used.
   final Color? selectionColor;
+
+  /// Whether cell text can be selected.
   final bool selectable;
+
+  /// Builds each cell's inline content. When null, cells are shown as plain
+  /// text.
   final MarkdownCellInlineBuilder? inlineBuilder;
+
+  /// Called when a selectable cell is mounted.
   final ValueChanged<MarkdownSelectionSurface>? onSurfaceAttach;
+
+  /// Called when a selectable cell is unmounted.
   final ValueChanged<MarkdownSelectionSurface>? onSurfaceDetach;
 
   @override

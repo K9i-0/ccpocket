@@ -9,6 +9,7 @@ import 'selection_model.dart';
 /// List items and table rows already preserve `\n` and `\t` separators in
 /// canonical rendered text ([MarkdownSelectedBlock.fullText]).
 class MarkdownPlainTextFormatter implements MarkdownSelectionFormatter {
+  /// Creates a plain-text formatter.
   const MarkdownPlainTextFormatter({
     this.blockSeparator = '\n\n',
     this.documentSeparator = '\n\n',
@@ -49,6 +50,7 @@ class MarkdownPlainTextFormatter implements MarkdownSelectionFormatter {
 /// block math, and footnote definitions). Partially selected boundary blocks
 /// safely fall back to their sliced plain text so unselected text never leaks.
 class MarkdownMarkupFormatter implements MarkdownSelectionFormatter {
+  /// Creates a Markdown formatter.
   const MarkdownMarkupFormatter({
     this.blockSeparator = '\n\n',
     this.documentSeparator = '\n\n',

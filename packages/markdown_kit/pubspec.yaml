@@ -1,13 +1,19 @@
 name: markdown_kit
 description: >-
-  Standalone Flutter Markdown AST, parser, streaming splitter, selection engine,
-  and renderer built solely on package:flutter/widgets.dart.
+  GitHub-Flavored Markdown for Flutter with streaming support and text
+  selection across blocks, built on package:flutter/widgets.dart only.
 version: 0.1.0
 publish_to: none
 
+topics:
+  - markdown
+  - widget
+  - selection
+  - streaming
+
 environment:
-  sdk: '>=3.10.0 <4.0.0'
-  flutter: '>=3.38.0'
+  sdk: ^3.14.0
+  flutter: '>=3.50.0'
 
 dependencies:
   flutter:

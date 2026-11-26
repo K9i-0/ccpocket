@@ -3,8 +3,8 @@ description: Demonstrates rendering, streaming and selecting Markdown with markd
 publish_to: none
 
 environment:
-  sdk: ^3.11.0
-  flutter: '>=3.41.0'
+  sdk: ^3.14.0
+  flutter: '>=3.50.0'
 
 dependencies:
   flutter:

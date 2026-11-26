@@ -121,9 +121,9 @@ List<String> _drain(WidgetTester tester) {
   return out;
 }
 
-String _paragraphs(int count, {String prefix = 'Paragraph'}) => [
-  for (var i = 0; i < count; i++) '$prefix ${i.toString().padLeft(3, '0')}',
-].join('\n\n');
+String _paragraphs(int count, {String prefix = 'Paragraph'}) =>
+    [for (var i = 0; i < count; i++) '$prefix ${i.toString().padLeft(3, '0')}']
+        .join('\n\n');
 
 Finder _block(String docId, int index) =>
     find.byKey(ValueKey<String>('$docId:$index'));

@@ -236,8 +236,7 @@ void main() {
         _app(
           size: const Size(800, 600),
           child: const MarkdownView(
-            data:
-                '| Shot |\n|---|\n| ![screenshot of login](shots/login.png) |\n\n![screenshot of login](shots/login.png)',
+            data: '| Shot |\n|---|\n| ![screenshot of login](shots/login.png) |\n\n![screenshot of login](shots/login.png)',
           ),
         ),
       );
@@ -283,8 +282,7 @@ void main() {
               itemBuilder: (_, i) => i == 0
                   ? const MarkdownView(
                       documentId: 'm0',
-                      data:
-                          '<details>\n<summary>Open me</summary>\n\nHidden body\n\n</details>',
+                      data: '<details>\n<summary>Open me</summary>\n\nHidden body\n\n</details>',
                     )
                   : SizedBox(height: 100, child: Text('row $i')),
             ),

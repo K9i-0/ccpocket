@@ -15,6 +15,7 @@ import 'markdown_widget_helpers.dart';
 ///
 /// Built solely on `package:flutter/widgets.dart`.
 class SelectablePlainText extends StatefulWidget {
+  /// Creates selectable text showing [text].
   const SelectablePlainText(
     this.text, {
     super.key,

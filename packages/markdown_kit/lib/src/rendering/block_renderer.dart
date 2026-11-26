@@ -18,6 +18,7 @@ import 'table_widget.dart';
 /// footnotes, and code blocks so every character offset matches
 /// [extractBlockRenderedText] 1-to-1.
 class MarkdownBlockRenderer extends StatelessWidget {
+  /// Creates a renderer for [block].
   const MarkdownBlockRenderer({
     super.key,
     required this.documentId,
@@ -34,14 +35,32 @@ class MarkdownBlockRenderer extends StatelessWidget {
     this.baseTextStyle,
   });
 
+  /// Identifier of the document [block] belongs to.
   final String documentId;
+
+  /// Index of the enclosing top-level block in the document.
   final int blockIndex;
+
+  /// The block to render.
   final MarkdownBlock block;
+
+  /// Theme to draw with. When null, the nearest [MarkdownTheme] is used.
   final MarkdownThemeData? theme;
+
+  /// Custom builders and callbacks for code, links, images and other nodes.
   final MarkdownBuilders builders;
+
+  /// Color of the selection highlight. When null, the theme's selection color
+  /// is used.
   final Color? selectionColor;
+
+  /// Whether the block's text can be selected.
   final bool selectable;
+
+  /// Called when a selectable paragraph inside the block is mounted.
   final ValueChanged<MarkdownSelectionSurface>? onSurfaceAttach;
+
+  /// Called when a selectable paragraph inside the block is unmounted.
   final ValueChanged<MarkdownSelectionSurface>? onSurfaceDetach;
 
   /// Starting canonical UTF-16 offset of [block] within the enclosing

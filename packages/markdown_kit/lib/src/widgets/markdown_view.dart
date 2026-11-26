@@ -15,8 +15,10 @@ import 'markdown_widget_helpers.dart';
 
 /// Callback invoked when a top-level [MarkdownBlock] widget is built or reused
 /// from cache.
-typedef MarkdownBlockBuildCallback =
-    void Function(int blockIndex, MarkdownBlock block);
+typedef MarkdownBlockBuildCallback = void Function(
+  int blockIndex,
+  MarkdownBlock block,
+);
 
 /// Top-level widget rendering GFM Markdown with block-level caching, streaming
 /// support, and model-anchored selection.
@@ -32,6 +34,7 @@ typedef MarkdownBlockBuildCallback =
 ///   [handleBuilder], [magnifierBuilder], [selectionColor], and
 ///   [onSelectionChanged]).
 class MarkdownView extends StatefulWidget {
+  /// Creates a view that renders [data], or [document] when one is given.
   const MarkdownView({
     super.key,
     this.data = '',

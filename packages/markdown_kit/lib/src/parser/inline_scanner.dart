@@ -5,6 +5,8 @@ import '../ast/markdown_ast.dart';
 /// A single match returned by [MarkdownInlineRule.matchAt].
 @immutable
 class MarkdownInlineMatch {
+  /// Creates a match that replaces the text from the matched index up to [end]
+  /// with [inline].
   const MarkdownInlineMatch({required this.end, required this.inline});
 
   /// Exclusive UTF-16 end index inside the scanned [TextInline.text] string.
@@ -35,6 +37,7 @@ class MarkdownInlineMatch {
 /// override [mayMatch] with a cheap pre-filter so ordinary prose skips regex
 /// evaluation completely.
 abstract class MarkdownInlineRule {
+  /// Const constructor for subclasses.
   const MarkdownInlineRule();
 
   /// Optional set of UTF-16 code units that can start a match.
@@ -71,10 +74,13 @@ abstract class MarkdownInlineRule {
 /// without ever modifying code spans ([InlineCodeInline], [CodeBlock]) or
 /// existing link labels ([LinkInline]).
 class MarkdownInlineScanner {
+  /// Creates a scanner that applies [rules].
   const MarkdownInlineScanner(this.rules);
 
+  /// The rules applied to each text node.
   final List<MarkdownInlineRule> rules;
 
+  /// Whether there are no rules, so scanning changes nothing.
   bool get isEmpty => rules.isEmpty;
 
   /// Scans [document] and returns either the identical instance (when no rules

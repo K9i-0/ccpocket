@@ -14,6 +14,7 @@ import 'selection_model.dart';
 /// scrolled off-screen and unmounted while the other endpoint remains visible.
 @immutable
 class MarkdownHandleEndpoints {
+  /// Creates a snapshot of handle endpoints.
   const MarkdownHandleEndpoints({
     this.startSurface,
     this.endSurface,
@@ -25,21 +26,45 @@ class MarkdownHandleEndpoints {
     this.endLineHeight,
   });
 
+  /// The mounted text surface containing the start of the selection, or null
+  /// when that text is not currently mounted.
   final MarkdownSelectionSurface? startSurface;
+
+  /// The mounted text surface containing the end of the selection, or null when
+  /// that text is not currently mounted.
   final MarkdownSelectionSurface? endSurface;
+
+  /// UTF-16 offset of the selection start within [startSurface]'s own text.
   final int? startLocalOffset;
+
+  /// UTF-16 offset of the selection end within [endSurface]'s own text.
   final int? endLocalOffset;
+
+  /// Where the start handle is anchored, in global coordinates: the bottom-left
+  /// corner of the caret at the selection start.
   final Offset? startGlobal;
+
+  /// Where the end handle is anchored, in global coordinates: the bottom-left
+  /// corner of the caret at the selection end.
   final Offset? endGlobal;
+
+  /// Height of the caret at the selection start, in logical pixels.
   final double? startLineHeight;
+
+  /// Height of the caret at the selection end, in logical pixels.
   final double? endLineHeight;
 
+  /// Whether the start of the selection is on a mounted surface, so its handle
+  /// can be shown.
   bool get hasStart =>
       startSurface != null && startLocalOffset != null && startGlobal != null;
 
+  /// Whether the end of the selection is on a mounted surface, so its handle
+  /// can be shown.
   bool get hasEnd =>
       endSurface != null && endLocalOffset != null && endGlobal != null;
 
+  /// Whether at least one endpoint can show a handle.
   bool get hasAny => hasStart || hasEnd;
 
   @override
@@ -76,6 +101,10 @@ class MarkdownHandleEndpoints {
 /// than render-object references, so selections survive virtualized list
 /// disposal/remounting and live streaming updates via [reconciliationPolicy].
 class MarkdownSelectionController extends ChangeNotifier {
+  /// Creates a selection controller.
+  ///
+  /// [plainTextFormatter] defaults to a [MarkdownPlainTextFormatter] and
+  /// [markupFormatter] to a [MarkdownMarkupFormatter].
   MarkdownSelectionController({
     this.allowCrossDocumentSelection = true,
     this.reconciliationPolicy =
@@ -925,9 +954,8 @@ class MarkdownSelectionController extends ChangeNotifier {
       return pos;
     }
     final blockIndex = pos.blockIndex.clamp(0, ref.document.blocks.length - 1);
-    final textLen = extractBlockRenderedText(
-      ref.document.blocks[blockIndex],
-    ).length;
+    final textLen = extractBlockRenderedText(ref.document.blocks[blockIndex])
+        .length;
     final offset = pos.offset.clamp(0, textLen);
     return MarkdownPosition(
       documentId: pos.documentId,

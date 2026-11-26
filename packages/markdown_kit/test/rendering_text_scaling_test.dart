@@ -636,8 +636,7 @@ void main() {
               size: const Size(2000, 2000),
               scaler: TextScaler.linear(scale),
               child: const MarkdownView(
-                data:
-                    'prose line\n\n- list line\n\n1. ordered line\n\n- [ ] task',
+                data: 'prose line\n\n- list line\n\n1. ordered line\n\n- [ ] task',
               ),
             ),
           );
@@ -923,9 +922,8 @@ Details body.
     testWidgets('a clamped scaler is honoured by text and ordinals alike', (
       tester,
     ) async {
-      final clamped = const TextScaler.linear(
-        3,
-      ).clamp(minScaleFactor: 1, maxScaleFactor: 1.5);
+      final clamped = const TextScaler.linear(3)
+          .clamp(minScaleFactor: 1, maxScaleFactor: 1.5);
       await tester.pumpWidget(
         _app(
           scaler: clamped,

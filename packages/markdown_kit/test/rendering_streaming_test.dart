@@ -445,9 +445,9 @@ print("tilde fence")
             ),
           ),
         );
-        final withTicks = _allParagraphTexts(
-          tester,
-        ).where((t) => t.contains('`')).toList();
+        final withTicks = _allParagraphTexts(tester)
+            .where((t) => t.contains('`'))
+            .toList();
         expect(
           withTicks,
           isEmpty,

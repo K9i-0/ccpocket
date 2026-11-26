@@ -278,25 +278,22 @@ Line three
       }
     });
 
-    test(
-      'parses multi-paragraph alerts and keeps regular quotes as BlockquoteBlock',
-      () {
-        final parser = GfmMarkdownParser();
-        final multi = parser.parse('> [!WARNING]\n>\n> First\n>\n> Second');
-        final alert = multi.blocks.first as AlertBlock;
-        expect(alert.kind, AlertKind.warning);
-        expect(alert.children.length, 2);
-        expect(extractBlockRenderedText(alert), 'First\nSecond');
+    test('parses multi-paragraph alerts and keeps regular quotes as BlockquoteBlock', () {
+      final parser = GfmMarkdownParser();
+      final multi = parser.parse('> [!WARNING]\n>\n> First\n>\n> Second');
+      final alert = multi.blocks.first as AlertBlock;
+      expect(alert.kind, AlertKind.warning);
+      expect(alert.children.length, 2);
+      expect(extractBlockRenderedText(alert), 'First\nSecond');
 
-        final inlineText = parser.parse('> [!NOTE] inline text on same line');
-        expect(inlineText.blocks.first, isA<BlockquoteBlock>());
+      final inlineText = parser.parse('> [!NOTE] inline text on same line');
+      expect(inlineText.blocks.first, isA<BlockquoteBlock>());
 
-        final disabled = GfmMarkdownParser(
-          options: const MarkdownParserOptions(enableAlerts: false),
-        ).parse('> [!NOTE]\n> Body');
-        expect(disabled.blocks.first, isA<BlockquoteBlock>());
-      },
-    );
+      final disabled = GfmMarkdownParser(
+        options: const MarkdownParserOptions(enableAlerts: false),
+      ).parse('> [!NOTE]\n> Body');
+      expect(disabled.blocks.first, isA<BlockquoteBlock>());
+    });
   });
 
   group('Common HTML support', () {
@@ -375,22 +372,19 @@ final x = 1;
       );
     });
 
-    test(
-      'handles unclosed HTML tags gracefully and ignores HTML inside code spans',
-      () {
-        final unclosed = parser.parse('Start <u>unclosed text');
-        expect(extractDocumentRenderedText(unclosed), 'Start <u>unclosed text');
+    test('handles unclosed HTML tags gracefully and ignores HTML inside code spans', () {
+      final unclosed = parser.parse('Start <u>unclosed text');
+      expect(extractDocumentRenderedText(unclosed), 'Start <u>unclosed text');
 
-        final inCode = parser.parse('Code `<u>raw</u>` and `<br>`');
-        final p = inCode.blocks.first as ParagraphBlock;
-        expect(p.inlines.whereType<UnderlineInline>(), isEmpty);
-        expect(p.inlines.whereType<LineBreakInline>(), isEmpty);
-        expect(p.inlines.whereType<InlineCodeInline>().map((c) => c.code), [
-          '<u>raw</u>',
-          '<br>',
-        ]);
-      },
-    );
+      final inCode = parser.parse('Code `<u>raw</u>` and `<br>`');
+      final p = inCode.blocks.first as ParagraphBlock;
+      expect(p.inlines.whereType<UnderlineInline>(), isEmpty);
+      expect(p.inlines.whereType<LineBreakInline>(), isEmpty);
+      expect(p.inlines.whereType<InlineCodeInline>().map((c) => c.code), [
+        '<u>raw</u>',
+        '<br>',
+      ]);
+    });
 
     test(
       'keeps <details> summary anchored to start and preserves indented code',
@@ -420,38 +414,35 @@ final x = 1;
       },
     );
 
-    test(
-      'parses standalone <img>, <br>, and inline HTML lines instead of raw text',
-      () {
-        const md = '''
+    test('parses standalone <img>, <br>, and inline HTML lines instead of raw text', () {
+      const md = '''
 <img src="a.png" alt="Demo" title="Preview" />
 
 <br />
 
 <a href="https://example.com"><b>Standalone link</b></a>
 ''';
-        final doc = parser.parse(md);
-        expect(doc.blocks.length, 3);
+      final doc = parser.parse(md);
+      expect(doc.blocks.length, 3);
 
-        final p1 = doc.blocks[0] as ParagraphBlock;
-        expect(p1.inlines, [
-          const ImageInline(source: 'a.png', alt: 'Demo', title: 'Preview'),
-        ]);
+      final p1 = doc.blocks[0] as ParagraphBlock;
+      expect(p1.inlines, [
+        const ImageInline(source: 'a.png', alt: 'Demo', title: 'Preview'),
+      ]);
 
-        final p2 = doc.blocks[1] as ParagraphBlock;
-        expect(p2.inlines, [const LineBreakInline(isHard: true)]);
+      final p2 = doc.blocks[1] as ParagraphBlock;
+      expect(p2.inlines, [const LineBreakInline(isHard: true)]);
 
-        final p3 = doc.blocks[2] as ParagraphBlock;
-        expect(p3.inlines, [
-          const LinkInline(
-            destination: 'https://example.com',
-            children: [
-              StrongInline(children: [TextInline('Standalone link')]),
-            ],
-          ),
-        ]);
-      },
-    );
+      final p3 = doc.blocks[2] as ParagraphBlock;
+      expect(p3.inlines, [
+        const LinkInline(
+          destination: 'https://example.com',
+          children: [
+            StrongInline(children: [TextInline('Standalone link')]),
+          ],
+        ),
+      ]);
+    });
   });
 
   group('Footnotes', () {
@@ -558,51 +549,40 @@ $$
       expect(doc.blocks.single, isA<ParagraphBlock>());
     });
 
-    test(
-      r'refuses to cross backtick code spans in \(...\) and $$...$$ inline math',
-      () {
-        final parser = GfmMarkdownParser(
-          options: const MarkdownParserOptions(enableDollarLatex: true),
-        );
-        final parenDoc = parser.parse(r'Use \( and `code` and \)');
-        final parenP = parenDoc.blocks.single as ParagraphBlock;
-        expect(parenP.inlines.whereType<InlineLatexInline>(), isEmpty);
-        expect(
-          parenP.inlines.whereType<InlineCodeInline>().single.code,
-          'code',
-        );
+    test(r'refuses to cross backtick code spans in \(...\) and $$...$$ inline math', () {
+      final parser = GfmMarkdownParser(
+        options: const MarkdownParserOptions(enableDollarLatex: true),
+      );
+      final parenDoc = parser.parse(r'Use \( and `code` and \)');
+      final parenP = parenDoc.blocks.single as ParagraphBlock;
+      expect(parenP.inlines.whereType<InlineLatexInline>(), isEmpty);
+      expect(parenP.inlines.whereType<InlineCodeInline>().single.code, 'code');
 
-        final dollarDoc = parser.parse(r'Use $$ and `code` and $$');
-        final dollarP = dollarDoc.blocks.single as ParagraphBlock;
-        expect(dollarP.inlines.whereType<InlineLatexInline>(), isEmpty);
-        expect(
-          dollarP.inlines.whereType<InlineCodeInline>().single.code,
-          'code',
-        );
-      },
-    );
+      final dollarDoc = parser.parse(r'Use $$ and `code` and $$');
+      final dollarP = dollarDoc.blocks.single as ParagraphBlock;
+      expect(dollarP.inlines.whereType<InlineLatexInline>(), isEmpty);
+      expect(dollarP.inlines.whereType<InlineCodeInline>().single.code, 'code');
+    });
   });
 
   group('MarkdownInlineScanner', () {
-    test(
-      'skips matchAt on ordinary prose and never touches code spans or link labels',
-      () {
-        final localhostRule = _CountingLocalhostRule();
-        final filePathRule = _CountingFilePathRule();
-        final parser = GfmMarkdownParser(
-          options: MarkdownParserOptions(
-            inlineRules: [localhostRule, filePathRule],
-          ),
-        );
+    test('skips matchAt on ordinary prose and never touches code spans or link labels', () {
+      final localhostRule = _CountingLocalhostRule();
+      final filePathRule = _CountingFilePathRule();
+      final parser = GfmMarkdownParser(
+        options: MarkdownParserOptions(
+          inlineRules: [localhostRule, filePathRule],
+        ),
+      );
 
-        // Plain prose with neither 'h'/'H' nor '/' skips both rules completely.
-        final plainDoc = parser.parse('Simple plain text 123.');
-        expect(plainDoc.blocks.single, isA<ParagraphBlock>());
-        expect(localhostRule.matchAtCalls, 0);
-        expect(filePathRule.matchAtCalls, 0);
+      // Plain prose with neither 'h'/'H' nor '/' skips both rules completely.
+      final plainDoc = parser.parse('Simple plain text 123.');
+      expect(plainDoc.blocks.single, isA<ParagraphBlock>());
+      expect(localhostRule.matchAtCalls, 0);
+      expect(filePathRule.matchAtCalls, 0);
 
-        // Code spans, fenced code blocks, and existing link labels are untouched.
-        const mixed = '''
+      // Code spans, fenced code blocks, and existing link labels are untouched.
+      const mixed = '''
 Check lib/main.dart:42 and http://localhost:8080/api!
 
 Inline `lib/ignored.dart` and [lib/in_link.dart](https://example.com).
@@ -611,69 +591,62 @@ Inline `lib/ignored.dart` and [lib/in_link.dart](https://example.com).
 // lib/in_code_block.dart http://localhost:3000
 ```
 ''';
-        final doc = parser.parse(mixed);
-        final p1 = doc.blocks[0] as ParagraphBlock;
-        expect(
-          p1.inlines.whereType<CustomInline>().single,
-          const CustomInline(
-            kind: 'file_path',
-            text: 'lib/main.dart:42',
-            data: {'path': 'lib/main.dart:42'},
-          ),
-        );
-        expect(
-          p1.inlines.whereType<LinkInline>().single.destination,
-          'http://localhost:8080/api',
-        );
+      final doc = parser.parse(mixed);
+      final p1 = doc.blocks[0] as ParagraphBlock;
+      expect(
+        p1.inlines.whereType<CustomInline>().single,
+        const CustomInline(
+          kind: 'file_path',
+          text: 'lib/main.dart:42',
+          data: {'path': 'lib/main.dart:42'},
+        ),
+      );
+      expect(
+        p1.inlines.whereType<LinkInline>().single.destination,
+        'http://localhost:8080/api',
+      );
 
-        final p2 = doc.blocks[1] as ParagraphBlock;
-        expect(p2.inlines.whereType<CustomInline>(), isEmpty);
-        expect(
-          p2.inlines.whereType<InlineCodeInline>().single.code,
-          'lib/ignored.dart',
-        );
-        final existingLink = p2.inlines.whereType<LinkInline>().single;
-        expect(existingLink.children, [const TextInline('lib/in_link.dart')]);
+      final p2 = doc.blocks[1] as ParagraphBlock;
+      expect(p2.inlines.whereType<CustomInline>(), isEmpty);
+      expect(
+        p2.inlines.whereType<InlineCodeInline>().single.code,
+        'lib/ignored.dart',
+      );
+      final existingLink = p2.inlines.whereType<LinkInline>().single;
+      expect(existingLink.children, [const TextInline('lib/in_link.dart')]);
 
-        final code = doc.blocks[2] as CodeBlock;
-        expect(code.code, '// lib/in_code_block.dart http://localhost:3000');
-      },
-    );
+      final code = doc.blocks[2] as CodeBlock;
+      expect(code.code, '// lib/in_code_block.dart http://localhost:3000');
+    });
   });
 
   group('Caching and incremental block parsing', () {
-    test(
-      'uses bounded LRU cache for documents and reuses prefix blocks when streaming',
-      () {
-        final parser = GfmMarkdownParser(
-          maxCacheEntries: 2,
-          maxBlockCacheEntries: 4,
-        );
+    test('uses bounded LRU cache for documents and reuses prefix blocks when streaming', () {
+      final parser = GfmMarkdownParser(
+        maxCacheEntries: 2,
+        maxBlockCacheEntries: 4,
+      );
 
-        final d1 = parser.parse('# One\n\nBody one');
-        final d1Again = parser.parse('# One\n\nBody one');
-        expect(identical(d1, d1Again), isTrue);
-        expect(parser.documentCacheLength, 1);
+      final d1 = parser.parse('# One\n\nBody one');
+      final d1Again = parser.parse('# One\n\nBody one');
+      expect(identical(d1, d1Again), isTrue);
+      expect(parser.documentCacheLength, 1);
 
-        parser.parse('# Two');
-        parser.parse('# Three');
-        // LRU limit is 2, so '# One\n\nBody one' was evicted.
-        expect(parser.documentCacheLength, 2);
-        final d1Reparsed = parser.parse('# One\n\nBody one');
-        expect(identical(d1, d1Reparsed), isFalse);
-        expect(d1Reparsed, d1);
+      parser.parse('# Two');
+      parser.parse('# Three');
+      // LRU limit is 2, so '# One\n\nBody one' was evicted.
+      expect(parser.documentCacheLength, 2);
+      final d1Reparsed = parser.parse('# One\n\nBody one');
+      expect(identical(d1, d1Reparsed), isFalse);
+      expect(d1Reparsed, d1);
 
-        // Streaming frames do not evict completed documents from _documentCache.
-        for (var i = 1; i <= 10; i++) {
-          parser.parse('# Stream\n\nChunk ${'x' * i}', isStreaming: true);
-        }
-        expect(parser.documentCacheLength, 2);
-        expect(
-          identical(parser.parse('# One\n\nBody one'), d1Reparsed),
-          isTrue,
-        );
-      },
-    );
+      // Streaming frames do not evict completed documents from _documentCache.
+      for (var i = 1; i <= 10; i++) {
+        parser.parse('# Stream\n\nChunk ${'x' * i}', isStreaming: true);
+      }
+      expect(parser.documentCacheLength, 2);
+      expect(identical(parser.parse('# One\n\nBody one'), d1Reparsed), isTrue);
+    });
   });
 
   group('Canonical rendered text extraction', () {

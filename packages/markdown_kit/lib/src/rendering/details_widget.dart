@@ -9,12 +9,11 @@ import 'table_widget.dart' show BuiltInlineSpans, MarkdownCellInlineBuilder;
 
 /// Callback used by [MarkdownDetailsWidget] to render each nested
 /// [MarkdownBlock] inside `<details>` at its exact [offsetInBlock].
-typedef MarkdownChildBlockBuilder =
-    Widget Function(
-      BuildContext context,
-      MarkdownBlock block,
-      int offsetInBlock,
-    );
+typedef MarkdownChildBlockBuilder = Widget Function(
+  BuildContext context,
+  MarkdownBlock block,
+  int offsetInBlock,
+);
 
 /// Collapsible `<details><summary>...</summary>...</details>` widget built
 /// solely on `package:flutter/widgets.dart`.
@@ -23,6 +22,7 @@ typedef MarkdownChildBlockBuilder =
 /// [extractBlockRenderedText] for both the summary and every expanded child
 /// block.
 class MarkdownDetailsWidget extends StatefulWidget {
+  /// Creates a details block widget.
   const MarkdownDetailsWidget({
     super.key,
     required this.documentId,
@@ -38,16 +38,40 @@ class MarkdownDetailsWidget extends StatefulWidget {
     this.onSurfaceDetach,
   });
 
+  /// Identifier of the document this block belongs to.
   final String documentId;
+
+  /// Index of the enclosing top-level block in the document.
   final int blockIndex;
+
+  /// The details block to render.
   final HtmlDetailsBlock block;
+
+  /// Theme the block is drawn with.
   final MarkdownThemeData theme;
+
+  /// Builds each child block shown while the block is open.
   final MarkdownChildBlockBuilder childBlockBuilder;
+
+  /// Offset of [block]'s first character within the enclosing top-level block's
+  /// rendered text.
   final int baseOffsetInBlock;
+
+  /// Color of the selection highlight. When null, the theme's selection color
+  /// is used.
   final Color? selectionColor;
+
+  /// Whether the summary and content can be selected.
   final bool selectable;
+
+  /// Builds the summary's inline content. When null, the summary is shown as
+  /// plain text.
   final MarkdownCellInlineBuilder? inlineBuilder;
+
+  /// Called when a selectable paragraph inside the block is mounted.
   final ValueChanged<MarkdownSelectionSurface>? onSurfaceAttach;
+
+  /// Called when a selectable paragraph inside the block is unmounted.
   final ValueChanged<MarkdownSelectionSurface>? onSurfaceDetach;
 
   @override
@@ -71,9 +95,8 @@ class _MarkdownDetailsWidgetState extends State<MarkdownDetailsWidget> {
   @override
   void initState() {
     super.initState();
-    final stored = PageStorage.maybeOf(
-      context,
-    )?.readState(context, identifier: _storageKey);
+    final stored = PageStorage.maybeOf(context)
+        ?.readState(context, identifier: _storageKey);
     _isOpen = stored is bool ? stored : widget.block.initiallyOpen;
   }
 
@@ -89,9 +112,8 @@ class _MarkdownDetailsWidgetState extends State<MarkdownDetailsWidget> {
     setState(() {
       _isOpen = !_isOpen;
     });
-    PageStorage.maybeOf(
-      context,
-    )?.writeState(context, _isOpen, identifier: _storageKey);
+    PageStorage.maybeOf(context)
+        ?.writeState(context, _isOpen, identifier: _storageKey);
   }
 
   BuiltInlineSpans _buildSummarySpans(BuildContext context, TextStyle style) {

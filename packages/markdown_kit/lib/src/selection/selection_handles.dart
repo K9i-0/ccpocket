@@ -9,39 +9,48 @@ import 'selection_controller.dart';
 import 'selection_model.dart';
 
 /// Identifies which selection handle is being rendered or dragged.
-enum MarkdownSelectionHandleType { start, end }
+enum MarkdownSelectionHandleType {
+  /// The handle at the start of the selection in reading order.
+  start,
+
+  /// The handle at the end of the selection in reading order.
+  end,
+}
 
 /// Custom visual builder for a selection handle.
 ///
 /// The returned widget is rendered inside an opaque 44x44+ hit target anchored
 /// to the selection endpoint's `LeaderLayer`.
-typedef MarkdownSelectionHandleBuilder =
-    Widget Function(
-      BuildContext context,
-      MarkdownSelectionHandleType type,
-      double lineHeight,
-      Color color,
-    );
+typedef MarkdownSelectionHandleBuilder = Widget Function(
+  BuildContext context,
+  MarkdownSelectionHandleType type,
+  double lineHeight,
+  Color color,
+);
 
 /// Custom builder for the touch selection magnifier loupe.
-typedef MarkdownMagnifierBuilder =
-    Widget Function(
-      BuildContext context,
-      Offset globalFocalPoint,
-      double lineHeight,
-    );
+typedef MarkdownMagnifierBuilder = Widget Function(
+  BuildContext context,
+  Offset globalFocalPoint,
+  double lineHeight,
+);
 
 /// Callback fired when a handle drag starts.
-typedef MarkdownHandleDragStartCallback =
-    void Function(MarkdownSelectionHandleType type, Offset globalPosition);
+typedef MarkdownHandleDragStartCallback = void Function(
+  MarkdownSelectionHandleType type,
+  Offset globalPosition,
+);
 
 /// Callback fired as a handle is dragged.
-typedef MarkdownHandleDragUpdateCallback =
-    void Function(MarkdownSelectionHandleType type, Offset globalPosition);
+typedef MarkdownHandleDragUpdateCallback = void Function(
+  MarkdownSelectionHandleType type,
+  Offset globalPosition,
+);
 
 /// Callback fired when a handle drag ends or is cancelled.
-typedef MarkdownHandleDragEndCallback =
-    void Function(MarkdownSelectionHandleType type);
+typedef MarkdownHandleDragEndCallback = void Function(
+  MarkdownSelectionHandleType type,
+);
 
 /// Minimum logical hit-target dimension for touch selection handles.
 const double kMarkdownHandleMinHitSize = 44.0;
@@ -71,6 +80,8 @@ const Color kDefaultMarkdownHandleColor = Color(0xFF007AFF);
 /// never penetrate to underlying `ListView`s, horizontal scrollables, or
 /// navigation back-swipe gestures.
 class MarkdownSelectionHandleOverlay {
+  /// Creates the overlay manager. Entries are inserted into the [Overlay] found
+  /// from [context].
   MarkdownSelectionHandleOverlay({
     required this.context,
     this.handleBuilder,
@@ -113,9 +124,16 @@ class MarkdownSelectionHandleOverlay {
   /// mounted before clearing its handle layers during teardown.
   final bool Function(MarkdownSelectionSurface surface)? isSurfaceMounted;
 
+  /// Called when the user starts dragging a handle.
   final MarkdownHandleDragStartCallback? onHandleDragStart;
+
+  /// Called as a handle drag moves.
   final MarkdownHandleDragUpdateCallback? onHandleDragUpdate;
+
+  /// Called when a handle drag ends.
   final MarkdownHandleDragEndCallback? onHandleDragEnd;
+
+  /// Called when a handle drag is cancelled.
   final MarkdownHandleDragEndCallback? onHandleDragCancel;
 
   /// Leader/follower link tracking the start handle anchor (`caretRect.bottomLeft`).

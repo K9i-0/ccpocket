@@ -95,29 +95,26 @@ class _FakeSurface implements MarkdownSelectionSurface {
 
 void main() {
   group('MarkdownPosition and MarkdownSelection', () {
-    test(
-      'compares positions using documentOrder and normalizes reversed selections',
-      () {
-        const p1 = MarkdownPosition(documentId: 'b', blockIndex: 0, offset: 5);
-        const p2 = MarkdownPosition(documentId: 'a', blockIndex: 1, offset: 2);
-        const order = {'b': 0, 'a': 1};
+    test('compares positions using documentOrder and normalizes reversed selections', () {
+      const p1 = MarkdownPosition(documentId: 'b', blockIndex: 0, offset: 5);
+      const p2 = MarkdownPosition(documentId: 'a', blockIndex: 1, offset: 2);
+      const order = {'b': 0, 'a': 1};
 
-        expect(p1.compareTo(p2, documentOrder: order), lessThan(0));
+      expect(p1.compareTo(p2, documentOrder: order), lessThan(0));
 
-        const reversed = MarkdownSelection(base: p2, extent: p1);
-        expect(reversed.isCollapsed, isFalse);
-        expect(reversed.isSingleDocument, isFalse);
-        expect(reversed.isReversed(documentOrder: order), isTrue);
+      const reversed = MarkdownSelection(base: p2, extent: p1);
+      expect(reversed.isCollapsed, isFalse);
+      expect(reversed.isSingleDocument, isFalse);
+      expect(reversed.isReversed(documentOrder: order), isTrue);
 
-        final (:start, :end) = reversed.normalized(documentOrder: order);
-        expect(start, p1);
-        expect(end, p2);
+      final (:start, :end) = reversed.normalized(documentOrder: order);
+      expect(start, p1);
+      expect(end, p2);
 
-        const collapsed = MarkdownSelection.collapsed(p1);
-        expect(collapsed.isCollapsed, isTrue);
-        expect(collapsed.isSingleDocument, isTrue);
-      },
-    );
+      const collapsed = MarkdownSelection.collapsed(p1);
+      expect(collapsed.isCollapsed, isTrue);
+      expect(collapsed.isSingleDocument, isTrue);
+    });
   });
 
   group('MarkdownSelectedContent.extract', () {
@@ -211,137 +208,127 @@ void main() {
       },
     );
 
-    test(
-      'appendFastPath preserves append-only streaming growth and clears on prefix edits',
-      () {
-        const policy = MarkdownReconciliationPolicy.appendFastPath();
-        final prev = _doc(['First paragraph', 'Hello wor']);
-        final appendedSameBlock = _doc(['First paragraph', 'Hello world!']);
-        final appendedNewBlock = _doc([
-          'First paragraph',
-          'Hello wor',
-          'Third paragraph',
-        ]);
-        final mutatedPrefix = _doc(['First paragraph', 'hello world']);
+    test('appendFastPath preserves append-only streaming growth and clears on prefix edits', () {
+      const policy = MarkdownReconciliationPolicy.appendFastPath();
+      final prev = _doc(['First paragraph', 'Hello wor']);
+      final appendedSameBlock = _doc(['First paragraph', 'Hello world!']);
+      final appendedNewBlock = _doc([
+        'First paragraph',
+        'Hello wor',
+        'Third paragraph',
+      ]);
+      final mutatedPrefix = _doc(['First paragraph', 'hello world']);
 
-        const sel = MarkdownSelection(
-          base: MarkdownPosition(documentId: 'm1', blockIndex: 1, offset: 0),
-          extent: MarkdownPosition(documentId: 'm1', blockIndex: 1, offset: 5),
-        );
+      const sel = MarkdownSelection(
+        base: MarkdownPosition(documentId: 'm1', blockIndex: 1, offset: 0),
+        extent: MarkdownPosition(documentId: 'm1', blockIndex: 1, offset: 5),
+      );
 
-        expect(
-          policy.reconcile(
-            documentId: 'm1',
-            previousDocument: prev,
-            nextDocument: appendedSameBlock,
-            currentSelection: sel,
-          ),
-          sel,
-        );
-        expect(
-          policy.reconcile(
-            documentId: 'm1',
-            previousDocument: prev,
-            nextDocument: appendedNewBlock,
-            currentSelection: sel,
-          ),
-          sel,
-        );
-        expect(
-          policy.reconcile(
-            documentId: 'm1',
-            previousDocument: prev,
-            nextDocument: mutatedPrefix,
-            currentSelection: sel,
-          ),
-          isNull,
-        );
-      },
-    );
-
-    test(
-      'contentAnchored relocates selection after formatting changes and disambiguates duplicates',
-      () {
-        const policy = MarkdownReconciliationPolicy.contentAnchored();
-
-        // Simulates `**hello` finalizing into `**hello**` (rendered text drops `**`).
-        final prevStreaming = _doc(['Say **hello']);
-        final nextFinalized = _doc(['Say hello world']);
-        const sel = MarkdownSelection(
-          base: MarkdownPosition(documentId: 'm1', blockIndex: 0, offset: 6),
-          extent: MarkdownPosition(documentId: 'm1', blockIndex: 0, offset: 11),
-        );
-        final reconciled = policy.reconcile(
+      expect(
+        policy.reconcile(
           documentId: 'm1',
-          previousDocument: prevStreaming,
-          nextDocument: nextFinalized,
+          previousDocument: prev,
+          nextDocument: appendedSameBlock,
           currentSelection: sel,
-        );
-        expect(
-          reconciled,
-          const MarkdownSelection(
-            base: MarkdownPosition(documentId: 'm1', blockIndex: 0, offset: 4),
-            extent: MarkdownPosition(
-              documentId: 'm1',
-              blockIndex: 0,
-              offset: 9,
-            ),
-          ),
-        );
+        ),
+        sel,
+      );
+      expect(
+        policy.reconcile(
+          documentId: 'm1',
+          previousDocument: prev,
+          nextDocument: appendedNewBlock,
+          currentSelection: sel,
+        ),
+        sel,
+      );
+      expect(
+        policy.reconcile(
+          documentId: 'm1',
+          previousDocument: prev,
+          nextDocument: mutatedPrefix,
+          currentSelection: sel,
+        ),
+        isNull,
+      );
+    });
 
-        // Duplicate substring disambiguation via surrounding context.
-        final dupPrev = _doc(['alpha foo beta foo gamma']);
-        final dupNext = _doc(['PREFIX alpha foo beta foo gamma']);
-        // Select the second "foo" (reversed direction!).
-        const secondFooStart = 15;
-        const secondFooEnd = 18;
-        const dupSel = MarkdownSelection(
+    test('contentAnchored relocates selection after formatting changes and disambiguates duplicates', () {
+      const policy = MarkdownReconciliationPolicy.contentAnchored();
+
+      // Simulates `**hello` finalizing into `**hello**` (rendered text drops `**`).
+      final prevStreaming = _doc(['Say **hello']);
+      final nextFinalized = _doc(['Say hello world']);
+      const sel = MarkdownSelection(
+        base: MarkdownPosition(documentId: 'm1', blockIndex: 0, offset: 6),
+        extent: MarkdownPosition(documentId: 'm1', blockIndex: 0, offset: 11),
+      );
+      final reconciled = policy.reconcile(
+        documentId: 'm1',
+        previousDocument: prevStreaming,
+        nextDocument: nextFinalized,
+        currentSelection: sel,
+      );
+      expect(
+        reconciled,
+        const MarkdownSelection(
+          base: MarkdownPosition(documentId: 'm1', blockIndex: 0, offset: 4),
+          extent: MarkdownPosition(documentId: 'm1', blockIndex: 0, offset: 9),
+        ),
+      );
+
+      // Duplicate substring disambiguation via surrounding context.
+      final dupPrev = _doc(['alpha foo beta foo gamma']);
+      final dupNext = _doc(['PREFIX alpha foo beta foo gamma']);
+      // Select the second "foo" (reversed direction!).
+      const secondFooStart = 15;
+      const secondFooEnd = 18;
+      const dupSel = MarkdownSelection(
+        base: MarkdownPosition(
+          documentId: 'm1',
+          blockIndex: 0,
+          offset: secondFooEnd,
+        ),
+        extent: MarkdownPosition(
+          documentId: 'm1',
+          blockIndex: 0,
+          offset: secondFooStart,
+        ),
+      );
+      final dupReconciled = policy.reconcile(
+        documentId: 'm1',
+        previousDocument: dupPrev,
+        nextDocument: dupNext,
+        currentSelection: dupSel,
+      );
+      expect(
+        dupReconciled,
+        const MarkdownSelection(
           base: MarkdownPosition(
             documentId: 'm1',
             blockIndex: 0,
-            offset: secondFooEnd,
+            offset: secondFooEnd + 7,
           ),
           extent: MarkdownPosition(
             documentId: 'm1',
             blockIndex: 0,
-            offset: secondFooStart,
+            offset: secondFooStart + 7,
           ),
-        );
-        final dupReconciled = policy.reconcile(
-          documentId: 'm1',
-          previousDocument: dupPrev,
-          nextDocument: dupNext,
-          currentSelection: dupSel,
-        );
-        expect(
-          dupReconciled,
-          const MarkdownSelection(
-            base: MarkdownPosition(
-              documentId: 'm1',
-              blockIndex: 0,
-              offset: secondFooEnd + 7,
-            ),
-            extent: MarkdownPosition(
-              documentId: 'm1',
-              blockIndex: 0,
-              offset: secondFooStart + 7,
-            ),
-          ),
-        );
+        ),
+      );
 
-        // Completely replaced content clears selection.
-        final unrelated = _doc(['Something completely different']);
-        expect(
-          policy.reconcile(
-            documentId: 'm1',
-            previousDocument: prevStreaming,
-            nextDocument: unrelated,
-            currentSelection: sel,
-          ),
-          isNull,
-        );
-      },
-    );
+      // Completely replaced content clears selection.
+      final unrelated = _doc(['Something completely different']);
+      expect(
+        policy.reconcile(
+          documentId: 'm1',
+          previousDocument: prevStreaming,
+          nextDocument: unrelated,
+          currentSelection: sel,
+        ),
+        isNull,
+      );
+    });
   });
 
   group('MarkdownSelectionSurfaceExtensions', () {

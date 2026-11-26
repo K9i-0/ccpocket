@@ -8,6 +8,8 @@ import 'inline_scanner.dart';
 /// Configuration options controlling Markdown parsing extensions.
 @immutable
 class MarkdownParserOptions {
+  /// Creates parser options. Alerts, HTML tags, footnotes and
+  /// backslash-delimited LaTeX are on by default.
   const MarkdownParserOptions({
     this.enableAlerts = true,
     this.enableHtml = true,
@@ -44,6 +46,7 @@ class MarkdownParserOptions {
   /// Post-parse inline scanner rules applied to plain text nodes.
   final List<MarkdownInlineRule> inlineRules;
 
+  /// Returns a copy of these options with the given fields replaced.
   MarkdownParserOptions copyWith({
     bool? enableAlerts,
     bool? enableHtml,
@@ -107,15 +110,21 @@ abstract interface class MarkdownParser {
 
 /// Bounded O(1) least-recently-used cache backed by [LinkedHashMap].
 class BoundedLruCache<K, V> {
+  /// Creates a cache holding at most [maxEntries] entries.
   BoundedLruCache({this.maxEntries = 256}) : assert(maxEntries >= 0);
 
+  /// Maximum number of entries kept. `0` turns the cache off.
   final int maxEntries;
   final LinkedHashMap<K, V> _entries = LinkedHashMap<K, V>();
 
+  /// Number of entries currently stored.
   int get length => _entries.length;
 
+  /// Whether [key] is stored. Does not count as a use of the entry.
   bool containsKey(K key) => _entries.containsKey(key);
 
+  /// Returns the value stored for [key] and marks it as most recently used, or
+  /// returns null when there is none.
   V? get(K key) {
     if (maxEntries == 0) return null;
     final value = _entries.remove(key);
@@ -125,6 +134,8 @@ class BoundedLruCache<K, V> {
     return value;
   }
 
+  /// Stores [value] for [key] as the most recently used entry, evicting the
+  /// least recently used entries beyond [maxEntries].
   void put(K key, V value) {
     if (maxEntries == 0) return;
     _entries.remove(key);
@@ -134,5 +145,6 @@ class BoundedLruCache<K, V> {
     }
   }
 
+  /// Removes every entry.
   void clear() => _entries.clear();
 }

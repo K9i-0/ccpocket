@@ -6,6 +6,7 @@ import '../ast/markdown_ast.dart';
 /// Styling for inline code spans (`CodeTextSpan`) and `<kbd>` keycaps.
 @immutable
 class MarkdownInlineCodeStyle {
+  /// Creates an inline code style.
   const MarkdownInlineCodeStyle({
     this.fontFamily = 'monospace',
     this.fontFamilyFallback,
@@ -19,15 +20,44 @@ class MarkdownInlineCodeStyle {
     this.padding = const EdgeInsets.symmetric(horizontal: 3.0, vertical: 1.0),
   });
 
+  /// Font family of the code text. When null, the surrounding text's family is
+  /// kept.
   final String? fontFamily;
+
+  /// Fallback font families tried when [fontFamily] lacks a glyph. When null,
+  /// the surrounding text's fallbacks are kept.
   final List<String>? fontFamilyFallback;
+
+  /// Font size of the code text in logical pixels. When null, 90% of the
+  /// surrounding text's size is used.
   final double? fontSize;
+
+  /// Font weight of the code text. When null, the surrounding text's weight is
+  /// kept.
   final FontWeight? fontWeight;
+
+  /// Color of the code text. When null, the surrounding text's color is kept.
   final Color? color;
+
+  /// Fill color of the rounded background drawn behind the text. A fully
+  /// transparent color draws no background.
   final Color backgroundColor;
+
+  /// Color of the outline drawn around the background. When null, no outline is
+  /// drawn.
   final Color? borderColor;
+
+  /// Stroke width of the outline in logical pixels. No outline is drawn at `0`
+  /// or when [borderColor] is null.
   final double borderWidth;
+
+  /// Corner radius of the background and outline, in logical pixels.
   final double borderRadius;
+
+  /// How far the background extends beyond the text's glyphs on each side.
+  ///
+  /// This only enlarges what is painted; it does not add space between the code
+  /// and the text around it.
   final EdgeInsets padding;
 
   /// Resolves a [TextStyle] for inline code text merged onto [base].
@@ -42,6 +72,7 @@ class MarkdownInlineCodeStyle {
     );
   }
 
+  /// Returns a copy of this style with the given fields replaced.
   MarkdownInlineCodeStyle copyWith({
     String? fontFamily,
     List<String>? fontFamilyFallback,
@@ -102,6 +133,7 @@ class MarkdownInlineCodeStyle {
 /// Styling for fenced and indented [CodeBlock] containers.
 @immutable
 class MarkdownCodeBlockStyle {
+  /// Creates a code block style.
   const MarkdownCodeBlockStyle({
     this.backgroundColor = const Color(0xFFF6F8FA),
     this.borderColor = const Color(0xFFD0D7DE),
@@ -126,16 +158,38 @@ class MarkdownCodeBlockStyle {
     ),
   });
 
+  /// Fill color of the code block container.
   final Color backgroundColor;
+
+  /// Color of the container's outline and of the line under the language
+  /// header.
   final Color borderColor;
+
+  /// Width of the outline and of the line under the language header, in logical
+  /// pixels. `0` draws neither.
   final double borderWidth;
+
+  /// Corner radius of the container.
   final BorderRadius borderRadius;
+
+  /// Space between the container's edges and the code.
   final EdgeInsets padding;
+
+  /// Text style of the code. A syntax highlighter's spans are applied on top of
+  /// it.
   final TextStyle textStyle;
+
+  /// Text style of the language label shown above the code.
   final TextStyle headerStyle;
+
+  /// Fill color of the language header. When null, the header shares the
+  /// container's [backgroundColor].
   final Color? headerBackgroundColor;
+
+  /// Space around the language label inside the header.
   final EdgeInsets headerPadding;
 
+  /// Returns a copy of this style with the given fields replaced.
   MarkdownCodeBlockStyle copyWith({
     Color? backgroundColor,
     Color? borderColor,
@@ -193,6 +247,7 @@ class MarkdownCodeBlockStyle {
 /// Styling for standard [BlockquoteBlock] elements.
 @immutable
 class MarkdownBlockquoteStyle {
+  /// Creates a blockquote style.
   const MarkdownBlockquoteStyle({
     this.barColor = const Color(0xFFD0D7DE),
     this.barWidth = 3.5,
@@ -202,13 +257,29 @@ class MarkdownBlockquoteStyle {
     this.borderRadius = BorderRadius.zero,
   });
 
+  /// Color of the vertical bar on the start side of the quote.
   final Color barColor;
+
+  /// Width of the vertical bar in logical pixels.
   final double barWidth;
+
+  /// Space between the bar and container edges and the quoted content.
+  ///
+  /// The left and right values are swapped in right-to-left text, so the left
+  /// value always sits beside the bar.
   final EdgeInsets padding;
+
+  /// Text style merged over the surrounding text style for quoted content. When
+  /// null, quoted text looks like the text around it.
   final TextStyle? textStyle;
+
+  /// Fill color behind the quote. When null, no background is drawn.
   final Color? backgroundColor;
+
+  /// Corner radius the quote, including its bar, is clipped to.
   final BorderRadius borderRadius;
 
+  /// Returns a copy of this style with the given fields replaced.
   MarkdownBlockquoteStyle copyWith({
     Color? barColor,
     double? barWidth,
@@ -253,6 +324,7 @@ class MarkdownBlockquoteStyle {
 /// Styling for a single [AlertKind] variant of [AlertBlock].
 @immutable
 class MarkdownAlertStyle {
+  /// Creates an alert style.
   const MarkdownAlertStyle({
     required this.accentColor,
     required this.backgroundColor,
@@ -265,16 +337,35 @@ class MarkdownAlertStyle {
     this.textStyle,
   });
 
+  /// Color of the bar on the start side and of the icon beside the title.
   final Color accentColor;
+
+  /// Fill color behind the alert.
   final Color backgroundColor;
+
+  /// Color of the outline around the alert.
   final Color borderColor;
+
+  /// Width of the outline in logical pixels. `0` draws no outline.
   final double borderWidth;
+
+  /// Width of the accent bar on the start side, in logical pixels.
   final double barWidth;
+
+  /// Corner radius of the alert.
   final BorderRadius borderRadius;
+
+  /// Space between the alert's edges and its title and content.
   final EdgeInsets padding;
+
+  /// Text style of the title line (`NOTE`, `TIP`, and so on).
   final TextStyle titleStyle;
+
+  /// Text style merged over the surrounding text style for the alert's content.
+  /// When null, the content looks like the text around it.
   final TextStyle? textStyle;
 
+  /// Returns a copy of this style with the given fields replaced.
   MarkdownAlertStyle copyWith({
     Color? accentColor,
     Color? backgroundColor,
@@ -331,6 +422,7 @@ class MarkdownAlertStyle {
 /// Styling for GFM [TableBlock] elements.
 @immutable
 class MarkdownTableStyle {
+  /// Creates a table style.
   const MarkdownTableStyle({
     this.borderColor = const Color(0xFFD0D7DE),
     this.borderWidth = 1.0,
@@ -351,16 +443,39 @@ class MarkdownTableStyle {
     this.maxColumnWidth = 280.0,
   });
 
+  /// Color of the table's outer border and grid lines.
   final Color borderColor;
+
+  /// Width of the outer border and grid lines in logical pixels. `0` draws
+  /// neither.
   final double borderWidth;
+
+  /// Corner radius of the table's outer border.
   final BorderRadius borderRadius;
+
+  /// Fill color of the header row.
   final Color headerBackground;
+
+  /// Text style merged over the body text style for header cells.
   final TextStyle headerTextStyle;
+
+  /// Fill color of every second body row (the second, fourth, and so on). When
+  /// null, rows are not striped.
   final Color? rowStripeColor;
+
+  /// Space between a cell's edges and its content.
   final EdgeInsets cellPadding;
+
+  /// Narrowest a column can be, in logical pixels, including the horizontal
+  /// [cellPadding].
   final double minColumnWidth;
+
+  /// Widest a column can be, in logical pixels, including the horizontal
+  /// [cellPadding]. Longer cell text wraps. A value below [minColumnWidth] is
+  /// treated as [minColumnWidth].
   final double maxColumnWidth;
 
+  /// Returns a copy of this style with the given fields replaced.
   MarkdownTableStyle copyWith({
     Color? borderColor,
     double? borderWidth,
@@ -417,6 +532,7 @@ class MarkdownTableStyle {
 /// Styling for collapsible [HtmlDetailsBlock] elements.
 @immutable
 class MarkdownDetailsStyle {
+  /// Creates a details style.
   const MarkdownDetailsStyle({
     this.backgroundColor,
     this.borderColor = const Color(0xFFD0D7DE),
@@ -437,16 +553,37 @@ class MarkdownDetailsStyle {
     this.iconSize = 14.0,
   });
 
+  /// Fill color behind the whole block. When null, no background is drawn.
   final Color? backgroundColor;
+
+  /// Color of the outline and of the line between the summary and the expanded
+  /// content.
   final Color borderColor;
+
+  /// Width of the outline and of the line under the summary, in logical pixels.
+  /// `0` draws neither.
   final double borderWidth;
+
+  /// Corner radius of the block.
   final BorderRadius borderRadius;
+
+  /// Space around the summary row, which is the area that toggles the block
+  /// when tapped.
   final EdgeInsets headerPadding;
+
+  /// Space around the content shown while the block is open.
   final EdgeInsets bodyPadding;
+
+  /// Text style of the summary.
   final TextStyle summaryStyle;
+
+  /// Color of the disclosure triangle beside the summary.
   final Color iconColor;
+
+  /// Width and height of the disclosure triangle in logical pixels.
   final double iconSize;
 
+  /// Returns a copy of this style with the given fields replaced.
   MarkdownDetailsStyle copyWith({
     Color? backgroundColor,
     Color? borderColor,
@@ -504,6 +641,7 @@ class MarkdownDetailsStyle {
 /// [BlockLatexBlock]).
 @immutable
 class MarkdownLatexStyle {
+  /// Creates a LaTeX fallback style.
   const MarkdownLatexStyle({
     this.inlineStyle = const TextStyle(
       fontFamily: 'serif',
@@ -526,13 +664,26 @@ class MarkdownLatexStyle {
     ),
   });
 
+  /// Text style merged over the surrounding text style for inline expressions.
   final TextStyle inlineStyle;
+
+  /// Text style of a display (block) expression.
   final TextStyle blockStyle;
+
+  /// Fill color behind a display expression. When null, no background is drawn.
   final Color? blockBackgroundColor;
+
+  /// Color of the one-pixel outline around a display expression. When null, no
+  /// outline is drawn.
   final Color? blockBorderColor;
+
+  /// Corner radius of a display expression's background and outline.
   final BorderRadius blockBorderRadius;
+
+  /// Space between a display expression and the edges of its container.
   final EdgeInsets blockPadding;
 
+  /// Returns a copy of this style with the given fields replaced.
   MarkdownLatexStyle copyWith({
     TextStyle? inlineStyle,
     TextStyle? blockStyle,
@@ -577,6 +728,7 @@ class MarkdownLatexStyle {
 /// Styling for [FootnoteRefInline] references and [FootnoteDefinitionsBlock].
 @immutable
 class MarkdownFootnoteStyle {
+  /// Creates a footnote style.
   const MarkdownFootnoteStyle({
     this.refStyle = const TextStyle(
       fontSize: 11.0,
@@ -598,13 +750,27 @@ class MarkdownFootnoteStyle {
     this.itemSpacing = 6.0,
   });
 
+  /// Text style merged over the surrounding text style for a footnote reference
+  /// in running text.
   final TextStyle refStyle;
+
+  /// Text style of the label shown before each footnote definition.
   final TextStyle labelStyle;
+
+  /// Base text style of footnote definition content.
   final TextStyle textStyle;
+
+  /// Color of the rule drawn above the footnote definitions.
   final Color dividerColor;
+
+  /// Thickness of the rule above the footnote definitions, in logical pixels.
+  /// `0` removes the rule.
   final double dividerThickness;
+
+  /// Vertical gap between consecutive footnote definitions, in logical pixels.
   final double itemSpacing;
 
+  /// Returns a copy of this style with the given fields replaced.
   MarkdownFootnoteStyle copyWith({
     TextStyle? refStyle,
     TextStyle? labelStyle,
@@ -652,6 +818,7 @@ class MarkdownFootnoteStyle {
 /// host apps can cache derived themes without triggering redundant rebuilds.
 @immutable
 class MarkdownThemeData {
+  /// Creates a theme. The defaults make up the built-in light theme.
   const MarkdownThemeData({
     this.bodyStyle = _defaultBodyStyle,
     this.h1Style = _defaultH1Style,
@@ -986,37 +1153,114 @@ class MarkdownThemeData {
     ),
   };
 
+  /// Base text style of paragraphs, list items and table cells.
   final TextStyle bodyStyle;
+
+  /// Text style of level 1 headings.
   final TextStyle h1Style;
+
+  /// Text style of level 2 headings.
   final TextStyle h2Style;
+
+  /// Text style of level 3 headings.
   final TextStyle h3Style;
+
+  /// Text style of level 4 headings.
   final TextStyle h4Style;
+
+  /// Text style of level 5 headings.
   final TextStyle h5Style;
+
+  /// Text style of level 6 headings.
   final TextStyle h6Style;
+
+  /// Text style merged over the surrounding text style for strong emphasis
+  /// (`**text**`).
   final TextStyle strongStyle;
+
+  /// Text style merged over the surrounding text style for emphasis (`*text*`).
   final TextStyle emphasisStyle;
+
+  /// Text style merged over the surrounding text style for strikethrough
+  /// (`~~text~~`).
   final TextStyle strikethroughStyle;
+
+  /// Text style merged over the surrounding text style for underlined text
+  /// (`<u>`).
   final TextStyle underlineStyle;
+
+  /// Text style merged over the surrounding text style for links.
   final TextStyle linkStyle;
+
+  /// Text style merged over a link's style while a mouse pointer hovers over
+  /// it.
   final TextStyle linkHoverStyle;
+
+  /// Style of inline code spans.
   final MarkdownInlineCodeStyle inlineCodeStyle;
+
+  /// Style of `<kbd>` keycaps.
   final MarkdownInlineCodeStyle keyboardStyle;
+
+  /// Style of fenced and indented code blocks.
   final MarkdownCodeBlockStyle codeBlockStyle;
+
+  /// Style of blockquotes.
   final MarkdownBlockquoteStyle blockquoteStyle;
+
+  /// Style of each kind of alert. Kinds missing from the map use the built-in
+  /// light style; see [alertStyleFor].
   final Map<AlertKind, MarkdownAlertStyle> alertStyles;
+
+  /// Color of bullets, ordered-list numbers and the outline of unchecked task
+  /// checkboxes.
   final Color listBulletColor;
+
+  /// Diameter of a bullet in logical pixels. It grows with the text scale.
   final double listBulletSize;
+
+  /// Minimum width, in logical pixels, of the gutter that holds a list item's
+  /// marker. The gutter widens when a marker needs more room, for example for a
+  /// long ordinal.
   final double listIndent;
+
+  /// Vertical gap, in logical pixels, between the items of a tight list and
+  /// between the blocks inside one item. Loose lists use twice this gap between
+  /// items.
   final double listItemSpacing;
+
+  /// Fill color of a checked task checkbox. When null, [listBulletColor] is
+  /// used.
   final Color? listCheckboxFillColor;
+
+  /// Color of the check mark in a checked task checkbox. When null, black or
+  /// white is chosen for contrast against the fill.
   final Color? listCheckboxCheckColor;
+
+  /// Style of tables.
   final MarkdownTableStyle tableStyle;
+
+  /// Color of thematic breaks (`---`).
   final Color dividerColor;
+
+  /// Thickness of thematic breaks in logical pixels.
   final double dividerThickness;
+
+  /// Style of collapsible `<details>` blocks.
   final MarkdownDetailsStyle detailsStyle;
+
+  /// Style of LaTeX expressions when no LaTeX builder is supplied.
   final MarkdownLatexStyle latexStyle;
+
+  /// Style of footnote references and definitions.
   final MarkdownFootnoteStyle footnoteStyle;
+
+  /// Color of the selection highlight. A selection color set on the view or on
+  /// its selection controller takes precedence.
   final Color selectionColor;
+
+  /// Vertical gap between top-level blocks, in logical pixels. Blocks nested in
+  /// a blockquote, alert or details block are spaced at three quarters of it.
   final double blockSpacing;
 
   /// Returns the heading [TextStyle] for heading [level] (`1`..`6`).
@@ -1037,6 +1281,7 @@ class MarkdownThemeData {
     return alertStyles[kind] ?? _defaultLightAlertStyles[kind]!;
   }
 
+  /// Returns a copy of this theme with the given fields replaced.
   MarkdownThemeData copyWith({
     TextStyle? bodyStyle,
     TextStyle? h1Style,
@@ -1188,8 +1433,10 @@ class MarkdownThemeData {
 
 /// Inherited theme providing [MarkdownThemeData] to descendant renderers.
 class MarkdownTheme extends InheritedWidget {
+  /// Creates a theme that applies [data] to the Markdown widgets below it.
   const MarkdownTheme({super.key, required this.data, required super.child});
 
+  /// The theme data provided to descendants.
   final MarkdownThemeData data;
 
   /// Returns the nearest ancestor [MarkdownThemeData], or

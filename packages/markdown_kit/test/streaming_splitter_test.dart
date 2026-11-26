@@ -260,23 +260,20 @@ void main() {
       expect(sanitizeStreamingTail('\\[\nx + y\n\\'), '\\[\nx + y\n');
     });
 
-    test(
-      'prevents fence flicker when streaming token-by-token through GfmMarkdownParser',
-      () {
-        final parser = GfmMarkdownParser();
-        const full = 'Intro\n\n```dart\nfinal x = 1;\n```\n\nDone';
+    test('prevents fence flicker when streaming token-by-token through GfmMarkdownParser', () {
+      final parser = GfmMarkdownParser();
+      const full = 'Intro\n\n```dart\nfinal x = 1;\n```\n\nDone';
 
-        for (var i = 0; i <= full.length; i++) {
-          final prefix = full.substring(0, i);
-          final doc = parser.parse(prefix, isStreaming: true);
-          for (final block in doc.blocks.whereType<CodeBlock>()) {
-            // Never see a partial language string like 'd', 'da', 'dar'.
-            expect(block.language, 'dart');
-            // Never see stray closing backticks inside code content.
-            expect(block.code.contains('`'), isFalse);
-          }
+      for (var i = 0; i <= full.length; i++) {
+        final prefix = full.substring(0, i);
+        final doc = parser.parse(prefix, isStreaming: true);
+        for (final block in doc.blocks.whereType<CodeBlock>()) {
+          // Never see a partial language string like 'd', 'da', 'dar'.
+          expect(block.language, 'dart');
+          // Never see stray closing backticks inside code content.
+          expect(block.code.contains('`'), isFalse);
         }
-      },
-    );
+      }
+    });
   });
 }

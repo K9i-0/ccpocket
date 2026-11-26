@@ -193,9 +193,8 @@ void main() {
           last = streaming.parse(prefix, isStreaming: true);
           // A parser that saw the earlier frames must agree with one that
           // sees this frame cold: caches may never change the result.
-          final cold = GfmMarkdownParser(
-            options: options,
-          ).parse(prefix, isStreaming: true);
+          final cold = GfmMarkdownParser(options: options)
+              .parse(prefix, isStreaming: true);
           expect(last.blocks, cold.blocks, reason: _visible(prefix));
         }
         final complete = GfmMarkdownParser(options: options).parse(source);
@@ -313,9 +312,8 @@ void main() {
           for (final end in boundaries(source, strategy)) {
             final prefix = source.substring(0, end);
             last = streaming.parse(prefix, isStreaming: true);
-            final cold = GfmMarkdownParser(
-              options: options,
-            ).parse(prefix, isStreaming: true);
+            final cold = GfmMarkdownParser(options: options)
+                .parse(prefix, isStreaming: true);
             expect(
               last.blocks,
               cold.blocks,
@@ -371,9 +369,9 @@ void main() {
     test('closing display math without a newline closes the block', () {
       for (final source in ['\\[\nx^2\n\\]', '\$\$\nx^2\n\$\$']) {
         for (final isStreaming in [false, true]) {
-          final blocks = GfmMarkdownParser(
-            options: _dollar,
-          ).parse(source, isStreaming: isStreaming).blocks;
+          final blocks = GfmMarkdownParser(options: _dollar)
+              .parse(source, isStreaming: isStreaming)
+              .blocks;
           expect(blocks, const [
             BlockLatexBlock(expression: 'x^2'),
           ], reason: '${_visible(source)} isStreaming: $isStreaming');

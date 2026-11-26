@@ -6,9 +6,8 @@ MarkdownSelectedContent _selectWholeDoc(
   String docId = 'doc1',
 }) {
   final lastBlockIdx = doc.blocks.length - 1;
-  final lastBlockLen = extractBlockRenderedText(
-    doc.blocks[lastBlockIdx],
-  ).length;
+  final lastBlockLen = extractBlockRenderedText(doc.blocks[lastBlockIdx])
+      .length;
   return MarkdownSelectedContent.extract(
     selection: MarkdownSelection(
       base: MarkdownPosition(documentId: docId, blockIndex: 0, offset: 0),
@@ -391,51 +390,44 @@ void main() {
       },
     );
 
-    test(
-      'falls back to sliced plain text for partial boundary blocks without leaking unselected text',
-      () {
-        const doc = MarkdownDocument(
-          blocks: [
-            HeadingBlock(
-              level: 1,
-              inlines: [
-                TextInline('Prefix '),
-                StrongInline(children: [TextInline('SelectedStart')]),
-              ],
-            ),
-            CodeBlock(language: 'dart', code: 'final ok = true;'),
-            ParagraphBlock(
-              inlines: [
-                TextInline('SelectedEnd '),
-                EmphasisInline(children: [TextInline('UnselectedSuffix')]),
-              ],
-            ),
-          ],
-        );
-
-        final content = MarkdownSelectedContent.extract(
-          selection: const MarkdownSelection(
-            base: MarkdownPosition(documentId: 'd1', blockIndex: 0, offset: 7),
-            extent: MarkdownPosition(
-              documentId: 'd1',
-              blockIndex: 2,
-              offset: 11,
-            ),
+    test('falls back to sliced plain text for partial boundary blocks without leaking unselected text', () {
+      const doc = MarkdownDocument(
+        blocks: [
+          HeadingBlock(
+            level: 1,
+            inlines: [
+              TextInline('Prefix '),
+              StrongInline(children: [TextInline('SelectedStart')]),
+            ],
           ),
-          documents: [MarkdownDocumentRef(id: 'd1', document: doc)],
-        );
+          CodeBlock(language: 'dart', code: 'final ok = true;'),
+          ParagraphBlock(
+            inlines: [
+              TextInline('SelectedEnd '),
+              EmphasisInline(children: [TextInline('UnselectedSuffix')]),
+            ],
+          ),
+        ],
+      );
 
-        final formatted = markupFormatter.format(content);
-        expect(
-          formatted,
-          'SelectedStart\n\n'
-          '```dart\nfinal ok = true;\n```\n\n'
-          'SelectedEnd',
-        );
-        expect(formatted, isNot(contains('Prefix')));
-        expect(formatted, isNot(contains('UnselectedSuffix')));
-      },
-    );
+      final content = MarkdownSelectedContent.extract(
+        selection: const MarkdownSelection(
+          base: MarkdownPosition(documentId: 'd1', blockIndex: 0, offset: 7),
+          extent: MarkdownPosition(documentId: 'd1', blockIndex: 2, offset: 11),
+        ),
+        documents: [MarkdownDocumentRef(id: 'd1', document: doc)],
+      );
+
+      final formatted = markupFormatter.format(content);
+      expect(
+        formatted,
+        'SelectedStart\n\n'
+        '```dart\nfinal ok = true;\n```\n\n'
+        'SelectedEnd',
+      );
+      expect(formatted, isNot(contains('Prefix')));
+      expect(formatted, isNot(contains('UnselectedSuffix')));
+    });
 
     test('formats cross-document selections with documentSeparator', () {
       const doc1 = MarkdownDocument(

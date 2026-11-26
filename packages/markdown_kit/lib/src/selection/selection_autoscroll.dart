@@ -3,15 +3,15 @@ import 'dart:math' as math;
 import 'package:flutter/widgets.dart';
 
 /// Resolves a custom [MarkdownAutoscrollTarget] for a selection drag gesture.
-typedef MarkdownAutoscrollTargetResolver =
-    MarkdownAutoscrollTarget? Function(
-      BuildContext context,
-      Offset globalPointer,
-    );
+typedef MarkdownAutoscrollTargetResolver = MarkdownAutoscrollTarget? Function(
+  BuildContext context,
+  Offset globalPointer,
+);
 
 /// Configuration for edge autoscrolling during touch/mouse selection drags.
 @immutable
 class MarkdownSelectionAutoscrollConfig {
+  /// Creates an autoscroll configuration.
   const MarkdownSelectionAutoscrollConfig({
     this.enabled = true,
     this.edgeZone = 48.0,
@@ -51,6 +51,7 @@ class MarkdownSelectionAutoscrollConfig {
   /// Optional override that resolves the scrollable target to drive.
   final MarkdownAutoscrollTargetResolver? targetResolver;
 
+  /// Returns a copy of this configuration with the given fields replaced.
   MarkdownSelectionAutoscrollConfig copyWith({
     bool? enabled,
     double? edgeZone,
@@ -103,6 +104,7 @@ class MarkdownSelectionAutoscrollConfig {
 /// Global-coordinate viewport geometry used for edge-band hit calculations.
 @immutable
 class MarkdownAutoscrollViewport {
+  /// Creates viewport geometry for [rect].
   const MarkdownAutoscrollViewport({
     required this.rect,
     this.topInset = 0.0,
@@ -167,6 +169,7 @@ abstract interface class MarkdownAutoscrollTarget {
 /// Callback-backed [MarkdownAutoscrollTarget] for custom scroll containers
 /// and deterministic unit testing.
 class MarkdownCallbackAutoscrollTarget implements MarkdownAutoscrollTarget {
+  /// Creates a target that forwards every call to the given callbacks.
   const MarkdownCallbackAutoscrollTarget({
     required this.viewportProvider,
     required this.canScrollUpCallback,
@@ -174,9 +177,18 @@ class MarkdownCallbackAutoscrollTarget implements MarkdownAutoscrollTarget {
     required this.onScrollVisualDelta,
   });
 
+  /// Returns the viewport's current geometry, or null when it is not available.
+  /// Backs [viewport].
   final MarkdownAutoscrollViewport? Function() viewportProvider;
+
+  /// Returns whether more content can be revealed above. Backs [canScrollUp].
   final bool Function() canScrollUpCallback;
+
+  /// Returns whether more content can be revealed below. Backs [canScrollDown].
   final bool Function() canScrollDownCallback;
+
+  /// Scrolls by the given screen-space delta and returns the delta actually
+  /// applied. Backs [scrollByVisualDelta].
   final double Function(double visualDy) onScrollVisualDelta;
 
   @override
@@ -199,6 +211,7 @@ class MarkdownCallbackAutoscrollTarget implements MarkdownAutoscrollTarget {
 /// the scroll axis grows upward so screen-space edge scrolling always moves
 /// toward the pointer's edge.
 class MarkdownScrollableAutoscrollTarget implements MarkdownAutoscrollTarget {
+  /// Creates a target that scrolls [scrollable].
   MarkdownScrollableAutoscrollTarget({
     required this.scrollable,
     this.topPad = 0.0,
@@ -207,7 +220,7 @@ class MarkdownScrollableAutoscrollTarget implements MarkdownAutoscrollTarget {
   });
 
   /// Resolves the nearest vertical [ScrollableState] from [context], or uses
-  /// [config.targetResolver] when provided.
+  /// the `targetResolver` of [config] when provided.
   static MarkdownAutoscrollTarget? resolve(
     BuildContext context, {
     required Offset globalPointer,
@@ -229,9 +242,19 @@ class MarkdownScrollableAutoscrollTarget implements MarkdownAutoscrollTarget {
     );
   }
 
+  /// The scrollable that is scrolled.
   final ScrollableState scrollable;
+
+  /// Extra inset, in logical pixels, from the top of the viewport before the
+  /// top trigger band starts.
   final double topPad;
+
+  /// Extra inset, in logical pixels, from the bottom of the viewport before the
+  /// bottom trigger band starts.
   final double bottomPad;
+
+  /// Whether the part of the viewport covered by the `MediaQuery.padding` safe
+  /// area is added to the insets.
   final bool useMediaQueryPadding;
 
   bool get _isReversed => scrollable.axisDirection == AxisDirection.up;

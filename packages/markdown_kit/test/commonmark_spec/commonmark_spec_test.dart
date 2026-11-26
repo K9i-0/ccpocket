@@ -48,9 +48,9 @@ String _upstreamHtml(String markdown) {
 }
 
 void main() {
-  final examples =
-      (jsonDecode(File('$_dir/spec.json').readAsStringSync()) as List)
-          .cast<Map<String, dynamic>>();
+  final examples = (jsonDecode(
+    File('$_dir/spec.json').readAsStringSync(),
+  ) as List).cast<Map<String, dynamic>>();
   final baselineFile = File('$_dir/baseline.json');
   final baseline = baselineFile.existsSync()
       ? jsonDecode(baselineFile.readAsStringSync()) as Map<String, dynamic>

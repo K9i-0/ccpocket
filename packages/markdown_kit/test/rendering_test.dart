@@ -1290,369 +1290,364 @@ Details paragraph.
     );
   });
 
-  group(
-    'Verifier regressions: textScaler, surface identity, stretched narrow tables',
-    () {
-      testWidgets(
-        'SelectableParagraph and MarkdownListItemWidget inherit MediaQuery textScaler unless overridden',
-        (tester) async {
-          final normalSurfaces = <MarkdownSelectionSurface>[];
-          final scaledSurfaces = <MarkdownSelectionSurface>[];
-          const listBlock = ListBlock(
-            ordered: true,
-            start: 1,
-            items: [
-              ListItemNode(
-                children: [
-                  ParagraphBlock(inlines: [TextInline('Scaled item')]),
-                ],
-              ),
-            ],
-          );
-
-          await tester.pumpWidget(
-            Directionality(
-              textDirection: TextDirection.ltr,
-              child: MediaQuery(
-                data: const MediaQueryData(
-                  size: Size(800, 600),
-                  textScaler: TextScaler.noScaling,
-                ),
-                child: Align(
-                  alignment: Alignment.topLeft,
-                  child: SizedBox(
-                    width: 400,
-                    child: MarkdownBlockRenderer(
-                      documentId: 'doc',
-                      blockIndex: 0,
-                      block: listBlock,
-                      onSurfaceAttach: normalSurfaces.add,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          );
-
-          final normalRender =
-              normalSurfaces.single as RenderSelectableParagraph;
-          final normalBox = normalRender.boxesForLocalRange(0, 11).first;
-          expect(normalRender.textScaler, TextScaler.noScaling);
-
-          await tester.pumpWidget(
-            Directionality(
-              textDirection: TextDirection.ltr,
-              child: MediaQuery(
-                data: const MediaQueryData(
-                  size: Size(800, 600),
-                  textScaler: TextScaler.linear(2.0),
-                ),
-                child: Align(
-                  alignment: Alignment.topLeft,
-                  child: SizedBox(
-                    width: 400,
-                    child: MarkdownBlockRenderer(
-                      key: const ValueKey('scaled'),
-                      documentId: 'doc',
-                      blockIndex: 0,
-                      block: listBlock,
-                      onSurfaceAttach: scaledSurfaces.add,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          );
-
-          final scaledRender =
-              scaledSurfaces.single as RenderSelectableParagraph;
-          final scaledBox = scaledRender.boxesForLocalRange(0, 11).first;
-          expect(scaledRender.textScaler, const TextScaler.linear(2.0));
-          expect(scaledBox.right, greaterThan(normalBox.right * 1.5));
-
-          final listItemRender = tester.renderObject<RenderMarkdownListItem>(
-            find.byType(MarkdownListItemWidget),
-          );
-          expect(listItemRender.textScaler, const TextScaler.linear(2.0));
-
-          // Explicit textScaler override still wins over MediaQuery.
-          final explicitSurfaces = <MarkdownSelectionSurface>[];
-          await tester.pumpWidget(
-            Directionality(
-              textDirection: TextDirection.ltr,
-              child: MediaQuery(
-                data: const MediaQueryData(
-                  size: Size(800, 600),
-                  textScaler: TextScaler.linear(2.0),
-                ),
-                child: SelectableParagraph(
-                  documentId: 'doc',
-                  blockIndex: 0,
-                  textOffsetInBlock: 0,
-                  text: const TextSpan(text: 'Fixed'),
-                  textScaler: TextScaler.noScaling,
-                  onSurfaceAttach: explicitSurfaces.add,
-                ),
-              ),
-            ),
-          );
-          expect(
-            (explicitSurfaces.single as RenderSelectableParagraph).textScaler,
-            TextScaler.noScaling,
-          );
-        },
-      );
-
-      testWidgets(
-        'updateSurfaceIdentity re-registers on blockIndex/offset shifts, null attach, and controller switches',
-        (tester) async {
-          final controllerA = _RecordingSurfaceController('A');
-          final controllerB = _RecordingSurfaceController('B');
-
-          Widget buildParagraph({
-            int blockIndex = 0,
-            int offset = 0,
-            _RecordingSurfaceController? controller,
-          }) {
-            return _wrapApp(
-              SelectableParagraph(
-                documentId: 'doc1',
-                blockIndex: blockIndex,
-                textOffsetInBlock: offset,
-                text: const TextSpan(text: 'Hello'),
-                onSurfaceAttach: controller?.attach,
-                onSurfaceDetach: controller?.detach,
-              ),
-            );
-          }
-
-          // Initial attach on controllerA.
-          await tester.pumpWidget(buildParagraph(controller: controllerA));
-          expect(controllerA.events, [('attach', 0, 0)]);
-
-          // Rebuilding with identical controller tear-offs and coordinates does not churn.
-          await tester.pumpWidget(buildParagraph(controller: controllerA));
-          expect(controllerA.events, [('attach', 0, 0)]);
-
-          // Shifting blockIndex detaches old coordinate and re-attaches new one.
-          await tester.pumpWidget(
-            buildParagraph(blockIndex: 2, controller: controllerA),
-          );
-          expect(controllerA.events, [
-            ('attach', 0, 0),
-            ('detach', 0, 0),
-            ('attach', 2, 0),
-          ]);
-
-          // Shifting textOffsetInBlock detaches old offset and re-attaches new one.
-          await tester.pumpWidget(
-            buildParagraph(blockIndex: 2, offset: 15, controller: controllerA),
-          );
-          expect(controllerA.events, [
-            ('attach', 0, 0),
-            ('detach', 0, 0),
-            ('attach', 2, 0),
-            ('detach', 2, 0),
-            ('attach', 2, 15),
-          ]);
-
-          // Switching controller tear-offs detaches from A and attaches to B.
-          await tester.pumpWidget(
-            buildParagraph(blockIndex: 2, offset: 15, controller: controllerB),
-          );
-          expect(controllerA.events.last, ('detach', 2, 15));
-          expect(controllerB.events, [('attach', 2, 15)]);
-
-          // Clearing onSurfaceAttach to null detaches from B.
-          await tester.pumpWidget(
-            buildParagraph(blockIndex: 2, offset: 15, controller: null),
-          );
-          expect(controllerB.events, [('attach', 2, 15), ('detach', 2, 15)]);
-
-          // Restoring controllerB re-attaches cleanly.
-          await tester.pumpWidget(
-            buildParagraph(blockIndex: 2, offset: 15, controller: controllerB),
-          );
-          expect(controllerB.events, [
-            ('attach', 2, 15),
-            ('detach', 2, 15),
-            ('attach', 2, 15),
-          ]);
-        },
-      );
-
-      testWidgets(
-        'narrow MarkdownTableWidget under CrossAxisAlignment.stretch hugs Table width without stretching outer border',
-        (tester) async {
-          const narrowTable = TableBlock(
-            alignments: [TableColumnAlign.left, TableColumnAlign.left],
-            header: TableRowNode(
-              cells: [
-                [TextInline('K')],
-                [TextInline('V')],
+  group('Verifier regressions: textScaler, surface identity, stretched narrow tables', () {
+    testWidgets(
+      'SelectableParagraph and MarkdownListItemWidget inherit MediaQuery textScaler unless overridden',
+      (tester) async {
+        final normalSurfaces = <MarkdownSelectionSurface>[];
+        final scaledSurfaces = <MarkdownSelectionSurface>[];
+        const listBlock = ListBlock(
+          ordered: true,
+          start: 1,
+          items: [
+            ListItemNode(
+              children: [
+                ParagraphBlock(inlines: [TextInline('Scaled item')]),
               ],
             ),
-            rows: [
-              TableRowNode(
-                cells: [
-                  [TextInline('a')],
-                  [TextInline('b')],
-                ],
-              ),
-            ],
-          );
+          ],
+        );
 
-          await tester.pumpWidget(
-            _wrapApp(
-              width: 400.0,
-              const Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  MarkdownBlockRenderer(
-                    documentId: 'doc1',
+        await tester.pumpWidget(
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: MediaQuery(
+              data: const MediaQueryData(
+                size: Size(800, 600),
+                textScaler: TextScaler.noScaling,
+              ),
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: 400,
+                  child: MarkdownBlockRenderer(
+                    documentId: 'doc',
                     blockIndex: 0,
-                    block: narrowTable,
+                    block: listBlock,
+                    onSurfaceAttach: normalSurfaces.add,
                   ),
-                ],
+                ),
               ),
             ),
-          );
+          ),
+        );
 
-          expect(_scrollExtents(tester), everyElement(0.0));
-          final tableSize = tester.getSize(find.byType(Table));
-          final clipSize = tester.getSize(find.byType(ClipRRect));
+        final normalRender = normalSurfaces.single as RenderSelectableParagraph;
+        final normalBox = normalRender.boxesForLocalRange(0, 11).first;
+        expect(normalRender.textScaler, TextScaler.noScaling);
 
-          expect(tableSize.width, lessThan(300.0));
-          expect(
-            clipSize.width,
-            closeTo(tableSize.width, 0.01),
-            reason: 'Outer bordered frame must not stretch past narrow Table',
-          );
-        },
-      );
-
-      testWidgets(
-        'checked task-list checkbox computes contrasting checkmark in dark mode and honors custom theme colors',
-        (tester) async {
-          const taskListBlock = ListBlock(
-            ordered: false,
-            items: [
-              ListItemNode(
-                checked: true,
-                children: [
-                  ParagraphBlock(inlines: [TextInline('Completed task')]),
-                ],
+        await tester.pumpWidget(
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: MediaQuery(
+              data: const MediaQueryData(
+                size: Size(800, 600),
+                textScaler: TextScaler.linear(2.0),
               ),
-              ListItemNode(
-                checked: false,
-                children: [
-                  ParagraphBlock(inlines: [TextInline('Open task')]),
-                ],
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: 400,
+                  child: MarkdownBlockRenderer(
+                    key: const ValueKey('scaled'),
+                    documentId: 'doc',
+                    blockIndex: 0,
+                    block: listBlock,
+                    onSurfaceAttach: scaledSurfaces.add,
+                  ),
+                ),
               ),
+            ),
+          ),
+        );
+
+        final scaledRender = scaledSurfaces.single as RenderSelectableParagraph;
+        final scaledBox = scaledRender.boxesForLocalRange(0, 11).first;
+        expect(scaledRender.textScaler, const TextScaler.linear(2.0));
+        expect(scaledBox.right, greaterThan(normalBox.right * 1.5));
+
+        final listItemRender = tester.renderObject<RenderMarkdownListItem>(
+          find.byType(MarkdownListItemWidget),
+        );
+        expect(listItemRender.textScaler, const TextScaler.linear(2.0));
+
+        // Explicit textScaler override still wins over MediaQuery.
+        final explicitSurfaces = <MarkdownSelectionSurface>[];
+        await tester.pumpWidget(
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: MediaQuery(
+              data: const MediaQueryData(
+                size: Size(800, 600),
+                textScaler: TextScaler.linear(2.0),
+              ),
+              child: SelectableParagraph(
+                documentId: 'doc',
+                blockIndex: 0,
+                textOffsetInBlock: 0,
+                text: const TextSpan(text: 'Fixed'),
+                textScaler: TextScaler.noScaling,
+                onSurfaceAttach: explicitSurfaces.add,
+              ),
+            ),
+          ),
+        );
+        expect(
+          (explicitSurfaces.single as RenderSelectableParagraph).textScaler,
+          TextScaler.noScaling,
+        );
+      },
+    );
+
+    testWidgets(
+      'updateSurfaceIdentity re-registers on blockIndex/offset shifts, null attach, and controller switches',
+      (tester) async {
+        final controllerA = _RecordingSurfaceController('A');
+        final controllerB = _RecordingSurfaceController('B');
+
+        Widget buildParagraph({
+          int blockIndex = 0,
+          int offset = 0,
+          _RecordingSurfaceController? controller,
+        }) {
+          return _wrapApp(
+            SelectableParagraph(
+              documentId: 'doc1',
+              blockIndex: blockIndex,
+              textOffsetInBlock: offset,
+              text: const TextSpan(text: 'Hello'),
+              onSurfaceAttach: controller?.attach,
+              onSurfaceDetach: controller?.detach,
+            ),
+          );
+        }
+
+        // Initial attach on controllerA.
+        await tester.pumpWidget(buildParagraph(controller: controllerA));
+        expect(controllerA.events, [('attach', 0, 0)]);
+
+        // Rebuilding with identical controller tear-offs and coordinates does not churn.
+        await tester.pumpWidget(buildParagraph(controller: controllerA));
+        expect(controllerA.events, [('attach', 0, 0)]);
+
+        // Shifting blockIndex detaches old coordinate and re-attaches new one.
+        await tester.pumpWidget(
+          buildParagraph(blockIndex: 2, controller: controllerA),
+        );
+        expect(controllerA.events, [
+          ('attach', 0, 0),
+          ('detach', 0, 0),
+          ('attach', 2, 0),
+        ]);
+
+        // Shifting textOffsetInBlock detaches old offset and re-attaches new one.
+        await tester.pumpWidget(
+          buildParagraph(blockIndex: 2, offset: 15, controller: controllerA),
+        );
+        expect(controllerA.events, [
+          ('attach', 0, 0),
+          ('detach', 0, 0),
+          ('attach', 2, 0),
+          ('detach', 2, 0),
+          ('attach', 2, 15),
+        ]);
+
+        // Switching controller tear-offs detaches from A and attaches to B.
+        await tester.pumpWidget(
+          buildParagraph(blockIndex: 2, offset: 15, controller: controllerB),
+        );
+        expect(controllerA.events.last, ('detach', 2, 15));
+        expect(controllerB.events, [('attach', 2, 15)]);
+
+        // Clearing onSurfaceAttach to null detaches from B.
+        await tester.pumpWidget(
+          buildParagraph(blockIndex: 2, offset: 15, controller: null),
+        );
+        expect(controllerB.events, [('attach', 2, 15), ('detach', 2, 15)]);
+
+        // Restoring controllerB re-attaches cleanly.
+        await tester.pumpWidget(
+          buildParagraph(blockIndex: 2, offset: 15, controller: controllerB),
+        );
+        expect(controllerB.events, [
+          ('attach', 2, 15),
+          ('detach', 2, 15),
+          ('attach', 2, 15),
+        ]);
+      },
+    );
+
+    testWidgets(
+      'narrow MarkdownTableWidget under CrossAxisAlignment.stretch hugs Table width without stretching outer border',
+      (tester) async {
+        const narrowTable = TableBlock(
+          alignments: [TableColumnAlign.left, TableColumnAlign.left],
+          header: TableRowNode(
+            cells: [
+              [TextInline('K')],
+              [TextInline('V')],
             ],
-          );
-
-          // 1. Dark-mode near-white listBulletColor without custom checkbox
-          //    colors must paint a contrasting dark checkmark (NOT white-on-white).
-          final darkNearWhiteTheme = MarkdownThemeData.dark().copyWith(
-            listBulletColor: const Color(0xFFF5F5F5),
-          );
-          await tester.pumpWidget(
-            _wrapApp(
-              theme: darkNearWhiteTheme,
-              const MarkdownBlockRenderer(
-                documentId: 'tasks-dark',
-                blockIndex: 0,
-                block: taskListBlock,
-              ),
+          ),
+          rows: [
+            TableRowNode(
+              cells: [
+                [TextInline('a')],
+                [TextInline('b')],
+              ],
             ),
-          );
+          ],
+        );
 
-          final checkedFinder = find.byWidgetPredicate(
-            (w) =>
-                w is MarkdownListItemWidget &&
-                w.markerKind == MarkdownListMarkerKind.taskChecked,
-          );
-          expect(checkedFinder, findsOneWidget);
-          expect(
-            checkedFinder,
-            paints
-              ..rrect(color: const Color(0xFFF5F5F5))
-              ..path(color: const Color(0xFF000000)),
-          );
+        await tester.pumpWidget(
+          _wrapApp(
+            width: 400.0,
+            const Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                MarkdownBlockRenderer(
+                  documentId: 'doc1',
+                  blockIndex: 0,
+                  block: narrowTable,
+                ),
+              ],
+            ),
+          ),
+        );
 
-          // 2. Dark fill (light-mode default) paints a white checkmark.
-          final lightDarkFillTheme = MarkdownThemeData.fallback().copyWith(
-            listBulletColor: const Color(0xFF1F2328),
-          );
-          await tester.pumpWidget(
-            _wrapApp(
-              theme: lightDarkFillTheme,
-              const MarkdownBlockRenderer(
-                documentId: 'tasks-light',
-                blockIndex: 0,
-                block: taskListBlock,
-              ),
-            ),
-          );
-          expect(
-            checkedFinder,
-            paints
-              ..rrect(color: const Color(0xFF1F2328))
-              ..path(color: const Color(0xFFFFFFFF)),
-          );
+        expect(_scrollExtents(tester), everyElement(0.0));
+        final tableSize = tester.getSize(find.byType(Table));
+        final clipSize = tester.getSize(find.byType(ClipRRect));
 
-          // 3. Explicit listCheckboxFillColor / listCheckboxCheckColor override
-          //    both fill and checkmark stroke, and participate in copyWith / ==.
-          const customFill = Color(0xFFF97316);
-          const customCheck = Color(0xFF112233);
-          final customTheme = MarkdownThemeData.dark().copyWith(
-            listCheckboxFillColor: customFill,
-            listCheckboxCheckColor: customCheck,
-          );
-          expect(customTheme, isNot(equals(MarkdownThemeData.dark())));
-          expect(
-            customTheme,
-            equals(
-              MarkdownThemeData.dark().copyWith(
-                listCheckboxFillColor: customFill,
-                listCheckboxCheckColor: customCheck,
-              ),
-            ),
-          );
-          expect(
-            customTheme.hashCode,
-            equals(
-              MarkdownThemeData.dark()
-                  .copyWith(
-                    listCheckboxFillColor: customFill,
-                    listCheckboxCheckColor: customCheck,
-                  )
-                  .hashCode,
-            ),
-          );
+        expect(tableSize.width, lessThan(300.0));
+        expect(
+          clipSize.width,
+          closeTo(tableSize.width, 0.01),
+          reason: 'Outer bordered frame must not stretch past narrow Table',
+        );
+      },
+    );
 
-          await tester.pumpWidget(
-            _wrapApp(
-              theme: customTheme,
-              const MarkdownBlockRenderer(
-                documentId: 'tasks-custom',
-                blockIndex: 0,
-                block: taskListBlock,
-              ),
+    testWidgets(
+      'checked task-list checkbox computes contrasting checkmark in dark mode and honors custom theme colors',
+      (tester) async {
+        const taskListBlock = ListBlock(
+          ordered: false,
+          items: [
+            ListItemNode(
+              checked: true,
+              children: [
+                ParagraphBlock(inlines: [TextInline('Completed task')]),
+              ],
             ),
-          );
-          expect(
-            checkedFinder,
-            paints
-              ..rrect(color: customFill)
-              ..path(color: customCheck),
-          );
-        },
-      );
-    },
-  );
+            ListItemNode(
+              checked: false,
+              children: [
+                ParagraphBlock(inlines: [TextInline('Open task')]),
+              ],
+            ),
+          ],
+        );
+
+        // 1. Dark-mode near-white listBulletColor without custom checkbox
+        //    colors must paint a contrasting dark checkmark (NOT white-on-white).
+        final darkNearWhiteTheme = MarkdownThemeData.dark().copyWith(
+          listBulletColor: const Color(0xFFF5F5F5),
+        );
+        await tester.pumpWidget(
+          _wrapApp(
+            theme: darkNearWhiteTheme,
+            const MarkdownBlockRenderer(
+              documentId: 'tasks-dark',
+              blockIndex: 0,
+              block: taskListBlock,
+            ),
+          ),
+        );
+
+        final checkedFinder = find.byWidgetPredicate(
+          (w) =>
+              w is MarkdownListItemWidget &&
+              w.markerKind == MarkdownListMarkerKind.taskChecked,
+        );
+        expect(checkedFinder, findsOneWidget);
+        expect(
+          checkedFinder,
+          paints
+            ..rrect(color: const Color(0xFFF5F5F5))
+            ..path(color: const Color(0xFF000000)),
+        );
+
+        // 2. Dark fill (light-mode default) paints a white checkmark.
+        final lightDarkFillTheme = MarkdownThemeData.fallback().copyWith(
+          listBulletColor: const Color(0xFF1F2328),
+        );
+        await tester.pumpWidget(
+          _wrapApp(
+            theme: lightDarkFillTheme,
+            const MarkdownBlockRenderer(
+              documentId: 'tasks-light',
+              blockIndex: 0,
+              block: taskListBlock,
+            ),
+          ),
+        );
+        expect(
+          checkedFinder,
+          paints
+            ..rrect(color: const Color(0xFF1F2328))
+            ..path(color: const Color(0xFFFFFFFF)),
+        );
+
+        // 3. Explicit listCheckboxFillColor / listCheckboxCheckColor override
+        //    both fill and checkmark stroke, and participate in copyWith / ==.
+        const customFill = Color(0xFFF97316);
+        const customCheck = Color(0xFF112233);
+        final customTheme = MarkdownThemeData.dark().copyWith(
+          listCheckboxFillColor: customFill,
+          listCheckboxCheckColor: customCheck,
+        );
+        expect(customTheme, isNot(equals(MarkdownThemeData.dark())));
+        expect(
+          customTheme,
+          equals(
+            MarkdownThemeData.dark().copyWith(
+              listCheckboxFillColor: customFill,
+              listCheckboxCheckColor: customCheck,
+            ),
+          ),
+        );
+        expect(
+          customTheme.hashCode,
+          equals(
+            MarkdownThemeData.dark()
+                .copyWith(
+                  listCheckboxFillColor: customFill,
+                  listCheckboxCheckColor: customCheck,
+                )
+                .hashCode,
+          ),
+        );
+
+        await tester.pumpWidget(
+          _wrapApp(
+            theme: customTheme,
+            const MarkdownBlockRenderer(
+              documentId: 'tasks-custom',
+              blockIndex: 0,
+              block: taskListBlock,
+            ),
+          ),
+        );
+        expect(
+          checkedFinder,
+          paints
+            ..rrect(color: customFill)
+            ..path(color: customCheck),
+        );
+      },
+    );
+  });
 }
 
 class _RecordingSurfaceController {

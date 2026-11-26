@@ -299,9 +299,10 @@ void main() {
     );
 
     void expectChunksMatchWhole(String source) {
-      final pieces = splitMarkdownBlocks(
-        source,
-      ).map(standardHtml).where((html) => html.isNotEmpty).join('\n');
+      final pieces = splitMarkdownBlocks(source)
+          .map(standardHtml)
+          .where((html) => html.isNotEmpty)
+          .join('\n');
       expect(pieces, standardHtml(source), reason: _visible(source));
     }
 
@@ -360,9 +361,8 @@ void main() {
       'stars': '*a ' * 10000,
       'underscores': '_' * 20000,
       'nested quotes': '${'> ' * 500}deep',
-      'nested lists': [
-        for (var i = 0; i < 200; i++) '${'  ' * i}- item',
-      ].join('\n'),
+      'nested lists': [for (var i = 0; i < 200; i++) '${'  ' * i}- item']
+          .join('\n'),
       'html opens': '<b>' * 5000,
       'html mixed': '<b><i><u>' * 2000 + '</u></i></b>' * 2000,
       'long line': 'word ' * 60000,

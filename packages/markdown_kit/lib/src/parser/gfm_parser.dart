@@ -23,6 +23,11 @@ import 'markdown_parser.dart';
 /// - Bounded LRU AST cache (default 256 entries) plus block-level incremental
 ///   caching for streaming performance without thrashing completed documents.
 class GfmMarkdownParser implements MarkdownParser {
+  /// Creates a parser.
+  ///
+  /// [maxCacheEntries] is how many parsed documents and [maxBlockCacheEntries]
+  /// how many parsed top-level chunks are kept for reuse. `0` turns the
+  /// respective cache off.
   GfmMarkdownParser({
     this.options = const MarkdownParserOptions(),
     int maxCacheEntries = 256,
@@ -35,6 +40,7 @@ class GfmMarkdownParser implements MarkdownParser {
        ),
        _scanner = MarkdownInlineScanner(options.inlineRules);
 
+  /// The extensions and inline rules this parser applies.
   final MarkdownParserOptions options;
   final BoundedLruCache<String, MarkdownDocument> _documentCache;
   final BoundedLruCache<String, List<MarkdownBlock>> _blockCache;

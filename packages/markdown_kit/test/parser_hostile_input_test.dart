@@ -304,8 +304,7 @@ void main() {
         expectKeptInsideWords(0x2028);
         expectKeptInsideWords(0x2029);
       },
-      skip:
-          'package:markdown 7.3.1: the code span pattern uses `.`, which excludes U+2028/U+2029',
+      skip: 'package:markdown 7.3.1: the code span pattern uses `.`, which excludes U+2028/U+2029',
     );
 
     test('a leading byte-order mark does not hide the first block', () {
@@ -445,9 +444,8 @@ void main() {
 
     test('deeply nested lists parse and can be walked', () {
       const depth = 100;
-      final source = [
-        for (var i = 0; i < depth; i++) '${'  ' * i}- item $i',
-      ].join('\n');
+      final source = [for (var i = 0; i < depth; i++) '${'  ' * i}- item $i']
+          .join('\n');
       final blocks = _parse(source);
       expect(_isRawFallback(blocks, source), isFalse);
       var levels = 0;
@@ -587,9 +585,8 @@ void main() {
 
     test('a long code block with blank lines is one block', () {
       const lines = 4001;
-      final body = [
-        for (var i = 0; i < lines; i++) i.isEven ? 'line $i' : '',
-      ].join('\n');
+      final body = [for (var i = 0; i < lines; i++) i.isEven ? 'line $i' : '']
+          .join('\n');
       final source = 'Before\n\n```dart\n$body\n```\n\nAfter';
       for (final isStreaming in [false, true]) {
         final blocks = _parse(source, isStreaming: isStreaming);
@@ -839,9 +836,8 @@ void main() {
           for (final isStreaming in [false, true]) {
             final MarkdownDocument document;
             try {
-              document = GfmMarkdownParser(
-                options: options,
-              ).parse(source, isStreaming: isStreaming);
+              document = GfmMarkdownParser(options: options)
+                  .parse(source, isStreaming: isStreaming);
               _exercise(document.blocks);
             } catch (error) {
               fail('${error.runtimeType} on ${_visible(source)}');

@@ -64,11 +64,10 @@ class _RenderTestSelectableParagraph extends RenderParagraph
     required this.blockIndex,
     required this.textOffsetInBlock,
     required this.rawText,
-    required MarkdownSelectionController controller,
+    required this._controller,
     required InlineSpan text,
     required super.textDirection,
-  }) : _controller = controller,
-       super(text);
+  }) : super(text);
 
   @override
   String documentId;
@@ -344,85 +343,82 @@ Widget _buildToolbar(BuildContext context, MarkdownSelectionScopeState state) {
 
 void main() {
   group('Autoscroll session & AxisDirection.up unit tests', () {
-    test(
-      'disarms per direction at scroll boundary until pointer exits edge band',
-      () {
-        var pixels = 0.0;
-        const maxExtent = 50.0;
-        final target = MarkdownCallbackAutoscrollTarget(
-          viewportProvider: () => const MarkdownAutoscrollViewport(
-            rect: Rect.fromLTWH(0, 0, 400, 600),
-          ),
-          canScrollUpCallback: () => pixels > 0,
-          canScrollDownCallback: () => pixels < maxExtent,
-          onScrollVisualDelta: (dy) {
-            final before = pixels;
-            pixels = (pixels + dy).clamp(0.0, maxExtent);
-            return pixels - before;
-          },
-        );
-        final session = MarkdownAutoscrollSession();
+    test('disarms per direction at scroll boundary until pointer exits edge band', () {
+      var pixels = 0.0;
+      const maxExtent = 50.0;
+      final target = MarkdownCallbackAutoscrollTarget(
+        viewportProvider: () => const MarkdownAutoscrollViewport(
+          rect: Rect.fromLTWH(0, 0, 400, 600),
+        ),
+        canScrollUpCallback: () => pixels > 0,
+        canScrollDownCallback: () => pixels < maxExtent,
+        onScrollVisualDelta: (dy) {
+          final before = pixels;
+          pixels = (pixels + dy).clamp(0.0, maxExtent);
+          return pixels - before;
+        },
+      );
+      final session = MarkdownAutoscrollSession();
 
-        // Pointer in top band when already at pixels == 0 -> disarms up immediately.
-        expect(
-          applyMarkdownSelectionAutoscroll(
-            target: target,
-            session: session,
-            globalPointer: const Offset(100, 10),
-            dt: const Duration(milliseconds: 50),
-          ),
-          0.0,
-        );
-        expect(session.isUpDisarmed, isTrue);
+      // Pointer in top band when already at pixels == 0 -> disarms up immediately.
+      expect(
+        applyMarkdownSelectionAutoscroll(
+          target: target,
+          session: session,
+          globalPointer: const Offset(100, 10),
+          dt: const Duration(milliseconds: 50),
+        ),
+        0.0,
+      );
+      expect(session.isUpDisarmed, isTrue);
 
-        // Drag down into bottom band -> scrolls down to maxExtent and disarms down.
-        final d1 = applyMarkdownSelectionAutoscroll(
+      // Drag down into bottom band -> scrolls down to maxExtent and disarms down.
+      final d1 = applyMarkdownSelectionAutoscroll(
+        target: target,
+        session: session,
+        globalPointer: const Offset(100, 595),
+        dt: const Duration(milliseconds: 100),
+      );
+      expect(d1, greaterThan(0));
+      expect(pixels, maxExtent);
+      expect(session.isDownDisarmed, isTrue);
+      // Up was re-armed because pointer left the top band.
+      expect(session.isUpDisarmed, isFalse);
+
+      // Even if maxExtent grew or content shifted, down remains disarmed while
+      // still inside the bottom band.
+      pixels = 20.0;
+      expect(
+        applyMarkdownSelectionAutoscroll(
           target: target,
           session: session,
           globalPointer: const Offset(100, 595),
-          dt: const Duration(milliseconds: 100),
-        );
-        expect(d1, greaterThan(0));
-        expect(pixels, maxExtent);
-        expect(session.isDownDisarmed, isTrue);
-        // Up was re-armed because pointer left the top band.
-        expect(session.isUpDisarmed, isFalse);
+          dt: const Duration(milliseconds: 50),
+        ),
+        0.0,
+      );
 
-        // Even if maxExtent grew or content shifted, down remains disarmed while
-        // still inside the bottom band.
-        pixels = 20.0;
-        expect(
-          applyMarkdownSelectionAutoscroll(
-            target: target,
-            session: session,
-            globalPointer: const Offset(100, 595),
-            dt: const Duration(milliseconds: 50),
-          ),
-          0.0,
-        );
-
-        // Move pointer out of bottom band -> re-arms down.
-        expect(
-          applyMarkdownSelectionAutoscroll(
-            target: target,
-            session: session,
-            globalPointer: const Offset(100, 300),
-            dt: const Duration(milliseconds: 50),
-          ),
-          0.0,
-        );
-        expect(session.isDownDisarmed, isFalse);
-
-        // Re-entering bottom band now scrolls again.
-        final d2 = applyMarkdownSelectionAutoscroll(
+      // Move pointer out of bottom band -> re-arms down.
+      expect(
+        applyMarkdownSelectionAutoscroll(
           target: target,
           session: session,
-          globalPointer: const Offset(100, 590),
+          globalPointer: const Offset(100, 300),
           dt: const Duration(milliseconds: 50),
-        );
-        expect(d2, greaterThan(0));
-      },
-    );
+        ),
+        0.0,
+      );
+      expect(session.isDownDisarmed, isFalse);
+
+      // Re-entering bottom band now scrolls again.
+      final d2 = applyMarkdownSelectionAutoscroll(
+        target: target,
+        session: session,
+        globalPointer: const Offset(100, 590),
+        dt: const Duration(milliseconds: 50),
+      );
+      expect(d2, greaterThan(0));
+    });
   });
 
   group('Opaque low-slop handles & ListView gesture isolation', () {

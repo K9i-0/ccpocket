@@ -5,7 +5,19 @@ import 'package:flutter/widgets.dart';
 
 /// Visual marker type painted in the hanging gutter of a
 /// [MarkdownListItemWidget].
-enum MarkdownListMarkerKind { bullet, ordered, taskUnchecked, taskChecked }
+enum MarkdownListMarkerKind {
+  /// A bullet whose shape depends on the nesting depth.
+  bullet,
+
+  /// The item's number, such as `1.`.
+  ordered,
+
+  /// An empty task checkbox.
+  taskUnchecked,
+
+  /// A checked task checkbox.
+  taskChecked,
+}
 
 /// Hanging-indent list item whose marker (bullet, ordinal number, or task
 /// checkbox) is painted directly onto the [Canvas] so markers are never part
@@ -14,6 +26,7 @@ enum MarkdownListMarkerKind { bullet, ordered, taskUnchecked, taskChecked }
 /// The marker aligns vertically with the child's first-line alphabetic baseline
 /// (falling back to the line-height midpoint if the child has no text baseline).
 class MarkdownListItemWidget extends SingleChildRenderObjectWidget {
+  /// Creates a list item that paints its marker beside [child].
   const MarkdownListItemWidget({
     super.key,
     required this.markerKind,
@@ -31,20 +44,45 @@ class MarkdownListItemWidget extends SingleChildRenderObjectWidget {
     required Widget super.child,
   });
 
+  /// Which marker to paint.
   final MarkdownListMarkerKind markerKind;
+
+  /// Color of the bullet, the ordinal text and the unchecked checkbox outline.
   final Color markerColor;
+
+  /// Diameter of the bullet in logical pixels, before text scaling.
   final double bulletSize;
+
+  /// Minimum width of the marker gutter in logical pixels.
   final double indent;
+
+  /// Text style of the ordinal. Its font size also positions and scales the
+  /// other markers.
   final TextStyle markerTextStyle;
+
+  /// Fill color of a checked checkbox. When null, [markerColor] is used.
   final Color? checkboxFillColor;
+
+  /// Color of the check mark. When null, black or white is chosen for contrast
+  /// against the fill.
   final Color? checkboxCheckColor;
+
+  /// The ordinal to paint for [MarkdownListMarkerKind.ordered], such as `3.`.
   final String? ordinalText;
 
   /// Widest ordinal of the enclosing list (for example `10.`). When set, the
   /// gutter is sized for it so every item's text starts in the same column.
   final String? ordinalSizingText;
+
+  /// How many lists enclose this item's list. It selects the bullet shape.
   final int nestingDepth;
+
+  /// Direction that decides which side the gutter is on. When null, the ambient
+  /// [Directionality] is used.
   final TextDirection? textDirection;
+
+  /// Text scaler applied to the marker. When null, the ambient [MediaQuery]
+  /// text scaler is used.
   final TextScaler? textScaler;
 
   @override
@@ -89,35 +127,26 @@ class MarkdownListItemWidget extends SingleChildRenderObjectWidget {
 /// Render object for [MarkdownListItemWidget] that lays out a hanging gutter
 /// and paints the non-selectable marker directly on the [Canvas].
 class RenderMarkdownListItem extends RenderShiftedBox {
+  /// Creates the render object for a list item.
   RenderMarkdownListItem({
-    required MarkdownListMarkerKind markerKind,
-    required Color markerColor,
-    Color? checkboxFillColor,
-    Color? checkboxCheckColor,
-    required double bulletSize,
-    required double indent,
-    required TextStyle markerTextStyle,
-    String? ordinalText,
-    String? ordinalSizingText,
-    int nestingDepth = 0,
-    required TextDirection textDirection,
-    TextScaler textScaler = TextScaler.noScaling,
+    required this._markerKind,
+    required this._markerColor,
+    this._checkboxFillColor,
+    this._checkboxCheckColor,
+    required this._bulletSize,
+    required this._indent,
+    required this._markerTextStyle,
+    this._ordinalText,
+    this._ordinalSizingText,
+    this._nestingDepth = 0,
+    required this._textDirection,
+    this._textScaler = TextScaler.noScaling,
     RenderBox? child,
-  }) : _markerKind = markerKind,
-       _markerColor = markerColor,
-       _checkboxFillColor = checkboxFillColor,
-       _checkboxCheckColor = checkboxCheckColor,
-       _bulletSize = bulletSize,
-       _indent = indent,
-       _markerTextStyle = markerTextStyle,
-       _ordinalText = ordinalText,
-       _ordinalSizingText = ordinalSizingText,
-       _nestingDepth = nestingDepth,
-       _textDirection = textDirection,
-       _textScaler = textScaler,
-       super(child);
+  }) : super(child);
 
   MarkdownListMarkerKind _markerKind;
+
+  /// Which marker is painted.
   MarkdownListMarkerKind get markerKind => _markerKind;
   set markerKind(MarkdownListMarkerKind value) {
     if (_markerKind == value) return;
@@ -127,6 +156,8 @@ class RenderMarkdownListItem extends RenderShiftedBox {
   }
 
   Color _markerColor;
+
+  /// Color of the bullet, the ordinal text and the unchecked checkbox outline.
   Color get markerColor => _markerColor;
   set markerColor(Color value) {
     if (_markerColor == value) return;
@@ -136,6 +167,8 @@ class RenderMarkdownListItem extends RenderShiftedBox {
   }
 
   Color? _checkboxFillColor;
+
+  /// Fill color of a checked checkbox. When null, [markerColor] is used.
   Color? get checkboxFillColor => _checkboxFillColor;
   set checkboxFillColor(Color? value) {
     if (_checkboxFillColor == value) return;
@@ -144,6 +177,9 @@ class RenderMarkdownListItem extends RenderShiftedBox {
   }
 
   Color? _checkboxCheckColor;
+
+  /// Color of the check mark. When null, it is chosen for contrast against the
+  /// fill.
   Color? get checkboxCheckColor => _checkboxCheckColor;
   set checkboxCheckColor(Color? value) {
     if (_checkboxCheckColor == value) return;
@@ -152,6 +188,8 @@ class RenderMarkdownListItem extends RenderShiftedBox {
   }
 
   double _bulletSize;
+
+  /// Diameter of the bullet in logical pixels, before text scaling.
   double get bulletSize => _bulletSize;
   set bulletSize(double value) {
     if (_bulletSize == value) return;
@@ -160,6 +198,8 @@ class RenderMarkdownListItem extends RenderShiftedBox {
   }
 
   double _indent;
+
+  /// Minimum width of the marker gutter in logical pixels.
   double get indent => _indent;
   set indent(double value) {
     if (_indent == value) return;
@@ -168,6 +208,9 @@ class RenderMarkdownListItem extends RenderShiftedBox {
   }
 
   TextStyle _markerTextStyle;
+
+  /// Text style of the ordinal. Its font size also positions and scales the
+  /// other markers.
   TextStyle get markerTextStyle => _markerTextStyle;
   set markerTextStyle(TextStyle value) {
     if (_markerTextStyle == value) return;
@@ -177,6 +220,8 @@ class RenderMarkdownListItem extends RenderShiftedBox {
   }
 
   String? _ordinalText;
+
+  /// The ordinal painted for [MarkdownListMarkerKind.ordered].
   String? get ordinalText => _ordinalText;
   set ordinalText(String? value) {
     if (_ordinalText == value) return;
@@ -186,6 +231,8 @@ class RenderMarkdownListItem extends RenderShiftedBox {
   }
 
   String? _ordinalSizingText;
+
+  /// Widest ordinal of the enclosing list, used to size the gutter.
   String? get ordinalSizingText => _ordinalSizingText;
   set ordinalSizingText(String? value) {
     if (_ordinalSizingText == value) return;
@@ -194,6 +241,8 @@ class RenderMarkdownListItem extends RenderShiftedBox {
   }
 
   int _nestingDepth;
+
+  /// How many lists enclose this item's list. It selects the bullet shape.
   int get nestingDepth => _nestingDepth;
   set nestingDepth(int value) {
     if (_nestingDepth == value) return;
@@ -202,6 +251,8 @@ class RenderMarkdownListItem extends RenderShiftedBox {
   }
 
   TextDirection _textDirection;
+
+  /// Direction that decides which side the gutter is on.
   TextDirection get textDirection => _textDirection;
   set textDirection(TextDirection value) {
     if (_textDirection == value) return;
@@ -211,6 +262,8 @@ class RenderMarkdownListItem extends RenderShiftedBox {
   }
 
   TextScaler _textScaler;
+
+  /// Text scaler applied to the marker.
   TextScaler get textScaler => _textScaler;
   set textScaler(TextScaler value) {
     if (_textScaler == value) return;

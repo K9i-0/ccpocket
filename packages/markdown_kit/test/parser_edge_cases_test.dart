@@ -124,9 +124,10 @@ List<String> _strings(List<MarkdownBlock> blocks) {
 }
 
 void _expectNoCarriageReturn(String source) {
-  final leaked = _strings(
-    _parse(source),
-  ).where((value) => value.contains('\r')).map(_visible).toList();
+  final leaked = _strings(_parse(source))
+      .where((value) => value.contains('\r'))
+      .map(_visible)
+      .toList();
   expect(leaked, isEmpty, reason: _upstream(source));
 }
 

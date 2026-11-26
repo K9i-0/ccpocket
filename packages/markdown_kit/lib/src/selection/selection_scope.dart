@@ -15,8 +15,10 @@ import 'default_context_menu.dart';
 import 'selection_model.dart';
 
 /// Builder for a custom selection context menu / action toolbar.
-typedef MarkdownContextMenuBuilder =
-    Widget Function(BuildContext context, MarkdownSelectionScopeState state);
+typedef MarkdownContextMenuBuilder = Widget Function(
+  BuildContext context,
+  MarkdownSelectionScopeState state,
+);
 
 /// Predicate determining whether a pointer gesture at [globalPosition] may
 /// begin a new text selection.
@@ -42,6 +44,7 @@ enum _ActiveAutoscrollDrag { none, longPress, handle, mouse }
 /// touch magnifier, edge autoscroll, desktop mouse/keyboard gestures, and
 /// customizable context menus for its descendant subtree.
 class MarkdownSelectionScope extends StatefulWidget {
+  /// Creates a selection scope around [child].
   const MarkdownSelectionScope({
     super.key,
     required this.child,

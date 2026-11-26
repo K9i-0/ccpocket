@@ -353,9 +353,8 @@ void main() {
         '<DETAILS OPEN>',
       ]) {
         expect(
-          details(
-            '$opener\n<summary>S</summary>\n\nbody\n\n</details>',
-          ).initiallyOpen,
+          details('$opener\n<summary>S</summary>\n\nbody\n\n</details>')
+              .initiallyOpen,
           isTrue,
           reason: opener,
         );

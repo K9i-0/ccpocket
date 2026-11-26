@@ -14,6 +14,7 @@ import 'markdown_theme.dart';
 /// without using `WidgetSpan` or fragmenting paragraph wrapping.
 @immutable
 class CodeTextSpan extends TextSpan {
+  /// Creates a text span drawn as inline code.
   const CodeTextSpan({
     super.text,
     super.children,
@@ -68,6 +69,10 @@ class CodeTextSpan extends TextSpan {
 /// [RenderSelectableParagraph].
 @immutable
 class TappableTextSpan extends TextSpan {
+  /// Creates a tappable text span.
+  ///
+  /// When [mouseCursor] is null and [onTap] is set, the pointer shows a click
+  /// cursor over the span.
   const TappableTextSpan({
     super.text,
     super.children,
@@ -181,6 +186,8 @@ class TappableTextSpan extends TextSpan {
 /// [PlaceholderSpan] / [WidgetSpan] occupies 1 `\uFFFC` code unit).
 @immutable
 class OffsetSegment {
+  /// Creates a segment. A one-to-one segment must cover the same number of
+  /// canonical and painter code units.
   const OffsetSegment({
     required this.canonicalStart,
     required this.canonicalEnd,
@@ -196,13 +203,27 @@ class OffsetSegment {
              (canonicalEnd - canonicalStart) == (painterEnd - painterStart),
        );
 
+  /// Canonical offset where the segment starts (inclusive).
   final int canonicalStart;
+
+  /// Canonical offset where the segment ends (exclusive).
   final int canonicalEnd;
+
+  /// Painter offset where the segment starts (inclusive).
   final int painterStart;
+
+  /// Painter offset where the segment ends (exclusive).
   final int painterEnd;
+
+  /// Whether each canonical code unit corresponds to exactly one painter code
+  /// unit. When false, the segment is atomic: it stands for replaced content,
+  /// such as an inline widget shown in place of an image's alt text.
   final bool isOneToOne;
 
+  /// Number of canonical code units the segment covers.
   int get canonicalLength => canonicalEnd - canonicalStart;
+
+  /// Number of painter code units the segment covers.
   int get painterLength => painterEnd - painterStart;
 
   @override
@@ -239,6 +260,7 @@ class OffsetSegment {
 /// (`\uFFFC`) such as inline images, color swatches, or formatted LaTeX spans.
 @immutable
 class TextOffsetMapping {
+  /// Creates a mapping from explicit [segments].
   const TextOffsetMapping({
     required this.canonicalLength,
     required this.painterLength,
@@ -254,8 +276,13 @@ class TextOffsetMapping {
       painterLength = length,
       segments = const [];
 
+  /// Total length of the canonical text in UTF-16 code units.
   final int canonicalLength;
+
+  /// Total length of the painter text in UTF-16 code units.
   final int painterLength;
+
+  /// The segments in text order. Empty for an identity mapping.
   final List<OffsetSegment> segments;
 
   /// Whether canonical and painter offsets are identical everywhere.
@@ -450,7 +477,10 @@ class TextOffsetMappingBuilder {
   int _painterCursor = 0;
   bool _hasNonIdentity = false;
 
+  /// Canonical code units added so far.
   int get canonicalLength => _canonicalCursor;
+
+  /// Painter code units added so far.
   int get painterLength => _painterCursor;
 
   /// Appends a 1-to-1 text segment of [length] UTF-16 code units.
@@ -592,6 +622,8 @@ String extractPainterPlainText(InlineSpan span) {
 ///   hover invalidation on exit, layout change, or ancestor scroll for
 ///   [TappableTextSpan].
 class SelectableParagraph extends StatefulWidget {
+  /// Creates a selectable paragraph for part of block [blockIndex] in document
+  /// [documentId].
   const SelectableParagraph({
     super.key,
     required this.documentId,
@@ -617,9 +649,19 @@ class SelectableParagraph extends StatefulWidget {
     this.onSurfaceDetach,
   });
 
+  /// Identifier of the document this paragraph belongs to, as registered with
+  /// the selection controller.
   final String documentId;
+
+  /// Index of the top-level block this paragraph is part of.
   final int blockIndex;
+
+  /// UTF-16 offset of this paragraph's first character within the block's
+  /// rendered text. `0` unless the block is made of several paragraphs, as in a
+  /// list or a table.
   final int textOffsetInBlock;
+
+  /// The text to display.
   final InlineSpan text;
 
   /// Canonical UTF-16 length inside the owning block's rendered text. Defaults
@@ -631,23 +673,55 @@ class SelectableParagraph extends StatefulWidget {
   /// length (or an atomic mapping when [canonicalLength] differs).
   final TextOffsetMapping? offsetMapping;
 
+  /// How the text is aligned horizontally.
   final TextAlign textAlign;
+
+  /// Direction of the text. When null, the ambient [Directionality] is used.
   final TextDirection? textDirection;
+
+  /// Whether the text breaks at soft line breaks.
   final bool softWrap;
+
+  /// How visual overflow is handled.
   final TextOverflow overflow;
 
   /// Optional explicit [TextScaler]. When `null`, inherits
   /// [MediaQuery.textScalerOf] so system Dynamic Type / font scaling applies.
   final TextScaler? textScaler;
+
+  /// Maximum number of lines, or null for no limit.
   final int? maxLines;
+
+  /// Locale used to pick region-specific glyphs. When null, the ambient
+  /// [Localizations] locale is used.
   final Locale? locale;
+
+  /// Strut style that sets a minimum line height.
   final StrutStyle? strutStyle;
+
+  /// How the paragraph's width is measured.
   final TextWidthBasis textWidthBasis;
+
+  /// How the first line's ascent and the last line's descent are applied.
   final TextHeightBehavior? textHeightBehavior;
+
+  /// Color of the selection highlight.
   final Color selectionColor;
+
+  /// Style of [CodeTextSpan]s that do not carry their own
+  /// [CodeTextSpan.codeStyle].
   final MarkdownInlineCodeStyle inlineCodeStyle;
+
+  /// Whether the paragraph takes part in selection. When false,
+  /// [onSurfaceAttach] is never called.
   final bool selectable;
+
+  /// Called with the paragraph's selection surface when it becomes available,
+  /// typically to register it with a `MarkdownSelectionController`.
   final ValueChanged<MarkdownSelectionSurface>? onSurfaceAttach;
+
+  /// Called with the paragraph's selection surface when it goes away, typically
+  /// to unregister it.
   final ValueChanged<MarkdownSelectionSurface>? onSurfaceDetach;
 
   @override
@@ -927,6 +1001,7 @@ class _SelectableRichText extends RichText {
 /// canonical-to-painter offset mapping, and range-based tap/hover handling.
 class RenderSelectableParagraph extends RenderParagraph
     implements MarkdownSelectionSurface {
+  /// Creates a selectable paragraph render object.
   RenderSelectableParagraph(
     super.text, {
     required super.textDirection,
@@ -940,24 +1015,16 @@ class RenderSelectableParagraph extends RenderParagraph
     super.textWidthBasis,
     super.textHeightBehavior,
     required Color highlightColor,
-    required String documentId,
-    required int blockIndex,
-    required int textOffsetInBlock,
-    required TextOffsetMapping offsetMapping,
-    required MarkdownInlineCodeStyle inlineCodeStyle,
-    bool selectable = true,
-    ValueChanged<MarkdownSelectionSurface>? onSurfaceAttach,
-    ValueChanged<MarkdownSelectionSurface>? onSurfaceDetach,
+    required this._documentId,
+    required this._blockIndex,
+    required this._textOffsetInBlock,
+    required this._offsetMapping,
+    required this._inlineCodeStyle,
+    this._selectable = true,
+    this._onSurfaceAttach,
+    this._onSurfaceDetach,
     this.onHoverCleared,
   }) : _highlightColor = highlightColor,
-       _documentId = documentId,
-       _blockIndex = blockIndex,
-       _textOffsetInBlock = textOffsetInBlock,
-       _offsetMapping = offsetMapping,
-       _inlineCodeStyle = inlineCodeStyle,
-       _selectable = selectable,
-       _onSurfaceAttach = onSurfaceAttach,
-       _onSurfaceDetach = onSurfaceDetach,
        super(selectionColor: highlightColor) {
     _baseText = text;
     _tapRecognizer = TapGestureRecognizer(debugOwner: this)
@@ -1016,6 +1083,7 @@ class RenderSelectableParagraph extends RenderParagraph
   @visibleForTesting
   int get tappableRangeCount => _tappableRanges.length;
 
+  /// Color of the selection highlight.
   Color get highlightColor => _highlightColor;
   set highlightColor(Color value) {
     if (_highlightColor == value) return;
@@ -1026,6 +1094,8 @@ class RenderSelectableParagraph extends RenderParagraph
     }
   }
 
+  /// Style of [CodeTextSpan]s that do not carry their own
+  /// [CodeTextSpan.codeStyle].
   MarkdownInlineCodeStyle get inlineCodeStyle => _inlineCodeStyle;
   set inlineCodeStyle(MarkdownInlineCodeStyle value) {
     if (_inlineCodeStyle == value) return;
@@ -1630,9 +1700,8 @@ class RenderSelectableParagraph extends RenderParagraph
       maxY,
     );
     final leftOffset = getPositionForOffset(Offset(0.0, lineMidY)).offset;
-    final rightOffset = getPositionForOffset(
-      Offset(size.width + 1.0, lineMidY),
-    ).offset;
+    final rightOffset = getPositionForOffset(Offset(size.width + 1.0, lineMidY))
+        .offset;
     final lineStart = math.min(leftOffset, rightOffset);
     final lineEnd = math.max(leftOffset, rightOffset);
     return _offsetMapping.painterRangeToCanonicalRange(lineStart, lineEnd);

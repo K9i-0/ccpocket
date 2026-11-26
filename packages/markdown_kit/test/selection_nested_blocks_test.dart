@@ -168,22 +168,16 @@ void _onDesktop(
 
 const _samples = <String, String>{
   'list in quote': '> intro line\n>\n> - first item\n> - second item\n',
-  'fence in quote':
-      '> before\n>\n> ```dart\n> final x = 1;\n> print(x);\n> ```\n>\n> after\n',
-  'alert with list and fence':
-      '> [!NOTE]\n> Heads up\n>\n> - one\n> - two\n>\n> ```\n> code line\n> ```\n',
+  'fence in quote': '> before\n>\n> ```dart\n> final x = 1;\n> print(x);\n> ```\n>\n> after\n',
+  'alert with list and fence': '> [!NOTE]\n> Heads up\n>\n> - one\n> - two\n>\n> ```\n> code line\n> ```\n',
   'quote in quote': '> outer\n>\n> > inner one\n> > inner two\n>\n> tail\n',
-  'nested lists':
-      '- top one\n  - mid one\n    - deep one\n    - deep two\n  - mid two\n- top two\n',
-  'ordered list with paragraph and fence':
-      '1. first\n\n   continued paragraph\n\n   ```\n   in item\n   ```\n2. second\n',
+  'nested lists': '- top one\n  - mid one\n    - deep one\n    - deep two\n  - mid two\n- top two\n',
+  'ordered list with paragraph and fence': '1. first\n\n   continued paragraph\n\n   ```\n   in item\n   ```\n2. second\n',
   'task list': '- [x] done item\n- [ ] open item\n  - [ ] child item\n',
   'quote in list': '- item\n\n  > quoted in item\n\n- other\n',
   'table': '| Name | Value |\n|---|---|\n| alpha | 1 |\n| beta | 2 |\n',
-  'table with inline formatting':
-      '| Key | Note |\n|---|---|\n| `code` | **bold** text |\n| [link](https://x.example) | plain |\n',
-  'open details':
-      '<details open>\n<summary>Summary line</summary>\n\nbody paragraph\n\n- body item\n\n</details>\n',
+  'table with inline formatting': '| Key | Note |\n|---|---|\n| `code` | **bold** text |\n| [link](https://x.example) | plain |\n',
+  'open details': '<details open>\n<summary>Summary line</summary>\n\nbody paragraph\n\n- body item\n\n</details>\n',
 };
 
 final _separators = RegExp(r'^[\n\t]*$');
