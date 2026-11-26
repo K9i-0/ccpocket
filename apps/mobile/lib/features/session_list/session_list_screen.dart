@@ -2523,7 +2523,9 @@ class _SessionListScreenState extends State<SessionListScreen>
               pinnedProjectPaths: slState.pinnedProjectPaths,
               searchQuery: slState.searchQuery,
               isLoadingMore: slState.isLoadingMore,
-              isInitialLoading: slState.isInitialLoading,
+              isInitialLoading:
+                  widget.debugRecentSessions == null &&
+                  slState.isInitialLoading,
               hasMoreSessions: slState.hasMore,
               archivingSessionIds: _archiveRequests.pendingSessionIds,
               unseenSessionIds: unseenSessionIds,
