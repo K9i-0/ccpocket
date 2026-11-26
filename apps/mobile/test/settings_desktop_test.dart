@@ -1015,14 +1015,14 @@ void main() {
           connected: true,
           fakeLastUrl: 'ws://localhost:8765',
         );
-        // Halfway through the window, so the pace is reliable.
+        // 80% of the window has elapsed, so the pace is reliable.
         bridge.fakeUsageProviders = [
           UsageInfo(
             provider: 'codex',
             fiveHour: UsageWindow(
               utilization: 40,
               resetsAt: DateTime.now()
-                  .add(const Duration(hours: 2, minutes: 30))
+                  .add(const Duration(hours: 1))
                   .toUtc()
                   .toIso8601String(),
             ),
@@ -1079,8 +1079,8 @@ void main() {
           findsOneWidget,
         );
         expect(find.byType(UsageSection), findsOneWidget);
-        // The full-size bar marks where linear usage would be now, at the
-        // middle of the bar for a half-elapsed window.
+        // The full-size bar marks where linear usage would be now: 20% left
+        // in the default remaining mode.
         final marker = find.byKey(const ValueKey('usage_expected_marker'));
         expect(marker, findsOneWidget);
         final barRect = tester.getRect(
@@ -1088,7 +1088,7 @@ void main() {
         );
         expect(
           tester.getCenter(marker).dx,
-          moreOrLessEquals(barRect.center.dx, epsilon: 2),
+          moreOrLessEquals(barRect.left + barRect.width * 0.2, epsilon: 2),
         );
 
         await settingsCubit.close();
