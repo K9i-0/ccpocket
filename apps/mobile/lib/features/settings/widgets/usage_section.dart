@@ -933,10 +933,13 @@ class _CompactWindowRow extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               SizedBox(
-                width: 38,
+                // Wide enough for "100%" in the system UI font.
+                width: 46,
                 child: Text(
                   '${shown.round()}%',
                   textAlign: TextAlign.end,
+                  maxLines: 1,
+                  softWrap: false,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
