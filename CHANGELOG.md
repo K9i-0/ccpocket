@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.188.0] - 2026-11-27
+
+### Added
+
+- Stopping a session from the session list now asks for confirmation when the session is still working, waiting for your input, or has background tasks running. Idle sessions stop immediately as before.
+
+### Changed
+
+- Gallery moved into Settings as its own category; the gallery button is gone from the session list header and the bridge menu.
+- Running sessions: the stop button in the session card header is now always tinted red so it is easier to find.
+- Session cards, the answered-question bubble in chat, and the tool suggestion card now share the same colors and layout as the chat approval UI.
+
 ## [1.187.1] - 2026-11-27
 
 ### Fixed
