@@ -430,6 +430,119 @@ void main() {
     );
   }
 
+  testWidgets(
+    'long-press on the trailing half of the last glyph of a wrapped line stays on that glyph',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      final controller = MarkdownSelectionController();
+      addTearDown(controller.dispose);
+      const jp = '今日は天気がいいので散歩に行きましょうそして買い物もします';
+
+      await tester.pumpWidget(
+        _testApp(
+          child: MarkdownSelectionScope(
+            controller: controller,
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: 200,
+                child: MarkdownView(
+                  data: '',
+                  document: _doc([jp]),
+                  documentId: 'doc',
+                  theme: MarkdownThemeData.fallback(),
+                  shrinkWrap: true,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final paragraph = _paragraph(tester, '今日');
+      Rect boxAt(int index) => paragraph
+          .getBoxesForSelection(
+            TextSelection(baseOffset: index, extentOffset: index + 1),
+          )
+          .first
+          .toRect();
+      final firstLineTop = boxAt(0).top;
+      var lastOnFirstLine = 0;
+      while (boxAt(lastOnFirstLine + 1).top == firstLineTop) {
+        lastOnFirstLine++;
+      }
+      expect(lastOnFirstLine, lessThan(jp.length - 2), reason: 'must wrap');
+
+      final box = boxAt(lastOnFirstLine);
+      await _longPress(
+        tester,
+        paragraph.localToGlobal(
+          Offset(box.left + box.width * 0.75, box.center.dy),
+        ),
+      );
+      final selection = controller.normalizedSelection!;
+      expect(
+        selection.start.offset <= lastOnFirstLine &&
+            selection.end.offset >= lastOnFirstLine + 1,
+        isTrue,
+        reason:
+            'pressed glyph $lastOnFirstLine, selected '
+            '${selection.start.offset}..${selection.end.offset}',
+      );
+    },
+  );
+
+  testWidgets(
+    'long-press on the trailing half of an emoji selects the whole emoji',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      final controller = MarkdownSelectionController();
+      addTearDown(controller.dispose);
+      const family = '👨‍👩‍👧';
+      const text = 'ab $family cd 😀 ef';
+
+      await tester.pumpWidget(
+        _testApp(
+          child: MarkdownSelectionScope(
+            controller: controller,
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: MarkdownView(
+                data: '',
+                document: _doc([text]),
+                documentId: 'doc',
+                theme: MarkdownThemeData.fallback(),
+                shrinkWrap: true,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final paragraph = _paragraph(tester, 'ab');
+      for (final emoji in [family, '😀']) {
+        final start = text.indexOf(emoji);
+        final boxes = paragraph.getBoxesForSelection(
+          TextSelection(baseOffset: start, extentOffset: start + emoji.length),
+        );
+        final box = boxes.last.toRect();
+        await _longPress(
+          tester,
+          paragraph.localToGlobal(
+            Offset(box.left + box.width * 0.75, box.center.dy),
+          ),
+        );
+        expect(controller.getText(), emoji);
+        controller.clear();
+        await tester.pump();
+      }
+    },
+  );
+
   // ---------------------------------------------------------------------------
   // BUG 5 (low, desktop keyboard only): selection_controller.dart:1449-1457.
   // _isWordCodeUnit treats every code unit >= 0x80 as a word character, so

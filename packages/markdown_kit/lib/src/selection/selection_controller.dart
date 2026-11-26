@@ -340,14 +340,23 @@ class MarkdownSelectionController extends ChangeNotifier {
     // the pointer is on its trailing half. The word lookup wants the glyph
     // under the pointer, so step back onto it.
     if (localOffset > 0) {
-      final caret = surface.globalRectForLocalOffset(localOffset);
-      if (caret != null &&
-          global.dy >= caret.top &&
-          global.dy <= caret.bottom) {
+      // At a soft wrap the same offset has two carets: the start of the next
+      // line (downstream) and the end of the pressed line (upstream).
+      for (final affinity in TextAffinity.values.reversed) {
+        final caret = surface.globalRectForLocalOffset(
+          localOffset,
+          affinity: affinity,
+        );
+        if (caret == null ||
+            global.dy < caret.top ||
+            global.dy > caret.bottom) {
+          continue;
+        }
         final pointerIsBeforeCaret = surface.textDirection == TextDirection.ltr
             ? global.dx < caret.left
             : global.dx > caret.right;
         if (pointerIsBeforeCaret) localOffset -= 1;
+        break;
       }
     }
     final wordRange = surface.wordRangeAtLocal(localOffset);
