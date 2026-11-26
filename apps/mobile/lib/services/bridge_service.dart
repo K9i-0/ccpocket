@@ -971,8 +971,7 @@ class BridgeService implements BridgeServiceBase {
   final Duration legacyWorktreeRemoveRequestTimeout;
 
   /// Opens the Bridge socket. Tests inject an in-memory channel here so the
-  /// real service logic runs against a fixture Bridge (see
-  /// docs/reflex-prototype.md).
+  /// real service logic runs against a fixture Bridge.
   final WebSocketChannel Function(Uri uri) _channelFactory;
 
   Future<void>? _offlineQueueRestore;

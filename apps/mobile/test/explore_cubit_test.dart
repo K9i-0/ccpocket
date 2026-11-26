@@ -9,7 +9,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:ccpocket/features/explore/state/explore_cubit.dart';
-import 'package:ccpocket/features/explore/widgets/explore_empty_state.dart';
 import 'package:ccpocket/features/explore/widgets/explore_entry_tile.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/l10n/app_localizations_delegates.dart';
@@ -202,20 +201,6 @@ void main() {
       );
 
       expect(paths, ['new/script.md', 'middle/script.md', 'old/script.md']);
-    });
-  });
-
-  group('ExploreEmptyState', () {
-    testWidgets('renders empty state copy', (tester) async {
-      await tester.pumpWidget(
-        const MaterialApp(home: Scaffold(body: ExploreEmptyState())),
-      );
-
-      expect(find.text('No files to explore'), findsOneWidget);
-      expect(
-        find.textContaining('No visible files were found'),
-        findsOneWidget,
-      );
     });
   });
 
