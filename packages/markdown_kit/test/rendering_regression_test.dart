@@ -192,6 +192,36 @@ void main() {
   );
 
   testWidgets(
+    'table: a baseline-aligned inline widget in a cell lays out without asserting',
+    (tester) async {
+      await tester.pumpWidget(
+        _app(
+          size: const Size(320, 600),
+          child: MarkdownView(
+            data: '| Name | Colour |\n|---|---|\n| Primary | `#FF5733` |',
+            builders: MarkdownBuilders(
+              inlineCodeBuilder: (context, code, style, codeStyle) => TextSpan(
+                children: [
+                  const WidgetSpan(
+                    alignment: PlaceholderAlignment.baseline,
+                    baseline: TextBaseline.alphabetic,
+                    child: SizedBox(width: 12, height: 12),
+                  ),
+                  TextSpan(text: code, style: style),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(_drainExceptions(tester), isEmpty);
+      expect(find.text('#FF5733', findRichText: true), findsNothing);
+      expect(find.textContaining('#FF5733', findRichText: true), findsWidgets);
+    },
+  );
+
+  testWidgets(
     'table: image chip in a cell is not squeezed to the 48px placeholder width',
     (tester) async {
       await tester.pumpWidget(

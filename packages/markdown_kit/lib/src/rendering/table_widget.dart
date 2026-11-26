@@ -314,9 +314,13 @@ class MarkdownTableWidget extends StatelessWidget {
       painter.setPlaceholderDimensions(
         List<PlaceholderDimensions>.filled(
           placeholderCount,
+          // The baseline is required whenever the span itself is
+          // baseline-aligned; without it the engine asserts in debug builds.
           const PlaceholderDimensions(
             size: Size(48.0, 20.0),
             alignment: PlaceholderAlignment.middle,
+            baseline: TextBaseline.alphabetic,
+            baselineOffset: 16.0,
           ),
         ),
       );
