@@ -48,7 +48,6 @@ dependencies:
   flutter_local_notifications: ^22.3.3
   markdown_kit:
     path: ../../packages/markdown_kit
-  google_fonts: ^9.0.0
   mobile_scanner: ^7.1.4
   app_links: ^7.2.2
   speech_to_text: ^7.5.0

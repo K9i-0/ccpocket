@@ -1,8 +1,7 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 // ---------------------------------------------------------------------------
-// AppTheme: Graphite & Ember design system (Space Grotesk + IBM Plex Sans)
+// AppTheme: Graphite & Ember design system
 //
 // Restrained, modern developer-tool palette. Clean neutral Zinc/Graphite
 // surfaces with subtle hairline borders and focused Ember primary accent —
@@ -319,92 +318,88 @@ class AppTheme {
   }
 
   static TextTheme _buildTextTheme(ColorScheme colorScheme, {Locale? locale}) {
-    final baseTextTheme = GoogleFonts.ibmPlexSansTextTheme();
-
-    // Headlines: Space Grotesk — geometric, distinctive, avoids generic Poppins
-    // Body/Labels: IBM Plex Sans — professional & readable, avoids generic Inter
-    final textTheme = baseTextTheme.copyWith(
-      displayLarge: GoogleFonts.spaceGrotesk(
+    final textTheme = TextTheme(
+      displayLarge: TextStyle(
         fontSize: 57,
         fontWeight: FontWeight.w700,
         letterSpacing: -0.5,
         color: colorScheme.onSurface,
       ),
-      displayMedium: GoogleFonts.spaceGrotesk(
+      displayMedium: TextStyle(
         fontSize: 45,
         fontWeight: FontWeight.w700,
         letterSpacing: -0.25,
         color: colorScheme.onSurface,
       ),
-      displaySmall: GoogleFonts.spaceGrotesk(
+      displaySmall: TextStyle(
         fontSize: 36,
         fontWeight: FontWeight.w600,
         color: colorScheme.onSurface,
       ),
-      headlineLarge: GoogleFonts.spaceGrotesk(
+      headlineLarge: TextStyle(
         fontSize: 32,
         fontWeight: FontWeight.w700,
         letterSpacing: -0.25,
         color: colorScheme.onSurface,
       ),
-      headlineMedium: GoogleFonts.spaceGrotesk(
+      headlineMedium: TextStyle(
         fontSize: 28,
         fontWeight: FontWeight.w600,
         color: colorScheme.onSurface,
       ),
-      headlineSmall: GoogleFonts.spaceGrotesk(
+      headlineSmall: TextStyle(
         fontSize: 24,
         fontWeight: FontWeight.w600,
         color: colorScheme.onSurface,
       ),
-      titleLarge: GoogleFonts.ibmPlexSans(
+      titleLarge: TextStyle(
         fontSize: 22,
         fontWeight: FontWeight.w600,
         color: colorScheme.onSurface,
       ),
-      titleMedium: GoogleFonts.ibmPlexSans(
+      titleMedium: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.15,
         color: colorScheme.onSurface,
       ),
-      titleSmall: GoogleFonts.ibmPlexSans(
+      titleSmall: TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.1,
         color: colorScheme.onSurface,
       ),
-      bodyLarge: GoogleFonts.ibmPlexSans(
+      bodyLarge: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.w400,
         letterSpacing: 0.25,
         color: colorScheme.onSurface,
       ),
-      bodyMedium: GoogleFonts.ibmPlexSans(
+      bodyMedium: TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.w400,
         letterSpacing: 0.15,
         color: colorScheme.onSurface,
       ),
-      bodySmall: GoogleFonts.ibmPlexSans(
+      bodySmall: TextStyle(
         fontSize: 12,
         fontWeight: FontWeight.w400,
         letterSpacing: 0.25,
         color: colorScheme.onSurfaceVariant,
       ),
-      labelLarge: GoogleFonts.ibmPlexSans(
+      labelLarge: TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.1,
         color: colorScheme.onSurface,
       ),
-      labelMedium: GoogleFonts.ibmPlexSans(
+      labelMedium: TextStyle(
         fontSize: 12,
         fontWeight: FontWeight.w500,
         letterSpacing: 0.4,
         color: colorScheme.onSurface,
       ),
-      labelSmall: GoogleFonts.ibmPlexSans(
+      labelSmall: TextStyle(
         fontSize: 11,
         fontWeight: FontWeight.w500,
         letterSpacing: 0.4,

@@ -1,11 +1,9 @@
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:material_ui/material_ui.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  GoogleFonts.config.allowRuntimeFetching = false;
 
   group('AppColors equality and hashCode', () {
     test('equal instances compare equal and share the same hashCode', () {
@@ -106,6 +104,24 @@ void main() {
         equals(AppTheme.darkThemeForLocale(const Locale('zh'))),
       );
       expect(AppTheme.lightTheme, isNot(equals(AppTheme.darkTheme)));
+    });
+
+    test('uses platform system fonts by default and applies zh fallback for zh locale', () {
+      final platformFont = ThemeData(useMaterial3: true)
+          .textTheme
+          .bodyMedium
+          ?.fontFamily;
+      final defaultTheme = AppTheme.lightTheme;
+      expect(defaultTheme.textTheme.bodyMedium?.fontFamily, platformFont);
+      expect(defaultTheme.textTheme.headlineSmall?.fontFamily, platformFont);
+      expect(defaultTheme.textTheme.bodyMedium?.fontFamilyFallback, isNull);
+
+      final zhTheme = AppTheme.lightThemeForLocale(const Locale('zh'));
+      expect(zhTheme.textTheme.bodyMedium?.fontFamily, platformFont);
+      expect(
+        zhTheme.textTheme.bodyMedium?.fontFamilyFallback,
+        containsAll(['Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC']),
+      );
     });
   });
 }

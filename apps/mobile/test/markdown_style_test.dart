@@ -2,7 +2,6 @@ import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/theme/markdown_style.dart';
 import 'package:ccpocket/widgets/markdown/ccpocket_markdown.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:markdown_kit/markdown_kit.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -184,14 +183,9 @@ void main() {
 
           final strongSpan = _findTextSpan(richText.text, 'strong_text');
           final baseStyle = theme.textTheme.bodyMedium!;
-          final expectedStrongStyle = GoogleFonts.ibmPlexSans(
-            textStyle: baseStyle,
-            fontWeight: FontWeight.w700,
-          );
           expect(strongSpan, isNotNull);
           expect(strongSpan!.style?.fontWeight, FontWeight.w700);
-          expect(strongSpan.style?.fontFamily, expectedStrongStyle.fontFamily);
-          expect(strongSpan.style?.fontFamily, isNot(baseStyle.fontFamily));
+          expect(strongSpan.style?.fontFamily, baseStyle.fontFamily);
 
           final emphasisSpan = _findTextSpan(richText.text, 'em_text');
           expect(emphasisSpan, isNotNull);

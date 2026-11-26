@@ -844,14 +844,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.0"
-  google_fonts:
-    dependency: "direct main"
-    description:
-      name: google_fonts
-      sha256: fdbbfbbb1a62f376ab29fa9627561d389751fb984da0b630ce3326e272911c8a
-      url: "https://pub.dev"
-    source: hosted
-    version: "9.0.0"
   graphs:
     dependency: transitive
     description:

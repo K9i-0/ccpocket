@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:highlight/highlight.dart' as hl;
 import 'package:markdown_kit/markdown_kit.dart';
 import 'package:material_ui/material_ui.dart';
@@ -155,10 +154,7 @@ MarkdownThemeData buildMarkdownTheme(BuildContext context) {
     h4Style: theme.textTheme.bodyLarge ?? defaultPalette.h4Style,
     h5Style: theme.textTheme.bodyLarge ?? defaultPalette.h5Style,
     h6Style: theme.textTheme.bodyLarge ?? defaultPalette.h6Style,
-    strongStyle: GoogleFonts.ibmPlexSans(
-      textStyle: baseStyle,
-      fontWeight: FontWeight.w700,
-    ),
+    strongStyle: baseStyle.copyWith(fontWeight: FontWeight.w700),
     emphasisStyle: const TextStyle(fontStyle: FontStyle.italic),
     strikethroughStyle: const TextStyle(decoration: TextDecoration.lineThrough),
     underlineStyle: const TextStyle(decoration: TextDecoration.underline),
