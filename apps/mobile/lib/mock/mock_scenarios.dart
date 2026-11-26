@@ -72,6 +72,7 @@ final List<MockScenario> mockScenarios = [
   _longStreamingMarkdown,
   _markdownCodeBlocks,
   _markdownMixedContent,
+  _markdownStress,
   _thinkingBlock,
   _planMode,
   _subagentSummary,
@@ -1477,6 +1478,78 @@ final _markdownMixedContent = MockScenario(
                   '```sh\n'
                   'echo "sh should display as bash"\n'
                   '```\n',
+            ),
+          ],
+          model: 'claude-sonnet-4-20250514',
+        ),
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1300),
+      message: const StatusMessage(status: ProcessStatus.idle),
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// 4d. Markdown Stress
+// ---------------------------------------------------------------------------
+final _markdownStress = MockScenario(
+  name: 'Markdown Stress',
+  icon: Icons.rule_folder_outlined,
+  description:
+      'Alerts, details, nested lists, footnotes, math, HTML, CJK and emoji',
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 250),
+      message: const StatusMessage(status: ProcessStatus.running),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 750),
+      message: AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-markdown-stress-1',
+          role: 'assistant',
+          content: [
+            const TextContent(
+              text:
+                  '# 見出し1 Heading 👨‍👩‍👧\n\n'
+                  '日本語の長い段落です。空白のない文章で折り返しと単語選択を確かめます。'
+                  '**太字**、*斜体*、~~取り消し~~、`inline code`、'
+                  '[リンク](https://example.com/a/very/long/path/that/should/wrap/inside/the/bubble/without/overflowing)。\n\n'
+                  '> [!NOTE]\n'
+                  '> アラートの本文。`code` と **bold** を含む。\n\n'
+                  '> [!WARNING]\n'
+                  '> | --- | :-: |\n\n'
+                  '> [!NOTE]\n'
+                  '| --- | :-: |\n\n'
+                  '1. 手順その一\n'
+                  '   - 入れ子の箇条書き\n'
+                  '     1. さらに深い項目\n'
+                  '   - [x] 完了したタスク\n'
+                  '   - [ ] 未完了のタスク\n'
+                  '2. 手順その二\n\n'
+                  '   ```dart\n'
+                  '   final veryLongLine = "this line is intentionally long so the code block has to scroll horizontally";\n'
+                  '   ```\n\n'
+                  '10. 二桁の番号\n\n'
+                  '<details>\n<summary>折りたたみ <b>summary</b></summary>\n\n'
+                  '中身の段落。\n\n- 中のリスト\n\n</details>\n\n'
+                  '| 列A | とても長い見出しの列B | C |\n'
+                  '|:--|:-:|--:|\n'
+                  '| `a` | 改行を含まない長いセルの内容がここに入ります | 1 |\n'
+                  '| | 空セルの隣 | 22 |\n\n'
+                  r'インライン数式 \(E = mc^2\) と通貨 $5 and $10。'
+                  '\n\n'
+                  r'\[ \frac{a}{b} + \alpha^2 \]'
+                  '\n\n'
+                  '脚注つきの文[^1]。H<sub>2</sub>O、x<sup>2</sup>、<kbd>Ctrl</kbd>+<kbd>C</kbd>、<u>下線</u>。<br>改行タグの後。\n\n'
+                  '<!-- この行は表示されない -->\n\n'
+                  '<div align="center">\n\nセンタリング用の div\n\n</div>\n\n'
+                  '---\n\n'
+                  '`#FF5733` `lib/main.dart` http://localhost:3000/path\n\n'
+                  'averyveryveryveryveryveryveryveryveryveryveryveryveryveryverylongunbrokenwordthatcannotwrapnormally\n\n'
+                  '[^1]: 脚注の本文。\n',
             ),
           ],
           model: 'claude-sonnet-4-20250514',
