@@ -336,7 +336,7 @@ class _SwarmPostHeader extends StatelessWidget {
           key: ValueKey('swarm_post_icon_$seq'),
           isCoordinator: summary.isCoordinator,
           index: summary.agentIndex,
-          size: summary.isCoordinator ? 14 : 16,
+          size: 16,
           color: iconAccent,
         ),
         const SizedBox(width: 5),
@@ -367,7 +367,7 @@ class _SwarmPostHeader extends StatelessWidget {
                   radius: 4,
                   plainColor: cs.surfaceContainerHighest.withValues(alpha: 0.7),
                   fontSize: 10.5,
-                  iconSize: summary.isCoordinatorTarget ? 11 : 12.5,
+                  iconSize: 12.5,
                 ),
               ],
               if (summary.seqLabel != null) ...[
@@ -634,7 +634,7 @@ class _SwarmPostDetailSheet extends StatelessWidget {
                 SwarmMemberIcon(
                   isCoordinator: summary.isCoordinator,
                   index: summary.agentIndex,
-                  size: summary.isCoordinator ? 18 : 20,
+                  size: 20,
                   color: iconAccent,
                 ),
                 const SizedBox(width: 8),
@@ -662,7 +662,7 @@ class _SwarmPostDetailSheet extends StatelessWidget {
                           radius: 6,
                           plainColor: cs.surfaceContainerHighest,
                           fontSize: 12,
-                          iconSize: summary.isCoordinatorTarget ? 13 : 14.5,
+                          iconSize: 14.5,
                         ),
                       if (summary.seqLabel != null)
                         Text(

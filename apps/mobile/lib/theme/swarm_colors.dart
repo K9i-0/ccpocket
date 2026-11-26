@@ -94,6 +94,9 @@ Color swarmMemberIconColor(
   return swarmWorkerIconColor(theme.brightness, index);
 }
 
+/// Asset path of the monochrome creature mark for the swarm coordinator.
+const swarmCoordinatorIconAsset = 'assets/icons/swarm_octopus.svg';
+
 /// Asset paths of the monochrome creature marks for numbered swarm workers,
 /// paired 1:1 with [swarmWorkerColorsLight] and [swarmWorkerColorsDark].
 const swarmWorkerIconAssets = <String>[
@@ -112,9 +115,10 @@ const swarmWorkerIconAssets = <String>[
 String swarmWorkerIconAsset(int index) =>
     swarmWorkerIconAssets[index % swarmWorkerIconAssets.length];
 
-/// Icon for a swarm member: a hub for the coordinator, a fixed monochrome
-/// creature SVG matched to the member's palette slot for numbered workers,
-/// and the legacy robot icon when an older Bridge sends no worker index.
+/// Icon for a swarm member: an octopus SVG for the coordinator, a fixed
+/// monochrome creature SVG matched to the member's palette slot for numbered
+/// workers, and the legacy robot icon when an older Bridge sends no worker
+/// index.
 class SwarmMemberIcon extends StatelessWidget {
   final bool isCoordinator;
   final int? index;
@@ -138,15 +142,18 @@ class SwarmMemberIcon extends StatelessWidget {
           isCoordinator: isCoordinator,
           index: index,
         );
+    final String asset;
     if (isCoordinator) {
-      return Icon(Icons.hub_outlined, size: size, color: resolvedColor);
-    }
-    final workerIndex = index;
-    if (workerIndex == null || workerIndex < 0) {
-      return Icon(Icons.smart_toy_outlined, size: size, color: resolvedColor);
+      asset = swarmCoordinatorIconAsset;
+    } else {
+      final workerIndex = index;
+      if (workerIndex == null || workerIndex < 0) {
+        return Icon(Icons.smart_toy_outlined, size: size, color: resolvedColor);
+      }
+      asset = swarmWorkerIconAsset(workerIndex);
     }
     return SvgPicture.asset(
-      swarmWorkerIconAsset(workerIndex),
+      asset,
       width: size,
       height: size,
       colorFilter: ColorFilter.mode(resolvedColor, BlendMode.srcIn),

@@ -132,12 +132,13 @@ void main() {
     expect(swarmWorkerIconAssets.toSet(), hasLength(n));
     expect(swarmWorkerIconAsset(0), swarmWorkerIconAssets[0]);
     expect(swarmWorkerIconAsset(n + 3), swarmWorkerIconAssets[3]);
-    for (final asset in swarmWorkerIconAssets) {
+    for (final asset in [swarmCoordinatorIconAsset, ...swarmWorkerIconAssets]) {
       expect(
         File(asset).existsSync(),
         isTrue,
         reason: 'missing SVG asset: $asset',
       );
     }
+    expect(swarmWorkerIconAssets, isNot(contains(swarmCoordinatorIconAsset)));
   });
 }

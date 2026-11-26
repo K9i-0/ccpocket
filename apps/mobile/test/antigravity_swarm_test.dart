@@ -60,12 +60,15 @@ void main() {
       expect(find.byType(SwarmPostCard), findsOneWidget);
       expect(find.text('writer_a'), findsOneWidget);
       expect(find.text('@coordinator'), findsOneWidget);
-      expect(
+      final targetCoordinatorSvg = tester.widget<SvgPicture>(
         find.descendant(
           of: find.byKey(const ValueKey('swarm_post_target_icon_2')),
-          matching: find.byIcon(Icons.hub_outlined),
+          matching: find.byType(SvgPicture),
         ),
-        findsOneWidget,
+      );
+      expect(
+        (targetCoordinatorSvg.bytesLoader as SvgAssetLoader).assetName,
+        swarmCoordinatorIconAsset,
       );
       expect(find.text('#2'), findsOneWidget);
       expect(find.text('20:51'), findsOneWidget);
@@ -161,20 +164,17 @@ void main() {
     expect(colorOf('swarm_post_agent_4'), scheme.tertiary);
     expect(colorOf('swarm_post_target_4'), scheme.onSurfaceVariant);
 
-    // Coordinator keeps the hub icon, numbered workers get fixed creature SVGs,
-    // and unnumbered workers fall back to the legacy robot icon.
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('swarm_post_icon_1')),
-        matching: find.byIcon(Icons.hub_outlined),
-      ),
-      findsOneWidget,
-    );
+    // Coordinator gets the octopus SVG, numbered workers get fixed creature
+    // SVGs, and unnumbered workers fall back to the legacy robot icon.
     SvgPicture svgOf(String key) => tester.widget<SvgPicture>(
       find.descendant(
         of: find.byKey(ValueKey(key)),
         matching: find.byType(SvgPicture),
       ),
+    );
+    expect(
+      (svgOf('swarm_post_icon_1').bytesLoader as SvgAssetLoader).assetName,
+      swarmCoordinatorIconAsset,
     );
     expect(
       (svgOf('swarm_post_icon_2').bytesLoader as SvgAssetLoader).assetName,
@@ -199,11 +199,9 @@ void main() {
       swarmWorkerIconAssets[1],
     );
     expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('swarm_post_target_icon_2')),
-        matching: find.byIcon(Icons.hub_outlined),
-      ),
-      findsOneWidget,
+      (svgOf('swarm_post_target_icon_2').bytesLoader as SvgAssetLoader)
+          .assetName,
+      swarmCoordinatorIconAsset,
     );
     expect(
       (svgOf('swarm_post_target_icon_3').bytesLoader as SvgAssetLoader)
