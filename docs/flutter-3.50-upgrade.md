@@ -22,6 +22,9 @@ them as different types. Three consequences:
   `package:flutter/material.dart` (see `test/markdown_style_test.dart`).
   `MarkdownStyleSheet.fromTheme` takes the legacy `ThemeData`, so
   `lib/theme/markdown_style.dart` builds the same defaults itself.
+  *(Note: `flutter_markdown` was later replaced by the in-repo
+  `packages/markdown_kit` package built solely on `package:flutter/widgets.dart`;
+  see [markdown-kit-architecture.md](markdown-kit-architecture.md).)*
 - **Localization delegates.** gen-l10n still emits the `flutter_localizations`
   delegates in `AppLocalizations.localizationsDelegates`; they do not localize
   `material_ui` widgets. Use `appLocalizationsDelegates`

@@ -18,6 +18,36 @@ jobs:
           python3 -m unittest discover -s scripts/store-review/apps -p 'test_*.py'
           ruby scripts/store-review/apps/test_commit.rb
 
+  markdown-kit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Read Flutter version from .mise.toml
+        id: mise
+        run: echo "flutter_version=$(grep 'flutter' .mise.toml | sed 's/.*= *\"//' | sed 's/\"//')" >> "$GITHUB_OUTPUT"
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ steps.mise.outputs.flutter_version }}
+          cache: true
+      - run: flutter pub get
+        working-directory: packages/markdown_kit
+      - name: Check markdown_kit formatting
+        run: dart format --output=none --set-exit-if-changed .
+        working-directory: packages/markdown_kit
+      - name: Analyze markdown_kit
+        run: dart analyze .
+        working-directory: packages/markdown_kit
+      - name: Restore markdown_kit test cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: packages/markdown_kit/build/test_cache
+          key: ${{ runner.os }}-markdown-kit-test-${{ hashFiles('.mise.toml', 'packages/markdown_kit/pubspec.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-markdown-kit-test-${{ hashFiles('.mise.toml', 'packages/markdown_kit/pubspec.yaml') }}-
+      - name: Run markdown_kit tests
+        run: flutter test --no-pub
+        working-directory: packages/markdown_kit
+
   mobile-analyze:
     runs-on: ubuntu-latest
     steps:
@@ -124,9 +154,9 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: apps/mobile/build/test_cache
-          key: ${{ runner.os }}-flutter-test-${{ env.TOTAL_SHARDS }}-${{ matrix.shard }}-${{ hashFiles('.mise.toml', 'apps/mobile/pubspec.lock') }}-${{ github.sha }}
+          key: ${{ runner.os }}-flutter-test-${{ env.TOTAL_SHARDS }}-${{ matrix.shard }}-${{ hashFiles('.mise.toml', 'apps/mobile/pubspec.lock', 'packages/markdown_kit/pubspec.yaml') }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-flutter-test-${{ env.TOTAL_SHARDS }}-${{ matrix.shard }}-${{ hashFiles('.mise.toml', 'apps/mobile/pubspec.lock') }}-
+            ${{ runner.os }}-flutter-test-${{ env.TOTAL_SHARDS }}-${{ matrix.shard }}-${{ hashFiles('.mise.toml', 'apps/mobile/pubspec.lock', 'packages/markdown_kit/pubspec.yaml') }}-
       - name: Run Flutter test shard
         shell: bash
         working-directory: apps/mobile
@@ -147,15 +177,17 @@ jobs:
   mobile:
     name: mobile
     if: always()
-    needs: [mobile-analyze, mobile-smoke, mobile-test]
+    needs: [markdown-kit, mobile-analyze, mobile-smoke, mobile-test]
     runs-on: ubuntu-latest
     steps:
       - name: Verify mobile jobs
         env:
+          MARKDOWN_KIT_RESULT: ${{ needs.markdown-kit.result }}
           ANALYZE_RESULT: ${{ needs.mobile-analyze.result }}
           SMOKE_RESULT: ${{ needs.mobile-smoke.result }}
           TEST_RESULT: ${{ needs.mobile-test.result }}
         run: |
+          test "$MARKDOWN_KIT_RESULT" = success
           test "$ANALYZE_RESULT" = success
           test "$SMOKE_RESULT" = success
           test "$TEST_RESULT" = success
@@ -212,7 +244,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}\pub-cache
-          key: ${{ runner.os }}-pub-${{ hashFiles('.mise.toml', 'apps/mobile/pubspec.lock') }}
+          key: ${{ runner.os }}-pub-${{ hashFiles('.mise.toml', 'apps/mobile/pubspec.lock', 'packages/markdown_kit/pubspec.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pub-
       - name: Enable Windows desktop
@@ -223,9 +255,9 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: apps/mobile/build/test_cache
-          key: ${{ runner.os }}-flutter-test-host-io-${{ hashFiles('.mise.toml', 'apps/mobile/pubspec.lock') }}-${{ github.sha }}
+          key: ${{ runner.os }}-flutter-test-host-io-${{ hashFiles('.mise.toml', 'apps/mobile/pubspec.lock', 'packages/markdown_kit/pubspec.yaml') }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-flutter-test-host-io-${{ hashFiles('.mise.toml', 'apps/mobile/pubspec.lock') }}-
+            ${{ runner.os }}-flutter-test-host-io-${{ hashFiles('.mise.toml', 'apps/mobile/pubspec.lock', 'packages/markdown_kit/pubspec.yaml') }}-
       - name: Run host-dependent Flutter tests on Windows
         shell: pwsh
         working-directory: apps/mobile

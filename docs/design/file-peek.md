@@ -81,7 +81,7 @@ sh, yml, yaml, json, toml, md, html, css, scss, sql, xml, gradle, dockerfile, ma
 - ヘッダー: ファイル名、フルパス（モノスペース）、コピーボタン、閉じるボタン
 - メタデータ: 行数 + 言語 + truncated表示
 - コンテンツ:
-  - Markdownファイル → `flutter_markdown` でレンダリング
+  - Markdownファイル → `packages/markdown_kit`（`CcpocketSliverMarkdown` / `SliverMarkdownView`、詳細は [markdown-kit-architecture.md](../markdown-kit-architecture.md)）でレンダリング（導入時は `flutter_markdown` を使用）
   - コードファイル → 行番号付き、水平スクロール対応、選択可能テキスト
 - ローディング中: スピナー表示
 - エラー時: アイコン + メッセージ

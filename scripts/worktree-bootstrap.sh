@@ -23,6 +23,7 @@ fi
 caches=(
   node_modules
   packages/bridge/node_modules
+  packages/markdown_kit/.dart_tool
   apps/mobile/.dart_tool
   apps/mobile/android/.gradle
   apps/mobile/ios/Pods
@@ -61,7 +62,14 @@ done
 
 # Point Flutter tooling at this worktree (rewrites absolute paths in
 # .dart_tool/package_config.json and friends without re-downloading).
-if [[ -d "$worktree_root/apps/mobile" ]] && command -v flutter >/dev/null 2>&1; then
-  (cd "$worktree_root/apps/mobile" && flutter pub get --offline >/dev/null 2>&1 \
-    || flutter pub get >/dev/null) && echo "worktree-bootstrap: flutter pub get done"
+if command -v flutter >/dev/null 2>&1; then
+  for flutter_pkg in packages/markdown_kit apps/mobile; do
+    if [[ -d "$worktree_root/$flutter_pkg" ]]; then
+      if (cd "$worktree_root/$flutter_pkg" && { flutter pub get --offline >/dev/null 2>&1 || flutter pub get >/dev/null; }); then
+        echo "worktree-bootstrap: flutter pub get done ($flutter_pkg)"
+      else
+        echo "worktree-bootstrap: warning: flutter pub get failed ($flutter_pkg)" >&2
+      fi
+    fi
+  done
 fi

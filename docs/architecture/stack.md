@@ -27,12 +27,13 @@ operations.
 
 ```text
 ccpocket/
-├── apps/mobile/        # Flutter app for iOS, iPadOS, Android, macOS, Linux, Windows
-├── packages/bridge/    # TypeScript Bridge Server published as @ccpocket/bridge
-├── docs/               # GitHub Pages site and design notes
-├── scripts/            # Release, development, and asset automation
-├── functions/          # Firebase Cloud Functions for push relay support
-└── package.json        # npm workspace root
+├── apps/mobile/             # Flutter app for iOS, iPadOS, Android, macOS, Linux, Windows
+├── packages/bridge/         # TypeScript Bridge Server published as @ccpocket/bridge
+├── packages/markdown_kit/   # Standalone Flutter Markdown AST, renderer, and selection engine
+├── docs/                    # GitHub Pages site and design notes
+├── scripts/                 # Release, development, and asset automation
+├── functions/               # Firebase Cloud Functions for push relay support
+└── package.json             # npm workspace root
 ```
 
 ## Bridge Server
@@ -98,7 +99,9 @@ Core stack:
 - Data models: `freezed`, `json_serializable`
 - WebSocket client: `web_socket_channel`
 - Local storage: `shared_preferences`, `sqflite`, `flutter_secure_storage`
-- Markdown and code rendering: `flutter_markdown`, `markdown`, `highlight`,
+- Markdown and code rendering: `markdown_kit` (`packages/markdown_kit/`, built on
+  `package:flutter/widgets.dart` and `markdown`; see
+  [markdown-kit-architecture.md](../markdown-kit-architecture.md)), `highlight`,
   `syntax_highlight`
 - File/image UX: `image_picker`, `extended_image`, `super_clipboard`,
   `super_drag_and_drop`
@@ -208,6 +211,7 @@ npx tsc --noEmit -p packages/bridge/tsconfig.json
 Flutter:
 
 ```bash
+cd packages/markdown_kit && flutter pub get && dart analyze && flutter test
 cd apps/mobile && flutter pub get
 cd apps/mobile && dart analyze
 cd apps/mobile && flutter test
