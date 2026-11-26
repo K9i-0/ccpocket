@@ -7,10 +7,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:markdown_kit/markdown_kit.dart';
-import 'package:markdown_kit/src/selection/selection_autoscroll.dart';
-import 'package:markdown_kit/src/selection/selection_controller.dart';
-import 'package:markdown_kit/src/selection/selection_handles.dart';
-import 'package:markdown_kit/src/selection/selection_scope.dart';
 
 /// Minimal `RenderParagraph`-backed [MarkdownSelectionSurface] widget used to
 /// exercise real layout, hit-testing, `LeaderLayer` handle tracking, and

@@ -34,6 +34,7 @@ class MarkdownTableWidget extends StatelessWidget {
     this.baseOffsetInBlock = 0,
     this.baseTextStyle,
     this.selectionColor,
+    this.selectable = true,
     this.inlineBuilder,
     this.onSurfaceAttach,
     this.onSurfaceDetach,
@@ -46,6 +47,7 @@ class MarkdownTableWidget extends StatelessWidget {
   final int baseOffsetInBlock;
   final TextStyle? baseTextStyle;
   final Color? selectionColor;
+  final bool selectable;
   final MarkdownCellInlineBuilder? inlineBuilder;
   final ValueChanged<MarkdownSelectionSurface>? onSurfaceAttach;
   final ValueChanged<MarkdownSelectionSurface>? onSurfaceDetach;
@@ -386,8 +388,9 @@ class MarkdownTableWidget extends StatelessWidget {
         textDirection: textDirection,
         selectionColor: selectionColor,
         inlineCodeStyle: theme.inlineCodeStyle,
-        onSurfaceAttach: onSurfaceAttach,
-        onSurfaceDetach: onSurfaceDetach,
+        selectable: selectable,
+        onSurfaceAttach: selectable ? onSurfaceAttach : null,
+        onSurfaceDetach: selectable ? onSurfaceDetach : null,
       );
     }
 

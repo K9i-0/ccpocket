@@ -3,13 +3,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:markdown_kit/markdown_kit.dart';
-import 'package:markdown_kit/src/rendering/block_renderer.dart';
-import 'package:markdown_kit/src/rendering/details_widget.dart';
-import 'package:markdown_kit/src/rendering/list_item_widget.dart';
-import 'package:markdown_kit/src/rendering/markdown_builders.dart';
-import 'package:markdown_kit/src/rendering/markdown_theme.dart';
-import 'package:markdown_kit/src/rendering/selectable_paragraph.dart';
-import 'package:markdown_kit/src/rendering/table_widget.dart';
 
 Widget _wrapApp(
   Widget child, {

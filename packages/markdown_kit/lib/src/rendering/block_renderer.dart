@@ -26,6 +26,7 @@ class MarkdownBlockRenderer extends StatelessWidget {
     this.theme,
     this.builders = const MarkdownBuilders(),
     this.selectionColor,
+    this.selectable = true,
     this.onSurfaceAttach,
     this.onSurfaceDetach,
     this.baseOffsetInBlock = 0,
@@ -39,6 +40,7 @@ class MarkdownBlockRenderer extends StatelessWidget {
   final MarkdownThemeData? theme;
   final MarkdownBuilders builders;
   final Color? selectionColor;
+  final bool selectable;
   final ValueChanged<MarkdownSelectionSurface>? onSurfaceAttach;
   final ValueChanged<MarkdownSelectionSurface>? onSurfaceDetach;
 
@@ -153,8 +155,9 @@ class MarkdownBlockRenderer extends StatelessWidget {
       text: built.span,
       selectionColor: effectiveSelectionColor,
       inlineCodeStyle: effectiveTheme.inlineCodeStyle,
-      onSurfaceAttach: onSurfaceAttach,
-      onSurfaceDetach: onSurfaceDetach,
+      selectable: selectable,
+      onSurfaceAttach: selectable ? onSurfaceAttach : null,
+      onSurfaceDetach: selectable ? onSurfaceDetach : null,
     );
   }
 
@@ -180,8 +183,9 @@ class MarkdownBlockRenderer extends StatelessWidget {
       text: built.span,
       selectionColor: effectiveSelectionColor,
       inlineCodeStyle: effectiveTheme.inlineCodeStyle,
-      onSurfaceAttach: onSurfaceAttach,
-      onSurfaceDetach: onSurfaceDetach,
+      selectable: selectable,
+      onSurfaceAttach: selectable ? onSurfaceAttach : null,
+      onSurfaceDetach: selectable ? onSurfaceDetach : null,
     );
   }
 
@@ -219,8 +223,9 @@ class MarkdownBlockRenderer extends StatelessWidget {
       text: codeSpan,
       selectionColor: effectiveSelectionColor,
       inlineCodeStyle: effectiveTheme.inlineCodeStyle,
-      onSurfaceAttach: onSurfaceAttach,
-      onSurfaceDetach: onSurfaceDetach,
+      selectable: selectable,
+      onSurfaceAttach: selectable ? onSurfaceAttach : null,
+      onSurfaceDetach: selectable ? onSurfaceDetach : null,
     );
 
     final customBuilder = builders.codeBlockBuilder;
@@ -492,10 +497,11 @@ class MarkdownBlockRenderer extends StatelessWidget {
       baseOffsetInBlock: baseOffsetInBlock,
       baseTextStyle: style,
       selectionColor: effectiveSelectionColor,
+      selectable: selectable,
       inlineBuilder: (ctx, inlines, cellStyle) =>
           _buildInlines(ctx, inlines, cellStyle, effectiveTheme),
-      onSurfaceAttach: onSurfaceAttach,
-      onSurfaceDetach: onSurfaceDetach,
+      onSurfaceAttach: selectable ? onSurfaceAttach : null,
+      onSurfaceDetach: selectable ? onSurfaceDetach : null,
     );
   }
 
@@ -523,6 +529,7 @@ class MarkdownBlockRenderer extends StatelessWidget {
       theme: effectiveTheme,
       baseOffsetInBlock: baseOffsetInBlock,
       selectionColor: effectiveSelectionColor,
+      selectable: selectable,
       inlineBuilder: (ctx, inlines, summaryStyle) =>
           _buildInlines(ctx, inlines, summaryStyle, effectiveTheme),
       childBlockBuilder: (ctx, childBlock, offsetInBlock) {
@@ -533,15 +540,16 @@ class MarkdownBlockRenderer extends StatelessWidget {
           theme: effectiveTheme,
           builders: builders,
           selectionColor: effectiveSelectionColor,
-          onSurfaceAttach: onSurfaceAttach,
-          onSurfaceDetach: onSurfaceDetach,
+          selectable: selectable,
+          onSurfaceAttach: selectable ? onSurfaceAttach : null,
+          onSurfaceDetach: selectable ? onSurfaceDetach : null,
           baseOffsetInBlock: offsetInBlock,
           listDepth: listDepth,
           baseTextStyle: style,
         );
       },
-      onSurfaceAttach: onSurfaceAttach,
-      onSurfaceDetach: onSurfaceDetach,
+      onSurfaceAttach: selectable ? onSurfaceAttach : null,
+      onSurfaceDetach: selectable ? onSurfaceDetach : null,
     );
   }
 
@@ -657,8 +665,9 @@ class MarkdownBlockRenderer extends StatelessWidget {
           textAlign: TextAlign.center,
           selectionColor: effectiveSelectionColor,
           inlineCodeStyle: effectiveTheme.inlineCodeStyle,
-          onSurfaceAttach: onSurfaceAttach,
-          onSurfaceDetach: onSurfaceDetach,
+          selectable: selectable,
+          onSurfaceAttach: selectable ? onSurfaceAttach : null,
+          onSurfaceDetach: selectable ? onSurfaceDetach : null,
         ),
       ),
     );
@@ -703,8 +712,9 @@ class MarkdownBlockRenderer extends StatelessWidget {
           theme: effectiveTheme,
           builders: builders,
           selectionColor: effectiveSelectionColor,
-          onSurfaceAttach: onSurfaceAttach,
-          onSurfaceDetach: onSurfaceDetach,
+          selectable: selectable,
+          onSurfaceAttach: selectable ? onSurfaceAttach : null,
+          onSurfaceDetach: selectable ? onSurfaceDetach : null,
           baseOffsetInBlock: childOffset,
           listDepth: depth,
           baseTextStyle: childBaseTextStyle,

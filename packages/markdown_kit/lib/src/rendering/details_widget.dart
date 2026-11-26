@@ -32,6 +32,7 @@ class MarkdownDetailsWidget extends StatefulWidget {
     required this.childBlockBuilder,
     this.baseOffsetInBlock = 0,
     this.selectionColor,
+    this.selectable = true,
     this.inlineBuilder,
     this.onSurfaceAttach,
     this.onSurfaceDetach,
@@ -44,6 +45,7 @@ class MarkdownDetailsWidget extends StatefulWidget {
   final MarkdownChildBlockBuilder childBlockBuilder;
   final int baseOffsetInBlock;
   final Color? selectionColor;
+  final bool selectable;
   final MarkdownCellInlineBuilder? inlineBuilder;
   final ValueChanged<MarkdownSelectionSurface>? onSurfaceAttach;
   final ValueChanged<MarkdownSelectionSurface>? onSurfaceDetach;
@@ -109,8 +111,9 @@ class _MarkdownDetailsWidgetState extends State<MarkdownDetailsWidget> {
         text: builtSummary.span,
         selectionColor: effectiveSelectionColor,
         inlineCodeStyle: widget.theme.inlineCodeStyle,
-        onSurfaceAttach: widget.onSurfaceAttach,
-        onSurfaceDetach: widget.onSurfaceDetach,
+        selectable: widget.selectable,
+        onSurfaceAttach: widget.selectable ? widget.onSurfaceAttach : null,
+        onSurfaceDetach: widget.selectable ? widget.onSurfaceDetach : null,
       );
       cursor += summaryText.length;
       wroteAny = true;
