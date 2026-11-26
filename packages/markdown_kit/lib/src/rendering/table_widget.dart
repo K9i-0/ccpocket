@@ -106,10 +106,11 @@ class MarkdownTableWidget extends StatelessWidget {
     );
 
     final borderWidth = tableStyle.borderWidth;
-    final totalBorderWidth = borderWidth * (columnCount + 1);
-    final totalNaturalWidth =
-        naturalColumnWidths.fold<double>(0.0, (sum, w) => sum + w) +
-        totalBorderWidth;
+    // Borders are painted over the cells and take no width of their own.
+    final totalNaturalWidth = naturalColumnWidths.fold<double>(
+      0.0,
+      (sum, w) => sum + w,
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -387,14 +388,17 @@ class MarkdownTableWidget extends StatelessWidget {
 
     final textAlign = switch (align) {
       TableColumnAlign.center => TextAlign.center,
-      TableColumnAlign.right => TextAlign.end,
-      TableColumnAlign.left || TableColumnAlign.none => TextAlign.start,
+      // `:--` and `--:` name a physical side; only an unmarked column follows
+      // the reading direction.
+      TableColumnAlign.right => TextAlign.right,
+      TableColumnAlign.left => TextAlign.left,
+      TableColumnAlign.none => TextAlign.start,
     };
 
     final boxAlignment = switch (align) {
       TableColumnAlign.center => Alignment.center,
-      TableColumnAlign.right => AlignmentDirectional.centerEnd,
-      TableColumnAlign.left ||
+      TableColumnAlign.right => Alignment.centerRight,
+      TableColumnAlign.left => Alignment.centerLeft,
       TableColumnAlign.none => AlignmentDirectional.centerStart,
     };
 

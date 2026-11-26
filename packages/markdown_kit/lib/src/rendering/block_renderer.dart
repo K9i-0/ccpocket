@@ -312,14 +312,23 @@ class MarkdownBlockRenderer extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: quoteStyle.backgroundColor,
-          border: Border(
-            left: BorderSide(
+          border: BorderDirectional(
+            start: BorderSide(
               color: quoteStyle.barColor,
               width: quoteStyle.barWidth,
             ),
           ),
         ),
-        child: Padding(padding: quoteStyle.padding, child: body),
+        child: Padding(
+          // The wider inset belongs beside the bar, on the start side.
+          padding: Directionality.of(context) == TextDirection.rtl
+              ? quoteStyle.padding.flipped.copyWith(
+                  top: quoteStyle.padding.top,
+                  bottom: quoteStyle.padding.bottom,
+                )
+              : quoteStyle.padding,
+          child: body,
+        ),
       ),
     );
   }
@@ -367,8 +376,8 @@ class MarkdownBlockRenderer extends StatelessWidget {
         ),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            border: Border(
-              left: BorderSide(
+            border: BorderDirectional(
+              start: BorderSide(
                 color: alertStyle.accentColor,
                 width: alertStyle.barWidth,
               ),
@@ -610,7 +619,7 @@ class MarkdownBlockRenderer extends StatelessWidget {
           children: [
             // Non-selectable footnote label matching displayLabel.
             Padding(
-              padding: const EdgeInsets.only(right: 8.0, top: 1.0),
+              padding: const EdgeInsetsDirectional.only(end: 8.0, top: 1.0),
               child: Text(def.displayLabel, style: fnStyle.labelStyle),
             ),
             Expanded(child: body),
@@ -1049,6 +1058,8 @@ class MarkdownBlockRenderer extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
         child: Text(
           label.isNotEmpty ? label : 'image',
+          // An inline widget is already drawn at the paragraph's text scale.
+          textScaler: TextScaler.noScaling,
           style: effectiveTheme.bodyStyle.copyWith(
             fontSize: (effectiveTheme.bodyStyle.fontSize ?? 15.0) * 0.85,
           ),

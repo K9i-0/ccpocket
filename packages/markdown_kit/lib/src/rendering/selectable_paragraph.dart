@@ -154,6 +154,11 @@ class TappableTextSpan extends TextSpan {
           ? base
           : RenderComparison.paint;
     }
+    // A new callback changes nothing on screen, but the render object must
+    // take the new span or screen readers keep invoking the old callback.
+    if (onTap != other.onTap && base == RenderComparison.identical) {
+      return RenderComparison.metadata;
+    }
     return base;
   }
 

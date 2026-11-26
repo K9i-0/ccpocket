@@ -252,6 +252,20 @@ class RenderMarkdownListItem extends RenderShiftedBox {
     return painter;
   }
 
+  /// Marker font size as drawn, after the text scaler.
+  double get _scaledFontSize =>
+      _textScaler.scale(_markerTextStyle.fontSize ?? 15.0);
+
+  /// How much larger (or smaller) than designed the text is drawn. Bullets,
+  /// checkboxes and the gutter follow it so they keep their place beside the
+  /// first line.
+  double get _markerScale =>
+      _scaledFontSize / (_markerTextStyle.fontSize ?? 15.0);
+
+  double get _checkboxSize =>
+      ((_markerTextStyle.fontSize ?? 15.0) * 0.92).clamp(12.0, 18.0) *
+      _markerScale;
+
   double _computeGutterWidth() {
     if (_markerKind == MarkdownListMarkerKind.ordered) {
       final painter = _ensureOrdinalPainter();
@@ -269,7 +283,21 @@ class RenderMarkdownListItem extends RenderShiftedBox {
       }
       return math.max(_indent, ordinalWidth + _ordinalGap);
     }
-    return _indent;
+    // Wide enough for the scaled marker, which is centred at 45% of the
+    // gutter, plus a gap before the text. The design indent is kept at normal
+    // sizes so deep nesting does not eat the width at large text scales.
+    final markerSize = switch (_markerKind) {
+      MarkdownListMarkerKind.taskChecked ||
+      MarkdownListMarkerKind.taskUnchecked => _checkboxSize,
+      _ => _bulletSize * _markerScale,
+    };
+    return [
+      _indent,
+      // room after the marker, before the text
+      (markerSize / 2 + 4.0) / 0.55,
+      // room before the marker, so it stays inside the gutter
+      (markerSize / 2 + 1.0) / 0.45,
+    ].reduce(math.max);
   }
 
   @override
@@ -291,7 +319,7 @@ class RenderMarkdownListItem extends RenderShiftedBox {
     final gutter = _computeGutterWidth();
     final innerWidth = width.isFinite ? math.max(0.0, width - gutter) : width;
     final childHeight = child?.getMinIntrinsicHeight(innerWidth) ?? 0.0;
-    return math.max(childHeight, _fallbackMarkerHeight());
+    return childHeight > 0 ? childHeight : _fallbackMarkerHeight();
   }
 
   @override
@@ -299,12 +327,11 @@ class RenderMarkdownListItem extends RenderShiftedBox {
     final gutter = _computeGutterWidth();
     final innerWidth = width.isFinite ? math.max(0.0, width - gutter) : width;
     final childHeight = child?.getMaxIntrinsicHeight(innerWidth) ?? 0.0;
-    return math.max(childHeight, _fallbackMarkerHeight());
+    return childHeight > 0 ? childHeight : _fallbackMarkerHeight();
   }
 
   double _fallbackMarkerHeight() {
-    final fontSize = _markerTextStyle.fontSize ?? 15.0;
-    final lineHeight = fontSize * (_markerTextStyle.height ?? 1.4);
+    final lineHeight = _scaledFontSize * (_markerTextStyle.height ?? 1.4);
     return lineHeight;
   }
 
@@ -341,10 +368,10 @@ class RenderMarkdownListItem extends RenderShiftedBox {
     final totalWidth = constraints.maxWidth.isFinite
         ? math.max(_gutterWidth + currentChild.size.width, constraints.minWidth)
         : _gutterWidth + currentChild.size.width;
-    final totalHeight = math.max(
-      currentChild.size.height,
-      _fallbackMarkerHeight(),
-    );
+    // The marker only needs a line of its own when the item has no content.
+    final totalHeight = currentChild.size.height > 0
+        ? currentChild.size.height
+        : _fallbackMarkerHeight();
 
     size = constraints.constrain(Size(totalWidth, totalHeight));
 
@@ -386,10 +413,10 @@ class RenderMarkdownListItem extends RenderShiftedBox {
     double top,
     double baseline,
   ) {
-    final fontSize = _markerTextStyle.fontSize ?? 15.0;
-    final centerY = top + baseline - (fontSize * 0.34);
+    final centerY = top + baseline - (_scaledFontSize * 0.34);
     final centerX = gutterLeft + (_gutterWidth * 0.45);
-    final radius = _bulletSize * 0.5;
+    final bulletSize = _bulletSize * _markerScale;
+    final radius = bulletSize * 0.5;
     final depthMod = _nestingDepth % 3;
 
     if (depthMod == 0) {
@@ -410,8 +437,8 @@ class RenderMarkdownListItem extends RenderShiftedBox {
       canvas.drawRect(
         Rect.fromCenter(
           center: Offset(centerX, centerY),
-          width: _bulletSize * 0.85,
-          height: _bulletSize * 0.85,
+          width: bulletSize * 0.85,
+          height: bulletSize * 0.85,
         ),
         paint,
       );
@@ -442,9 +469,8 @@ class RenderMarkdownListItem extends RenderShiftedBox {
     double baseline,
     bool checked,
   ) {
-    final fontSize = _markerTextStyle.fontSize ?? 15.0;
-    final boxSize = (fontSize * 0.92).clamp(12.0, 18.0);
-    final centerY = top + baseline - (fontSize * 0.34);
+    final boxSize = _checkboxSize;
+    final centerY = top + baseline - (_scaledFontSize * 0.34);
     final centerX = gutterLeft + (_gutterWidth * 0.45);
     final rect = Rect.fromCenter(
       center: Offset(centerX, centerY),
