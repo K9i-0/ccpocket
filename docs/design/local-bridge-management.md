@@ -164,20 +164,35 @@ Measured on macOS 27.2 (2026-11-26) with a signed test bundle and the TCC log
   responsible process stays the launcher after `execv`.
 - The helper app is attributed the same way, so it answers for the Bridge:
   its `status` result carries `permissions: {fullDiskAccess?, screenCapture}`.
-  The sandboxed main app cannot check this itself. The failed read also makes
-  "CC Pocket" appear in the Full Disk Access list.
+  Seen in the log for both services: the helper's requests have
+  `Sub:{com.k9i.ccpocket}`, and its answer for Full Disk Access matched the
+  TCC record. The sandboxed main app cannot check this itself. The failed
+  read also makes "CC Pocket" appear in the Full Disk Access list.
 - `~/Library/Application Support/com.apple.TCC/TCC.db` does not exist on
   macOS 27; the helper tries the system `TCC.db`, `~/Library/Safari` and
   `~/Library/Mail` and reports nothing when none of them tells.
-- Links that open the right page from the sandboxed app (`NSWorkspace.open`):
-  `x-apple.systempreferences:com.apple.LoginItems-Settings.extension`,
-  `...:com.apple.preference.security?Privacy_AllFiles`, `?Privacy_ScreenCapture`.
+- Opening the pages from the sandboxed app works: Login Items through
+  `SMAppService.openSystemSettingsLoginItems()`, the others through
+  `NSWorkspace.open` of
+  `x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles`
+  and `?Privacy_ScreenCapture`.
+- The helper reads one request file, so the app sends it one request at a
+  time (`HelperLocalBridgeLauncher.run` queues).
+
+Not measured:
+
+- Granting Full Disk Access to "CC Pocket" and the Bridge then reading
+  protected folders after a restart (the screen says a restart is needed).
+- `requestScreenCapture` (`CGRequestScreenCaptureAccess` from the helper).
+- Local Network: under which name macOS lists the Bridge, and the link:
   `?Privacy_LocalNetwork` is not among the pane's anchors on macOS 27.2 and
   was only seen to open Privacy & Security.
-- A change applies to processes started afterwards: the Bridge must restart.
-- A Bridge started another way (`setup`, manual `npx`) runs under its own
-  identity (Terminal, `node`), so the list is hidden unless the app's agent is
-  registered.
+- The re-check when the app becomes active again (`AppLifecycleListener`);
+  the refresh button does the same.
+
+A Bridge started another way (`setup`, manual `npx`) runs under its own
+identity (Terminal, `node`), so the list is hidden unless the app's agent is
+registered.
 
 ## Known gaps
 

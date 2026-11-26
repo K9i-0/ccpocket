@@ -1744,7 +1744,7 @@
   "localBridgeAllowedDirsAll": "所有文件夹（不限制）",
   "localBridgeAddFolder": "添加文件夹",
   "localBridgePermissionsTitle": "macOS 权限",
-  "localBridgePermissionsFooter": "在“隐私与安全性”中显示为“CC Pocket”。更改在重新启动 Bridge 后生效。",
+  "localBridgePermissionsFooter": "在“完全磁盘访问权限”和“屏幕录制”列表中显示为“CC Pocket”。更改在重新启动 Bridge 后生效。",
   "localBridgePermissionsDialogTitle": "检查 macOS 权限",
   "localBridgePermissionsDialogBody": "Bridge 已启动。为避免代理中途停下，请在系统设置中开启缺少的权限。之后也可以在此页面更改。",
   "localBridgePermissionLoginItem": "后台运行",

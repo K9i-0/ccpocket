@@ -1690,7 +1690,7 @@
   "localBridgeAllowedDirsAll": "All folders (unrestricted)",
   "localBridgeAddFolder": "Add folder",
   "localBridgePermissionsTitle": "macOS permissions",
-  "localBridgePermissionsFooter": "Privacy & Security lists these under \"CC Pocket\". Changes apply after the Bridge restarts.",
+  "localBridgePermissionsFooter": "The Full Disk Access and Screen Recording lists show the Bridge as \"CC Pocket\". Changes apply after the Bridge restarts.",
   "localBridgePermissionsDialogTitle": "Check macOS permissions",
   "localBridgePermissionsDialogBody": "The Bridge is running. So agents are not stopped midway, turn on the missing permissions in System Settings. You can change them later on this screen.",
   "localBridgePermissionLoginItem": "Run in the background",

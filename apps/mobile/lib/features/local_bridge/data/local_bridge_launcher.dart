@@ -139,8 +139,18 @@ class HelperLocalBridgeLauncher implements LocalBridgeLauncher {
     }
   }
 
+  /// The helper answers one request at a time (a single request file), so a
+  /// second request must wait or the first would never be answered.
+  static Future<void> _pending = Future.value();
+
   @override
-  Future<LauncherResult> run(String action) async {
+  Future<LauncherResult> run(String action) {
+    final result = _pending.then((_) => _run(action));
+    _pending = result.then((_) {}, onError: (_) {});
+    return result;
+  }
+
+  Future<LauncherResult> _run(String action) async {
     try {
       final result = await _channel.invokeMapMethod<String, Object?>('run', {
         'action': action,

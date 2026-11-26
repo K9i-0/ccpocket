@@ -4216,7 +4216,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get localBridgePermissionsFooter =>
-      '在“隐私与安全性”中显示为“CC Pocket”。更改在重新启动 Bridge 后生效。';
+      '在“完全磁盘访问权限”和“屏幕录制”列表中显示为“CC Pocket”。更改在重新启动 Bridge 后生效。';
 
   @override
   String get localBridgePermissionsDialogTitle => '检查 macOS 权限';

@@ -117,11 +117,17 @@ class LocalBridgeCubit extends Cubit<LocalBridgeState> {
     );
   }
 
+  Future<void>? _permissionsRefresh;
+
   /// Check the macOS permissions again (the user may have just changed them
-  /// in System Settings).
-  Future<void> refreshPermissions() async {
-    if (state.busy != LocalBridgeBusy.none || !state.showsPermissions) return;
-    await _refreshLauncher();
+  /// in System Settings). Callers that overlap share one check.
+  Future<void> refreshPermissions() {
+    if (state.busy != LocalBridgeBusy.none || !state.showsPermissions) {
+      return Future.value();
+    }
+    return _permissionsRefresh ??= _refreshLauncher().whenComplete(
+      () => _permissionsRefresh = null,
+    );
   }
 
   Future<void> openPermissionSettings(BridgePermission permission) async {

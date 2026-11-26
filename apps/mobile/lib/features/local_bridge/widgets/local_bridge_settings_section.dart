@@ -147,7 +147,11 @@ List<FolderSuggestion> readOnlyFolderSuggestions(
       id: 'antigravity',
       title: l.localBridgeFolderSuggestionAntigravityTitle,
       description: l.localBridgeFolderSuggestionAntigravityDesc,
-      paths: ['$userHome/.gemini/antigravity-cli/brain'],
+      // The default profile, and the one the Bridge uses with an API key.
+      paths: [
+        '$userHome/.gemini/antigravity-cli/brain',
+        '$userHome/.gemini/antigravity-cli-ccpocket-apikey/brain',
+      ],
     ),
   ];
 }

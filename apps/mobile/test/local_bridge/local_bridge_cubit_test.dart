@@ -171,6 +171,31 @@ void main() {
   });
 
   group('launcher', () {
+    test('overlapping permission checks share one helper request', () async {
+      final bridge = FakeLocalBridge();
+      final launcher = FakeLauncher(bridge)
+        ..registration = LauncherRegistration.enabled
+        ..permissions = const LauncherPermissions(fullDiskAccess: false);
+      final cubit = cubitFor(bridge, launcher: launcher);
+      await cubit.load();
+      await settle();
+      expect(cubit.state.permissionsNeedAttention, isTrue);
+
+      launcher
+        ..actions.clear()
+        ..delay = const Duration(milliseconds: 20)
+        ..permissions = const LauncherPermissions(fullDiskAccess: true);
+      // The card on the screen and the one in the dialog both ask.
+      await Future.wait([
+        cubit.refreshPermissions(),
+        cubit.refreshPermissions(),
+      ]);
+      expect(launcher.actions, ['status']);
+      expect(cubit.state.launcherPermissions?.fullDiskAccess, isTrue);
+      expect(cubit.state.permissionsNeedAttention, isFalse);
+      await cubit.close();
+    });
+
     test('starts the Bridge from the app and can stop it again', () async {
       final bridge = FakeLocalBridge()..running = false;
       final launcher = FakeLauncher(bridge);

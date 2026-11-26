@@ -383,10 +383,8 @@ class _FolderSuggestionRow extends StatelessWidget {
               children: [
                 Text(suggestion.title, style: theme.textTheme.bodyMedium),
                 Text(suggestion.description, style: muted),
-                Text(
-                  suggestion.paths.join('  '),
-                  style: muted?.copyWith(fontFamily: 'monospace'),
-                ),
+                for (final path in suggestion.paths)
+                  Text(path, style: muted?.copyWith(fontFamily: 'monospace')),
               ],
             ),
           ),

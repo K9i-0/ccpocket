@@ -4265,7 +4265,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get localBridgePermissionsFooter =>
-      '「プライバシーとセキュリティ」では「CC Pocket」として表示されます。変更はBridgeを再起動すると反映されます。';
+      'フルディスクアクセスと画面収録の一覧では「CC Pocket」として表示されます。変更はBridgeを再起動すると反映されます。';
 
   @override
   String get localBridgePermissionsDialogTitle => 'macOSの権限を確認';

@@ -214,6 +214,9 @@ class FakeLauncher implements LocalBridgeLauncher {
   LauncherStatus? status;
   final actions = <String>[];
   LauncherPermissions? permissions;
+
+  /// How long the helper takes to answer.
+  Duration delay = Duration.zero;
   final openedSettings = <BridgePermission>[];
 
   @override
@@ -234,6 +237,7 @@ class FakeLauncher implements LocalBridgeLauncher {
   @override
   Future<LauncherResult> run(String action) async {
     actions.add(action);
+    if (delay > Duration.zero) await Future<void>.delayed(delay);
     if (action == 'register') {
       if (approvalRequired) {
         registration = LauncherRegistration.requiresApproval;

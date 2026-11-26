@@ -4435,7 +4435,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get localBridgePermissionsFooter =>
-      'Privacy & Security lists these under \"CC Pocket\". Changes apply after the Bridge restarts.';
+      'The Full Disk Access and Screen Recording lists show the Bridge as \"CC Pocket\". Changes apply after the Bridge restarts.';
 
   @override
   String get localBridgePermissionsDialogTitle => 'Check macOS permissions';

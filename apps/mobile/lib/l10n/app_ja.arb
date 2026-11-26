@@ -1822,7 +1822,7 @@
   "localBridgeAllowedDirsAll": "すべてのフォルダ（制限なし）",
   "localBridgeAddFolder": "フォルダを追加",
   "localBridgePermissionsTitle": "macOSの権限",
-  "localBridgePermissionsFooter": "「プライバシーとセキュリティ」では「CC Pocket」として表示されます。変更はBridgeを再起動すると反映されます。",
+  "localBridgePermissionsFooter": "フルディスクアクセスと画面収録の一覧では「CC Pocket」として表示されます。変更はBridgeを再起動すると反映されます。",
   "localBridgePermissionsDialogTitle": "macOSの権限を確認",
   "localBridgePermissionsDialogBody": "Bridgeを起動しました。エージェントが途中で止まらないよう、足りない権限をシステム設定で有効にしてください。あとからこの画面でも変更できます。",
   "localBridgePermissionLoginItem": "バックグラウンドでの実行",

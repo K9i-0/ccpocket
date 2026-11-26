@@ -7970,7 +7970,7 @@ abstract class AppLocalizations {
   /// No description provided for @localBridgePermissionsFooter.
   ///
   /// In ja, this message translates to:
-  /// **'「プライバシーとセキュリティ」では「CC Pocket」として表示されます。変更はBridgeを再起動すると反映されます。'**
+  /// **'フルディスクアクセスと画面収録の一覧では「CC Pocket」として表示されます。変更はBridgeを再起動すると反映されます。'**
   String get localBridgePermissionsFooter;
 
   /// No description provided for @localBridgePermissionsDialogTitle.

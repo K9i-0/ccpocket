@@ -4300,7 +4300,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get localBridgePermissionsFooter =>
-      '\'개인정보 보호 및 보안\'에서는 \'CC Pocket\'으로 표시됩니다. 변경 사항은 Bridge를 재시작하면 적용됩니다.';
+      '전체 디스크 접근 권한과 화면 기록 목록에는 \'CC Pocket\'으로 표시됩니다. 변경 사항은 Bridge를 재시작하면 적용됩니다.';
 
   @override
   String get localBridgePermissionsDialogTitle => 'macOS 권한 확인';

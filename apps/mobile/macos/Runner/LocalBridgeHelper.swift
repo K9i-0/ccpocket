@@ -1,5 +1,6 @@
 import Cocoa
 import FlutterMacOS
+import ServiceManagement
 
 /// Asks the bundled, non-sandboxed "CC Pocket Bridge" helper to register or
 /// unregister the Bridge LaunchAgent. This app is sandboxed and cannot do that
@@ -45,7 +46,12 @@ final class LocalBridgeHelper {
     let privacy = "x-apple.systempreferences:com.apple.preference.security?"
     let address: String
     switch pane {
-    case "loginItem": address = "x-apple.systempreferences:com.apple.LoginItems-Settings.extension"
+    case "loginItem":
+      if #available(macOS 13.0, *) {
+        SMAppService.openSystemSettingsLoginItems()
+        return true
+      }
+      return false
     case "fullDiskAccess": address = privacy + "Privacy_AllFiles"
     case "screenCapture": address = privacy + "Privacy_ScreenCapture"
     case "localNetwork": address = privacy + "Privacy_LocalNetwork"
