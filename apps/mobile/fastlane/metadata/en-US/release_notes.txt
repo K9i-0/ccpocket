@@ -1,5 +1,6 @@
-• UI refresh across the app: refined light and dark surfaces, a new emerald accent for Codex harmonized with Claude and Antigravity, streamlined code block headers, calmer chat and transcript cards, redesigned approval bars and session-list approval cards with clearer action hierarchy, and polished composer, session cards, and settings.
-• Display mode presets & per-category filters: choose All, Recommended, or Custom in Settings, with individual toggles for Tasks / TODO, Thinking, Subagents & Swarm, Code edits & diffs, Other tool calls, and Tool outputs & screenshots. With Bridge 1.122.0 or newer, your filter preferences sync directly to the Bridge to cut network traffic.
-• Antigravity Swarms: numbered workers now show distinct creature icons paired with their color palette, inline member icons beside @agent mentions, and brighter light-mode colors for clearer contrast.
-• Antigravity task lists & plan cards: step checklists (agy 1.5.16) now render as task lists with skipped and failed icons, and Orchestrator handoff plans appear as plan cards. Requires Bridge 1.121.0 or newer.
-• Better text selection: select seamlessly across prose and fenced code blocks without copying language labels, and copy from File Peek without including line numbers.
+• New Markdown rendering in chat: select text continuously across paragraphs, lists, tables, and code blocks, and use "Copy as Markdown" to keep the structure of nested lists and tables. Wide tables scroll sideways, and replies stay stable while they stream in.
+• Recent session filters are remembered: the period, date field (modified or created), pinned-only, and content search settings stay as you left them after restarting the app or reconnecting. Project selections are kept separately for each machine.
+• One image viewer everywhere: chat images, generated images, the gallery, and file previews share the same viewer with pinch, double-tap zoom, and pan. Images you have already opened load faster.
+• The interface now uses your device's system font. Code keeps its monospace font.
+• The Swarm coordinator has its own octopus icon.
+• The debug log viewer adds search, level filters, copy, and share.
