@@ -25,7 +25,7 @@ void main() {
       Bloc.observer = previousObserver;
     });
 
-    test('logs create, change, error, and close events', () async {
+    test('records bloc errors and nothing else', () async {
       final log = AppLogger(useConsoleLogs: false);
       Bloc.observer = AppBlocObserver(logger: log);
 
@@ -33,47 +33,14 @@ void main() {
       cubit.update('loading');
       final st = StackTrace.fromString('#0 test (test.dart:1:1)');
       cubit.reportError(StateError('failed'), st);
+      cubit.update('secret message text');
       await cubit.close();
 
-      expect(log.length, 4);
-
-      expect(log.entries[0].level, AppLogLevel.debug);
-      expect(log.entries[0].message, '[bloc] create _TestCubit');
-
-      expect(log.entries[1].level, AppLogLevel.debug);
-      expect(
-        log.entries[1].message,
-        '[bloc] change _TestCubit: idle -> loading',
-      );
-
-      expect(log.entries[2].level, AppLogLevel.error);
-      expect(log.entries[2].message, '[bloc] error _TestCubit');
-      expect(log.entries[2].error, isA<StateError>());
-      expect(log.entries[2].stackTrace, st);
-
-      expect(log.entries[3].level, AppLogLevel.debug);
-      expect(log.entries[3].message, '[bloc] close _TestCubit');
+      expect(log.length, 1);
+      expect(log.entries[0].level, AppLogLevel.error);
+      expect(log.entries[0].message, '[bloc] error _TestCubit');
+      expect(log.entries[0].error, isA<StateError>());
+      expect(log.entries[0].stackTrace, st);
     });
-
-    test(
-      'truncates oversized state strings and normalizes whitespace',
-      () async {
-        final log = AppLogger(useConsoleLogs: false);
-        Bloc.observer = AppBlocObserver(logger: log, maxStateLength: 20);
-
-        final cubit = _TestCubit('short');
-        cubit.update('line1\n  line2\t${'x' * 200}');
-        await cubit.close();
-
-        final changeMessage = log.entries[1].message;
-        expect(
-          changeMessage,
-          startsWith('[bloc] change _TestCubit: short -> '),
-        );
-        expect(changeMessage, contains('line1 line2 '));
-        expect(changeMessage, endsWith('…'));
-        expect(changeMessage.length, lessThan(80));
-      },
-    );
   });
 }
