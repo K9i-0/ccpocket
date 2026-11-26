@@ -9,6 +9,7 @@ extension SettingsCategoryVisuals on SettingsCategory {
     SettingsCategory.localBridge => l.settingsCategoryLocalBridge,
     SettingsCategory.notifications => l.settingsCategoryNotifications,
     SettingsCategory.usage => l.settingsCategoryUsage,
+    SettingsCategory.gallery => l.gallery,
     SettingsCategory.appearance => l.settingsCategoryAppearance,
     SettingsCategory.input => l.settingsCategoryInput,
     SettingsCategory.agents => l.settingsCategoryAgents,
@@ -23,6 +24,7 @@ extension SettingsCategoryVisuals on SettingsCategory {
     SettingsCategory.localBridge => Icons.dns_rounded,
     SettingsCategory.notifications => Icons.notifications_rounded,
     SettingsCategory.usage => Icons.speed_rounded,
+    SettingsCategory.gallery => Icons.collections_rounded,
     SettingsCategory.appearance => Icons.palette_rounded,
     SettingsCategory.input => Icons.chat_bubble_rounded,
     SettingsCategory.agents => Icons.smart_toy_rounded,
@@ -44,6 +46,8 @@ extension SettingsCategoryVisuals on SettingsCategory {
         dark ? const Color(0xFFF87171) : const Color(0xFFDC2626),
       SettingsCategory.usage =>
         dark ? const Color(0xFF34D399) : const Color(0xFF059669),
+      SettingsCategory.gallery =>
+        dark ? const Color(0xFF22D3EE) : const Color(0xFF0891B2),
       SettingsCategory.appearance =>
         dark ? const Color(0xFFA78BFA) : const Color(0xFF7C3AED),
       SettingsCategory.input =>

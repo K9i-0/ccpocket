@@ -1922,5 +1922,9 @@
   "displayItemOtherTools": "Other tool calls",
   "displayItemOtherToolsSubtitle": "Commands, file reads, searches, web, and MCP",
   "displayItemToolResults": "Tool outputs & screenshots",
-  "displayItemToolResultsSubtitle": "Tool result bodies and work-in-progress images"
+  "displayItemToolResultsSubtitle": "Tool result bodies and work-in-progress images",
+  "stopSessionConfirmActive": "This session is currently active. Are you sure you want to stop it?",
+  "stopSessionConfirmBackground": "This session still has running background tasks. Are you sure you want to stop it?",
+  "stopSessionConfirmActiveAndBackground": "This session is currently active and has running background tasks. Are you sure you want to stop it?",
+  "settingsCategoryGallerySummary": "Saved images and screenshots"
 }

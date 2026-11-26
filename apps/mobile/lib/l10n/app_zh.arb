@@ -1976,5 +1976,9 @@
   "displayItemOtherTools": "其他工具调用",
   "displayItemOtherToolsSubtitle": "命令执行、文件读取、搜索、MCP 等",
   "displayItemToolResults": "工具输出与附带图片",
-  "displayItemToolResultsSubtitle": "工具输出正文及截图等过程图片"
+  "displayItemToolResultsSubtitle": "工具输出正文及截图等过程图片",
+  "stopSessionConfirmActive": "此会话当前正在运行。确定要停止吗？",
+  "stopSessionConfirmBackground": "此会话仍有正在运行的后台任务。确定要停止吗？",
+  "stopSessionConfirmActiveAndBackground": "此会话当前正在运行，且仍有正在运行的后台任务。确定要停止吗？",
+  "settingsCategoryGallerySummary": "已保存的图片和截图"
 }

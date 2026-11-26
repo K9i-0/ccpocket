@@ -5022,4 +5022,18 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get displayItemToolResultsSubtitle => '도구 출력 본문 및 스크린샷 등 이미지';
+
+  @override
+  String get stopSessionConfirmActive => '이 세션은 현재 실행 중입니다. 중지하시겠습니까?';
+
+  @override
+  String get stopSessionConfirmBackground =>
+      '이 세션에 실행 중인 백그라운드 작업이 남아 있습니다. 중지하시겠습니까?';
+
+  @override
+  String get stopSessionConfirmActiveAndBackground =>
+      '이 세션은 현재 실행 중이며 백그라운드 작업도 남아 있습니다. 중지하시겠습니까?';
+
+  @override
+  String get settingsCategoryGallerySummary => '저장된 이미지 및 스크린샷';
 }

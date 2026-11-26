@@ -13,6 +13,7 @@ enum SettingsCategory {
   localBridge,
   notifications,
   usage,
+  gallery,
   appearance,
   input,
   agents,
@@ -137,6 +138,7 @@ abstract final class SettingsEntryIds {
   static const pushPrivacy = 'push_privacy';
   static const notificationLanguage = 'notification_language';
   static const usage = 'usage';
+  static const gallery = 'gallery';
   static const supporter = 'supporter';
   static const rateApp = 'rate_app';
   static const shareApp = 'share_app';
@@ -250,6 +252,15 @@ final List<SettingsEntry> settingsEntries = [
     category: SettingsCategory.usage,
     title: (l) => l.settingsUsageSectionTitle,
     keywords: 'usage limit plan quota rate 利用量 制限 プラン',
+    visibleWhen: (v) => v.bridgeConnected,
+  ),
+
+  // ── Gallery ──
+  SettingsEntry(
+    id: SettingsEntryIds.gallery,
+    category: SettingsCategory.gallery,
+    title: (l) => l.gallery,
+    keywords: 'gallery images screenshots photos ギャラリー 画像 スクリーンショット 写真',
     visibleWhen: (v) => v.bridgeConnected,
   ),
 

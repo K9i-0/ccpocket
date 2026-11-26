@@ -156,9 +156,7 @@ class UsageSummary extends StatelessWidget {
           hint: onTap == null ? null : l.usageOpenSettingsHint,
           child: FittedBox(
             fit: BoxFit.scaleDown,
-            // Keep the line aligned with the header's visual row while the
-            // surrounding InkWell fills its 44px tap target.
-            alignment: const Alignment(1, -0.15),
+            alignment: Alignment.centerRight,
             child: content,
           ),
         ),

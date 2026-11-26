@@ -4984,4 +4984,18 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get displayItemToolResultsSubtitle => 'ツールの出力本文やスクショ等の画像';
+
+  @override
+  String get stopSessionConfirmActive => 'このセッションは現在稼働中です。停止してもよろしいですか？';
+
+  @override
+  String get stopSessionConfirmBackground =>
+      'このセッションには実行中のバックグラウンドタスクが残っています。停止してもよろしいですか？';
+
+  @override
+  String get stopSessionConfirmActiveAndBackground =>
+      'このセッションは稼働中で、実行中のバックグラウンドタスクも残っています。停止してもよろしいですか？';
+
+  @override
+  String get settingsCategoryGallerySummary => '保存された画像とスクリーンショット';
 }

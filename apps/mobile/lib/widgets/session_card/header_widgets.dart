@@ -153,25 +153,9 @@ class RunningSessionStopButton extends StatelessWidget {
       visualDensity: VisualDensity.compact,
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints.tightFor(width: 32, height: 28),
-      style: ButtonStyle(
-        foregroundColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.hovered) ||
-              states.contains(WidgetState.pressed) ||
-              states.contains(WidgetState.focused)) {
-            return colorScheme.error;
-          }
-          return colorScheme.onSurfaceVariant.withValues(alpha: 0.8);
-        }),
-        backgroundColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.hovered) ||
-              states.contains(WidgetState.pressed)) {
-            return colorScheme.error.withValues(alpha: 0.12);
-          }
-          return Colors.transparent;
-        }),
-        overlayColor: WidgetStateProperty.all(
-          colorScheme.error.withValues(alpha: 0.12),
-        ),
+      style: IconButton.styleFrom(
+        foregroundColor: colorScheme.error,
+        backgroundColor: colorScheme.errorContainer.withValues(alpha: 0.26),
       ),
     );
   }

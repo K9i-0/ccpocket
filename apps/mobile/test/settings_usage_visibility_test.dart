@@ -2208,6 +2208,7 @@ void main() {
         'push_privacy',
         'notification_language',
         'usage',
+        'gallery',
         'theme',
         'language',
         'app_icon',
@@ -2271,6 +2272,14 @@ void main() {
       expect(ids('   '), isEmpty);
       // Hidden rows are not searchable.
       expect(ids('notification'), isNot(contains('push_privacy')));
+      expect(ids('gallery'), isNot(contains('gallery')));
+      final connectedGalleryIds = searchSettingsEntries(
+        query: 'ギャラリー',
+        l: l,
+        visibility: const SettingsVisibility(bridgeConnected: true),
+        categoryTitle: title,
+      ).map((e) => e.id).toList();
+      expect(connectedGalleryIds, contains('gallery'));
     });
 
     for (final connected in [false, true]) {

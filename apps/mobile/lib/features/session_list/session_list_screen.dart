@@ -32,6 +32,7 @@ import '../../widgets/adaptive_context_menu.dart';
 import '../../theme/provider_style.dart';
 import '../../widgets/new_session_sheet.dart';
 import '../../widgets/rename_session_dialog.dart';
+import '../../widgets/session_visual_status.dart';
 import '../../widgets/soft_keyboard_dismissal.dart';
 import '../settings/state/settings_cubit.dart';
 import '../settings/state/settings_state.dart';
@@ -54,6 +55,22 @@ export 'services/session_resume_coordinator.dart'
 import 'services/session_resume_coordinator.dart';
 
 // ---- Testable helpers (top-level) ----
+
+/// Whether stopping [session] should ask for user confirmation first.
+///
+/// Confirmation is requested when the session is actively working or waiting
+/// for user input, or when background tasks/agents are still running.
+bool sessionNeedsStopConfirmation(SessionInfo session) {
+  final visualStatus = sessionVisualStatusFor(
+    rawStatus: session.status,
+    permissionMode: session.effectivePermissionMode,
+    planMode: session.resolvedPlanMode,
+    pendingPermission: session.pendingPermission,
+  );
+  return visualStatus.primary != SessionPrimaryStatus.ready ||
+      session.backgroundTaskCount > 0 ||
+      session.backgroundAgentCount > 0;
+}
 
 /// Project name → session count, preserving first-seen order.
 Map<String, int> projectCounts(List<RecentSession> sessions) {
@@ -1092,15 +1109,6 @@ class _SessionListScreenState extends State<SessionListScreen>
     context.pushRoute(SettingsRoute(focusUsage: true));
   }
 
-  Future<void> _openGallery() async {
-    final shell = WorkspaceShellScreen.maybeOf(context);
-    if (shell != null) {
-      shell.openGlobalGalleryCenter();
-      return;
-    }
-    await context.router.push(GalleryRoute());
-  }
-
   void _refresh() {
     context.read<SessionListCubit>().refresh();
     final bridge = context.read<BridgeService>();
@@ -1659,7 +1667,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     }
 
     if (action == 'stop') {
-      context.read<BridgeService>().stopSession(session.id);
+      _stopSessionImmediately(session.id);
     }
   }
 
@@ -2107,8 +2115,68 @@ class _SessionListScreenState extends State<SessionListScreen>
     });
   }
 
-  void _stopSession(String sessionId) {
+  void _stopSessionImmediately(String sessionId) {
     context.read<BridgeService>().stopSession(sessionId);
+  }
+
+  Future<void> _stopSession(String sessionId) async {
+    final sessions = context.read<ActiveSessionsCubit>().state;
+    SessionInfo? target;
+    for (final session in sessions) {
+      if (session.id == sessionId) {
+        target = session;
+        break;
+      }
+    }
+    if (target != null && sessionNeedsStopConfirmation(target)) {
+      final confirmed = await _confirmStopSession(target);
+      if (!confirmed || !mounted) return;
+    }
+    _stopSessionImmediately(sessionId);
+  }
+
+  Future<bool> _confirmStopSession(SessionInfo session) async {
+    final l = AppLocalizations.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    final visualStatus = sessionVisualStatusFor(
+      rawStatus: session.status,
+      permissionMode: session.effectivePermissionMode,
+      planMode: session.resolvedPlanMode,
+      pendingPermission: session.pendingPermission,
+    );
+    final isActive = visualStatus.primary != SessionPrimaryStatus.ready;
+    final hasBackgroundTasks =
+        session.backgroundTaskCount > 0 || session.backgroundAgentCount > 0;
+    final message = switch ((isActive, hasBackgroundTasks)) {
+      (true, true) => l.stopSessionConfirmActiveAndBackground,
+      (true, false) => l.stopSessionConfirmActive,
+      (false, true) => l.stopSessionConfirmBackground,
+      (false, false) => l.stopSessionConfirmActive,
+    };
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.stopSession),
+        content: Text(message),
+        actions: [
+          TextButton(
+            key: const ValueKey('cancel_stop_session_button'),
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(l.cancel),
+          ),
+          FilledButton(
+            key: const ValueKey('confirm_stop_session_button'),
+            style: FilledButton.styleFrom(
+              backgroundColor: colorScheme.error,
+              foregroundColor: colorScheme.onError,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(l.stop),
+          ),
+        ],
+      ),
+    );
+    return confirmed ?? false;
   }
 
   String? _connectedBridgeLabel({
@@ -2328,7 +2396,7 @@ class _SessionListScreenState extends State<SessionListScreen>
         showConnectedUI && MediaQuery.of(context).viewInsets.bottom == 0;
 
     // With an iPhone Duo strip, a connected list puts search and New there;
-    // gallery, settings and disconnect live in the bridge menu of the title.
+    // settings and disconnect live in the bridge menu of the title.
     final compactConnectedStrip = showConnectedUI;
     return DuoStripActions(
       enabled: true,
@@ -2351,13 +2419,6 @@ class _SessionListScreenState extends State<SessionListScreen>
             onPressed: _openSettings,
             tooltip: l.settings,
           ),
-          if (showConnectedUI)
-            IconButton(
-              key: const ValueKey('gallery_button'),
-              icon: const Icon(Icons.collections_outlined),
-              onPressed: _openGallery,
-              tooltip: l.gallery,
-            ),
           if (canDisconnect)
             IconButton(
               key: const ValueKey('disconnect_button'),
@@ -2393,7 +2454,6 @@ class _SessionListScreenState extends State<SessionListScreen>
                   child: SessionListPaneHeader(
                     onTitleTap: _onTitleTap,
                     onOpenSettings: _openSettings,
-                    onOpenGallery: showConnectedUI ? _openGallery : null,
                     onDisconnect: canDisconnect ? _disconnect : null,
                     onToggleSidebar: !hasStrip && shell != null
                         ? shell.toggleSidebar
@@ -2556,6 +2616,7 @@ class _SessionListScreenState extends State<SessionListScreen>
                     approvalsReviewer: approvalsReviewer,
                   ),
               onStopSession: _stopSession,
+              onStopSessionImmediately: _stopSessionImmediately,
               onCancelOfflinePendingAction: (actionId) =>
                   unawaited(bridge.cancelOfflinePendingAction(actionId)),
               onApprovePermission:
@@ -2660,7 +2721,6 @@ class _SessionListScreenState extends State<SessionListScreen>
                   SliverToBoxAdapter(child: SizedBox(height: chrome.topInset)),
                 SessionListSliverAppBar(
                   onOpenSettings: _openSettings,
-                  onOpenGallery: _openGallery,
                   onTitleTap: _onTitleTap,
                   onDisconnect: _disconnect,
                   forceElevated: innerBoxIsScrolled,

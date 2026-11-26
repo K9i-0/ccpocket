@@ -17,6 +17,7 @@ import '../workspace/widgets/workspace_pane_navigator.dart';
 class GalleryScreen extends HookWidget {
   final String? sessionId;
   final bool embedded;
+  final bool showAppBar;
   final VoidCallback? onBack;
   final VoidCallback? onClose;
 
@@ -24,6 +25,7 @@ class GalleryScreen extends HookWidget {
     super.key,
     this.sessionId,
     this.embedded = false,
+    this.showAppBar = true,
     this.onBack,
     this.onClose,
   });
@@ -56,12 +58,24 @@ class GalleryScreen extends HookWidget {
       return null;
     }, [bridge, sessionId]);
 
-    final globalImages = context.watch<GalleryCubit>().state;
+    final globalImages = context.watch<GalleryCubit?>()?.state ?? const [];
     final images = isSessionMode
         ? scopedGallerySnapshot.data ?? const []
         : globalImages.isNotEmpty
         ? globalImages
         : bridge.galleryImages;
+    final body = images.isEmpty
+        ? GalleryEmptyState(isSessionMode: isSessionMode)
+        : GalleryContent(
+            images: images,
+            selectedProject: selectedProject.value,
+            isSessionMode: isSessionMode,
+            httpBaseUrl: bridge.httpBaseUrl ?? '',
+            onProjectSelected: (p) => selectedProject.value = p,
+          );
+    if (!showAppBar) {
+      return body;
+    }
     final leading = onBack != null
         ? IconButton(
             key: const ValueKey('embedded_gallery_back_button'),
@@ -133,15 +147,7 @@ class GalleryScreen extends HookWidget {
             ),
         ]),
       ),
-      body: images.isEmpty
-          ? GalleryEmptyState(isSessionMode: isSessionMode)
-          : GalleryContent(
-              images: images,
-              selectedProject: selectedProject.value,
-              isSessionMode: isSessionMode,
-              httpBaseUrl: bridge.httpBaseUrl ?? '',
-              onProjectSelected: (p) => selectedProject.value = p,
-            ),
+      body: body,
     );
   }
 }

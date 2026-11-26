@@ -616,6 +616,21 @@ void main() {
             .height,
         44,
       );
+      final icon = tester.widget<Icon>(
+        find.byKey(const ValueKey('running_sessions_header_icon')),
+      );
+      expect(icon.icon, Icons.play_arrow_rounded);
+      expect(icon.shadows, isNotEmpty);
+
+      final labelCenterY = tester
+          .getCenter(
+            find.byKey(const ValueKey('running_sessions_header_label')),
+          )
+          .dy;
+      final usageCenterY = tester
+          .getCenter(find.byKey(const ValueKey('usage_summary')))
+          .dy;
+      expect((labelCenterY - usageCenterY).abs(), lessThanOrEqualTo(1.5));
     });
 
     testWidgets('shows real session cards (not skeleton) when sessions exist '

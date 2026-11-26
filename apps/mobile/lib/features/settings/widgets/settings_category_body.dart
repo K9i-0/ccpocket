@@ -6,6 +6,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../models/machine.dart';
 import '../../../services/bridge_service.dart';
 import '../../../widgets/workspace_pane_chrome.dart';
+import '../../gallery/gallery_screen.dart';
 import '../../local_bridge/local_bridge_screen.dart';
 import '../../local_bridge/state/local_bridge_cubit.dart';
 import '../../session_list/workspace_shell_screen.dart';
@@ -69,6 +70,22 @@ class SettingsCategoryBody extends StatelessWidget {
               // e.g. the Bridge disconnected while this page was open.
               return const _CategoryUnavailable();
             }
+            if (category == SettingsCategory.gallery) {
+              return Column(
+                key: const ValueKey('settings_category_gallery'),
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (showHeader) _CategoryHeader(category: category),
+                  const Expanded(
+                    child: SettingsItem(
+                      id: SettingsEntryIds.gallery,
+                      framed: true,
+                      child: GalleryScreen(embedded: true, showAppBar: false),
+                    ),
+                  ),
+                ],
+              );
+            }
             if (category == SettingsCategory.localBridge) {
               return Column(
                 key: const ValueKey('settings_category_localBridge'),
@@ -107,6 +124,7 @@ class SettingsCategoryBody extends StatelessWidget {
                     : () => onOpenCategory!(SettingsCategory.localBridge),
               ),
               SettingsCategory.localBridge => const SizedBox.shrink(),
+              SettingsCategory.gallery => const SizedBox.shrink(),
               SettingsCategory.notifications => NotificationSettingsSection(
                 state: state,
                 visibility: visibility,

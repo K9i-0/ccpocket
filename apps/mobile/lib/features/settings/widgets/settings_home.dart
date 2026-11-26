@@ -221,6 +221,7 @@ class _CategoryList extends StatelessWidget {
       SettingsCategory.connection,
       SettingsCategory.localBridge,
       SettingsCategory.usage,
+      SettingsCategory.gallery,
       SettingsCategory.notifications,
     ],
     [
@@ -283,6 +284,7 @@ class _CategoryList extends StatelessWidget {
       SettingsCategory.notifications =>
         state.fcmEnabled ? l.settingsOn : l.settingsOff,
       SettingsCategory.usage => l.settingsCategoryUsageSummary,
+      SettingsCategory.gallery => l.settingsCategoryGallerySummary,
       SettingsCategory.appearance => [
         themeModeLabel(l, state.themeMode),
         getAppLocaleLabel(context, state.appLocaleId),

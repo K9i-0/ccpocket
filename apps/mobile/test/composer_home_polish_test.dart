@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:ccpocket/features/session_list/session_list_screen.dart';
 import 'package:ccpocket/features/session_list/widgets/section_header.dart';
+import 'package:ccpocket/features/session_list/widgets/session_list_app_bar.dart';
 import 'package:ccpocket/features/settings/models/settings_catalog.dart';
 import 'package:ccpocket/features/settings/state/settings_state.dart';
 import 'package:ccpocket/features/settings/widgets/settings_category_visuals.dart';
@@ -176,7 +178,7 @@ void main() {
 
   group('SessionCard and SectionHeader visual polish', () {
     testWidgets(
-      'RunningSessionCard uses flat hairline header and understated stop button',
+      'RunningSessionCard uses flat hairline header and red-tinted stop button',
       (tester) async {
         final session = SessionInfo(
           id: 'run-1',
@@ -208,18 +210,15 @@ void main() {
           }
         }
 
-        // Stop button is calm and transparent at rest, tinted error on hover.
+        // Stop button keeps its red-tinted destructive appearance.
+        final cs = AppTheme.darkTheme.colorScheme;
         final stopButton = tester.widget<IconButton>(
           find.byKey(const ValueKey('running_session_stop_button')),
         );
         final restBg = stopButton.style?.backgroundColor?.resolve({});
         final restFg = stopButton.style?.foregroundColor?.resolve({});
-        final hoverFg = stopButton.style?.foregroundColor?.resolve({
-          WidgetState.hovered,
-        });
-        expect(restBg, Colors.transparent);
-        expect(restFg, isNot(AppTheme.darkTheme.colorScheme.error));
-        expect(hoverFg, AppTheme.darkTheme.colorScheme.error);
+        expect(restFg, cs.error);
+        expect(restBg, cs.errorContainer.withValues(alpha: 0.26));
       },
     );
 
@@ -369,6 +368,94 @@ void main() {
           }
         }
         expect(foundSurfaceBox, isTrue);
+      },
+    );
+  });
+
+  group('Session list header and stop confirmation rules', () {
+    test(
+      'sessionNeedsStopConfirmation flags active or background-task sessions',
+      () {
+        SessionInfo make({
+          String status = 'idle',
+          int backgroundTaskCount = 0,
+          int backgroundAgentCount = 0,
+          PermissionRequestMessage? pendingPermission,
+        }) => SessionInfo(
+          id: 's1',
+          projectPath: '/tmp/ccpocket',
+          status: status,
+          backgroundTaskCount: backgroundTaskCount,
+          backgroundAgentCount: backgroundAgentCount,
+          pendingPermission: pendingPermission,
+          createdAt: '2026-01-01T00:00:00Z',
+          lastActivityAt: '2026-01-01T00:00:00Z',
+        );
+
+        expect(sessionNeedsStopConfirmation(make()), isFalse);
+        expect(sessionNeedsStopConfirmation(make(status: 'running')), isTrue);
+        expect(sessionNeedsStopConfirmation(make(status: 'starting')), isTrue);
+        expect(
+          sessionNeedsStopConfirmation(make(status: 'compacting')),
+          isTrue,
+        );
+        expect(
+          sessionNeedsStopConfirmation(make(status: 'waiting_approval')),
+          isTrue,
+        );
+        expect(
+          sessionNeedsStopConfirmation(
+            make(
+              pendingPermission: const PermissionRequestMessage(
+                toolUseId: 'tu-1',
+                toolName: 'Bash',
+                input: {},
+              ),
+            ),
+          ),
+          isTrue,
+        );
+        expect(
+          sessionNeedsStopConfirmation(make(backgroundTaskCount: 1)),
+          isTrue,
+        );
+        expect(
+          sessionNeedsStopConfirmation(make(backgroundAgentCount: 1)),
+          isTrue,
+        );
+      },
+    );
+
+    testWidgets(
+      'SessionListSliverAppBar and SessionListPaneHeader omit gallery button',
+      (tester) async {
+        await tester.pumpWidget(
+          _app(
+            AppTheme.darkTheme,
+            CustomScrollView(
+              slivers: [
+                SessionListSliverAppBar(onTitleTap: () {}, onDisconnect: () {}),
+              ],
+            ),
+          ),
+        );
+        expect(find.byKey(const ValueKey('settings_button')), findsOneWidget);
+        expect(find.byKey(const ValueKey('disconnect_button')), findsOneWidget);
+        expect(find.byKey(const ValueKey('gallery_button')), findsNothing);
+
+        await tester.pumpWidget(
+          _app(
+            AppTheme.darkTheme,
+            SessionListPaneHeader(
+              onTitleTap: () {},
+              onOpenSettings: () {},
+              onDisconnect: () {},
+            ),
+          ),
+        );
+        expect(find.byKey(const ValueKey('settings_button')), findsOneWidget);
+        expect(find.byKey(const ValueKey('disconnect_button')), findsOneWidget);
+        expect(find.byKey(const ValueKey('gallery_button')), findsNothing);
       },
     );
   });

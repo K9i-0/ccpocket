@@ -9304,6 +9304,30 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'ツールの出力本文やスクショ等の画像'**
   String get displayItemToolResultsSubtitle;
+
+  /// No description provided for @stopSessionConfirmActive.
+  ///
+  /// In ja, this message translates to:
+  /// **'このセッションは現在稼働中です。停止してもよろしいですか？'**
+  String get stopSessionConfirmActive;
+
+  /// No description provided for @stopSessionConfirmBackground.
+  ///
+  /// In ja, this message translates to:
+  /// **'このセッションには実行中のバックグラウンドタスクが残っています。停止してもよろしいですか？'**
+  String get stopSessionConfirmBackground;
+
+  /// No description provided for @stopSessionConfirmActiveAndBackground.
+  ///
+  /// In ja, this message translates to:
+  /// **'このセッションは稼働中で、実行中のバックグラウンドタスクも残っています。停止してもよろしいですか？'**
+  String get stopSessionConfirmActiveAndBackground;
+
+  /// No description provided for @settingsCategoryGallerySummary.
+  ///
+  /// In ja, this message translates to:
+  /// **'保存された画像とスクリーンショット'**
+  String get settingsCategoryGallerySummary;
 }
 
 class _AppLocalizationsDelegate

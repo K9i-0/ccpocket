@@ -15,7 +15,6 @@ class SessionListSliverAppBar extends StatelessWidget {
   final VoidCallback onTitleTap;
   final VoidCallback onDisconnect;
   final VoidCallback? onOpenSettings;
-  final VoidCallback? onOpenGallery;
   final bool forceElevated;
   final double? toolbarHeight;
   final String? bridgeLabel;
@@ -28,7 +27,6 @@ class SessionListSliverAppBar extends StatelessWidget {
     required this.onTitleTap,
     required this.onDisconnect,
     this.onOpenSettings,
-    this.onOpenGallery,
     this.forceElevated = false,
     this.toolbarHeight,
     this.bridgeLabel,
@@ -70,9 +68,6 @@ class SessionListSliverAppBar extends StatelessWidget {
                                 AppUpdateService.instance.cachedUpdate != null,
                           ),
                         ),
-                    onOpenGallery:
-                        onOpenGallery ??
-                        () => context.router.navigate(GalleryRoute()),
                     onDisconnect: onDisconnect,
                   ),
                 ),
@@ -98,13 +93,6 @@ class SessionListSliverAppBar extends StatelessWidget {
             tooltip: l.settings,
           ),
           IconButton(
-            key: const ValueKey('gallery_button'),
-            icon: const Icon(Icons.collections),
-            onPressed:
-                onOpenGallery ?? () => context.router.navigate(GalleryRoute()),
-            tooltip: l.gallery,
-          ),
-          IconButton(
             key: const ValueKey('disconnect_button'),
             icon: const Icon(Icons.link_off),
             onPressed: onDisconnect,
@@ -119,7 +107,6 @@ class SessionListSliverAppBar extends StatelessWidget {
 class SessionListPaneHeader extends StatelessWidget {
   final VoidCallback onTitleTap;
   final VoidCallback onOpenSettings;
-  final VoidCallback? onOpenGallery;
   final VoidCallback? onDisconnect;
   final VoidCallback? onToggleSidebar;
   final String? bridgeLabel;
@@ -131,7 +118,6 @@ class SessionListPaneHeader extends StatelessWidget {
     super.key,
     required this.onTitleTap,
     required this.onOpenSettings,
-    this.onOpenGallery,
     this.onDisconnect,
     this.onToggleSidebar,
     this.bridgeLabel,
@@ -147,7 +133,6 @@ class SessionListPaneHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final openGallery = onOpenGallery;
     final disconnect = onDisconnect;
     final toggleSidebar = onToggleSidebar;
     final chrome = resolveWorkspacePaneChrome(
@@ -203,7 +188,6 @@ class SessionListPaneHeader extends StatelessWidget {
                     child: SessionListBridgeMenuButton(
                       bridgeLabel: bridgeLabel,
                       onOpenSettings: onOpenSettings,
-                      onOpenGallery: onOpenGallery,
                       onDisconnect: onDisconnect,
                     ),
                   ),
@@ -245,15 +229,6 @@ class SessionListPaneHeader extends StatelessWidget {
                     compact: chrome.useMacOSAdaptiveChrome,
                     tight: tightMacOS,
                   ),
-                  if (openGallery != null)
-                    _PaneHeaderActionButton(
-                      key: const ValueKey('gallery_button'),
-                      tooltip: l.gallery,
-                      onPressed: openGallery,
-                      icon: const Icon(Icons.collections_outlined),
-                      compact: chrome.useMacOSAdaptiveChrome,
-                      tight: tightMacOS,
-                    ),
                   if (disconnect != null)
                     _PaneHeaderActionButton(
                       key: const ValueKey('disconnect_button'),
@@ -373,19 +348,17 @@ class _PaneHeaderActionButton extends StatelessWidget {
 }
 
 /// The bridge label of the title row, opening the actions that left the app
-/// bar for the iPhone Duo control strip: gallery, settings and disconnect.
+/// bar for the iPhone Duo control strip: settings and disconnect.
 class SessionListBridgeMenuButton extends StatelessWidget {
   const SessionListBridgeMenuButton({
     super.key,
     required this.bridgeLabel,
     required this.onOpenSettings,
-    required this.onOpenGallery,
     required this.onDisconnect,
   });
 
   final String? bridgeLabel;
   final VoidCallback onOpenSettings;
-  final VoidCallback? onOpenGallery;
   final VoidCallback? onDisconnect;
 
   @override
@@ -401,17 +374,6 @@ class SessionListBridgeMenuButton extends StatelessWidget {
       tooltip: l.settings,
       onSelected: (action) => action(),
       itemBuilder: (_) => [
-        if (onOpenGallery case final openGallery?)
-          PopupMenuItem(
-            key: const ValueKey('gallery_button'),
-            value: openGallery,
-            child: ListTile(
-              leading: const Icon(Icons.collections_outlined),
-              title: Text(l.gallery),
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
         PopupMenuItem(
           key: const ValueKey('settings_button'),
           value: onOpenSettings,

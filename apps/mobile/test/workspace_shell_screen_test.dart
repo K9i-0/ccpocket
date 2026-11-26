@@ -180,8 +180,11 @@ class _MockBridgeService extends BridgeService {
     _galleryController.add(_images);
   }
 
+  final List<String> stoppedSessionIds = [];
+
   @override
   void stopSession(String sessionId) {
+    stoppedSessionIds.add(sessionId);
     emitStopped(sessionId);
   }
 
@@ -2931,6 +2934,200 @@ void main() {
       expect(find.text('Creating session...'), findsNothing);
       expect(find.text('Select a session in the left pane.'), findsOneWidget);
       expect(NotificationService.instance.activeSessionId, isNull);
+    },
+  );
+
+  testWidgets(
+    'stopping an actively working session asks for confirmation before stopping',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final bridge = _MockBridgeService();
+      final settingsCubit = await _createSettingsCubit(bridge);
+      final draftService = DraftService(await SharedPreferences.getInstance());
+      final revenueCatService = _FakeRevenueCatService();
+      final supportBannerService = await _createSupportBannerService();
+      final shellKey = GlobalKey<WorkspaceShellScreenState>();
+      final session = SessionInfo(
+        id: 'working-1',
+        provider: Provider.claude.value,
+        projectPath: '/Users/demo/project-working-1',
+        status: 'running',
+        createdAt: '2025-01-01T00:00:00Z',
+        lastActivityAt: '2025-01-01T00:00:00Z',
+        gitBranch: 'main',
+        lastMessage: 'Working on task',
+      );
+
+      await tester.pumpWidget(
+        _buildWorkspaceApp(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+          shellKey: shellKey,
+        ),
+      );
+      await _pumpUi(tester);
+
+      bridge.emitSessions([session]);
+      await _pumpUi(tester);
+
+      await tester.tap(
+        find.byKey(const ValueKey('running_session_stop_button')),
+      );
+      await _pumpUi(tester);
+
+      expect(
+        find.byKey(const ValueKey('confirm_stop_session_button')),
+        findsOneWidget,
+      );
+      expect(bridge.stoppedSessionIds, isEmpty);
+
+      await tester.tap(
+        find.byKey(const ValueKey('cancel_stop_session_button')),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(
+        find.byKey(const ValueKey('confirm_stop_session_button')),
+        findsNothing,
+      );
+      expect(bridge.stoppedSessionIds, isEmpty);
+
+      await tester.tap(
+        find.byKey(const ValueKey('running_session_stop_button')),
+      );
+      await _pumpUi(tester);
+
+      await tester.tap(
+        find.byKey(const ValueKey('confirm_stop_session_button')),
+      );
+      await _pumpUi(tester);
+
+      expect(bridge.stoppedSessionIds, ['working-1']);
+    },
+  );
+
+  testWidgets(
+    'stopping an idle session with running background tasks asks for confirmation',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final bridge = _MockBridgeService();
+      final settingsCubit = await _createSettingsCubit(bridge);
+      final draftService = DraftService(await SharedPreferences.getInstance());
+      final revenueCatService = _FakeRevenueCatService();
+      final supportBannerService = await _createSupportBannerService();
+      final shellKey = GlobalKey<WorkspaceShellScreenState>();
+      final session = SessionInfo(
+        id: 'bg-1',
+        provider: Provider.claude.value,
+        projectPath: '/Users/demo/project-bg-1',
+        status: 'idle',
+        backgroundTaskCount: 2,
+        createdAt: '2025-01-01T00:00:00Z',
+        lastActivityAt: '2025-01-01T00:00:00Z',
+        gitBranch: 'main',
+        lastMessage: 'Background task running',
+      );
+
+      await tester.pumpWidget(
+        _buildWorkspaceApp(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+          shellKey: shellKey,
+        ),
+      );
+      await _pumpUi(tester);
+
+      bridge.emitSessions([session]);
+      await _pumpUi(tester);
+
+      await tester.tap(
+        find.byKey(const ValueKey('running_session_stop_button')),
+      );
+      await _pumpUi(tester);
+
+      expect(
+        find.byKey(const ValueKey('confirm_stop_session_button')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('background tasks'), findsOneWidget);
+      expect(bridge.stoppedSessionIds, isEmpty);
+
+      await tester.tap(
+        find.byKey(const ValueKey('confirm_stop_session_button')),
+      );
+      await _pumpUi(tester);
+
+      expect(bridge.stoppedSessionIds, ['bg-1']);
+    },
+  );
+
+  testWidgets(
+    'swiping a working session stops it immediately without a confirmation dialog',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final bridge = _MockBridgeService();
+      final settingsCubit = await _createSettingsCubit(bridge);
+      final draftService = DraftService(await SharedPreferences.getInstance());
+      final revenueCatService = _FakeRevenueCatService();
+      final supportBannerService = await _createSupportBannerService();
+      final shellKey = GlobalKey<WorkspaceShellScreenState>();
+      final session = SessionInfo(
+        id: 'swipe-working-1',
+        provider: Provider.claude.value,
+        projectPath: '/Users/demo/project-swipe-working-1',
+        status: 'running',
+        backgroundTaskCount: 1,
+        createdAt: '2025-01-01T00:00:00Z',
+        lastActivityAt: '2025-01-01T00:00:00Z',
+        gitBranch: 'main',
+        lastMessage: 'Working on task',
+      );
+
+      await tester.pumpWidget(
+        _buildWorkspaceApp(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+          shellKey: shellKey,
+        ),
+      );
+      await _pumpUi(tester);
+
+      bridge.emitSessions([session]);
+      await _pumpUi(tester);
+
+      await tester.drag(
+        find.byKey(const ValueKey('running_session_swipe-working-1')),
+        const Offset(-200, 0),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final swipeStop = find.byKey(
+        const ValueKey('running_session_swipe_stop_swipe-working-1'),
+      );
+      expect(swipeStop, findsOneWidget);
+
+      await tester.tap(swipeStop);
+      await _pumpUi(tester);
+
+      expect(
+        find.byKey(const ValueKey('confirm_stop_session_button')),
+        findsNothing,
+      );
+      expect(bridge.stoppedSessionIds, ['swipe-working-1']);
     },
   );
 

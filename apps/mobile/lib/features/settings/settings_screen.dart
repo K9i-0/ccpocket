@@ -13,6 +13,7 @@ import '../../services/platform_environment_service.dart';
 import '../../services/revenuecat_service.dart';
 import '../../utils/platform_helper.dart';
 import '../../widgets/workspace_pane_chrome.dart';
+import '../gallery/gallery_screen.dart';
 import '../local_bridge/state/local_bridge_cubit.dart';
 import '../session_list/workspace_shell_screen.dart';
 import 'models/settings_catalog.dart';
@@ -213,14 +214,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return;
     }
     final route = MaterialPageRoute<void>(
-      builder: (_) => SettingsCategoryPage(
-        category: category,
-        environment: _environment,
-        onUpdateBridge: _updateBridgeFromSettings,
-        onOpenCategory: _openCategory,
-        createLocalBridgeCubit: widget.createLocalBridgeCubit,
-        highlight: highlight,
-      ),
+      builder: (_) => category == SettingsCategory.gallery
+          ? const SettingsItem(
+              id: SettingsEntryIds.gallery,
+              framed: true,
+              child: GalleryScreen(),
+            )
+          : SettingsCategoryPage(
+              category: category,
+              environment: _environment,
+              onUpdateBridge: _updateBridgeFromSettings,
+              onOpenCategory: _openCategory,
+              createLocalBridgeCubit: widget.createLocalBridgeCubit,
+              highlight: highlight,
+            ),
     );
     _categoryRoute = route;
     unawaited(

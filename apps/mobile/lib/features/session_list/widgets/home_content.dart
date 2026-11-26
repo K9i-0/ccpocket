@@ -128,6 +128,7 @@ class HomeContent extends StatefulWidget {
   })
   onTapRunning;
   final ValueChanged<String> onStopSession;
+  final ValueChanged<String>? onStopSessionImmediately;
   final ValueChanged<String>? onCancelOfflinePendingAction;
   final void Function(String sessionId, String toolUseId, {bool clearContext})?
   onApprovePermission;
@@ -205,6 +206,7 @@ class HomeContent extends StatefulWidget {
     required this.onNewSession,
     required this.onTapRunning,
     required this.onStopSession,
+    this.onStopSessionImmediately,
     this.onCancelOfflinePendingAction,
     this.onApprovePermission,
     this.onApproveAlways,
@@ -889,7 +891,10 @@ class HomeContentState extends State<HomeContent> {
                 extentRatio: 0.18,
                 children: [
                   CustomSlidableAction(
-                    onPressed: (_) => widget.onStopSession(session.id),
+                    key: ValueKey('running_session_swipe_stop_${session.id}'),
+                    onPressed: (_) =>
+                        (widget.onStopSessionImmediately ??
+                        widget.onStopSession)(session.id),
                     backgroundColor: Colors.transparent,
                     padding: EdgeInsets.zero,
                     child: Container(
@@ -1201,19 +1206,47 @@ class _RunningSessionsHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
-    final header = Column(
+    final hasUsage = usageSummary != null;
+    final headerRow = Padding(
+      padding: EdgeInsets.only(
+        left: 2,
+        top: hasUsage ? 0 : 10,
+        bottom: hasUsage ? 0 : 6,
+      ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: hasUsage ? 44 : 24),
+        child: Row(
+          key: const ValueKey('running_sessions_header'),
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            _RunningHeaderIcon(color: color, animate: !showEmptyMessage),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              key: const ValueKey('running_sessions_header_label'),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
+                color: color,
+              ),
+            ),
+            if (hasUsage) ...[
+              const SizedBox(width: 10),
+              Expanded(child: SizedBox(height: 44, child: usageSummary!)),
+            ],
+          ],
+        ),
+      ),
+    );
+
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(
-          key: const ValueKey('running_sessions_header'),
-          icon: Icons.play_circle_filled,
-          label: label,
-          color: color,
-        ),
-        const SizedBox(height: 4),
+        headerRow,
         if (showEmptyMessage)
           Padding(
-            padding: const EdgeInsets.only(left: 4),
+            padding: EdgeInsets.only(left: 4, top: hasUsage ? 0 : 4),
             child: Text(
               emptyLabel,
               key: const ValueKey('running_sessions_empty_message'),
@@ -1222,36 +1255,96 @@ class _RunningSessionsHeader extends StatelessWidget {
           ),
       ],
     );
-    if (usageSummary == null) return header;
+  }
+}
 
-    final labelPainter = TextPainter(
-      text: TextSpan(
-        text: label,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.8,
-          color: color,
-        ),
-      ),
-      textDirection: Directionality.of(context),
-      textScaler: MediaQuery.textScalerOf(context),
-    )..layout();
-    final tapTargetLeft = 4 + 16 + 6 + labelPainter.width + 8;
+/// Glowing play icon for the Running section header, echoing the glow and
+/// breathing cadence of `SessionStatusDot` on running cards.
+class _RunningHeaderIcon extends StatefulWidget {
+  final Color color;
+  final bool animate;
 
-    return LayoutBuilder(
-      builder: (context, constraints) => Stack(
-        children: [
-          header,
-          Positioned(
-            top: 0,
-            left: tapTargetLeft.clamp(0, constraints.maxWidth).toDouble(),
-            right: 0,
-            height: 44,
-            child: usageSummary!,
-          ),
-        ],
-      ),
+  const _RunningHeaderIcon({required this.color, required this.animate});
+
+  @override
+  State<_RunningHeaderIcon> createState() => _RunningHeaderIconState();
+}
+
+class _RunningHeaderIconState extends State<_RunningHeaderIcon>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseController;
+  late final Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _pulseAnimation = Tween(begin: 0.55, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+  }
+
+  void _syncAnimation() {
+    final disableAnimations = MediaQuery.disableAnimationsOf(context);
+    if (widget.animate && !disableAnimations) {
+      if (!_pulseController.isAnimating) {
+        _pulseController.repeat(reverse: true);
+      }
+    } else {
+      if (_pulseController.isAnimating) {
+        _pulseController.stop();
+      }
+      _pulseController.value = 1.0;
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncAnimation();
+  }
+
+  @override
+  void didUpdateWidget(_RunningHeaderIcon oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.animate != widget.animate) {
+      _syncAnimation();
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _pulseAnimation,
+      builder: (context, _) {
+        final pulse = widget.animate ? _pulseAnimation.value : 0.88;
+        final glowAlpha = widget.animate ? pulse * 0.65 : 0.4;
+        return Icon(
+          Icons.play_arrow_rounded,
+          key: const ValueKey('running_sessions_header_icon'),
+          size: 17,
+          color: widget.color.withValues(alpha: pulse),
+          shadows: [
+            Shadow(
+              color: widget.color.withValues(alpha: glowAlpha),
+              blurRadius: 8,
+            ),
+            Shadow(
+              color: widget.color.withValues(alpha: glowAlpha * 0.55),
+              blurRadius: 3,
+            ),
+          ],
+        );
+      },
     );
   }
 }

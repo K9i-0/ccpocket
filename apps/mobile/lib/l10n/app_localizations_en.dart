@@ -5183,4 +5183,19 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get displayItemToolResultsSubtitle =>
       'Tool result bodies and work-in-progress images';
+
+  @override
+  String get stopSessionConfirmActive =>
+      'This session is currently active. Are you sure you want to stop it?';
+
+  @override
+  String get stopSessionConfirmBackground =>
+      'This session still has running background tasks. Are you sure you want to stop it?';
+
+  @override
+  String get stopSessionConfirmActiveAndBackground =>
+      'This session is currently active and has running background tasks. Are you sure you want to stop it?';
+
+  @override
+  String get settingsCategoryGallerySummary => 'Saved images and screenshots';
 }

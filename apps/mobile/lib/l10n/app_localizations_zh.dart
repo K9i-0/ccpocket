@@ -4927,4 +4927,17 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get displayItemToolResultsSubtitle => '工具输出正文及截图等过程图片';
+
+  @override
+  String get stopSessionConfirmActive => '此会话当前正在运行。确定要停止吗？';
+
+  @override
+  String get stopSessionConfirmBackground => '此会话仍有正在运行的后台任务。确定要停止吗？';
+
+  @override
+  String get stopSessionConfirmActiveAndBackground =>
+      '此会话当前正在运行，且仍有正在运行的后台任务。确定要停止吗？';
+
+  @override
+  String get settingsCategoryGallerySummary => '已保存的图片和截图';
 }

@@ -496,7 +496,7 @@ class _StoreSessionListRouteState extends State<_StoreSessionListRoute> {
     };
 
     // Mirror the real list on an iPhone Duo strip: search and New in the
-    // strip, gallery/settings/disconnect behind the bridge menu.
+    // strip, settings/disconnect behind the bridge menu.
     final duoStrip = DuoStripScope.hasStrip(context);
     Widget body = Scaffold(
       appBar: AppBar(
@@ -511,7 +511,6 @@ class _StoreSessionListRouteState extends State<_StoreSessionListRoute> {
                     child: SessionListBridgeMenuButton(
                       bridgeLabel: 'MacBook Pro',
                       onOpenSettings: () {},
-                      onOpenGallery: () {},
                       onDisconnect: () {},
                     ),
                   ),
@@ -521,7 +520,6 @@ class _StoreSessionListRouteState extends State<_StoreSessionListRoute> {
         actions: [
           if (!duoStrip) ...[
             IconButton(icon: const Icon(Icons.settings), onPressed: () {}),
-            IconButton(icon: const Icon(Icons.collections), onPressed: () {}),
             IconButton(icon: const Icon(Icons.link_off), onPressed: () {}),
           ],
         ],
@@ -1492,7 +1490,6 @@ class _StoreWorkspaceListPane extends StatelessWidget {
             SessionListPaneHeader(
               onTitleTap: () {},
               onOpenSettings: () {},
-              onOpenGallery: () {},
               onDisconnect: () {},
             ),
             Expanded(

@@ -10,7 +10,9 @@ class GalleryEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appColors = Theme.of(context).extension<AppColors>()!;
+    final subtleText =
+        Theme.of(context).extension<AppColors>()?.subtleText ??
+        Theme.of(context).colorScheme.onSurfaceVariant;
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -41,7 +43,7 @@ class GalleryEmptyState extends StatelessWidget {
                   ? AppLocalizations.of(context).screenshotButtonHint
                   : AppLocalizations.of(context).screenshotsWillAppearHere,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: appColors.subtleText),
+              style: TextStyle(fontSize: 14, color: subtleText),
             ),
           ],
         ),
