@@ -14,14 +14,14 @@ Inputs:
 
 Outputs:
 
-- `docs/images/release-card-v<version>-en.png`
-- `docs/images/release-card-v<version>-ja.png`
+- `tmp/release-card/release-card-v<version>-en.png`
+- `tmp/release-card/release-card-v<version>-ja.png`
 
 Options:
 
 ```bash
 node scripts/release-card/generate.mjs --locales ja --version 1.87.0
-node scripts/release-card/generate.mjs --out-dir tmp/release-card
+node scripts/release-card/generate.mjs --out-dir /tmp/release-card
 ```
 
 The generator uses Playwright via `npx playwright screenshot`, matching the other image-generation scripts in this repository.

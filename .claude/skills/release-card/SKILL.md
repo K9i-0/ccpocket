@@ -53,11 +53,11 @@ npm run release-card
 node scripts/release-card/generate.mjs --version <X.Y.Z>
 ```
 
-出力先は `docs/images/`。ファイル名は蓄積運用のため、必ずバージョンを含む形式にする。
+出力先は `tmp/release-card/`（Git 管理外の一時出力。生成画像をリポジトリへ蓄積・コミットしない）。ファイル名はバージョンを含む形式にする。
 
 ```text
-docs/images/release-card-v<X.Y.Z>-en.png
-docs/images/release-card-v<X.Y.Z>-ja.png
+tmp/release-card/release-card-v<X.Y.Z>-en.png
+tmp/release-card/release-card-v<X.Y.Z>-ja.png
 ```
 
 ### 4. 生成画像を確認

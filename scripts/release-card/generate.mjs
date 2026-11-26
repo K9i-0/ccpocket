@@ -36,7 +36,7 @@ function usage() {
 Options:
   --locales en-US,ja      Locales to render. Default: en-US,ja
   --version 1.86.1        Override version. Default: apps/mobile/pubspec.yaml
-  --out-dir docs/images   Output directory. Default: docs/images
+  --out-dir tmp/release-card  Output directory. Default: tmp/release-card
 
 Examples:
   node scripts/release-card/generate.mjs
@@ -60,7 +60,7 @@ const requestedLocales = (readArg("--locales") ?? "en-US,ja")
   .map((locale) => locale.trim())
   .filter(Boolean);
 const version = readArg("--version") ?? readVersion();
-const outputDir = path.resolve(root, readArg("--out-dir") ?? "docs/images");
+const outputDir = path.resolve(root, readArg("--out-dir") ?? "tmp/release-card");
 const iconPath = path.resolve(root, "docs/images/cc-pocket-icon.png");
 const tempDir = path.resolve(scriptDir, ".tmp");
 

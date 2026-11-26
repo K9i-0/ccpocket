@@ -12,13 +12,10 @@
     "packages/*"
   ],
   "scripts": {
-    "voice:lab": "node scripts/voice-lab/server.mjs",
-    "test:voice-lab": "node --test scripts/voice-lab/*.test.mjs",
     "prepare": "bash scripts/setup-hooks.sh",
     "bridge": "npm run dev --workspace=packages/bridge",
     "bridge:build": "npm run build --workspace=packages/bridge",
     "dev": "bash scripts/dev-restart.sh",
-    "setup": "bash scripts/setup-launchd.sh",
     "bridge:doctor": "npm run doctor --workspace=packages/bridge",
     "test:bridge": "npm run test --workspace=packages/bridge",
     "test:bridge:coverage": "npm run test:coverage --workspace=packages/bridge",
