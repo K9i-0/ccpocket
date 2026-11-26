@@ -113,6 +113,7 @@ Flutter の `SelectionArea` を使用せず、**カスタム `RenderSelectablePa
     - **高速インライン後処理 (`MarkdownInlineRule` / `MarkdownInlineScanner`)**: `triggerCodeUnits` または `mayMatch` による事前フィルタを必須とし、通常テキストへの全文字 Regex 走査を回避しつつ、コードスパンや既存リンク内部には触れない。
 - **ストリーミング分割とキャッシュ分離 (`block_splitter.dart`)**
   - `splitMarkdownBlocks` は `chunks.join() == text` を常に満たす形でトップレベルブロックを分割し、リンク参照定義・脚注定義・複数段落 HTML ブロックがある場合は単一チャンクへフォールバックする。
+  - `package:markdown` は行頭の字下げや改行前の空白をテキストノードに残し、HTML 出力時に落とす。markdown_kit は AST へ直接変換するので、ブロックごとのインライン変換の最後に行頭・行末の空白を除去する（`-   項目` の余分な空白や継続行の字下げが表示に出ないように）。
   - `isStreaming: true` 時は `sanitizeStreamingTail` で未閉じ構文のチラつきを抑えつつ、確定済みチャンクを `BoundedLruCache`（文書キャッシュ＋ブロックキャッシュ）から再利用する。変化し続ける末尾チャンクは専用スロットに保持し、ストリーミングの中間フレームが共有 LRU キャッシュをスラッシングしないようにしている。
   - `CodeBlock.closed` フラグにより、未閉じフェンスのコードブロックをアプリ側ハイライターへ明示的に伝えられる。
 - **パース失敗時のフォールバック**
@@ -165,6 +166,9 @@ ccpocket 本体は `apps/mobile/pubspec.yaml` から `path: ../../packages/markd
 4. **回帰テストの基準**: ハンドルの不透明ヒットテスト・150ms 待機後の縦ドラッグ貫通防止・`ListView(reverse: true)` での自動スクロール・仮想化スクロールアウト後の選択復元・プレーンテキスト／Markdown 復元コピー・ストリーミング分割不変条件は `packages/markdown_kit/test/` の自動テストで担保し、変更時は必ず全件通す。
    - `parser_robustness_test.dart` は固定シードのランダム文書で、分割の連結不変条件・チャンク単位と全文のパース一致・全プレフィックスのストリーミング収束・病的入力の処理時間を検査する。正規表現を追加・変更したら必ず通す（コメント判定の正規表現が指数的バックトラックを起こした前例がある）。
    - `rendering_regression_test.dart` / `selection_regression_test.dart` は独立レビューで見つかった欠陥の再現テスト。
+   - `test/commonmark_spec/` は CommonMark 0.31.2 の 652 例を通し、仕様と一致しない例を「`package:markdown` 起因」と「markdown_kit 起因（理由つき）」に分けて `baseline.json` に記録する。どちらの方向でも分類が変わると失敗するので、基準表は意図した変更でしか動かない。再生成は `UPDATE_COMMONMARK_BASELINE=1 flutter test test/commonmark_spec`。
+   - `corpus_invariants_test.dart` は同じ例を入力に、分割・ストリーミング収束・コピー・描画オフセットの不変条件を検査する。`GfmMarkdownParser.rawTextFallbackCount` で「例外は出ないが生テキストに縮退した」入力を検出できる。
+   - `selection_*_test.dart` / `rendering_*_test.dart` / `parser_*_test.dart` は `flutter_md` と `gpt_markdown` のテストスイートを棚卸しし、未カバーだった振る舞いを markdown_kit の API と仕様に合わせて書き起こしたもの。
 5. **パーサー差し替え互換性**: AST（`MarkdownDocument` / `MarkdownBlock` / `MarkdownInline`）と `MarkdownParser` インターフェースを安定境界として維持し、将来 `package:markdown` 以外のパーサーへ移行する場合も選択エンジンとレンダラーへの影響を最小化する。
 
 ---
@@ -177,3 +181,10 @@ ccpocket 本体は `apps/mobile/pubspec.yaml` から `path: ../../packages/markd
 - **処理時間**: 閉じない `\(` が 1 行に数千個並ぶ入力、数千段に入れ子の `<details>` は入力長の 2 乗で遅くなる。
 - **`<sub>` / `<sup>`**: フォントが対応する OpenType 機能を持たない場合、文字は小さくなるが上下にはずれない。
 - **`<details>` の開閉状態**: `documentId`・ブロック位置・summary 文字列をキーにプロセス内で最大 512 件保持する（仮想化で画面外へ出ても開閉が戻らないようにするため）。
+- **幅が無制限の親**: コードブロック・アラート・リスト・脚注・`<details>` は利用可能な幅いっぱいに伸びるため、横スクロールビュー直下など幅が無制限の場所には置けない（段落・見出し・引用・表・数式・画像は可）。
+- **Intrinsic 計測**: 表は `LayoutBuilder` で自身を計測するため、`IntrinsicWidth` / `IntrinsicHeight` の内側では例外になる。
+- **`textScaler` / `textDirection` の後付け**: `MarkdownView` のこれらを `null` から値へ（または逆へ）切り替えるとサブツリーが作り直され、選択とスクロール位置が失われる。値から値への変更は問題ない。常時ラップしないのは、全ビューが `MediaQuery` を購読してキーボードのアニメーションごとに再ビルドされるのを避けるため。
+- **参照定義**: ラベルが 2 行にまたがる参照定義（`[Foo\n  bar]: /url`）は分割器が認識できず、リンクが解決されない。フェンスの情報文字列では一般的でない名前付き実体参照（`&ouml;` など）を復号しない。
+- **閉じた `<details>` をまたぐ選択**: 終端が閉じた本文の中にある場合、ハンドルは summary の末尾に出る。コピーには見えていない本文も含まれる。
+- **入れ子の深さ**: 引用・リスト・`<details>` の入れ子は 500 段まで。それより深い部分はテキストとして表示する（AST とウィジェットツリーを辿る処理が段数ぶん再帰するため）。
+- **上流 `package:markdown` 7.3.1 起因**: `~~~x~~~` が二重の取り消し線になる。コードスパン内の U+2028 / U+2029 でバッククォートが解釈されない。数千文字の空白を挟んだ行、`www` に続く大量のドット、閉じない `[a](<…` などは入力長の 2 乗で遅くなる。該当テストは理由つきでスキップしている。
