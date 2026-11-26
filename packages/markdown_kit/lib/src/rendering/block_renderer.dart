@@ -676,7 +676,8 @@ class MarkdownBlockRenderer extends StatelessWidget {
   ) {
     final customBuilder = builders.blockLatexBuilder;
     if (customBuilder != null) {
-      return customBuilder(context, latex, effectiveTheme);
+      final built = customBuilder(context, latex, effectiveTheme);
+      if (built != null) return built;
     }
 
     final latexStyle = effectiveTheme.latexStyle;
@@ -1020,8 +1021,8 @@ class MarkdownBlockRenderer extends StatelessWidget {
           effectiveTheme.latexStyle.inlineStyle,
         );
         final customBuilder = builders.inlineLatexBuilder;
-        if (customBuilder != null) {
-          final span = customBuilder(context, inline, latexStyle);
+        final span = customBuilder?.call(context, inline, latexStyle);
+        if (span != null) {
           mappingBuilder.addBuiltSpan(canonicalText: expression, span: span);
           return span;
         }

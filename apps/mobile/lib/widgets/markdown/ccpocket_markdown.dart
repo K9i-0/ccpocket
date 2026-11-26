@@ -13,6 +13,7 @@ import '../../theme/code_text_style.dart';
 import '../../theme/markdown_style.dart';
 import '../../utils/platform_helper.dart';
 import '../bubbles/markdown_image_chip.dart';
+import 'markdown_math.dart';
 
 /// Resolves ccpocket's Material selection highlight color (with alpha) from
 /// [ThemeData], preserving high contrast on both light/dark surfaces and
@@ -553,6 +554,8 @@ class _CcpocketMarkdownState extends State<CcpocketMarkdown> {
     _builders = MarkdownBuilders(
       codeHighlighter: highlightCcpocketCodeBlock,
       codeBlockBuilder: buildCcpocketCodeBlock,
+      inlineLatexBuilder: buildCcpocketInlineLatex,
+      blockLatexBuilder: buildCcpocketBlockLatex,
       inlineCodeBuilder: (ctx, code, style, codeStyle) =>
           _buildCcpocketInlineCode(
             context: ctx,
@@ -717,6 +720,8 @@ class _CcpocketSliverMarkdownState extends State<CcpocketSliverMarkdown> {
     _builders = MarkdownBuilders(
       codeHighlighter: highlightCcpocketCodeBlock,
       codeBlockBuilder: buildCcpocketCodeBlock,
+      inlineLatexBuilder: buildCcpocketInlineLatex,
+      blockLatexBuilder: buildCcpocketBlockLatex,
       inlineCodeBuilder: (ctx, code, style, codeStyle) =>
           _buildCcpocketInlineCode(
             context: ctx,

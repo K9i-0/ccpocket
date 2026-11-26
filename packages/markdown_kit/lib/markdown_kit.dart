@@ -19,6 +19,7 @@ export 'src/parser/markdown_parser.dart'
     show MarkdownParser, MarkdownParserOptions;
 
 // Appearance and extension points.
+export 'src/rendering/block_renderer.dart' show formatLatexFallback;
 export 'src/rendering/markdown_builders.dart';
 export 'src/rendering/markdown_theme.dart';
 export 'src/rendering/selectable_paragraph.dart'

@@ -71,14 +71,21 @@ typedef MarkdownAlertBuilder = Widget Function(
 );
 
 /// Customizes rendering of an inline LaTeX expression.
-typedef MarkdownInlineLatexBuilder = InlineSpan Function(
+///
+/// Return `null` to fall back to the built-in Unicode rendering, for example
+/// when the expression cannot be typeset.
+typedef MarkdownInlineLatexBuilder = InlineSpan? Function(
   BuildContext context,
   InlineLatexInline latex,
   TextStyle style,
 );
 
 /// Customizes rendering of a display-mode [BlockLatexBlock].
-typedef MarkdownBlockLatexBuilder = Widget Function(
+///
+/// Return `null` to fall back to the built-in Unicode rendering, for example
+/// while the block is still streaming ([BlockLatexBlock.closed] is false) or
+/// when the expression cannot be typeset.
+typedef MarkdownBlockLatexBuilder = Widget? Function(
   BuildContext context,
   BlockLatexBlock latex,
   MarkdownThemeData theme,

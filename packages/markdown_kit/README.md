@@ -133,7 +133,8 @@ so an unchanged theme never rebuilds anything.
 | `codeBlockBuilder` | The frame around a code block (header, copy button). |
 | `inlineCodeBuilder`, `inlineLinkBuilder`, `customInlineBuilder` | Inline spans. |
 | `imageBuilder` | Images. The default loads `http(s)` URLs and shows a chip for anything else. |
-| `tableBuilder`, `alertBuilder`, `blockLatexBuilder`, `inlineLatexBuilder` | Those blocks and spans. |
+| `tableBuilder`, `alertBuilder` | Those blocks. |
+| `blockLatexBuilder`, `inlineLatexBuilder` | LaTeX math. Return `null` to keep the built-in Unicode rendering, for example for a formula your typesetter rejects. |
 | `onLinkTap` | What a tap on a link does. Without it links are not tappable. |
 
 Math is not typeset: `\(…\)` and `\[…\]` are parsed and shown as readable text
