@@ -103,7 +103,9 @@ class _TestBridgeService extends BridgeService {
 
   @override
   UsageResultMessage? get lastUsageResult =>
-      _isConnected ? const UsageResultMessage(providers: []) : null;
+      _isConnected ? UsageResultMessage(providers: fakeUsageProviders) : null;
+
+  List<UsageInfo> fakeUsageProviders = const [];
 
   @override
   void requestUsage({bool refreshAntigravity = false}) {}
@@ -1013,6 +1015,19 @@ void main() {
           connected: true,
           fakeLastUrl: 'ws://localhost:8765',
         );
+        // Halfway through the window, so the pace is reliable.
+        bridge.fakeUsageProviders = [
+          UsageInfo(
+            provider: 'codex',
+            fiveHour: UsageWindow(
+              utilization: 40,
+              resetsAt: DateTime.now()
+                  .add(const Duration(hours: 2, minutes: 30))
+                  .toUtc()
+                  .toIso8601String(),
+            ),
+          ),
+        ];
 
         await tester.pumpWidget(
           MultiRepositoryProvider(
@@ -1064,6 +1079,17 @@ void main() {
           findsOneWidget,
         );
         expect(find.byType(UsageSection), findsOneWidget);
+        // The full-size bar marks where linear usage would be now, at the
+        // middle of the bar for a half-elapsed window.
+        final marker = find.byKey(const ValueKey('usage_expected_marker'));
+        expect(marker, findsOneWidget);
+        final barRect = tester.getRect(
+          find.ancestor(of: marker, matching: find.byType(Stack)).first,
+        );
+        expect(
+          tester.getCenter(marker).dx,
+          moreOrLessEquals(barRect.center.dx, epsilon: 2),
+        );
 
         await settingsCubit.close();
         await machineCubit.close();

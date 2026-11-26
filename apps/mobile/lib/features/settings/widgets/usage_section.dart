@@ -559,6 +559,7 @@ class _UsageBarState extends State<_UsageBar>
       window: widget.window,
       windowDuration: widget.windowDuration,
     );
+    final expectedMarker = _expectedMarker(pace, widget.displayMode);
 
     return AnimatedBuilder(
       animation: _controller,
@@ -586,18 +587,15 @@ class _UsageBarState extends State<_UsageBar>
                 ),
               ],
             ),
-            const SizedBox(height: 4),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: pct / 100,
-                minHeight: 6,
-                backgroundColor: cs.surfaceContainerHighest,
-                valueColor: AlwaysStoppedAnimation(barColor),
-              ),
+            const SizedBox(height: 1),
+            _MarkedBar(
+              value: pct / 100,
+              marker: expectedMarker,
+              color: barColor,
+              backgroundColor: cs.surfaceContainerHighest,
+              radius: 4,
             ),
             if (resetDisplay != null) ...[
-              const SizedBox(height: 2),
               Text(
                 resetDisplay,
                 style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
@@ -886,14 +884,7 @@ class _CompactWindowRow extends StatelessWidget {
       windowDuration: windowDuration,
     );
     final reliablePace = (pace?.isReliable ?? false) ? pace : null;
-    // Where linear consumption would put the bar now, in the shown scale.
-    final expectedMarker = reliablePace == null
-        ? null
-        : (displayMode == UsageDisplayMode.remaining
-                  ? 100 - reliablePace.expectedUsedPercent
-                  : reliablePace.expectedUsedPercent)
-              .clamp(0, 100)
-              .toDouble();
+    final expectedMarker = _expectedMarker(pace, displayMode);
 
     final resetsAt = window.resetsAtDateTime;
     final untilReset = resetsAt?.difference(DateTime.now());
@@ -927,7 +918,7 @@ class _CompactWindowRow extends StatelessWidget {
               Expanded(
                 child: _MarkedBar(
                   value: shown / 100,
-                  marker: expectedMarker == null ? null : expectedMarker / 100,
+                  marker: expectedMarker,
                   color: barColor,
                 ),
               ),
@@ -994,13 +985,31 @@ String? _compactProjection(AppLocalizations l, UsagePace pace) {
   return l.usageCompactRunsOutIn(_formatCompactDuration(timeUntilLimit));
 }
 
+/// Where linear consumption would put the bar now, as a 0-1 fraction of the
+/// shown scale. Null while the pace is not reliable yet.
+double? _expectedMarker(UsagePace? pace, UsageDisplayMode displayMode) {
+  if (pace == null || !pace.isReliable) return null;
+  final expected = displayMode == UsageDisplayMode.remaining
+      ? 100 - pace.expectedUsedPercent
+      : pace.expectedUsedPercent;
+  return (expected / 100).clamp(0, 1).toDouble();
+}
+
 /// Progress bar with a tick showing where linear usage would be now.
 class _MarkedBar extends StatelessWidget {
-  const _MarkedBar({required this.value, required this.color, this.marker});
+  const _MarkedBar({
+    required this.value,
+    required this.color,
+    this.marker,
+    this.backgroundColor,
+    this.radius = 99,
+  });
 
   final double value;
   final double? marker;
   final Color color;
+  final Color? backgroundColor;
+  final double radius;
 
   @override
   Widget build(BuildContext context) {
@@ -1015,12 +1024,13 @@ class _MarkedBar extends StatelessWidget {
             clipBehavior: Clip.none,
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(99),
+                borderRadius: BorderRadius.circular(radius),
                 child: LinearProgressIndicator(
                   value: value.clamp(0, 1).toDouble(),
                   minHeight: 6,
                   color: color,
-                  backgroundColor: cs.onSurface.withValues(alpha: 0.08),
+                  backgroundColor:
+                      backgroundColor ?? cs.onSurface.withValues(alpha: 0.08),
                 ),
               ),
               if (marker != null)
