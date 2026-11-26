@@ -290,6 +290,48 @@ void main() {
     });
   });
 
+  group('a fence beside a list', () {
+    String standardHtml(String source) => md.renderToHtml(
+      md.Document(
+        extensionSet: md.ExtensionSet.gitHubFlavored,
+        encodeHtml: false,
+      ).parse(source),
+    );
+
+    void expectChunksMatchWhole(String source) {
+      final pieces = splitMarkdownBlocks(
+        source,
+      ).map(standardHtml).where((html) => html.isNotEmpty).join('\n');
+      expect(pieces, standardHtml(source), reason: _visible(source));
+    }
+
+    test('shallower than the item content column is not inside the item', () {
+      // The fence ends the list, so unindented code with a blank line in it
+      // must stay one block.
+      expectChunksMatchWhole(
+        '1. item\n  ```\ncode at zero\n\nmore code\n  ```\n\nafter\n',
+      );
+      expectChunksMatchWhole(
+        '- item\n\n ```\ncode at zero\n\nmore code\n ```\n\nafter\n',
+      );
+    });
+
+    test('at the item content column belongs to the item', () {
+      expectChunksMatchWhole(
+        '- item\n  ```\n  code\n\n  more\n  ```\n\nafter\n',
+      );
+      expectChunksMatchWhole(
+        '10. item\n    ```\n    code\n\n    more\n    ```\n\nafter\n',
+      );
+    });
+
+    test('left open by the end of its item does not swallow what follows', () {
+      expectChunksMatchWhole(
+        '- item\n  ```\n  code\nparagraph\n\n```\nreal\n\ncode\n```\n',
+      );
+    });
+  });
+
   group('a trailing backslash while streaming', () {
     test('is held until the next character arrives', () {
       expect(sanitizeStreamingTail('[1] the formula \\'), '[1] the formula ');

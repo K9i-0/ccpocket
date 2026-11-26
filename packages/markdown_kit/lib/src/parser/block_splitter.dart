@@ -40,10 +40,11 @@ List<String> splitMarkdownBlocks(
   _BlockMathDelimiter? mathBlock;
   var detailsDepth = 0;
   var currentHasListItem = false;
-  // Whether the line being read can still belong to a list item. Used only
-  // to decide if a fence sits inside one; unlike [currentHasListItem] it is
-  // dropped as soon as a block that cannot be item content starts.
-  var listItemOpen = false;
+  // Content column of the list item the line being read can still belong to,
+  // or null outside one. Used only to decide if a fence sits inside the item;
+  // unlike [currentHasListItem] it is dropped as soon as a block that cannot
+  // be item content starts.
+  int? listContentIndent;
   var currentHasContent = false;
   var sawBlankAfterContent = false;
 
@@ -78,7 +79,7 @@ List<String> splitMarkdownBlocks(
         return [text];
       }
       current.write(line);
-      fence = _Fence.tryOpen(content, inListItem: true);
+      fence = _Fence.tryOpen(content, containerIndent: 0);
       if (fence == null) {
         detailsDepth = _updateDetailsDepth(detailsDepth, content);
       }
@@ -102,20 +103,21 @@ List<String> splitMarkdownBlocks(
       blocks.add(current.toString());
       current.clear();
       currentHasListItem = false;
-      listItemOpen = false;
+      listContentIndent = null;
     }
     sawBlankAfterContent = false;
     currentHasContent = true;
 
     current.write(line);
-    if (_isListItem(content)) {
+    final itemIndent = _listItemContentIndent(content);
+    if (itemIndent != null) {
       currentHasListItem = true;
-      listItemOpen = true;
+      listContentIndent = itemIndent;
     } else if (_endsListItem(content)) {
-      listItemOpen = false;
+      listContentIndent = null;
     }
 
-    fence = _Fence.tryOpen(content, inListItem: listItemOpen);
+    fence = _Fence.tryOpen(content, containerIndent: listContentIndent);
     if (fence != null) continue;
 
     mathBlock = _BlockMathDelimiter.tryOpen(
@@ -177,7 +179,7 @@ String sanitizeStreamingTail(
   // are currently inside an open fenced code block or display math block.
   _Fence? openFence;
   _BlockMathDelimiter? openMath;
-  var sawListItem = false;
+  int? listContentIndent;
 
   for (final rawLine in _splitLinesKeepingNewlines(
     text.substring(0, trailingStart),
@@ -197,12 +199,13 @@ String sanitizeStreamingTail(
       continue;
     }
 
-    if (_isListItem(content)) {
-      sawListItem = true;
+    final itemIndent = _listItemContentIndent(content);
+    if (itemIndent != null) {
+      listContentIndent = itemIndent;
     } else if (_endsListItem(content)) {
-      sawListItem = false;
+      listContentIndent = null;
     }
-    openFence = _Fence.tryOpen(content, inListItem: sawListItem);
+    openFence = _Fence.tryOpen(content, containerIndent: listContentIndent);
     if (openFence != null) continue;
     openMath = _BlockMathDelimiter.tryOpen(
       content,
@@ -225,7 +228,10 @@ String sanitizeStreamingTail(
     return text;
   }
 
-  if (_isPartialOpeningFenceLine(trailingLine, inListItem: sawListItem) ||
+  if (_isPartialOpeningFenceLine(
+        trailingLine,
+        containerIndent: listContentIndent,
+      ) ||
       _isPartialOpeningMathLine(
         trailingLine,
         bracket: bracketMath,
@@ -261,6 +267,9 @@ final _spanningHtmlBlock = RegExp(
   caseSensitive: false,
 );
 final _listItem = RegExp(r'^ {0,3}([-*+]|\d{1,9}[.)])([ \t]|$)');
+final _listItemParts = RegExp(
+  r'^( {0,3})([-*+]|\d{1,9}[.)])(?:( +)(?=[^ ])|[ \t]*$)',
+);
 final _nonItemBlockStart = RegExp(
   r'^(?:>|#{1,6}(?:[ \t]|$)|<|(?:[-*_][ \t]*){3,}$)',
 );
@@ -295,6 +304,20 @@ bool _startsNewBlock(String line, {required bool currentHasListItem}) {
 
 bool _isListItem(String line) => _listItem.hasMatch(line);
 
+/// Column where the content of the list item starting on [line] begins, or
+/// null when [line] does not start one.
+int? _listItemContentIndent(String line) {
+  final match = _listItemParts.firstMatch(line);
+  if (match == null) return null;
+  if (!_listItem.hasMatch(line)) return null;
+  final spaces = match.group(3)?.length ?? 1;
+  // Five or more spaces after the marker start an indented code block inside
+  // the item, whose content column is one past the marker.
+  return match.group(1)!.length +
+      match.group(2)!.length +
+      (spaces >= 1 && spaces <= 4 ? spaces : 1);
+}
+
 /// Whether an unindented [line] starts a block that cannot be part of a list
 /// item (a quote, heading, rule or raw HTML). A plain text line does not
 /// count: it may be a lazy continuation of the item's paragraph.
@@ -302,14 +325,13 @@ bool _endsListItem(String line) => _nonItemBlockStart.hasMatch(line);
 
 bool _isBlank(String line) => line.trim().isEmpty;
 
-bool _isPartialOpeningFenceLine(String line, {required bool inListItem}) {
-  final partial = _partialFenceStart.firstMatch(line);
-  if (partial != null) {
-    return inListItem || _indentWidth(_leadingWhitespace(line)) <= 3;
-  }
+bool _isPartialOpeningFenceLine(String line, {required int? containerIndent}) {
+  final indent = _indentWidth(_leadingWhitespace(line));
+  final inContainer = containerIndent != null && indent >= containerIndent;
+  if (!inContainer && indent > 3) return false;
+  if (_partialFenceStart.hasMatch(line)) return true;
   final match = _fenceOpen.firstMatch(line);
   if (match == null) return false;
-  if (!inListItem && _indentWidth(match.group(1)!) > 3) return false;
   final marker = match.group(2)!;
   final info = match.group(3)!;
   // Backtick fences cannot contain backticks in the info string (e.g. ```` ```foo` ````).
@@ -377,23 +399,28 @@ List<String> _splitLinesKeepingNewlines(String text) {
 }
 
 class _Fence {
-  const _Fence(this.char, this.length, this.indent, {required this.inListItem});
+  const _Fence(this.char, this.length, this.indent, {this.containerIndent});
 
   final String char;
   final int length;
   final int indent;
 
-  /// Whether the fence was opened as content of a list item (or `<details>`).
-  final bool inListItem;
+  /// Content column of the list item the fence was opened in, or null when it
+  /// is not inside one. Zero for `<details>`, which a line cannot leave by
+  /// indentation.
+  final int? containerIndent;
 
   /// At the top level a fence opens with at most three spaces of indentation;
   /// four or more make an indented code line whose backticks are just text.
-  /// Inside a list item the fence sits at the item's content column, so any
-  /// indentation is accepted there.
-  static _Fence? tryOpen(String line, {required bool inListItem}) {
+  /// A fence indented at least to the content column of the open list item
+  /// ([containerIndent]) belongs to that item, however deep that is.
+  static _Fence? tryOpen(String line, {required int? containerIndent}) {
     final match = _fenceOpen.firstMatch(line);
     if (match == null) return null;
-    if (!inListItem && _indentWidth(match.group(1)!) > 3) return null;
+    final fenceIndent = _indentWidth(match.group(1)!);
+    final inContainer =
+        containerIndent != null && fenceIndent >= containerIndent;
+    if (!inContainer && fenceIndent > 3) return null;
     final marker = match.group(2)!;
     final info = match.group(3)!;
     // Backtick fences may not have backticks in the info string.
@@ -401,16 +428,17 @@ class _Fence {
     return _Fence(
       marker[0],
       marker.length,
-      _indentWidth(match.group(1)!),
-      inListItem: inListItem,
+      fenceIndent,
+      containerIndent: inContainer ? containerIndent : null,
     );
   }
 
   /// Whether [line] leaves the list item this fence was opened in. A fence is
   /// closed by the end of its container even without a closing fence line.
   bool isEndedByContainer(String line) {
-    if (!inListItem || indent == 0 || _isBlank(line)) return false;
-    return _indentWidth(_leadingWhitespace(line)) < indent;
+    final container = containerIndent;
+    if (container == null || container == 0 || _isBlank(line)) return false;
+    return _indentWidth(_leadingWhitespace(line)) < container;
   }
 
   bool isClosedBy(String line) {
