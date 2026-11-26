@@ -132,24 +132,40 @@ class GfmMarkdownParser implements MarkdownParser {
     String source, {
     required bool resolveFootnotes,
   }) {
-    final mdDoc = _createMdDocument();
-    final rawNodes = mdDoc.parse(source);
-    final footnotes = <String, FootnoteDefinition>{};
-    var blocks = _convertBlockNodes(
-      rawNodes,
-      mdDoc: mdDoc,
-      footnotes: footnotes,
-    );
+    try {
+      final mdDoc = _createMdDocument();
+      final rawNodes = mdDoc.parse(source);
+      final footnotes = <String, FootnoteDefinition>{};
+      var blocks = _convertBlockNodes(
+        rawNodes,
+        mdDoc: mdDoc,
+        footnotes: footnotes,
+      );
 
-    if (resolveFootnotes && footnotes.isNotEmpty) {
-      blocks = _attachResolvedFootnotes(blocks, footnotes);
+      if (resolveFootnotes && footnotes.isNotEmpty) {
+        blocks = _attachResolvedFootnotes(blocks, footnotes);
+      }
+
+      if (!_scanner.isEmpty) {
+        blocks = _scanner.scanBlocks(blocks);
+      }
+
+      return List.unmodifiable(blocks);
+    } catch (_) {
+      // `package:markdown` throws on a few inputs (for example an alert marker
+      // directly followed by a table delimiter row trips its "not advancing"
+      // guard). Chat content is untrusted model output, so show the raw source
+      // rather than failing the whole widget build.
+      return _rawTextFallback(source);
     }
+  }
 
-    if (!_scanner.isEmpty) {
-      blocks = _scanner.scanBlocks(blocks);
-    }
-
-    return List.unmodifiable(blocks);
+  List<MarkdownBlock> _rawTextFallback(String source) {
+    final text = source.replaceAll('\r\n', '\n').trim();
+    if (text.isEmpty) return const [];
+    return List.unmodifiable([
+      ParagraphBlock(inlines: [TextInline(text)]),
+    ]);
   }
 
   md.Document _createMdDocument() {
@@ -203,7 +219,10 @@ class GfmMarkdownParser implements MarkdownParser {
             continue;
           }
         }
-        final decoded = _decodeHtmlEntities(node.text);
+        // Raw HTML blocks arrive with their surrounding newlines, and an HTML
+        // comment is never meant to be seen.
+        if (_htmlCommentOnlyPattern.hasMatch(trimmed)) continue;
+        final decoded = _decodeHtmlEntities(trimmed);
         blocks.add(ParagraphBlock(inlines: [TextInline(decoded)]));
         continue;
       }
@@ -1527,6 +1546,7 @@ final _standaloneInlineHtmlPattern = RegExp(
   r'^<(?:br|img|b|strong|i|em|u|s|del|sub|sup|kbd|a)(?:\s|/|>)',
   caseSensitive: false,
 );
+final _htmlCommentOnlyPattern = RegExp(r'^(?:<!--[\s\S]*?-->\s*)+$');
 final _blockLatexCombinedPattern = RegExp(r'^ {0,3}(?:\\\[|\$\$)');
 final _blockLatexBracketOnlyPattern = RegExp(r'^ {0,3}\\\[');
 final _bracketSingleLinePattern = RegExp(r'^ {0,3}\\\[(.*)\\\][ \t]*$');
