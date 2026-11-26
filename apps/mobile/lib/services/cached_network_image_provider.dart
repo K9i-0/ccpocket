@@ -160,7 +160,26 @@ class CachedNetworkImageProvider
     }
   }
 
+  /// Retries transient connection failures, so a brief Bridge reconnect does
+  /// not leave a screen that never rebuilds on a broken-image placeholder.
+  /// HTTP error statuses are not retried.
   Future<Uint8List> _fetchFromNetwork(
+    StreamController<ImageChunkEvent> chunkEvents,
+  ) async {
+    for (var attempt = 1; ; attempt++) {
+      try {
+        return await _fetchOnce(chunkEvents);
+      } on http.ClientException {
+        if (attempt >= _kMaxFetchAttempts) rethrow;
+        await Future<void>.delayed(_kFetchRetryDelay * attempt);
+      }
+    }
+  }
+
+  static const _kMaxFetchAttempts = 3;
+  static const _kFetchRetryDelay = Duration(milliseconds: 100);
+
+  Future<Uint8List> _fetchOnce(
     StreamController<ImageChunkEvent> chunkEvents,
   ) async {
     final resolved = Uri.base.resolve(url);

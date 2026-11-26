@@ -6,7 +6,9 @@ import 'package:material_ui/material_ui.dart';
 /// - Double tap zooms to 2.5x around the tapped point, and back to fit.
 /// - Reports zoom state changes (`scale > 1.01`) via [onZoomChanged] so a parent
 ///   [PageView] can lock scrolling with [NeverScrollableScrollPhysics] only
-///   while zoomed and allow smooth finger-tracking swipes when unzoomed.
+///   while zoomed and allow smooth finger-tracking swipes when unzoomed. It
+///   also reports `true` as soon as a second finger touches down, so the
+///   parent's horizontal drag cannot claim a pinch before it starts scaling.
 /// - A drag while not zoomed springs back to fit. When [onSwipePrevious] /
 ///   [onSwipeNext] are provided, a horizontal swipe while unzoomed invokes them.
 class ZoomableImageViewer extends StatefulWidget {
@@ -45,6 +47,8 @@ class _ZoomableImageViewerState extends State<ZoomableImageViewer>
   Offset? _interactionLatest;
   bool _scaledDuringInteraction = false;
   bool _isZoomed = false;
+  int _activePointers = 0;
+  bool _reportedLocked = false;
 
   @override
   void initState() {
@@ -73,10 +77,27 @@ class _ZoomableImageViewerState extends State<ZoomableImageViewer>
         ZoomableImageViewer.zoomThreshold;
     if (zoomed == _isZoomed) return;
     _isZoomed = zoomed;
-    widget.onZoomChanged?.call(zoomed);
+    _reportLock();
     if (widget.onZoomChanged != null && mounted) {
       setState(() {});
     }
+  }
+
+  void _reportLock() {
+    final locked = _isZoomed || _activePointers >= 2;
+    if (locked == _reportedLocked) return;
+    _reportedLocked = locked;
+    widget.onZoomChanged?.call(locked);
+  }
+
+  void _handlePointerDown(PointerDownEvent event) {
+    _activePointers++;
+    _reportLock();
+  }
+
+  void _handlePointerUpOrCancel(PointerEvent event) {
+    if (_activePointers > 0) _activePointers--;
+    _reportLock();
   }
 
   void _applyAnimation() {
@@ -179,21 +200,26 @@ class _ZoomableImageViewerState extends State<ZoomableImageViewer>
         widget.onZoomChanged == null ||
         widget.onSwipePrevious != null ||
         widget.onSwipeNext != null;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: widget.onTap,
-      onDoubleTapDown: _handleDoubleTapDown,
-      onDoubleTap: _handleDoubleTap,
-      child: SizedBox.expand(
-        child: InteractiveViewer(
-          transformationController: _transformationController,
-          panEnabled: allowUnzoomedPan || _isZoomed,
-          minScale: widget.minScale,
-          maxScale: ZoomableImageViewer.maxScale,
-          onInteractionStart: _handleInteractionStart,
-          onInteractionUpdate: _handleInteractionUpdate,
-          onInteractionEnd: _handleInteractionEnd,
-          child: Center(child: widget.child),
+    return Listener(
+      onPointerDown: _handlePointerDown,
+      onPointerUp: _handlePointerUpOrCancel,
+      onPointerCancel: _handlePointerUpOrCancel,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onTap,
+        onDoubleTapDown: _handleDoubleTapDown,
+        onDoubleTap: _handleDoubleTap,
+        child: SizedBox.expand(
+          child: InteractiveViewer(
+            transformationController: _transformationController,
+            panEnabled: allowUnzoomedPan || _isZoomed,
+            minScale: widget.minScale,
+            maxScale: ZoomableImageViewer.maxScale,
+            onInteractionStart: _handleInteractionStart,
+            onInteractionUpdate: _handleInteractionUpdate,
+            onInteractionEnd: _handleInteractionEnd,
+            child: Center(child: widget.child),
+          ),
         ),
       ),
     );

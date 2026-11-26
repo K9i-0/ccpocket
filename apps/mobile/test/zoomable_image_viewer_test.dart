@@ -177,4 +177,86 @@ void main() {
     await tester.pumpAndSettle();
     expect(nextCalls, 1);
   });
+
+  testWidgets('a second finger locks the parent before the pinch scales', (
+    tester,
+  ) async {
+    final events = <bool>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ZoomableImageViewer(
+            onZoomChanged: events.add,
+            child: const SizedBox(width: 200, height: 100),
+          ),
+        ),
+      ),
+    );
+    final center = tester.getCenter(find.byType(InteractiveViewer));
+
+    final first = await tester.startGesture(center - const Offset(40, 0));
+    await tester.pump();
+    expect(events, isEmpty);
+
+    final second = await tester.startGesture(
+      center + const Offset(40, 0),
+      pointer: 2,
+    );
+    await tester.pump();
+    expect(events, [true]);
+
+    await second.up();
+    await first.up();
+    await tester.pumpAndSettle(const Duration(milliseconds: 400));
+    expect(events, [true, false]);
+  });
+
+  testWidgets('a one-sided pinch inside a PageView zooms instead of paging', (
+    tester,
+  ) async {
+    final controller = PageController();
+    addTearDown(controller.dispose);
+    var locked = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) => PageView.builder(
+              controller: controller,
+              physics: locked ? const NeverScrollableScrollPhysics() : null,
+              itemCount: 2,
+              itemBuilder: (context, index) => ZoomableImageViewer(
+                key: ValueKey(index),
+                minScale: 1,
+                onZoomChanged: (value) => setState(() => locked = value),
+                child: const SizedBox(width: 200, height: 100),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    final center = tester.getCenter(find.byType(PageView));
+
+    final first = await tester.startGesture(center - const Offset(60, 0));
+    await tester.pump();
+    final second = await tester.startGesture(
+      center + const Offset(60, 0),
+      pointer: 2,
+    );
+    await tester.pump();
+    // Only one finger moves, horizontally: the motion a carousel would claim.
+    for (var i = 0; i < 12; i++) {
+      await second.moveBy(const Offset(10, 0));
+      await tester.pump();
+    }
+
+    expect(controller.page, 0);
+    expect(scaleOf(tester), greaterThan(1.2));
+
+    await second.up();
+    await first.up();
+    await tester.pumpAndSettle(const Duration(milliseconds: 400));
+    expect(controller.page, 0);
+  });
 }
