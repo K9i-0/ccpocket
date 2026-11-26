@@ -4431,6 +4431,80 @@ class AppLocalizationsEn extends AppLocalizations {
   String get localBridgeAddFolder => 'Add folder';
 
   @override
+  String get localBridgeSettingPortDesc =>
+      'Port that phones and other devices connect to (default: 8765)';
+
+  @override
+  String get localBridgeSettingHostDesc =>
+      'Address to accept connections on. 0.0.0.0 is every network, 127.0.0.1 is this Mac only (default: 0.0.0.0)';
+
+  @override
+  String get localBridgeSettingAllowedDirsDesc =>
+      'Only folders inside these can be opened as projects (default: your home folder)';
+
+  @override
+  String get localBridgeSettingReadOnlyDirsDesc =>
+      'Outside projects, files here can still be previewed, downloaded and shown in Finder, and nothing else';
+
+  @override
+  String get localBridgeSettingAllowClaudeOAuthDesc =>
+      'Runs Claude Code on your Claude subscription instead of an API key. Review the terms-of-service risk before turning it on';
+
+  @override
+  String get localBridgeSettingAntigravityApiKeyDesc =>
+      'Gemini API key for Antigravity. Without one, the Google login of agy is used';
+
+  @override
+  String get localBridgeSettingCodexAppServerModeDesc =>
+      'Whether the Codex app-server is shared with Codex in the terminal (experimental)';
+
+  @override
+  String get localBridgeSettingCodexSharedAppServerUrlDesc =>
+      'ws:// URL of the shared app-server. Required when using an external app-server';
+
+  @override
+  String get localBridgeSettingCodexAssistModelDesc =>
+      'Model used to name sessions and write commit messages';
+
+  @override
+  String get localBridgeSettingCodexAssistReasoningEffortDesc =>
+      'Reasoning effort for those helper tasks (default: none)';
+
+  @override
+  String get localBridgeSettingNotifyGoalTurnCompletedDesc =>
+      'Notifies after every turn even while a Codex Goal is still in progress';
+
+  @override
+  String get localBridgeChooseFolder => 'Choose folder…';
+
+  @override
+  String get localBridgeFolderPathLabel => 'Type a path to add';
+
+  @override
+  String get localBridgeFoldersEmpty => 'No folders yet';
+
+  @override
+  String get localBridgeFolderSuggestionsTitle => 'Commonly used folders';
+
+  @override
+  String get localBridgeFolderSuggestionAdded => 'Added';
+
+  @override
+  String get localBridgeFolderSuggestionTmpTitle => 'Temporary folder';
+
+  @override
+  String get localBridgeFolderSuggestionTmpDesc =>
+      'Agents often put screenshots and generated files here';
+
+  @override
+  String get localBridgeFolderSuggestionAntigravityTitle =>
+      'Antigravity artifacts';
+
+  @override
+  String get localBridgeFolderSuggestionAntigravityDesc =>
+      'Antigravity saves its plans and generated images here';
+
+  @override
   String get localBridgeUnsavedChanges => 'You have unsaved changes';
 
   @override

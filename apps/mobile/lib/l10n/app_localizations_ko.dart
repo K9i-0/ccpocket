@@ -4296,6 +4296,78 @@ class AppLocalizationsKo extends AppLocalizations {
   String get localBridgeAddFolder => '폴더 추가';
 
   @override
+  String get localBridgeSettingPortDesc => '휴대폰 등이 연결하는 포트 번호 (기본값: 8765)';
+
+  @override
+  String get localBridgeSettingHostDesc =>
+      '연결을 받을 주소. 0.0.0.0은 모든 네트워크, 127.0.0.1은 이 Mac만 (기본값: 0.0.0.0)';
+
+  @override
+  String get localBridgeSettingAllowedDirsDesc =>
+      '이 안에 있는 폴더만 프로젝트로 열 수 있습니다 (기본값: 홈 폴더)';
+
+  @override
+  String get localBridgeSettingReadOnlyDirsDesc =>
+      '프로젝트 밖이어도 파일 미리보기·다운로드·Finder에서 보기만 허용합니다';
+
+  @override
+  String get localBridgeSettingAllowClaudeOAuthDesc =>
+      'API 키 대신 Claude 구독으로 Claude Code를 실행합니다. 이용 약관상의 위험을 확인한 뒤 켜세요';
+
+  @override
+  String get localBridgeSettingAntigravityApiKeyDesc =>
+      'Antigravity에 사용할 Gemini API 키. 설정하지 않으면 agy의 Google 로그인을 사용합니다';
+
+  @override
+  String get localBridgeSettingCodexAppServerModeDesc =>
+      'Codex app-server를 터미널의 Codex와 공유할지 여부 (실험적)';
+
+  @override
+  String get localBridgeSettingCodexSharedAppServerUrlDesc =>
+      '공유할 app-server의 ws:// URL. 외부 app-server를 사용할 때는 필수입니다';
+
+  @override
+  String get localBridgeSettingCodexAssistModelDesc =>
+      '세션 이름 자동 생성과 커밋 메시지 작성에 사용하는 모델';
+
+  @override
+  String get localBridgeSettingCodexAssistReasoningEffortDesc =>
+      '위 보조 기능의 추론 강도 (기본값: none)';
+
+  @override
+  String get localBridgeSettingNotifyGoalTurnCompletedDesc =>
+      'Codex Goal이 진행 중이어도 턴이 끝날 때마다 알립니다';
+
+  @override
+  String get localBridgeChooseFolder => '폴더 선택…';
+
+  @override
+  String get localBridgeFolderPathLabel => '경로를 입력해 추가';
+
+  @override
+  String get localBridgeFoldersEmpty => '아직 등록된 폴더가 없습니다';
+
+  @override
+  String get localBridgeFolderSuggestionsTitle => '자주 쓰는 폴더';
+
+  @override
+  String get localBridgeFolderSuggestionAdded => '추가됨';
+
+  @override
+  String get localBridgeFolderSuggestionTmpTitle => '임시 폴더';
+
+  @override
+  String get localBridgeFolderSuggestionTmpDesc =>
+      '에이전트가 스크린샷이나 생성한 파일을 두는 곳으로 자주 사용합니다';
+
+  @override
+  String get localBridgeFolderSuggestionAntigravityTitle => 'Antigravity 결과물';
+
+  @override
+  String get localBridgeFolderSuggestionAntigravityDesc =>
+      'Antigravity가 계획서와 생성한 이미지를 저장합니다';
+
+  @override
   String get localBridgeUnsavedChanges => '저장하지 않은 변경 사항이 있습니다';
 
   @override

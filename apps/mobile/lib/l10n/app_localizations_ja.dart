@@ -4261,6 +4261,78 @@ class AppLocalizationsJa extends AppLocalizations {
   String get localBridgeAddFolder => 'フォルダを追加';
 
   @override
+  String get localBridgeSettingPortDesc => 'スマホなどが接続するポート番号（既定: 8765）';
+
+  @override
+  String get localBridgeSettingHostDesc =>
+      '接続を受け付けるアドレス。0.0.0.0 はすべてのネットワーク、127.0.0.1 はこのMacだけ（既定: 0.0.0.0）';
+
+  @override
+  String get localBridgeSettingAllowedDirsDesc =>
+      'この中にあるフォルダだけをプロジェクトとして開けます（既定: ホームフォルダ）';
+
+  @override
+  String get localBridgeSettingReadOnlyDirsDesc =>
+      'プロジェクトの外でも、ファイルのプレビュー・ダウンロード・Finder表示だけを許可します';
+
+  @override
+  String get localBridgeSettingAllowClaudeOAuthDesc =>
+      'APIキーではなくClaudeのサブスクリプションでClaude Codeを動かします。利用規約上のリスクを確認のうえ有効にしてください';
+
+  @override
+  String get localBridgeSettingAntigravityApiKeyDesc =>
+      'Antigravityで使うGemini APIキー。未設定ならagyのGoogleログインを使います';
+
+  @override
+  String get localBridgeSettingCodexAppServerModeDesc =>
+      'Codexのapp-serverをターミナルのCodexと共有するか（実験的）';
+
+  @override
+  String get localBridgeSettingCodexSharedAppServerUrlDesc =>
+      '共有するapp-serverの ws:// URL。外部のapp-serverを使うときは必須です';
+
+  @override
+  String get localBridgeSettingCodexAssistModelDesc =>
+      'セッション名の自動生成やコミットメッセージ作成に使うモデル';
+
+  @override
+  String get localBridgeSettingCodexAssistReasoningEffortDesc =>
+      '上記の補助機能の推論強度（既定: none）';
+
+  @override
+  String get localBridgeSettingNotifyGoalTurnCompletedDesc =>
+      'CodexのGoalが進行中でも、ターンが終わるたびに通知します';
+
+  @override
+  String get localBridgeChooseFolder => 'フォルダを選ぶ…';
+
+  @override
+  String get localBridgeFolderPathLabel => 'パスを入力して追加';
+
+  @override
+  String get localBridgeFoldersEmpty => 'フォルダはまだ登録されていません';
+
+  @override
+  String get localBridgeFolderSuggestionsTitle => 'よく使われるフォルダ';
+
+  @override
+  String get localBridgeFolderSuggestionAdded => '追加済み';
+
+  @override
+  String get localBridgeFolderSuggestionTmpTitle => '一時フォルダ';
+
+  @override
+  String get localBridgeFolderSuggestionTmpDesc =>
+      'エージェントがスクリーンショットや生成したファイルの置き場によく使います';
+
+  @override
+  String get localBridgeFolderSuggestionAntigravityTitle => 'Antigravityの成果物';
+
+  @override
+  String get localBridgeFolderSuggestionAntigravityDesc =>
+      'Antigravityが計画書や生成した画像を保存します';
+
+  @override
   String get localBridgeUnsavedChanges => '未保存の変更があります';
 
   @override

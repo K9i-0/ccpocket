@@ -4212,6 +4212,76 @@ class AppLocalizationsZh extends AppLocalizations {
   String get localBridgeAddFolder => '添加文件夹';
 
   @override
+  String get localBridgeSettingPortDesc => '手机等设备连接的端口号（默认：8765）';
+
+  @override
+  String get localBridgeSettingHostDesc =>
+      '接受连接的地址。0.0.0.0 表示所有网络，127.0.0.1 表示仅限这台 Mac（默认：0.0.0.0）';
+
+  @override
+  String get localBridgeSettingAllowedDirsDesc =>
+      '只有这些文件夹内的文件夹可以作为项目打开（默认：主文件夹）';
+
+  @override
+  String get localBridgeSettingReadOnlyDirsDesc =>
+      '即使在项目之外，也只允许预览、下载文件以及在 Finder 中显示';
+
+  @override
+  String get localBridgeSettingAllowClaudeOAuthDesc =>
+      '使用 Claude 订阅而不是 API 密钥运行 Claude Code。请先确认服务条款方面的风险再开启';
+
+  @override
+  String get localBridgeSettingAntigravityApiKeyDesc =>
+      'Antigravity 使用的 Gemini API 密钥。未设置时使用 agy 的 Google 登录';
+
+  @override
+  String get localBridgeSettingCodexAppServerModeDesc =>
+      '是否与终端中的 Codex 共享 Codex app-server（实验性）';
+
+  @override
+  String get localBridgeSettingCodexSharedAppServerUrlDesc =>
+      '共享 app-server 的 ws:// URL。使用外部 app-server 时必填';
+
+  @override
+  String get localBridgeSettingCodexAssistModelDesc => '用于自动生成会话名称和撰写提交信息的模型';
+
+  @override
+  String get localBridgeSettingCodexAssistReasoningEffortDesc =>
+      '上述辅助功能的推理强度（默认：none）';
+
+  @override
+  String get localBridgeSettingNotifyGoalTurnCompletedDesc =>
+      '即使 Codex Goal 仍在进行，也会在每个回合结束时通知';
+
+  @override
+  String get localBridgeChooseFolder => '选择文件夹…';
+
+  @override
+  String get localBridgeFolderPathLabel => '输入路径添加';
+
+  @override
+  String get localBridgeFoldersEmpty => '尚未添加文件夹';
+
+  @override
+  String get localBridgeFolderSuggestionsTitle => '常用文件夹';
+
+  @override
+  String get localBridgeFolderSuggestionAdded => '已添加';
+
+  @override
+  String get localBridgeFolderSuggestionTmpTitle => '临时文件夹';
+
+  @override
+  String get localBridgeFolderSuggestionTmpDesc => '代理经常把截图和生成的文件放在这里';
+
+  @override
+  String get localBridgeFolderSuggestionAntigravityTitle => 'Antigravity 产物';
+
+  @override
+  String get localBridgeFolderSuggestionAntigravityDesc =>
+      'Antigravity 在这里保存计划文档和生成的图片';
+
+  @override
   String get localBridgeUnsavedChanges => '有未保存的更改';
 
   @override

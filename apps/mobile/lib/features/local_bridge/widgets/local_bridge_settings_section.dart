@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../settings/widgets/settings_tiles.dart';
+import '../data/local_bridge_client.dart';
 import '../data/local_bridge_models.dart';
 import '../state/local_bridge_state.dart';
 import 'local_bridge_setting_editors.dart';
@@ -34,11 +36,13 @@ final _groups = <_SettingGroupInfo>[
       'port',
       Icons.tag_rounded,
       (l) => l.localBridgeSettingPort,
+      (l) => l.localBridgeSettingPortDesc,
     ),
     LocalBridgeSettingInfo(
       'host',
       Icons.lan_outlined,
       (l) => l.localBridgeSettingHost,
+      (l) => l.localBridgeSettingHostDesc,
     ),
     LocalBridgeSettingInfo(
       'publicWsUrl',
@@ -52,11 +56,13 @@ final _groups = <_SettingGroupInfo>[
       'allowedDirs',
       Icons.folder_open_rounded,
       (l) => l.localBridgeSettingAllowedDirs,
+      (l) => l.localBridgeSettingAllowedDirsDesc,
     ),
     LocalBridgeSettingInfo(
       'readOnlyDirs',
       Icons.folder_special_outlined,
       (l) => l.localBridgeSettingReadOnlyDirs,
+      (l) => l.localBridgeSettingReadOnlyDirsDesc,
     ),
     LocalBridgeSettingInfo(
       'fileDownloadAllowAllPaths',
@@ -70,36 +76,43 @@ final _groups = <_SettingGroupInfo>[
       'allowClaudeOAuth',
       Icons.verified_user_outlined,
       (l) => l.localBridgeSettingAllowClaudeOAuth,
+      (l) => l.localBridgeSettingAllowClaudeOAuthDesc,
     ),
     LocalBridgeSettingInfo(
       'antigravityApiKey',
       Icons.key_rounded,
       (l) => l.localBridgeSettingAntigravityApiKey,
+      (l) => l.localBridgeSettingAntigravityApiKeyDesc,
     ),
     LocalBridgeSettingInfo(
       'codexAppServerMode',
       Icons.hub_outlined,
       (l) => l.localBridgeSettingCodexAppServerMode,
+      (l) => l.localBridgeSettingCodexAppServerModeDesc,
     ),
     LocalBridgeSettingInfo(
       'codexSharedAppServerUrl',
       Icons.link_rounded,
       (l) => l.localBridgeSettingCodexSharedAppServerUrl,
+      (l) => l.localBridgeSettingCodexSharedAppServerUrlDesc,
     ),
     LocalBridgeSettingInfo(
       'codexAssistModel',
       Icons.auto_awesome_outlined,
       (l) => l.localBridgeSettingCodexAssistModel,
+      (l) => l.localBridgeSettingCodexAssistModelDesc,
     ),
     LocalBridgeSettingInfo(
       'codexAssistReasoningEffort',
       Icons.psychology_outlined,
       (l) => l.localBridgeSettingCodexAssistReasoningEffort,
+      (l) => l.localBridgeSettingCodexAssistReasoningEffortDesc,
     ),
     LocalBridgeSettingInfo(
       'notifyGoalTurnCompleted',
       Icons.notifications_active_outlined,
       (l) => l.localBridgeSettingNotifyGoalTurnCompleted,
+      (l) => l.localBridgeSettingNotifyGoalTurnCompletedDesc,
     ),
   ]),
   _SettingGroupInfo((l) => l.localBridgeGroupSecurity, [
@@ -111,6 +124,33 @@ final _groups = <_SettingGroupInfo>[
     ),
   ]),
 ];
+
+/// Folders outside projects that agents commonly write files to, offered as
+/// one-tap additions to the view-only folders.
+List<FolderSuggestion> readOnlyFolderSuggestions(
+  AppLocalizations l, {
+  String? home,
+  TargetPlatform? platform,
+}) {
+  final isMac = (platform ?? defaultTargetPlatform) == TargetPlatform.macOS;
+  final userHome = home ?? realHomeDirectory();
+  return [
+    FolderSuggestion(
+      id: 'tmp',
+      title: l.localBridgeFolderSuggestionTmpTitle,
+      description: l.localBridgeFolderSuggestionTmpDesc,
+      // On macOS /tmp is a link to /private/tmp and agents report either
+      // spelling; the Bridge checks the path as written first.
+      paths: ['/tmp', if (isMac) '/private/tmp'],
+    ),
+    FolderSuggestion(
+      id: 'antigravity',
+      title: l.localBridgeFolderSuggestionAntigravityTitle,
+      description: l.localBridgeFolderSuggestionAntigravityDesc,
+      paths: ['$userHome/.gemini/antigravity-cli/brain'],
+    ),
+  ];
+}
 
 /// Every Bridge setting the config file can hold, grouped.
 class LocalBridgeSettingsSection extends StatelessWidget {
@@ -211,13 +251,20 @@ class LocalBridgeSettingTile extends StatelessWidget {
     final Widget dialog = switch (setting.type) {
       LocalBridgeSettingType.dirs => FoldersSettingDialog(
         title: title,
+        description: info.description?.call(l),
         initialValue: [
           if (value case final List<Object?> dirs) ...dirs.whereType<String>(),
         ],
         allowAll: setting.key == 'allowedDirs',
+        // Only the project folders need at least one entry.
+        allowEmpty: setting.key != 'allowedDirs',
+        suggestions: setting.key == 'readOnlyDirs'
+            ? readOnlyFolderSuggestions(l)
+            : const [],
       ),
       LocalBridgeSettingType.enumeration => ChoiceSettingDialog(
         title: title,
+        description: info.description?.call(l),
         values: setting.values,
         current: value is String ? value as String : null,
         labelOf: (choice) => _choiceLabel(l, choice),
@@ -243,12 +290,13 @@ class LocalBridgeSettingTile extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final locked = setting.lockedByEnv;
-    final note = error != null
-        ? error!
-        : locked
-        ? l.localBridgeSettingLockedByEnv(setting.env)
-        : info.description?.call(l);
-    final noteStyle = theme.textTheme.bodySmall?.copyWith(
+    final description = info.description?.call(l);
+    final status =
+        error ?? (locked ? l.localBridgeSettingLockedByEnv(setting.env) : null);
+    final descriptionStyle = theme.textTheme.bodySmall?.copyWith(
+      color: cs.onSurfaceVariant,
+    );
+    final statusStyle = theme.textTheme.bodySmall?.copyWith(
       color: error != null ? cs.error : cs.onSurfaceVariant,
     );
     final title = Row(
@@ -271,7 +319,16 @@ class LocalBridgeSettingTile extends StatelessWidget {
         key: ValueKey('local_bridge_setting_toggle:${setting.key}'),
         secondary: SettingsLeadingIcon(info.icon),
         title: title,
-        subtitle: note == null ? null : Text(note, style: noteStyle),
+        subtitle: description == null && status == null
+            ? null
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (description != null)
+                    Text(description, style: descriptionStyle),
+                  if (status != null) Text(status, style: statusStyle),
+                ],
+              ),
         value: value == true,
         onChanged: locked || !enabled ? null : onEdit,
       );
@@ -283,8 +340,16 @@ class LocalBridgeSettingTile extends StatelessWidget {
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (description != null) ...[
+            Text(
+              description,
+              key: ValueKey('local_bridge_setting_description:${setting.key}'),
+              style: descriptionStyle,
+            ),
+            const SizedBox(height: 4),
+          ],
           Text(_summary(l)),
-          if (error != null || locked) Text(note!, style: noteStyle),
+          if (status != null) Text(status, style: statusStyle),
         ],
       ),
       trailing: locked

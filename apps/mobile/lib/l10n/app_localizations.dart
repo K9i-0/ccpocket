@@ -7961,6 +7961,126 @@ abstract class AppLocalizations {
   /// **'フォルダを追加'**
   String get localBridgeAddFolder;
 
+  /// No description provided for @localBridgeSettingPortDesc.
+  ///
+  /// In ja, this message translates to:
+  /// **'スマホなどが接続するポート番号（既定: 8765）'**
+  String get localBridgeSettingPortDesc;
+
+  /// No description provided for @localBridgeSettingHostDesc.
+  ///
+  /// In ja, this message translates to:
+  /// **'接続を受け付けるアドレス。0.0.0.0 はすべてのネットワーク、127.0.0.1 はこのMacだけ（既定: 0.0.0.0）'**
+  String get localBridgeSettingHostDesc;
+
+  /// No description provided for @localBridgeSettingAllowedDirsDesc.
+  ///
+  /// In ja, this message translates to:
+  /// **'この中にあるフォルダだけをプロジェクトとして開けます（既定: ホームフォルダ）'**
+  String get localBridgeSettingAllowedDirsDesc;
+
+  /// No description provided for @localBridgeSettingReadOnlyDirsDesc.
+  ///
+  /// In ja, this message translates to:
+  /// **'プロジェクトの外でも、ファイルのプレビュー・ダウンロード・Finder表示だけを許可します'**
+  String get localBridgeSettingReadOnlyDirsDesc;
+
+  /// No description provided for @localBridgeSettingAllowClaudeOAuthDesc.
+  ///
+  /// In ja, this message translates to:
+  /// **'APIキーではなくClaudeのサブスクリプションでClaude Codeを動かします。利用規約上のリスクを確認のうえ有効にしてください'**
+  String get localBridgeSettingAllowClaudeOAuthDesc;
+
+  /// No description provided for @localBridgeSettingAntigravityApiKeyDesc.
+  ///
+  /// In ja, this message translates to:
+  /// **'Antigravityで使うGemini APIキー。未設定ならagyのGoogleログインを使います'**
+  String get localBridgeSettingAntigravityApiKeyDesc;
+
+  /// No description provided for @localBridgeSettingCodexAppServerModeDesc.
+  ///
+  /// In ja, this message translates to:
+  /// **'Codexのapp-serverをターミナルのCodexと共有するか（実験的）'**
+  String get localBridgeSettingCodexAppServerModeDesc;
+
+  /// No description provided for @localBridgeSettingCodexSharedAppServerUrlDesc.
+  ///
+  /// In ja, this message translates to:
+  /// **'共有するapp-serverの ws:// URL。外部のapp-serverを使うときは必須です'**
+  String get localBridgeSettingCodexSharedAppServerUrlDesc;
+
+  /// No description provided for @localBridgeSettingCodexAssistModelDesc.
+  ///
+  /// In ja, this message translates to:
+  /// **'セッション名の自動生成やコミットメッセージ作成に使うモデル'**
+  String get localBridgeSettingCodexAssistModelDesc;
+
+  /// No description provided for @localBridgeSettingCodexAssistReasoningEffortDesc.
+  ///
+  /// In ja, this message translates to:
+  /// **'上記の補助機能の推論強度（既定: none）'**
+  String get localBridgeSettingCodexAssistReasoningEffortDesc;
+
+  /// No description provided for @localBridgeSettingNotifyGoalTurnCompletedDesc.
+  ///
+  /// In ja, this message translates to:
+  /// **'CodexのGoalが進行中でも、ターンが終わるたびに通知します'**
+  String get localBridgeSettingNotifyGoalTurnCompletedDesc;
+
+  /// No description provided for @localBridgeChooseFolder.
+  ///
+  /// In ja, this message translates to:
+  /// **'フォルダを選ぶ…'**
+  String get localBridgeChooseFolder;
+
+  /// No description provided for @localBridgeFolderPathLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'パスを入力して追加'**
+  String get localBridgeFolderPathLabel;
+
+  /// No description provided for @localBridgeFoldersEmpty.
+  ///
+  /// In ja, this message translates to:
+  /// **'フォルダはまだ登録されていません'**
+  String get localBridgeFoldersEmpty;
+
+  /// No description provided for @localBridgeFolderSuggestionsTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'よく使われるフォルダ'**
+  String get localBridgeFolderSuggestionsTitle;
+
+  /// No description provided for @localBridgeFolderSuggestionAdded.
+  ///
+  /// In ja, this message translates to:
+  /// **'追加済み'**
+  String get localBridgeFolderSuggestionAdded;
+
+  /// No description provided for @localBridgeFolderSuggestionTmpTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'一時フォルダ'**
+  String get localBridgeFolderSuggestionTmpTitle;
+
+  /// No description provided for @localBridgeFolderSuggestionTmpDesc.
+  ///
+  /// In ja, this message translates to:
+  /// **'エージェントがスクリーンショットや生成したファイルの置き場によく使います'**
+  String get localBridgeFolderSuggestionTmpDesc;
+
+  /// No description provided for @localBridgeFolderSuggestionAntigravityTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'Antigravityの成果物'**
+  String get localBridgeFolderSuggestionAntigravityTitle;
+
+  /// No description provided for @localBridgeFolderSuggestionAntigravityDesc.
+  ///
+  /// In ja, this message translates to:
+  /// **'Antigravityが計画書や生成した画像を保存します'**
+  String get localBridgeFolderSuggestionAntigravityDesc;
+
   /// No description provided for @localBridgeUnsavedChanges.
   ///
   /// In ja, this message translates to:

@@ -69,6 +69,7 @@ class FakeLocalBridge {
       _setting('port', 'port', 8765),
       _setting('host', 'string', '0.0.0.0'),
       _setting('allowedDirs', 'dirs', ['/home/u']),
+      _setting('readOnlyDirs', 'dirs', null),
       _setting('allowClaudeOAuth', 'boolean', false),
       _setting('codexAppServerMode', 'enum', 'private'),
       _setting('antigravityApiKey', 'secret', null),

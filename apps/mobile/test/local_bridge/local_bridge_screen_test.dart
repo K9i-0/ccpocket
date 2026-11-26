@@ -126,6 +126,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(key('local_bridge_folder_row:/home/u'), findsOneWidget);
     await tester.enterText(key('local_bridge_folder_field'), '/work');
+    await tester.pump();
     await tester.tap(key('local_bridge_folder_add_button'));
     await tester.pump();
     await tester.tap(key('local_bridge_folder_remove:/home/u'));
@@ -139,6 +140,59 @@ void main() {
       'host': '127.0.0.1',
       'allowedDirs': ['/work'],
     });
+  });
+
+  testWidgets('explains settings and offers common view-only folders', (
+    tester,
+  ) async {
+    final bridge = FakeLocalBridge();
+    await pumpScreen(tester, bridge);
+
+    expect(key('local_bridge_setting_description:host'), findsOneWidget);
+    expect(
+      find.text(
+        'Only folders inside these can be opened as projects '
+        '(default: your home folder)',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(key('local_bridge_setting_tile:readOnlyDirs'));
+    await tester.pumpAndSettle();
+    expect(key('local_bridge_folders_empty'), findsOneWidget);
+    // Nothing typed yet: the add button has nothing to add.
+    expect(
+      tester
+          .widget<OutlinedButton>(key('local_bridge_folder_add_button'))
+          .onPressed,
+      isNull,
+    );
+    expect(
+      find.text('Agents often put screenshots and generated files here'),
+      findsOneWidget,
+    );
+    await tester.tap(key('local_bridge_folder_suggestion_add:tmp'));
+    await tester.pump();
+    expect(key('local_bridge_folder_row:/tmp'), findsOneWidget);
+    expect(key('local_bridge_folder_suggestion_added:tmp'), findsOneWidget);
+    await tester.tap(key('local_bridge_setting_apply_button'));
+    await tester.pumpAndSettle();
+    await tester.tap(key('local_bridge_save_button'));
+    await tester.pumpAndSettle();
+    expect((bridge.fileSettings['readOnlyDirs'] as List).first, '/tmp');
+
+    // Removing every folder is allowed here and clears the setting.
+    await tester.tap(key('local_bridge_setting_tile:readOnlyDirs'));
+    await tester.pumpAndSettle();
+    for (final folder in bridge.fileSettings['readOnlyDirs'] as List) {
+      await tester.tap(key('local_bridge_folder_remove:$folder'));
+      await tester.pump();
+    }
+    await tester.tap(key('local_bridge_setting_apply_button'));
+    await tester.pumpAndSettle();
+    await tester.tap(key('local_bridge_save_button'));
+    await tester.pumpAndSettle();
+    expect(bridge.fileSettings.containsKey('readOnlyDirs'), isFalse);
   });
 
   testWidgets('connects this app over loopback with the pairing token', (
