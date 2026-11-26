@@ -176,11 +176,20 @@ text unparsed rather than failing. `test/commonmark_spec/baseline.json` lists
 every CommonMark example where the output differs from the specification, and
 why.
 
+## Used in
+
+[CC Pocket](https://github.com/K9i-0/ccpocket), an open-source mobile client
+for coding agents, renders every chat message, plan and file preview with this
+package on iOS, Android and macOS. Its
+[adapter layer](https://github.com/K9i-0/ccpocket/blob/main/apps/mobile/lib/widgets/markdown/ccpocket_markdown.dart)
+is a full-size example of wiring the package into a Material app: theme
+mapping, the platform's selection toolbar, syntax highlighting, tappable file
+paths and image handling.
+
 ## Platforms
 
-The package has no platform-specific code. It is used in an app built for iOS,
-Android and macOS, and its own tests run on Linux in CI. Web has not been
-exercised.
+The package has no platform-specific code. Its tests run on Linux in CI. Web
+has not been exercised.
 
 ## License
 

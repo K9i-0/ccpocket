@@ -160,7 +160,7 @@ ccpocket 本体は `apps/mobile/pubspec.yaml` から `path: ../../packages/markd
 ## 4. 互換性・保守方針
 
 1. **依存境界の維持**: `packages/markdown_kit/lib/` 配下に `material.dart` / `cupertino.dart` / `material_ui` / アプリ固有パッケージのインポートを持ち込まない。見た目・アクション・業務ルールは必ずビルダーまたはコールバック経由で `apps/mobile/` から注入する。
-2. **SDK 互換性**: `pubspec.yaml` の下限は Flutter 3.50.0 / Dart 3.14。3.50.0 と 3.50.1 で全テストが通ることを確認済み。3.47.2 では 21 件が失敗する（表セル内のベースライン揃えウィジェットの Intrinsic 計測、RTL でのインライン画像の並びなど、フレームワーク側の挙動差）。下限を下げるときは、その版で実際にテストを通してから変更する。
+2. **SDK 互換性**: `pubspec.yaml` の下限は Flutter 3.50.0 / Dart 3.14。新しいパッケージなので最新に近い Flutter を要求することは許容する、という方針（2026-11-27 決定）。3.50.0 と 3.50.1 で全テストが通ることを確認済み。3.47.2 では 21 件が失敗する（表セル内のベースライン揃えウィジェットの Intrinsic 計測、RTL でのインライン画像の並びなど、フレームワーク側の挙動差）。下限を下げるときは、その版で実際にテストを通してから変更する。
 3. **CI・リリースゲート**:
    - `.github/workflows/test.yml` の `markdown-kit` ジョブで `flutter pub get`・`dart format --output=none --set-exit-if-changed .`・`dart analyze .`・`flutter test --no-pub` を実行し、集約ジョブ `mobile` およびリリースゲート（`.github/workflows/app-release-test-gate.yml`）の必須条件とする。
    - ローカルリリース前チェック（`scripts/release/run-checks.sh`）でも `packages/markdown_kit` の `dart analyze` と `flutter test` を `apps/mobile` と併せて実行する。
