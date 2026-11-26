@@ -1,7 +1,7 @@
-import 'package:expandable_page_view/expandable_page_view.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../expandable_page_view.dart';
 
 /// Shared layout constant for AskUserArea buttons.
 const sessionCardButtonHeight = 44.0;

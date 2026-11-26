@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:expandable_page_view/expandable_page_view.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
@@ -8,6 +7,7 @@ import '../../l10n/app_localizations.dart';
 import '../../services/question_draft_store.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/request_user_input.dart';
+import '../expandable_page_view.dart';
 import '../google_search_text_selection.dart';
 import 'ask_question_option_button.dart';
 

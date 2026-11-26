@@ -425,14 +425,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.0"
-  expandable_page_view:
-    dependency: "direct main"
-    description:
-      name: expandable_page_view
-      sha256: "122136859f4551db159dc08a2303592dc612fde94b42da64055692c5acc745bd"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.3.1"
   extended_image:
     dependency: "direct main"
     description:
@@ -1745,14 +1737,6 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
-  smooth_page_indicator:
-    dependency: "direct main"
-    description:
-      name: smooth_page_indicator
-      sha256: ab2253be8d65ed7a341a43fe62d5cfba404b5969c23bc998964fe5aa8aae465c
-      url: "https://pub.dev"
-    source: hosted
-    version: "3.0.0"
   source_gen:
     dependency: transitive
     description:

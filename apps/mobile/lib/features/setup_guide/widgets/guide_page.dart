@@ -1,5 +1,4 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
 import '../../../l10n/app_localizations.dart';
 import 'guide_components.dart';
@@ -152,17 +151,15 @@ class GuideBottomBar extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  SmoothPageIndicator(
+                  ExpandingDotsIndicator(
                     controller: pageController,
                     count: pageCount,
-                    effect: ExpandingDotsEffect(
-                      dotWidth: 8,
-                      dotHeight: 8,
-                      spacing: 6,
-                      expansionFactor: 2.5,
-                      activeDotColor: cs.primary,
-                      dotColor: palette.cardBorder,
-                    ),
+                    dotWidth: 8,
+                    dotHeight: 8,
+                    spacing: 6,
+                    expansionFactor: 2.5,
+                    activeDotColor: cs.primary,
+                    dotColor: palette.cardBorder,
                   ),
                   const Spacer(),
                   SizedBox(
@@ -206,6 +203,68 @@ class GuideBottomBar extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Animated page indicator that expands the active dot into a pill,
+/// synced to [controller]'s scroll position.
+class ExpandingDotsIndicator extends StatelessWidget {
+  const ExpandingDotsIndicator({
+    super.key,
+    required this.controller,
+    required this.count,
+    required this.activeDotColor,
+    required this.dotColor,
+    this.dotWidth = 8,
+    this.dotHeight = 8,
+    this.spacing = 6,
+    this.expansionFactor = 2.5,
+  });
+
+  final PageController controller;
+  final int count;
+  final Color activeDotColor;
+  final Color dotColor;
+  final double dotWidth;
+  final double dotHeight;
+  final double spacing;
+  final double expansionFactor;
+
+  @override
+  Widget build(BuildContext context) {
+    if (count <= 0) return const SizedBox.shrink();
+    final radius = BorderRadius.circular(dotHeight / 2);
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final rawPage =
+            controller.positions.length == 1 &&
+                controller.position.hasContentDimensions
+            ? (controller.page ?? controller.initialPage.toDouble())
+            : controller.initialPage.toDouble();
+        final page = rawPage.clamp(0.0, (count - 1).toDouble());
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < count; i++) ...[
+              if (i > 0) SizedBox(width: spacing),
+              _buildDot(i, page, radius),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildDot(int index, double page, BorderRadius radius) {
+    final t = (1.0 - (page - index).abs()).clamp(0.0, 1.0);
+    final width = dotWidth + dotWidth * (expansionFactor - 1) * t;
+    final color = Color.lerp(dotColor, activeDotColor, t)!;
+    return Container(
+      width: width,
+      height: dotHeight,
+      decoration: BoxDecoration(color: color, borderRadius: radius),
     );
   }
 }
