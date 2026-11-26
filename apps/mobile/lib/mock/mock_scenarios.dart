@@ -1500,6 +1500,12 @@ final _markdownStress = MockScenario(
   description:
       'Alerts, details, nested lists, footnotes, math, HTML, CJK and emoji',
   steps: [
+    // A user turn first: without one the chat counts as not started and the
+    // "Start from an Issue / PR" entry is drawn over the message.
+    MockStep(
+      delay: const Duration(milliseconds: 100),
+      message: const UserInputMessage(text: 'Markdown の表示を一通り確認したい'),
+    ),
     MockStep(
       delay: const Duration(milliseconds: 250),
       message: const StatusMessage(status: ProcessStatus.running),
