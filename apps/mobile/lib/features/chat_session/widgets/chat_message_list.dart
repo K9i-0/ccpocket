@@ -752,10 +752,9 @@ class _ChatMessageListState extends State<ChatMessageList> {
 
   void _detachLayoutAnchorCorrection(IndexedScrollController controller) {
     controller.removeListener(_scheduleAnchorMeasurement);
-    if (identical(
-      controller.layoutAnchorCorrection,
-      _pendingAnchorCorrection,
-    )) {
+    // Instance method tear-offs are equal but never identical, so compare
+    // with `==`; `identical` would leave this State attached forever.
+    if (controller.layoutAnchorCorrection == _pendingAnchorCorrection) {
       controller.layoutAnchorCorrection = null;
     }
   }

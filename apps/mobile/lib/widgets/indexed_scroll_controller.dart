@@ -153,6 +153,7 @@ class IndexedScrollController extends ScrollController {
           return;
         }
 
+        var orientationCorrected = false;
         if (minEntry.index != maxEntry.index &&
             (maxEntry.offset - minEntry.offset).abs() > 0.5) {
           indicesIncreaseWithOffset = maxEntry.offset > minEntry.offset;
@@ -161,6 +162,7 @@ class IndexedScrollController extends ScrollController {
             closestDistance > previousClosestDistance) {
           // Single-tag guess moved away from the target; flip orientation.
           indicesIncreaseWithOffset = !indicesIncreaseWithOffset;
+          orientationCorrected = true;
         }
         previousClosestDistance = closestDistance;
 
@@ -194,7 +196,12 @@ class IndexedScrollController extends ScrollController {
         }
 
         final direction = moveTowardMaxExtent ? 1 : -1;
-        if (lastDirection != null && lastDirection != direction) {
+        // Turning around because the single-tag orientation guess was wrong
+        // is not an overshoot: keep full-size steps, or a far target behind
+        // tall items stays out of reach within the step budget.
+        if (lastDirection != null &&
+            lastDirection != direction &&
+            !orientationCorrected) {
           directionFlips++;
         }
         lastDirection = direction;
