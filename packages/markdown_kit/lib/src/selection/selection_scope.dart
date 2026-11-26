@@ -11,6 +11,7 @@ import '../ast/rendered_text.dart';
 import 'selection_autoscroll.dart';
 import 'selection_controller.dart';
 import 'selection_handles.dart';
+import 'default_context_menu.dart';
 import 'selection_model.dart';
 
 /// Builder for a custom selection context menu / action toolbar.
@@ -72,7 +73,10 @@ class MarkdownSelectionScope extends StatefulWidget {
   /// Optional selection highlight / handle accent color override.
   final Color? selectionColor;
 
-  /// Optional builder for the selection context menu toolbar.
+  /// Builder for the selection context menu toolbar.
+  ///
+  /// When omitted, [MarkdownDefaultContextMenu] is shown, so a selection can
+  /// always be copied. To show no menu at all, return `SizedBox.shrink()`.
   final MarkdownContextMenuBuilder? contextMenuBuilder;
 
   /// Optional custom handle painter/widget builder.
@@ -567,7 +571,6 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
 
     final shouldShowToolbar =
         controller.toolbarWanted &&
-        widget.contextMenuBuilder != null &&
         !_isDraggingHandle &&
         _longPressAnchor == null &&
         !_isUserScrolling &&
@@ -576,7 +579,9 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
     _handleOverlay.updateToolbar(
       visible: shouldShowToolbar,
       builder: shouldShowToolbar
-          ? (ctx) => widget.contextMenuBuilder!(ctx, this)
+          ? (ctx) =>
+                widget.contextMenuBuilder?.call(ctx, this) ??
+                MarkdownDefaultContextMenu(state: this)
           : null,
     );
   }

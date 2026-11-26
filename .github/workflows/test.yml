@@ -31,6 +31,8 @@ jobs:
           cache: true
       - run: flutter pub get
         working-directory: packages/markdown_kit
+      - run: flutter pub get
+        working-directory: packages/markdown_kit/example
       - name: Check markdown_kit formatting
         run: dart format --output=none --set-exit-if-changed .
         working-directory: packages/markdown_kit
@@ -47,6 +49,9 @@ jobs:
       - name: Run markdown_kit tests
         run: flutter test --no-pub
         working-directory: packages/markdown_kit
+      - name: Run markdown_kit example tests
+        run: flutter test --no-pub
+        working-directory: packages/markdown_kit/example
 
   mobile-analyze:
     runs-on: ubuntu-latest
