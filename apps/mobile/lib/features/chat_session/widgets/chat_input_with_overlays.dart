@@ -1111,20 +1111,9 @@ class ChatInputWithOverlays extends HookWidget {
           return true;
         }
         return false;
-      } on PlatformException catch (e) {
-        debugPrint('[paste] Failed to read clipboard: $e');
-        if (e.code != 'image_load_failed') return false;
-        // The clipboard holds an image that could not be attached (too large
-        // or unreadable). Say so instead of silently pasting nothing as text.
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(AppLocalizations.of(context).failedToLoadImage),
-            ),
-          );
-        }
-        return true;
       } catch (e) {
+        // Fall back to a text paste: apps such as spreadsheets put text next
+        // to an image form that may be too large or unreadable.
         debugPrint('[paste] Failed to read clipboard: $e');
         return false;
       }
