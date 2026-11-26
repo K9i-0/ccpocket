@@ -1,9 +1,13 @@
 name: markdown_kit
 description: >-
-  GitHub-Flavored Markdown for Flutter with streaming support and text
-  selection across blocks, built on package:flutter/widgets.dart only.
+  Markdown for AI chat in Flutter. Holds half-written syntax while a reply
+  streams, and keeps text selection across blocks while the list scrolls.
 version: 0.1.0
 publish_to: none
+
+screenshots:
+  - description: A reply streaming into a chat, then selected across a list, a code block and a table.
+    path: doc/demo.gif
 
 topics:
   - markdown

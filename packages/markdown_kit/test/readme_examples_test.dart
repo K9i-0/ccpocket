@@ -27,9 +27,10 @@ class Reply extends StatelessWidget {
 }
 
 class _Message {
-  const _Message(this.id, this.text);
+  const _Message(this.id, this.text, {this.isStreaming = false});
   final String id;
   final String text;
+  final bool isStreaming;
 }
 
 Widget _host(Widget child) => Directionality(
@@ -53,8 +54,11 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('one selection for a whole screen', (tester) async {
-    const messages = [_Message('a', 'First'), _Message('b', 'Second')];
+  testWidgets('a chat screen', (tester) async {
+    const messages = [
+      _Message('a', 'First'),
+      _Message('b', 'Second **and more', isStreaming: true),
+    ];
     final controller = MarkdownSelectionController(
       // A chat usually wants a selection to stay inside one message.
       allowCrossDocumentSelection: false,
@@ -66,17 +70,32 @@ void main() {
         MarkdownSelectionScope(
           controller: controller,
           child: ListView.builder(
+            reverse: true,
             itemCount: messages.length,
-            itemBuilder: (context, index) => MarkdownView(
-              data: messages[index].text,
-              // A stable id lets the selection survive the item scrolling away.
-              documentId: messages[index].id,
-              documentOrder: index,
-            ),
+            itemBuilder: (context, index) {
+              final message = messages[messages.length - 1 - index];
+              return MarkdownView(
+                data: message.text,
+                // Only the block still being written is re-parsed and rebuilt.
+                isStreaming: message.isStreaming,
+                // A stable id lets the selection survive the item scrolling
+                // away and the switch from streaming to finished.
+                documentId: message.id,
+                documentOrder: index,
+                builders: MarkdownBuilders(
+                  onLinkTap: (url, title) {
+                    // Open the link.
+                  },
+                ),
+              );
+            },
           ),
         ),
       ),
     );
+    expect(controller.selectAll(documentId: 'a'), isTrue);
+    expect(controller.getText(), 'First');
+    // The unfinished bold is held while the reply streams.
     expect(controller.selectAll(documentId: 'b'), isTrue);
     expect(controller.getText(), 'Second');
   });

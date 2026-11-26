@@ -140,6 +140,7 @@ List<String> splitMarkdownBlocks(
 /// Specifically holds (omits from the returned tail):
 /// 1. Outside a fence/math block:
 ///    - A table header row until its delimiter row is complete.
+///    - An alert marker (`> [!NOTE]`) until its closing bracket arrives.
 ///    - Inline syntax on the last line that is missing its closing half:
 ///      `**bold`, `~~strike`, a code span, `[label](destination`. The opener
 ///      must be within 300 characters of the end; older ones are literal.
@@ -277,6 +278,12 @@ String sanitizeStreamingTail(
   );
   if (tableStart != null) return text.substring(0, tableStart);
 
+  // `> [!NO` is an alert marker in the making; shown now it would be a quote
+  // holding the text "[!NO".
+  if (_partialAlertMarker.hasMatch(text.substring(trailingStart, end))) {
+    return text.substring(0, trailingStart);
+  }
+
   // Inline syntax still missing its closing half: `**bold`, `` `code ``,
   // `[label](url`. Hold from the opener so the markers never show raw.
   final inlineStart = _unfinishedInlineStart(
@@ -296,6 +303,7 @@ String sanitizeStreamingTail(
   return text.substring(0, end);
 }
 
+final _partialAlertMarker = RegExp(r'^ {0,3}>[ \t]*\[(?:![A-Za-z]*)?$');
 final _pipeLine = RegExp(r'^ {0,3}\|');
 final _partialDelimiterRow = RegExp(r'^[ \t|:\-]*$');
 

@@ -63,6 +63,13 @@ void main() {
     });
   });
 
+  test('sanitizeStreamingTail holds an alert marker until it is complete', () {
+    expect(sanitizeStreamingTail('Intro\n\n> ['), 'Intro\n\n');
+    expect(sanitizeStreamingTail('Intro\n\n> [!TI'), 'Intro\n\n');
+    expect(sanitizeStreamingTail('Intro\n\n> [!TIP]'), 'Intro\n\n> [!TIP]');
+    expect(sanitizeStreamingTail('> quoted [text'), '> quoted ');
+  });
+
   group('sanitizeStreamingTail holds a table until it is one', () {
     test('header and delimiter rows appear together', () {
       expect(sanitizeStreamingTail('Intro\n\n| a | b'), 'Intro\n\n');

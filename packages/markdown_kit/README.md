@@ -1,21 +1,43 @@
 # markdown_kit
 
-Renders GitHub-Flavored Markdown in Flutter with text selection that works the
-way readers expect on a phone, and that keeps working while the text is still
-being streamed.
+Markdown for AI chat in Flutter: text that arrives token by token, in a
+scrolling list, that people still want to select and copy.
 
-- **Selection across blocks.** Long-press to select, drag the handles across
-  paragraphs, lists, tables and code, copy as plain text or as Markdown. The
-  selection is anchored in the document, not in widgets, so it survives
-  scrolling a lazy list, rebuilds, and text that is still arriving.
-- **Streaming.** Finished blocks are parsed and built once. Half-written
-  fences, math and escapes are held back instead of flickering.
-- **`package:flutter/widgets.dart` only.** No Material or Cupertino import.
-  Colours, text styles, handles, the context menu and every block can be
-  replaced.
-- **GFM and a little more.** Tables, task lists, strikethrough, autolinks,
-  alerts (`> [!NOTE]`), footnotes, `<details>`, a set of inline HTML tags, and
-  `\(…\)` / `\[…\]` math hooks.
+<p align="center">
+  <img src="doc/demo.gif" width="330" alt="A reply streams into a chat; a word is selected with a long-press, the selection is dragged across a list, a code block and a table, and the list is scrolled with the selection kept.">
+</p>
+
+Most Markdown widgets are built for a finished document. A chat with an agent
+is different, and that is where they hurt:
+
+- **The reply is still being written.** Re-parsing and rebuilding everything
+  on each token wastes work on long answers, and half-typed syntax flashes as
+  raw `**`, backticks and pipes. Here finished blocks are parsed and built
+  once, and unfinished bold, links, code, tables and fences are held back
+  until they are complete.
+- **Selection has to survive.** With widget-based selection the highlight is
+  lost when a message scrolls out of a lazy list or its text updates. Here the
+  selection is anchored in the document, so it stays through scrolling,
+  rebuilds and streaming.
+- **Fingers are imprecise.** Dragging a selection handle should not scroll the
+  list behind it or trigger the back swipe. Handles here have an opaque 44pt
+  hit area, and dragging one to the edge scrolls the list for you.
+- **People copy from answers.** Copy gives clean text without bullet glyphs or
+  code block headers, or the Markdown structure when you want it.
+
+It is built on `package:flutter/widgets.dart` only (no Material or Cupertino
+import), so colours, text styles, handles, the context menu and every block
+can be replaced. It was written for
+[CC Pocket](https://github.com/K9i-0/ccpocket), a mobile client for coding
+agents, and renders every message there.
+
+## When to use something else
+
+- You need full HTML rendering. Only a small set of tags is supported; the
+  rest is shown as text.
+- You need math typeset out of the box. Math is parsed and handed to a
+  builder; bring your own renderer.
+- You are on Flutter older than 3.50.
 
 ## Requirements
 
@@ -25,50 +47,9 @@ being streamed.
   `WidgetsApp`, `MaterialApp` or `CupertinoApp` with a `home` or routes)
   provides. Selection handles and the context menu are drawn in it.
 
-## Usage
+## A chat screen
 
-```dart
-import 'package:flutter/widgets.dart';
-import 'package:markdown_kit/markdown_kit.dart';
-
-class Reply extends StatelessWidget {
-  const Reply({super.key, required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return MarkdownView(
-      data: text,
-      builders: MarkdownBuilders(
-        onLinkTap: (url, title) {
-          // Open the link.
-        },
-      ),
-    );
-  }
-}
-```
-
-On its own, `MarkdownView` manages selection for that one document. A small
-app is in [`example/`](example); run `flutter create .` there once to generate
-the platform folders.
-
-### Streaming
-
-Pass the text received so far and say that more is coming:
-
-```dart
-MarkdownView(data: received, isStreaming: !done)
-```
-
-Only the block still being written is parsed and rebuilt on each update.
-
-### One selection for a whole screen
-
-Put a `MarkdownSelectionScope` above the scroll view. Every `MarkdownView`,
-`SliverMarkdownView` and `SelectablePlainText` below it joins the same
-selection, and dragging a handle to the edge scrolls the list.
+One `MarkdownSelectionScope` above the list, one `MarkdownView` per reply:
 
 ```dart
 final controller = MarkdownSelectionController(
@@ -79,21 +60,47 @@ final controller = MarkdownSelectionController(
 MarkdownSelectionScope(
   controller: controller,
   child: ListView.builder(
+    reverse: true,
     itemCount: messages.length,
-    itemBuilder: (context, index) => MarkdownView(
-      data: messages[index].text,
-      // A stable id lets the selection survive the item scrolling away.
-      documentId: messages[index].id,
-      documentOrder: index,
-    ),
+    itemBuilder: (context, index) {
+      final message = messages[messages.length - 1 - index];
+      return MarkdownView(
+        data: message.text,
+        // Only the block still being written is re-parsed and rebuilt.
+        isStreaming: message.isStreaming,
+        // A stable id lets the selection survive the item scrolling away
+        // and the switch from streaming to finished.
+        documentId: message.id,
+        documentOrder: index,
+        builders: MarkdownBuilders(
+          onLinkTap: (url, title) {
+            // Open the link.
+          },
+        ),
+      );
+    },
   ),
 )
 ```
 
-Dispose the controller when the screen goes away. It keeps the parsed document
-of every `MarkdownView` it has seen (unless that view sets
-`keepDocumentOnDispose: false`), which is what lets a selection reach text that
-has scrolled out of a lazy list.
+- Every `MarkdownView`, `SliverMarkdownView` and `SelectablePlainText` below
+  the scope joins the same selection. Use `SelectablePlainText` for the
+  user's own messages.
+- While `isStreaming` is true, syntax that is still missing its closing half
+  is not shown. When the reply is finished, pass `isStreaming: false` and the
+  whole text is rendered.
+- Dispose the controller when the screen goes away. It keeps the parsed
+  document of every view it has seen (unless that view sets
+  `keepDocumentOnDispose: false`), which is what lets a selection reach text
+  that has scrolled out of a lazy list.
+
+A runnable version of this screen is in [`example/`](example); run
+`flutter create .` there once to generate the platform folders.
+
+Outside a chat, `MarkdownView(data: text)` on its own is enough: without a
+scope above it, it manages selection for that one document.
+
+## Going further
 
 ### One long document
 
@@ -161,8 +168,9 @@ platform's copy and select-all shortcuts.
   written with `$` delimiters.
 - **A collapsed `<details>`** still belongs to the document: a selection that
   spans it copies its hidden body too.
-- **While text is streaming**, a link whose closing parenthesis has not
-  arrived is shown as written.
+- **While text is streaming**, unfinished syntax is held only on the last
+  line and only within 300 characters of the end; an opener further back is
+  shown as plain text.
 - **When a document is replaced by different text** (not just appended to),
   the selection is carried over by looking for the same words nearby. If they
   were removed and occur elsewhere, the selection moves there.
@@ -176,11 +184,19 @@ text unparsed rather than failing. `test/commonmark_spec/baseline.json` lists
 every CommonMark example where the output differs from the specification, and
 why.
 
+## How it is tested
+
+About 1,900 tests cover the parser, streaming, rendering and selection,
+including right-to-left text, large text scales and hostile input. The 652
+examples of the CommonMark specification run in CI: 572 match, and
+`test/commonmark_spec/baseline.json` lists every one that differs and why
+(mostly raw HTML, which is shown as text by design).
+
 ## Used in
 
-[CC Pocket](https://github.com/K9i-0/ccpocket), an open-source mobile client
-for coding agents, renders every chat message, plan and file preview with this
-package on iOS, Android, macOS, Linux and Windows. Its
+[CC Pocket](https://github.com/K9i-0/ccpocket) is the app this package was
+built for. It runs on iOS, Android, macOS, Linux and Windows, and renders
+every chat message, plan and file preview with it. Its
 [adapter layer](https://github.com/K9i-0/ccpocket/blob/main/apps/mobile/lib/widgets/markdown/ccpocket_markdown.dart)
 is a full-size example of wiring the package into a Material app: theme
 mapping, the platform's selection toolbar, syntax highlighting, tappable file

@@ -179,18 +179,23 @@ void main() {
     test('a streamed alert becomes one when its marker completes', () {
       const source = '> [!WARNING]\n> Careful **now**.\n';
       final parser = GfmMarkdownParser();
-      final kinds = <Type>{};
-      MarkdownDocument? last;
       for (var end = 1; end <= source.length; end++) {
-        last = parser.parse(source.substring(0, end), isStreaming: true);
-        expect(last.blocks, hasLength(1));
-        kinds.add(last.blocks.single.runtimeType);
+        final blocks = parser
+            .parse(source.substring(0, end), isStreaming: true)
+            .blocks;
         if (end >= '> [!WARNING]'.length) {
-          expect(last.blocks.single, isA<AlertBlock>(), reason: 'at $end');
+          expect(blocks.single, isA<AlertBlock>(), reason: 'at $end');
+        } else {
+          // The marker is held while it is being written: never a quote
+          // showing "[!WAR" as its text.
+          expect(
+            blocks.map(extractBlockRenderedText).join(),
+            isEmpty,
+            reason: 'at $end',
+          );
         }
       }
-      expect(kinds, {BlockquoteBlock, AlertBlock});
-      expect(last!.blocks, _parse(source));
+      expect(parser.parse(source).blocks, _parse(source));
     });
   });
 
