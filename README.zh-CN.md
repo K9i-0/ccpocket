@@ -125,3 +125,5 @@ cd apps/mobile && flutter pub get && cd ../..
 ## 许可证
 
 [MIT](LICENSE)
+
+有一个测试数据文件采用不同的许可证：`packages/markdown_kit/test/commonmark_spec/spec.json`（CommonMark 规范示例）采用 CC BY-SA 4.0。详见 [packages/markdown_kit/NOTICE.md](packages/markdown_kit/NOTICE.md)。

@@ -173,7 +173,15 @@ ccpocket 本体は `apps/mobile/pubspec.yaml` から `path: ../../packages/markd
 
 ---
 
-## 5. 既知の制限
+## 5. ライセンス
+
+- パッケージは MIT（`packages/markdown_kit/LICENSE`）。
+- 例外は `test/commonmark_spec/spec.json` のみ。CommonMark 仕様の例集で CC BY-SA 4.0、無改変でテスト入力として同梱している。このファイルは MIT の対象外で、`packages/markdown_kit/NOTICE.md` とルートの README に明記している。
+- `flutter_md`（MIT）と `gpt_markdown`（BSD 系）は設計とテスト観点の参考元で、コードは写していない（`lib/` と `test/` を両パッケージと行単位で照合し、一致は import・定型句・`copyWith` の行のみであることを確認済み）。NOTICE に謝辞を記載している。
+
+---
+
+## 6. 既知の制限
 
 - **「Markdown としてコピー」**: リテラルの記号はエスケープしない（`\*文字\*` は `*文字*` として出力される）。数式は元の区切りに関わらず `$...$` / `$$...$$` で出力する。マーカーが異なる隣接リスト（`*` と `-`）は 1 つのリストとして再解釈されうる。
 - **内容アンカー再照合 (`contentAnchored`)**: 追記以外の書き換えで選択文字列が元の位置から消え、同じ文字列が別の場所にある場合、選択はそちらへ移る。追記のみのストリーミングと確定バブルへの切り替えは高速経路を通るため影響しない。

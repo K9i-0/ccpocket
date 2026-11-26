@@ -144,3 +144,5 @@ cd apps/mobile && flutter pub get && cd ../..
 ## ライセンス
 
 [MIT](LICENSE)
+
+テスト用データのうち 1 つだけライセンスが異なります。`packages/markdown_kit/test/commonmark_spec/spec.json`（CommonMark 仕様の例集）は CC BY-SA 4.0 です。詳細は [packages/markdown_kit/NOTICE.md](packages/markdown_kit/NOTICE.md) を参照してください。
