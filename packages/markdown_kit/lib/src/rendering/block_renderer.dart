@@ -214,18 +214,22 @@ class MarkdownBlockRenderer extends StatelessWidget {
       ..addBuiltSpan(canonicalText: codeBlock.code, span: codeSpan);
     final mapping = mappingBuilder.build();
 
-    final codeContent = SelectableParagraph(
-      documentId: documentId,
-      blockIndex: blockIndex,
-      textOffsetInBlock: baseOffsetInBlock,
-      canonicalLength: codeBlock.code.length,
-      offsetMapping: mapping,
-      text: codeSpan,
-      selectionColor: effectiveSelectionColor,
-      inlineCodeStyle: effectiveTheme.inlineCodeStyle,
-      selectable: selectable,
-      onSurfaceAttach: selectable ? onSurfaceAttach : null,
-      onSurfaceDetach: selectable ? onSurfaceDetach : null,
+    // Code reads left to right whatever the direction of the prose around it.
+    final codeContent = Directionality(
+      textDirection: TextDirection.ltr,
+      child: SelectableParagraph(
+        documentId: documentId,
+        blockIndex: blockIndex,
+        textOffsetInBlock: baseOffsetInBlock,
+        canonicalLength: codeBlock.code.length,
+        offsetMapping: mapping,
+        text: codeSpan,
+        selectionColor: effectiveSelectionColor,
+        inlineCodeStyle: effectiveTheme.inlineCodeStyle,
+        selectable: selectable,
+        onSurfaceAttach: selectable ? onSurfaceAttach : null,
+        onSurfaceDetach: selectable ? onSurfaceDetach : null,
+      ),
     );
 
     final customBuilder = builders.codeBlockBuilder;

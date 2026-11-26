@@ -338,25 +338,32 @@ class MarkdownSelectionController extends ChangeNotifier {
     );
     // The surface reports the nearest caret, which sits after the glyph when
     // the pointer is on its trailing half. The word lookup wants the glyph
-    // under the pointer, so step back onto it.
+    // under the pointer, so step back onto it. Testing the glyph's own box
+    // (rather than comparing against the caret) holds for wrapped lines and
+    // for right-to-left and mixed-direction text alike.
     if (localOffset > 0) {
-      // At a soft wrap the same offset has two carets: the start of the next
-      // line (downstream) and the end of the pressed line (upstream).
-      for (final affinity in TextAffinity.values.reversed) {
-        final caret = surface.globalRectForLocalOffset(
-          localOffset,
-          affinity: affinity,
-        );
-        if (caret == null ||
-            global.dy < caret.top ||
-            global.dy > caret.bottom) {
-          continue;
+      final origin = surface.globalBounds?.topLeft;
+      // The previous glyph may span several code units (emoji).
+      final blockText = _blockText(surface.documentId, surface.blockIndex);
+      final blockOffset = surface.textOffsetInBlock + localOffset;
+      final previous = blockText != null && blockOffset <= blockText.length
+          ? math.max(
+              0,
+              _previousGraphemeOffset(blockText, blockOffset) -
+                  surface.textOffsetInBlock,
+            )
+          : localOffset - 1;
+      if (origin != null) {
+        for (final box in surface.boxesForLocalRange(previous, localOffset)) {
+          final glyph = box.toRect().shift(origin);
+          if (global.dx >= glyph.left &&
+              global.dx <= glyph.right &&
+              global.dy >= glyph.top &&
+              global.dy <= glyph.bottom) {
+            localOffset = previous;
+            break;
+          }
         }
-        final pointerIsBeforeCaret = surface.textDirection == TextDirection.ltr
-            ? global.dx < caret.left
-            : global.dx > caret.right;
-        if (pointerIsBeforeCaret) localOffset -= 1;
-        break;
       }
     }
     final wordRange = surface.wordRangeAtLocal(localOffset);
