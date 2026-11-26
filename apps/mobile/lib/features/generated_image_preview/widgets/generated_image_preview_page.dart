@@ -1,7 +1,7 @@
-import 'package:extended_image/extended_image.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../../../widgets/cached_network_image.dart';
 import '../../../widgets/zoomable_image_viewer.dart';
 import '../generated_image_preview_item.dart';
 
@@ -54,21 +54,19 @@ class _GeneratedImage extends StatelessWidget {
       );
     }
 
-    return ExtendedImage.network(
-      item.url!,
+    return CachedNetworkImage(
+      url: item.url!,
       fit: BoxFit.contain,
-      cache: true,
       cacheKey: item.cacheKey,
       cacheMaxAge: _cacheMaxAge,
-      loadStateChanged: (state) {
-        return switch (state.extendedImageLoadState) {
-          LoadState.loading => const Center(
-            child: CircularProgressIndicator(color: Colors.white),
-          ),
-          LoadState.completed => state.completedWidget,
-          LoadState.failed => const _ImageLoadFailure(),
-        };
+      gaplessPlayback: true,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return const Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        );
       },
+      errorBuilder: (_, _, _) => const _ImageLoadFailure(),
     );
   }
 }

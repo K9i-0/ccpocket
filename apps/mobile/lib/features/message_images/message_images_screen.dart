@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:extended_image/extended_image.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../media_feedback/media_feedback_scope.dart';
@@ -10,6 +9,7 @@ import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
 import '../../services/bridge_service.dart';
 import '../../widgets/bubbles/image_preview.dart';
+import '../../widgets/cached_network_image.dart';
 import '../../widgets/workspace_pane_chrome.dart';
 import '../../widgets/zoomable_image_viewer.dart';
 
@@ -308,38 +308,32 @@ class _NetworkImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ExtendedImage.network(
-      url,
+    return CachedNetworkImage(
+      url: url,
       fit: BoxFit.contain,
-      cache: true,
       cacheMaxAge: const Duration(days: 7),
-      loadStateChanged: (state) {
-        switch (state.extendedImageLoadState) {
-          case LoadState.loading:
-            return SizedBox(
-              height: placeholderHeight,
-              child: const Center(
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              ),
-            );
-          case LoadState.completed:
-            return state.completedWidget;
-          case LoadState.failed:
-            return SizedBox(
-              height: placeholderHeight,
-              child: Center(
-                child: Icon(
-                  Icons.broken_image,
-                  color: Colors.white54,
-                  size: failedIconSize,
-                ),
-              ),
-            );
-        }
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return SizedBox(
+          height: placeholderHeight,
+          child: const Center(
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Colors.white,
+            ),
+          ),
+        );
       },
+      errorBuilder: (_, _, _) => SizedBox(
+        height: placeholderHeight,
+        child: Center(
+          child: Icon(
+            Icons.broken_image,
+            color: Colors.white54,
+            size: failedIconSize,
+          ),
+        ),
+      ),
     );
   }
 }

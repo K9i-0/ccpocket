@@ -72,7 +72,6 @@ dependencies:
   package_info_plus: ^9.0.0
   auto_route: ^11.2.0
   collection: ^1.19.1
-  extended_image: ^10.0.1
   flutter_svg: ^2.5.0
   re_highlight: ^0.0.3
   in_app_review: ^2.0.11

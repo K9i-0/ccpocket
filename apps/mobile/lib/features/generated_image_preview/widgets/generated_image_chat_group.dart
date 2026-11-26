@@ -1,12 +1,13 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-import 'package:extended_image/extended_image.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../media_feedback/media_feedback_scope.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../services/cached_network_image_provider.dart';
 import '../../../theme/app_spacing.dart';
+import '../../../widgets/cached_network_image.dart';
 import '../generated_image_preview_item.dart';
 import '../generated_image_preview_screen.dart';
 
@@ -239,9 +240,8 @@ class _IntrinsicAspectRatioImageState
   ImageProvider<Object> _providerFor(GeneratedImagePreviewItem item) {
     final bytes = item.bytes;
     if (bytes != null) return MemoryImage(bytes);
-    return ExtendedNetworkImageProvider(
+    return CachedNetworkImageProvider(
       item.chatImageUrl!,
-      cache: true,
       cacheKey: item.thumbnailCacheKey,
       cacheMaxAge: _cacheMaxAge,
     );
@@ -320,22 +320,20 @@ class _GeneratedImageThumbnail extends StatelessWidget {
       );
     }
 
-    return ExtendedImage.network(
-      item.chatImageUrl!,
+    return CachedNetworkImage(
+      url: item.chatImageUrl!,
       fit: fit,
-      cache: true,
       cacheKey: item.thumbnailCacheKey,
       cacheMaxAge: _cacheMaxAge,
-      loadStateChanged: (state) {
-        return switch (state.extendedImageLoadState) {
-          LoadState.loading => const ColoredBox(
-            color: Color(0x14000000),
-            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-          ),
-          LoadState.completed => state.completedWidget,
-          LoadState.failed => const _ThumbnailLoadFailure(),
-        };
+      gaplessPlayback: true,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return const ColoredBox(
+          color: Color(0x14000000),
+          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        );
       },
+      errorBuilder: (_, _, _) => const _ThumbnailLoadFailure(),
     );
   }
 }

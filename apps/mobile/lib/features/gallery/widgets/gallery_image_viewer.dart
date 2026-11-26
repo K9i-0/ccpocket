@@ -1,14 +1,15 @@
 import 'dart:math' as math;
 
-import 'package:extended_image/extended_image.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
-import '../../../widgets/workspace_pane_chrome.dart';
+import '../../../widgets/cached_network_image.dart';
 import '../../../widgets/media_export_actions.dart';
+import '../../../widgets/workspace_pane_chrome.dart';
+import '../../../widgets/zoomable_image_viewer.dart';
 
 const _kCacheMaxAge = Duration(days: 7);
 
@@ -33,10 +34,11 @@ class GalleryImageViewer extends HookWidget {
     // Mutable image list for in-viewer deletion
     final imageList = useState(List<GalleryImage>.from(images));
     final pageController = useMemoized(
-      () => ExtendedPageController(initialPage: initialIndex),
+      () => PageController(initialPage: initialIndex),
       [initialIndex],
     );
     final currentPage = useState(initialIndex);
+    final isZoomed = useState(false);
     final chromeVisible = useState(true);
     final isDeleting = useState(false);
 
@@ -87,6 +89,7 @@ class GalleryImageViewer extends HookWidget {
           return;
         }
         imageList.value = newList;
+        isZoomed.value = false;
         // Adjust page index
         if (safeIndex >= newList.length) {
           currentPage.value = newList.length - 1;
@@ -140,58 +143,48 @@ class GalleryImageViewer extends HookWidget {
           : null,
       body: Stack(
         children: [
-          // This page view and ExtendedImage's gesture mode coordinate their
-          // recognizers, so a zoomed image keeps horizontal pans and a second
-          // pointer can begin pinch zoom without the carousel stealing it.
-          ExtendedImageGesturePageView.builder(
+          // PageView locks scrolling only while the active image is zoomed so
+          // unzoomed swipes track the finger smoothly while zoomed drags pan
+          // freely across the image.
+          PageView.builder(
             controller: pageController,
+            physics: isZoomed.value
+                ? const NeverScrollableScrollPhysics()
+                : null,
             itemCount: imageList.value.length,
-            onPageChanged: (index) => currentPage.value = index,
+            onPageChanged: (index) {
+              currentPage.value = index;
+              isZoomed.value = false;
+            },
             itemBuilder: (context, index) {
               final image = imageList.value[index];
               final imageUrl = '$httpBaseUrl${image.url}';
-              return GestureDetector(
+              return ZoomableImageViewer(
                 key: ValueKey(image.id),
-                behavior: HitTestBehavior.opaque,
+                minScale: 1.0,
                 onTap: () => chromeVisible.value = !chromeVisible.value,
-                child: ExtendedImage.network(
-                  imageUrl,
+                onZoomChanged: (zoomed) {
+                  if (index == currentPage.value) {
+                    isZoomed.value = zoomed;
+                  }
+                },
+                child: CachedNetworkImage(
+                  url: imageUrl,
                   fit: BoxFit.contain,
-                  cache: true,
                   cacheMaxAge: _kCacheMaxAge,
-                  mode: ExtendedImageMode.gesture,
-                  initGestureConfigHandler: (_) => GestureConfig(
-                    inPageView: true,
-                    initialScale: 1,
-                    minScale: 1,
-                    maxScale: 5,
-                    animationMaxScale: 6,
-                    initialAlignment: InitialAlignment.center,
-                    cacheGesture: false,
-                    hitTestBehavior: HitTestBehavior.opaque,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    );
+                  },
+                  errorBuilder: (_, _, _) => const Center(
+                    child: Icon(
+                      Icons.broken_image,
+                      color: Colors.white54,
+                      size: 48,
+                    ),
                   ),
-                  onDoubleTap: (state) {
-                    final scale = state.gestureDetails?.totalScale ?? 1;
-                    state.handleDoubleTap(scale: scale > 1.01 ? 1 : 2.5);
-                  },
-                  loadStateChanged: (state) {
-                    switch (state.extendedImageLoadState) {
-                      case LoadState.loading:
-                        return const Center(
-                          child: CircularProgressIndicator(color: Colors.white),
-                        );
-                      case LoadState.completed:
-                        return state.completedWidget;
-                      case LoadState.failed:
-                        return const Center(
-                          child: Icon(
-                            Icons.broken_image,
-                            color: Colors.white54,
-                            size: 48,
-                          ),
-                        );
-                    }
-                  },
                 ),
               );
             },

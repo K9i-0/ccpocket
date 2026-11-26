@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:extended_image/extended_image.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -9,6 +8,7 @@ import '../../features/media_feedback/media_feedback_scope.dart';
 import '../../features/media_feedback/state/media_feedback_state.dart';
 import '../../features/media_feedback/widgets/media_feedback_editor.dart';
 import '../../l10n/app_localizations.dart';
+import '../cached_network_image.dart';
 import '../zoomable_image_viewer.dart';
 import '../../models/messages.dart';
 import '../workspace_pane_chrome.dart';
@@ -72,37 +72,29 @@ class _SingleImage extends StatelessWidget {
           height: 180,
           child: dataBytes != null
               ? Image.memory(dataBytes, fit: BoxFit.cover)
-              : ExtendedImage.network(
-                  url,
+              : CachedNetworkImage(
+                  url: url,
                   fit: BoxFit.cover,
-                  cache: true,
                   cacheMaxAge: _kCacheMaxAge,
-                  loadStateChanged: (state) {
-                    switch (state.extendedImageLoadState) {
-                      case LoadState.loading:
-                        return const SizedBox(
-                          height: 100,
-                          child: Center(
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        );
-                      case LoadState.completed:
-                        return state.completedWidget;
-                      case LoadState.failed:
-                        return Container(
-                          height: 100,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .surfaceContainerHigh,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Center(
-                            child: Icon(Icons.broken_image, size: 32),
-                          ),
-                        );
-                    }
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return const SizedBox(
+                      height: 100,
+                      child: Center(
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    );
                   },
+                  errorBuilder: (_, _, _) => Container(
+                    height: 100,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.broken_image, size: 32),
+                    ),
+                  ),
                 ),
         ),
       ),
@@ -131,40 +123,32 @@ class _ImageThumbnail extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         child: dataBytes != null
             ? Image.memory(dataBytes, height: height, fit: BoxFit.cover)
-            : ExtendedImage.network(
-                url,
+            : CachedNetworkImage(
+                url: url,
                 height: height,
                 fit: BoxFit.cover,
-                cache: true,
                 cacheMaxAge: _kCacheMaxAge,
-                loadStateChanged: (state) {
-                  switch (state.extendedImageLoadState) {
-                    case LoadState.loading:
-                      return SizedBox(
-                        width: height * 0.75,
-                        height: height,
-                        child: const Center(
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      );
-                    case LoadState.completed:
-                      return state.completedWidget;
-                    case LoadState.failed:
-                      return Container(
-                        width: height * 0.75,
-                        height: height,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Center(
-                          child: Icon(Icons.broken_image, size: 24),
-                        ),
-                      );
-                  }
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return SizedBox(
+                    width: height * 0.75,
+                    height: height,
+                    child: const Center(
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  );
                 },
+                errorBuilder: (_, _, _) => Container(
+                  width: height * 0.75,
+                  height: height,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.broken_image, size: 24),
+                  ),
+                ),
               ),
       ),
     );
@@ -300,29 +284,23 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
             ? isSvg
                   ? SvgPicture.memory(bytes, fit: BoxFit.contain)
                   : Image.memory(bytes, fit: BoxFit.contain)
-            : ExtendedImage.network(
-                url!,
+            : CachedNetworkImage(
+                url: url!,
                 fit: BoxFit.contain,
-                cache: true,
                 cacheMaxAge: _kCacheMaxAge,
-                loadStateChanged: (state) {
-                  switch (state.extendedImageLoadState) {
-                    case LoadState.loading:
-                      return const Center(
-                        child: CircularProgressIndicator(color: Colors.white),
-                      );
-                    case LoadState.completed:
-                      return state.completedWidget;
-                    case LoadState.failed:
-                      return const Center(
-                        child: Icon(
-                          Icons.broken_image,
-                          color: Colors.white54,
-                          size: 48,
-                        ),
-                      );
-                  }
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  );
                 },
+                errorBuilder: (_, _, _) => const Center(
+                  child: Icon(
+                    Icons.broken_image,
+                    color: Colors.white54,
+                    size: 48,
+                  ),
+                ),
               ),
       ),
     );
