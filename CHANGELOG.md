@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.186.0] - 2026-11-26
+
+### Added
+
+- Recent session filter persistence: period presets and custom date ranges, date field (modified/created), pinned-only, and content search settings now persist locally across app restarts and reconnects, with project selections stored per Bridge target so switching machines keeps each machine's selection separate while search keywords reset on restart.
+- New `markdown_kit` renderer & selection engine: migrated chat markdown views and user bubbles to a dedicated package with model-anchored cross-block text selection, "Copy as Markdown" preserving nested list/table structure, screen-reader links, RTL/mixed-text selection, and streaming-safe rendering.
+
+### Changed
+
+- Swarm coordinator icon: replaced the generic hub icon for the Swarm coordinator with a dedicated octopus SVG icon.
+- Recent session filter bar: content search without a keyword and the created-date field without a period no longer show as active "Advanced" or "Clear" chips until paired with a keyword or period.
+- Rendering performance: stabilized `AppColors` equality, isolated activity bar updates, and guarded unnecessary focus changes.
+
 ## [1.185.0] - 2026-11-26
 
 ### Added
