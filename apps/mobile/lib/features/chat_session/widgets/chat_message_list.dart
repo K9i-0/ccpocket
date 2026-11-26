@@ -11,6 +11,7 @@ import 'package:flutter/rendering.dart'
         ScrollDirection,
         applyGrowthDirectionToAxisDirection;
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:markdown_kit/markdown_kit.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 
 import '../compaction_projection.dart';
@@ -26,6 +27,7 @@ import '../../../theme/app_theme.dart';
 import '../../../utils/codex_plan_update.dart';
 import '../../../utils/diff_parser.dart';
 import '../../../utils/platform_helper.dart';
+import '../../../widgets/markdown/ccpocket_markdown.dart';
 import '../../../widgets/message_bubble.dart';
 import '../../generated_image_preview/generated_image_preview_mapper.dart';
 import '../../generated_image_preview/generated_image_preview_item.dart';
@@ -615,6 +617,11 @@ class _ChatMessageListState extends State<ChatMessageList> {
   static const _streamingEntryKey = ValueKey<String>('streaming');
 
   final _viewportKey = GlobalKey();
+  late final MarkdownSelectionController _selectionController;
+  bool _wasStreaming = false;
+  int _streamingTurnId = 0;
+  int _streamingStartEntryCount = 0;
+  final Map<String, String> _handedOffDocIds = {};
   final _generatedImageItemCache =
       <GeneratedImageItemCacheKey, GeneratedImagePreviewItem>{};
   List<ChatEntry>? _projectionSource;
@@ -695,6 +702,9 @@ class _ChatMessageListState extends State<ChatMessageList> {
   @override
   void initState() {
     super.initState();
+    _selectionController = MarkdownSelectionController(
+      allowCrossDocumentSelection: false,
+    );
     widget.scrollToUserEntry?.addListener(_onScrollToUserEntry);
     _attachLayoutAnchorCorrection();
   }
@@ -711,6 +721,12 @@ class _ChatMessageListState extends State<ChatMessageList> {
       _derivedData = null;
       _pendingAnchor = null;
     }
+    if (oldWidget.sessionId != widget.sessionId) {
+      _handedOffDocIds.clear();
+      _wasStreaming = false;
+      _streamingStartEntryCount = 0;
+      _selectionController.clear();
+    }
     if (oldWidget.scrollController != widget.scrollController) {
       _detachLayoutAnchorCorrection(oldWidget.scrollController);
       _attachLayoutAnchorCorrection();
@@ -723,6 +739,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
 
   @override
   void dispose() {
+    _selectionController.dispose();
     _detachLayoutAnchorCorrection(widget.scrollController);
     widget.scrollToUserEntry?.removeListener(_onScrollToUserEntry);
     super.dispose();
@@ -1048,6 +1065,27 @@ class _ChatMessageListState extends State<ChatMessageList> {
     final totalCount =
         allEntries.length + (hasStreaming ? 1 : 0) + (hasActivityBar ? 1 : 0);
     final entryKeys = _entryKeys(allEntries);
+    if (!_wasStreaming && hasStreaming) {
+      _streamingStartEntryCount = allEntries.length;
+    } else if (_wasStreaming && !hasStreaming) {
+      final lowerBound = _streamingStartEntryCount.clamp(0, allEntries.length);
+      for (var i = allEntries.length - 1; i >= lowerBound; i--) {
+        final entry = allEntries[i];
+        if (entry is UserChatEntry) break;
+        if (entry is ServerChatEntry &&
+            entry.message is AssistantServerMessage &&
+            (entry.message as AssistantServerMessage).message.content.any(
+              (c) => c is TextContent,
+            )) {
+          _handedOffDocIds[entryKeys[i]] = 'streaming_turn_$_streamingTurnId';
+          break;
+        }
+      }
+      _streamingTurnId++;
+    }
+    _wasStreaming = hasStreaming;
+    final streamingDocumentId = 'streaming_turn_$_streamingTurnId';
+    final obscuredBottom = FloatingComposerStatus.obscuredBottomOf(context);
     final childIndexByEntryKey = <String, int>{
       for (var entryIndex = 0; entryIndex < allEntries.length; entryIndex++)
         entryKeys[entryIndex]: totalCount - 1 - entryIndex,
@@ -1104,190 +1142,209 @@ class _ChatMessageListState extends State<ChatMessageList> {
             onAfterLayout: _scheduleAnchorMeasurement,
             child: SizedBox(
               key: _viewportKey,
-              child: ListView.builder(
-                controller: widget.scrollController,
-                reverse: true,
-                physics: MaintainReadingPositionOnResizePhysics(
-                  shouldMaintain: () => widget.isReadingHistory,
+              child: CcpocketSelectionScope(
+                controller: _selectionController,
+                allowCrossDocumentSelection: false,
+                isPlainTextDocument: (id) =>
+                    id.startsWith('user_') || id.startsWith('plain:'),
+                autoscroll: MarkdownSelectionAutoscrollConfig(
+                  bottomPad: widget.bottomPadding + obscuredBottom,
+                  useHostUnionGate: false,
                 ),
-                // Reach the newest message above the frosted composer while
-                // older ones scroll behind it.
-                padding: EdgeInsets.only(
-                  top: 36,
-                  bottom:
-                      widget.bottomPadding +
-                      FloatingComposerStatus.obscuredBottomOf(context),
-                ),
-                itemCount: totalCount,
-                findChildIndexCallback: (key) {
-                  if (key is! ValueKey<String>) return null;
-                  return childIndexByEntryKey[key.value];
-                },
-                itemBuilder: (context, index) {
-                  // index 0 = newest entry (bottom of chat)
-                  // Map to actual entry index:
-                  final entryIndex = totalCount - 1 - index;
+                child: ListView.builder(
+                  controller: widget.scrollController,
+                  reverse: true,
+                  physics: MaintainReadingPositionOnResizePhysics(
+                    shouldMaintain: () => widget.isReadingHistory,
+                  ),
+                  // Reach the newest message above the frosted composer while
+                  // older ones scroll behind it.
+                  padding: EdgeInsets.only(
+                    top: 36,
+                    bottom: widget.bottomPadding + obscuredBottom,
+                  ),
+                  itemCount: totalCount,
+                  findChildIndexCallback: (key) {
+                    if (key is! ValueKey<String>) return null;
+                    return childIndexByEntryKey[key.value];
+                  },
+                  itemBuilder: (context, index) {
+                    // index 0 = newest entry (bottom of chat)
+                    // Map to actual entry index:
+                    final entryIndex = totalCount - 1 - index;
 
-                  // Live activity row sits at the very bottom (index 0 in reverse)
-                  if (hasActivityBar && entryIndex == totalCount - 1) {
-                    return _AgentActivityBar(
-                      key: const ValueKey<String>('agent_activity_bar'),
-                      status: chatState.status,
-                      hasApproval: hasApproval,
-                      incompleteTool: derivedData.latestIncompleteToolUse,
-                      hasStreamingText: streamingFlags.hasText,
-                      hasThinkingText: hasVisibleThinking,
-                    );
-                  }
+                    // Live activity row sits at the very bottom (index 0 in reverse)
+                    if (hasActivityBar && entryIndex == totalCount - 1) {
+                      return _AgentActivityBar(
+                        key: const ValueKey<String>('agent_activity_bar'),
+                        status: chatState.status,
+                        hasApproval: hasApproval,
+                        incompleteTool: derivedData.latestIncompleteToolUse,
+                        hasStreamingText: streamingFlags.hasText,
+                        hasThinkingText: hasVisibleThinking,
+                      );
+                    }
 
-                  // Streaming entry sits just above the activity bar (or at index 0)
-                  if (hasStreaming && entryIndex == allEntries.length) {
-                    // Scoped BlocBuilder: only this widget rebuilds on streaming deltas
+                    // Streaming entry sits just above the activity bar (or at index 0)
+                    if (hasStreaming && entryIndex == allEntries.length) {
+                      // Scoped BlocBuilder: only this widget rebuilds on streaming deltas
+                      return AutoScrollTag(
+                        key: _streamingEntryKey,
+                        controller: widget.scrollController,
+                        index: entryIndex,
+                        child: _LayoutSizeReporter(
+                          onLayout: (size) => _streamingRowHeight = size.height,
+                          child:
+                              BlocBuilder<StreamingStateCubit, StreamingState>(
+                                builder: (context, streamingState) {
+                                  if (!streamingState.isStreaming) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  return ChatEntryWidget(
+                                    entry: StreamingChatEntry(
+                                      text: streamingState.text,
+                                      thinking: showThinking
+                                          ? streamingState.thinking
+                                          : '',
+                                    ),
+                                    previous: null,
+                                    httpBaseUrl: widget.httpBaseUrl,
+                                    onRetryMessage: null,
+                                    collapseToolResults: null,
+                                    hiddenToolUseIds: const {},
+                                    isCodex: widget.isCodex,
+                                    onBeforeStreamingTextUpdate:
+                                        _captureVisibleAnchor,
+                                    documentId: streamingDocumentId,
+                                    documentOrder: allEntries.length * 100,
+                                  );
+                                },
+                              ),
+                        ),
+                      );
+                    }
+
+                    final entry = allEntries[entryIndex];
+                    final previous = entryIndex > 0
+                        ? allEntries[entryIndex - 1]
+                        : null;
+                    final onForkMessage =
+                        widget.onForkMessage != null &&
+                            derivedData.forkableAssistantEntryIndices.contains(
+                              entryIndex,
+                            )
+                        ? widget.onForkMessage
+                        : null;
+
+                    final imageItems =
+                        derivedData.imageItemsByAnchor[entryIndex];
+                    final Widget child;
+                    if (imageItems != null) {
+                      child = GeneratedImageChatGroup(items: imageItems);
+                    } else if (derivedData.imageGroupMemberIndices.contains(
+                      entryIndex,
+                    )) {
+                      child = const SizedBox.shrink();
+                    } else if (entry
+                        case ServerChatEntry(
+                          message: final ToolResultMessage result,
+                        )
+                        when derivedData.permissionTranscriptStatuses
+                                .containsKey(result.toolUseId) &&
+                            isSyntheticPermissionOutcome(result)) {
+                      child = const SizedBox.shrink();
+                    } else if (derivedData.intermediateResultEntryIndices
+                            .contains(entryIndex) &&
+                        // Keep a result whose text is not shown anywhere else.
+                        !derivedData.successResultFallbackEntryIndices.contains(
+                          entryIndex,
+                        )) {
+                      child = const SizedBox.shrink();
+                    } else {
+                      final permissionTranscriptStatus = switch (entry) {
+                        ServerChatEntry(
+                          message: PermissionRequestMessage(:final toolUseId),
+                        ) =>
+                          derivedData.permissionTranscriptStatuses[toolUseId],
+                        _ => null,
+                      };
+                      child = ChatEntryWidget(
+                        entry: entry,
+                        previous: previous,
+                        httpBaseUrl: widget.httpBaseUrl,
+                        onRetryMessage: widget.onRetryMessage,
+                        onRewindMessage: widget.onRewindMessage,
+                        onEditMessage: widget.onEditMessage,
+                        onRestoreFilesMessage: widget.onRestoreFilesMessage,
+                        onForkMessage: onForkMessage,
+                        collapseToolResults: widget.collapseToolResults,
+                        resolvedPlanText: _hasExitPlanMode(entry)
+                            ? derivedData.latestPlanText
+                            : null,
+                        showSuccessResultText: derivedData
+                            .successResultFallbackEntryIndices
+                            .contains(entryIndex),
+                        permissionTranscriptStatus: permissionTranscriptStatus,
+                        hiddenToolUseIds: effectiveHiddenToolUseIds,
+                        onOpenTranscript: _openTranscript,
+                        onFileTap: (filePath) {
+                          final projectPath = widget.projectPath;
+                          if (projectPath == null || projectPath.isEmpty) {
+                            return;
+                          }
+                          openFilePeek(
+                            context,
+                            bridge: context.read<BridgeService>(),
+                            projectPath: projectPath,
+                            filePath: filePath,
+                            projectFiles: context.read<FileListCubit>().state,
+                            onResolvedFilePath: widget.onFilePeekOpened,
+                          );
+                        },
+                        onImageTap: (user) {
+                          final claudeSessionId = context
+                              .read<ChatSessionCubit>()
+                              .state
+                              .claudeSessionId;
+                          final httpBaseUrl = widget.httpBaseUrl;
+                          if (claudeSessionId == null ||
+                              claudeSessionId.isEmpty ||
+                              httpBaseUrl == null) {
+                            return;
+                          }
+                          final feedback = MediaFeedbackBinding.maybeOf(
+                            context,
+                          );
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => MessageImagesScreen(
+                                feedback: feedback,
+                                bridge: context.read<BridgeService>(),
+                                httpBaseUrl: httpBaseUrl,
+                                claudeSessionId: claudeSessionId,
+                                messageUuid: user.messageUuid!,
+                                imageCount: user.imageCount,
+                              ),
+                            ),
+                          );
+                        },
+                        isCodex: widget.isCodex,
+                        documentId:
+                            _handedOffDocIds[entryKeys[entryIndex]] ??
+                            entryKeys[entryIndex],
+                        documentOrder: entryIndex * 100,
+                      );
+                    }
+                    // Wrap with AutoScrollTag for scroll-to-index support.
+                    // Use entryIndex (not reverse index) as the AutoScrollTag index.
                     return AutoScrollTag(
-                      key: _streamingEntryKey,
+                      key: ValueKey(entryKeys[entryIndex]),
                       controller: widget.scrollController,
                       index: entryIndex,
-                      child: _LayoutSizeReporter(
-                        onLayout: (size) => _streamingRowHeight = size.height,
-                        child: BlocBuilder<StreamingStateCubit, StreamingState>(
-                          builder: (context, streamingState) {
-                            if (!streamingState.isStreaming) {
-                              return const SizedBox.shrink();
-                            }
-                            return ChatEntryWidget(
-                              entry: StreamingChatEntry(
-                                text: streamingState.text,
-                                thinking: showThinking
-                                    ? streamingState.thinking
-                                    : '',
-                              ),
-                              previous: null,
-                              httpBaseUrl: widget.httpBaseUrl,
-                              onRetryMessage: null,
-                              collapseToolResults: null,
-                              hiddenToolUseIds: const {},
-                              isCodex: widget.isCodex,
-                              onBeforeStreamingTextUpdate:
-                                  _captureVisibleAnchor,
-                            );
-                          },
-                        ),
-                      ),
+                      child: child,
                     );
-                  }
-
-                  final entry = allEntries[entryIndex];
-                  final previous = entryIndex > 0
-                      ? allEntries[entryIndex - 1]
-                      : null;
-                  final onForkMessage =
-                      widget.onForkMessage != null &&
-                          derivedData.forkableAssistantEntryIndices.contains(
-                            entryIndex,
-                          )
-                      ? widget.onForkMessage
-                      : null;
-
-                  final imageItems = derivedData.imageItemsByAnchor[entryIndex];
-                  final Widget child;
-                  if (imageItems != null) {
-                    child = GeneratedImageChatGroup(items: imageItems);
-                  } else if (derivedData.imageGroupMemberIndices.contains(
-                    entryIndex,
-                  )) {
-                    child = const SizedBox.shrink();
-                  } else if (entry
-                      case ServerChatEntry(
-                        message: final ToolResultMessage result,
-                      )
-                      when derivedData.permissionTranscriptStatuses.containsKey(
-                            result.toolUseId,
-                          ) &&
-                          isSyntheticPermissionOutcome(result)) {
-                    child = const SizedBox.shrink();
-                  } else if (derivedData.intermediateResultEntryIndices
-                          .contains(entryIndex) &&
-                      // Keep a result whose text is not shown anywhere else.
-                      !derivedData.successResultFallbackEntryIndices.contains(
-                        entryIndex,
-                      )) {
-                    child = const SizedBox.shrink();
-                  } else {
-                    final permissionTranscriptStatus = switch (entry) {
-                      ServerChatEntry(
-                        message: PermissionRequestMessage(:final toolUseId),
-                      ) =>
-                        derivedData.permissionTranscriptStatuses[toolUseId],
-                      _ => null,
-                    };
-                    child = ChatEntryWidget(
-                      entry: entry,
-                      previous: previous,
-                      httpBaseUrl: widget.httpBaseUrl,
-                      onRetryMessage: widget.onRetryMessage,
-                      onRewindMessage: widget.onRewindMessage,
-                      onEditMessage: widget.onEditMessage,
-                      onRestoreFilesMessage: widget.onRestoreFilesMessage,
-                      onForkMessage: onForkMessage,
-                      collapseToolResults: widget.collapseToolResults,
-                      resolvedPlanText: _hasExitPlanMode(entry)
-                          ? derivedData.latestPlanText
-                          : null,
-                      showSuccessResultText: derivedData
-                          .successResultFallbackEntryIndices
-                          .contains(entryIndex),
-                      permissionTranscriptStatus: permissionTranscriptStatus,
-                      hiddenToolUseIds: effectiveHiddenToolUseIds,
-                      onOpenTranscript: _openTranscript,
-                      onFileTap: (filePath) {
-                        final projectPath = widget.projectPath;
-                        if (projectPath == null || projectPath.isEmpty) return;
-                        openFilePeek(
-                          context,
-                          bridge: context.read<BridgeService>(),
-                          projectPath: projectPath,
-                          filePath: filePath,
-                          projectFiles: context.read<FileListCubit>().state,
-                          onResolvedFilePath: widget.onFilePeekOpened,
-                        );
-                      },
-                      onImageTap: (user) {
-                        final claudeSessionId = context
-                            .read<ChatSessionCubit>()
-                            .state
-                            .claudeSessionId;
-                        final httpBaseUrl = widget.httpBaseUrl;
-                        if (claudeSessionId == null ||
-                            claudeSessionId.isEmpty ||
-                            httpBaseUrl == null) {
-                          return;
-                        }
-                        final feedback = MediaFeedbackBinding.maybeOf(context);
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => MessageImagesScreen(
-                              feedback: feedback,
-                              bridge: context.read<BridgeService>(),
-                              httpBaseUrl: httpBaseUrl,
-                              claudeSessionId: claudeSessionId,
-                              messageUuid: user.messageUuid!,
-                              imageCount: user.imageCount,
-                            ),
-                          ),
-                        );
-                      },
-                      isCodex: widget.isCodex,
-                    );
-                  }
-                  // Wrap with AutoScrollTag for scroll-to-index support.
-                  // Use entryIndex (not reverse index) as the AutoScrollTag index.
-                  return AutoScrollTag(
-                    key: ValueKey(entryKeys[entryIndex]),
-                    controller: widget.scrollController,
-                    index: entryIndex,
-                    child: child,
-                  );
-                },
+                  },
+                ),
               ),
             ),
           ),

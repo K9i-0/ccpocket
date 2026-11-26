@@ -6,6 +6,7 @@ import 'package:ccpocket/widgets/bubbles/user_bubble.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:markdown_kit/markdown_kit.dart';
 
 Widget _wrap(Widget child, {ThemeData? theme}) {
   return MaterialApp(
@@ -37,17 +38,16 @@ void main() {
         );
 
         final appColors = theme.extension<AppColors>()!;
-        final richText = tester.widget<RichText>(
+        final paragraph = tester.widget<SelectableParagraph>(
           find.descendant(
-            of: find.byType(SelectionArea),
-            matching: find.byType(RichText),
+            of: find.byType(MarkdownSelectionScope),
+            matching: find.byType(SelectableParagraph),
           ),
         );
-        final selectionColor = richText.selectionColor;
-        expect(selectionColor, isNotNull);
+        final selectionColor = paragraph.selectionColor;
 
         final highlighted = Color.alphaBlend(
-          selectionColor!,
+          selectionColor,
           appColors.userBubble,
         );
         // The highlight used to match the bubble (contrast 1.0).
@@ -69,15 +69,18 @@ void main() {
         _wrap(const UserBubble(text: 'Select part of this message')),
       );
 
-      expect(find.byType(SelectionArea), findsOneWidget);
-      expect(find.text('Select part of this message'), findsOneWidget);
+      expect(find.byType(MarkdownSelectionScope), findsOneWidget);
+      expect(
+        find.text('Select part of this message', findRichText: true),
+        findsOneWidget,
+      );
 
       const commandText =
           '<command-message><command-name>/review</command-name>'
           '<command-args>current changes</command-args></command-message>';
       await tester.pumpWidget(_wrap(const UserBubble(text: commandText)));
 
-      expect(find.byType(SelectionArea), findsOneWidget);
+      expect(find.byType(MarkdownSelectionScope), findsOneWidget);
       expect(
         find.text('/review current changes', findRichText: true),
         findsOneWidget,
@@ -134,7 +137,9 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
       expect(find.byIcon(Icons.copy_outlined), findsOneWidget);
 
-      await tester.tap(find.text('Copy this entire message'));
+      await tester.tap(
+        find.text('Copy this entire message', findRichText: true),
+      );
       await tester.pump();
       expect(retryCount, 1);
     });
@@ -154,7 +159,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('user_message_edit_cancel')));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('user_message_editor')), findsNothing);
-      expect(find.text('fix the tpyo'), findsOneWidget);
+      expect(find.text('fix the tpyo', findRichText: true), findsOneWidget);
       expect(edits, isEmpty);
 
       await tester.tap(find.byKey(const ValueKey('user_message_edit_button')));
@@ -243,13 +248,15 @@ void main() {
         _wrap(UserBubble(text: 'Long press this text', onRewind: () {})),
       );
 
-      await tester.longPress(find.text('Long press this text'));
+      await tester.longPress(
+        find.text('Long press this text', findRichText: true),
+      );
       await tester.pumpAndSettle();
 
-      final selectionState = tester.state<SelectableRegionState>(
-        find.byType(SelectableRegion),
+      final scopeState = tester.state<MarkdownSelectionScopeState>(
+        find.byType(MarkdownSelectionScope),
       );
-      expect(selectionState.selectionOverlay, isNotNull);
+      expect(scopeState.controller.hasSelection, isTrue);
       expect(find.text('Rewind to here'), findsNothing);
     });
   });

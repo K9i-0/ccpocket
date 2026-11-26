@@ -1,15 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
 import '../../../theme/markdown_style.dart';
-import '../../../widgets/google_search_text_selection.dart';
-import '../../../widgets/link_hover_underline.dart';
+import '../../../widgets/markdown/ccpocket_markdown.dart';
 import '../../../widgets/workspace_pane_chrome.dart';
 import '../state/github_item_cubit.dart';
 import 'github_error_view.dart';
@@ -236,16 +234,6 @@ class GitHubMarkdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GoogleSearchSelectionArea(
-      child: LinkHoverUnderline(
-        child: MarkdownBody(
-          data: data,
-          selectable: false,
-          styleSheet: buildMarkdownStyle(context),
-          onTapLink: handleMarkdownLink,
-          builders: markdownBuilders,
-        ),
-      ),
-    );
+    return CcpocketMarkdown(data: data);
   }
 }

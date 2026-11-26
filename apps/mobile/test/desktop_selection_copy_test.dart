@@ -9,7 +9,6 @@ import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/providers/bridge_cubits.dart';
 import 'package:ccpocket/theme/app_theme.dart';
-import 'package:ccpocket/theme/markdown_style.dart';
 import 'package:ccpocket/utils/diff_parser.dart';
 import 'package:ccpocket/widgets/approval_bar.dart';
 import 'package:ccpocket/widgets/bubbles/ask_user_question_widget.dart';
@@ -29,13 +28,14 @@ import 'package:ccpocket/widgets/bubbles/tool_result_bubble.dart';
 import 'package:ccpocket/widgets/bubbles/tool_use_summary_bubble.dart';
 import 'package:ccpocket/widgets/bubbles/user_bubble.dart';
 import 'package:ccpocket/widgets/google_search_text_selection.dart';
+import 'package:ccpocket/widgets/markdown/ccpocket_markdown.dart';
 import 'package:ccpocket/widgets/plan_detail_sheet.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:markdown_kit/markdown_kit.dart';
 import 'package:material_ui/material_ui.dart';
 
 Widget _wrap(Widget child, {List<String> files = const []}) {
@@ -72,7 +72,7 @@ void _mockClipboard(WidgetTester tester, List<String?> captured) {
 void main() {
   group('Cross-block Markdown + Code Block Selection', () {
     testWidgets(
-      'AssistantBubble keeps code block inside outer SelectionArea and disables toolbar selection',
+      'AssistantBubble keeps code block inside MarkdownSelectionScope and excludes toolbar header from copy',
       (tester) async {
         const markdown =
             'Intro paragraph.\n\n```dart\nfinal answer = 42;\n```\n\nClosing paragraph.';
@@ -91,27 +91,24 @@ void main() {
           ),
         );
 
-        expect(find.byType(GoogleSearchSelectionArea), findsOneWidget);
+        expect(find.byType(MarkdownSelectionScope), findsOneWidget);
         expect(find.byType(SelectableText), findsNothing);
         expect(
-          find.ancestor(
-            of: find.byKey(const ValueKey('code_block_language_dart')),
-            matching: find.byType(SelectionContainer),
-          ),
-          findsWidgets,
+          find.byKey(const ValueKey('code_block_language_dart')),
+          findsOneWidget,
         );
 
-        // Verify the language label sits inside SelectionContainer.disabled
-        // (delegate == null) so it is never copied into the clipboard.
-        final containers = tester
-            .widgetList<SelectionContainer>(
-              find.ancestor(
-                of: find.byKey(const ValueKey('code_block_language_dart')),
-                matching: find.byType(SelectionContainer),
-              ),
-            )
-            .toList();
-        expect(containers.first.delegate, isNull);
+        // Selecting all copies prose + code without the 'dart' header label.
+        final scope = tester.state<MarkdownSelectionScopeState>(
+          find.byType(MarkdownSelectionScope),
+        );
+        scope.selectAll();
+        await tester.pump();
+        expect(
+          scope.selectedPlainText,
+          'Intro paragraph.\n\nfinal answer = 42;\n\nClosing paragraph.',
+        );
+        expect(scope.selectedPlainText, isNot(contains('dart')));
 
         // Verify code block copy button gives inline checkmark feedback.
         final copied = <String?>[];
@@ -128,29 +125,31 @@ void main() {
     );
 
     testWidgets(
-      'standalone MarkdownBody without ancestor SelectionArea keeps SelectableText fallback in code blocks',
+      'standalone CcpocketMarkdown provides its own MarkdownSelectionScope for code blocks',
       (tester) async {
         await tester.pumpWidget(
           _wrap(
-            Builder(
-              builder: (context) => MarkdownBody(
-                data: '```dart\nfinal standalone = true;\n```',
-                styleSheet: buildMarkdownStyle(context),
-                builders: markdownBuilders,
-              ),
+            const CcpocketMarkdown(
+              data: '```dart\nfinal standalone = true;\n```',
             ),
           ),
         );
 
-        expect(find.byType(SelectionArea), findsNothing);
-        expect(find.byType(SelectableText), findsOneWidget);
+        expect(find.byType(MarkdownSelectionScope), findsOneWidget);
+        expect(find.byType(SelectableText), findsNothing);
+        final scope = tester.state<MarkdownSelectionScopeState>(
+          find.byType(MarkdownSelectionScope),
+        );
+        scope.selectAll();
+        await tester.pump();
+        expect(scope.selectedPlainText, 'final standalone = true;');
       },
     );
   });
 
   group('Unified Markdown Selection Surfaces', () {
     testWidgets(
-      'PlanCard uses GoogleSearchSelectionArea and only opens sheet from header/footer',
+      'PlanCard uses CcpocketMarkdown and only opens sheet from header/footer',
       (tester) async {
         var opened = 0;
         final longPlan = List.generate(
@@ -162,12 +161,16 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        final md = tester.widget<MarkdownBody>(find.byType(MarkdownBody));
-        expect(md.selectable, isFalse);
-        expect(find.byType(GoogleSearchSelectionArea), findsOneWidget);
+        expect(find.byType(CcpocketMarkdown), findsOneWidget);
+        expect(find.byType(MarkdownSelectionScope), findsOneWidget);
 
         // Tapping markdown body should NOT open the full plan sheet.
-        await tester.tap(find.textContaining('Detailed step 0 description.'));
+        await tester.tap(
+          find.textContaining(
+            'Detailed step 0 description.',
+            findRichText: true,
+          ),
+        );
         await tester.pump();
         expect(opened, 0);
 
@@ -184,7 +187,7 @@ void main() {
     );
 
     testWidgets(
-      'PlanDetailSheet uses GoogleSearchSelectionArea and header copy button works',
+      'PlanDetailSheet uses CcpocketSliverMarkdown + CcpocketSelectionScope and header copy button works',
       (tester) async {
         final copied = <String?>[];
         _mockClipboard(tester, copied);
@@ -203,9 +206,9 @@ void main() {
         await tester.tap(find.text('Open'));
         await tester.pumpAndSettle();
 
-        final md = tester.widget<MarkdownBody>(find.byType(MarkdownBody));
-        expect(md.selectable, isFalse);
-        expect(find.byType(GoogleSearchSelectionArea), findsOneWidget);
+        expect(find.byType(CcpocketSliverMarkdown), findsOneWidget);
+        expect(find.byType(SliverMarkdownView), findsOneWidget);
+        expect(find.byType(CcpocketSelectionScope), findsOneWidget);
 
         await tester.tap(find.byKey(const ValueKey('plan_detail_copy_button')));
         await tester.pump();
@@ -215,7 +218,7 @@ void main() {
     );
 
     testWidgets(
-      'ResultChip, SwarmPostCard, StreamingBubble, GitHubMarkdown, FilePeekMarkdown, ContextCompactionCard use GoogleSearchSelectionArea',
+      'ResultChip, SwarmPostCard, StreamingBubble, GitHubMarkdown, FilePeekMarkdown, ContextCompactionCard use markdown_kit selection',
       (tester) async {
         final scrollController = ScrollController();
         addTearDown(scrollController.dispose);
@@ -267,14 +270,9 @@ void main() {
         // StreamingBubble runs a repeating cursor animation, so use pump().
         await tester.pump(const Duration(milliseconds: 250));
 
-        final markdownBodies = tester
-            .widgetList<MarkdownBody>(find.byType(MarkdownBody))
-            .toList();
-        expect(markdownBodies, isNotEmpty);
-        for (final body in markdownBodies) {
-          expect(body.selectable, isFalse);
-        }
-        expect(find.byType(GoogleSearchSelectionArea), findsNWidgets(6));
+        expect(find.byType(CcpocketMarkdown), findsNWidgets(5));
+        expect(find.byType(CcpocketSliverMarkdown), findsOneWidget);
+        expect(find.byType(MarkdownSelectionScope), findsNWidgets(6));
       },
     );
   });
@@ -386,7 +384,7 @@ void main() {
     );
 
     testWidgets(
-      'UserBubble uses GoogleSearchSelectionArea and desktop editing supports Enter/Shift+Enter/Escape',
+      'UserBubble uses CcpocketSelectableText and desktop editing supports Enter/Shift+Enter/Escape',
       (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
         addTearDown(() => debugDefaultTargetPlatformOverride = null);
@@ -396,7 +394,8 @@ void main() {
           _wrap(UserBubble(text: 'Original prompt', onEdit: edits.add)),
         );
 
-        expect(find.byType(GoogleSearchSelectionArea), findsOneWidget);
+        expect(find.byType(CcpocketSelectableText), findsOneWidget);
+        expect(find.byType(MarkdownSelectionScope), findsOneWidget);
 
         // Right-click on the bubble outside text opens bubble action menu.
         final copyButtonPos = tester.getCenter(
@@ -415,10 +414,12 @@ void main() {
         await tester.tapAt(const Offset(5, 5));
         await tester.pumpAndSettle();
 
-        // Right-click directly on text lets GoogleSearchSelectionArea handle
+        // Right-click directly on text lets MarkdownSelectionScope handle
         // selection context menu (Copy / Search with Google / Select All)
         // instead of hijacking it with the bubble menu.
-        final textCenter = tester.getCenter(find.text('Original prompt'));
+        final textCenter = tester.getCenter(
+          find.text('Original prompt', findRichText: true),
+        );
         final textRightClick = await tester.createGesture(
           kind: PointerDeviceKind.mouse,
           buttons: kSecondaryMouseButton,
@@ -430,8 +431,8 @@ void main() {
         expect(find.text('Search with Google'), findsOneWidget);
 
         // Dismiss selection context menu.
-        final selectionState = tester.state<SelectableRegionState>(
-          find.byType(SelectableRegion),
+        final selectionState = tester.state<MarkdownSelectionScopeState>(
+          find.byType(MarkdownSelectionScope),
         );
         selectionState.hideToolbar();
         await tester.pumpAndSettle();
@@ -845,7 +846,7 @@ void main() {
     );
 
     testWidgets(
-      'FilePathBuilder uses click cursor without breaking SelectionArea',
+      'inline file path span switches cursor to click on hover and taps cleanly inside MarkdownSelectionScope',
       (tester) async {
         String? tapped;
         await tester.pumpWidget(
@@ -867,17 +868,32 @@ void main() {
           ),
         );
 
-        final mouseRegions = tester
-            .widgetList<MouseRegion>(
-              find.ancestor(
-                of: find.text('lib/main.dart'),
-                matching: find.byType(MouseRegion),
-              ),
-            )
-            .where((r) => r.cursor == SystemMouseCursors.click);
-        expect(mouseRegions, isNotEmpty);
+        final paraFinder = find.textContaining(
+          'lib/main.dart',
+          findRichText: true,
+        );
+        final para = tester.renderObject<RenderSelectableParagraph>(paraFinder);
+        final boxes = para.getBoxesForSelection(
+          const TextSelection(baseOffset: 4, extentOffset: 17),
+        );
+        final pathCenter = para.localToGlobal(boxes.first.toRect().center);
 
-        await tester.tap(find.text('lib/main.dart'));
+        // Hovering over the file-path TappableTextSpan switches cursor to click.
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        addTearDown(mouse.removePointer);
+        await mouse.addPointer(location: Offset.zero);
+        await mouse.moveTo(pathCenter);
+        await tester.pump();
+
+        final mouseRegion = tester.widget<MouseRegion>(
+          find
+              .ancestor(of: paraFinder, matching: find.byType(MouseRegion))
+              .first,
+        );
+        expect(mouseRegion.cursor, SystemMouseCursors.click);
+        expect(para.hoveredSpanIndex, isNotNull);
+
+        await tester.tapAt(pathCenter);
         await tester.pump();
         expect(tapped, 'lib/main.dart');
       },

@@ -69,9 +69,12 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('open_sheet')));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Test Plan'), findsOneWidget);
-      expect(find.textContaining('Step 1'), findsOneWidget);
-      expect(find.textContaining('Step 2'), findsOneWidget);
+      expect(
+        find.textContaining('Test Plan', findRichText: true),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Step 1', findRichText: true), findsOneWidget);
+      expect(find.textContaining('Step 2', findRichText: true), findsOneWidget);
     });
 
     testWidgets('applies keyboard inset padding', (tester) async {
@@ -130,7 +133,10 @@ void main() {
 
       expect(find.text('Implementation Plan'), findsWidgets);
       expect(find.byKey(const ValueKey('plan_edit_toggle')), findsNothing);
-      expect(find.textContaining('Original Plan'), findsWidgets);
+      expect(
+        find.textContaining('Original Plan', findRichText: true),
+        findsWidgets,
+      );
     });
   });
 }

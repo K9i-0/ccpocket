@@ -1,12 +1,9 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
 import '../../../theme/app_theme.dart';
-import '../../../theme/markdown_style.dart';
-import '../../../widgets/google_search_text_selection.dart';
-import '../../../widgets/link_hover_underline.dart';
+import '../../../widgets/markdown/ccpocket_markdown.dart';
 
 /// Divider shown at a context compaction boundary.
 ///
@@ -18,10 +15,14 @@ class ContextCompactionCard extends StatefulWidget {
     super.key,
     required this.message,
     this.onOpenTranscript,
+    this.documentId,
+    this.documentOrder = 0,
   });
 
   final ContextCompactionMessage message;
   final VoidCallback? onOpenTranscript;
+  final String? documentId;
+  final int documentOrder;
 
   @override
   State<ContextCompactionCard> createState() => _ContextCompactionCardState();
@@ -51,7 +52,12 @@ class _ContextCompactionCardState extends State<ContextCompactionCard> {
             onPressed: () =>
                 setState(() => _summaryExpanded = !_summaryExpanded),
           ),
-          if (_summaryExpanded) _CompactionSummary(text: summary),
+          if (_summaryExpanded)
+            _CompactionSummary(
+              text: summary,
+              documentId: widget.documentId,
+              documentOrder: widget.documentOrder,
+            ),
         ],
         if (widget.onOpenTranscript case final onOpen?)
           _CardTextButton(
@@ -239,24 +245,25 @@ String formatTokenCount(int tokens) {
 }
 
 class _CompactionSummary extends StatelessWidget {
-  const _CompactionSummary({required this.text});
+  const _CompactionSummary({
+    required this.text,
+    this.documentId,
+    this.documentOrder = 0,
+  });
 
   final String text;
+  final String? documentId;
+  final int documentOrder;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       key: const ValueKey('context_compaction_summary'),
       padding: const EdgeInsets.fromLTRB(24, 0, 0, 8),
-      child: GoogleSearchSelectionArea(
-        child: LinkHoverUnderline(
-          child: MarkdownBody(
-            data: text,
-            selectable: false,
-            styleSheet: buildMarkdownStyle(context),
-            builders: markdownBuilders,
-          ),
-        ),
+      child: CcpocketMarkdown(
+        data: text,
+        documentId: documentId,
+        documentOrder: documentOrder,
       ),
     );
   }

@@ -120,7 +120,10 @@ void main() {
     ]);
 
     _expectQuestionAnswerDetails($.tester);
-    expect(find.text('I will add birdsong to the garden.'), findsOneWidget);
+    expect(
+      find.text('I will add birdsong to the garden.', findRichText: true),
+      findsOneWidget,
+    );
 
     final settings = BlocProvider.of<SettingsCubit>(
       $.tester.element(find.byType(ChatMessageList).first),
@@ -217,7 +220,10 @@ void main() {
 
     _expectQuestionAnswerDetails($.tester);
     expect(find.byType(QuestionAnswerTranscriptBubble), findsOneWidget);
-    expect(find.text('I will add birdsong to the garden.'), findsOneWidget);
+    expect(
+      find.text('I will add birdsong to the garden.', findRichText: true),
+      findsOneWidget,
+    );
 
     final settings = BlocProvider.of<SettingsCubit>(
       $.tester.element(find.byType(ChatMessageList).first),
@@ -264,6 +270,9 @@ void main() {
     ]);
 
     _expectQuestionAnswerDetails($.tester);
-    expect(find.text('I will add birdsong to the garden.'), findsOneWidget);
+    expect(
+      find.text('I will add birdsong to the garden.', findRichText: true),
+      findsOneWidget,
+    );
   });
 }

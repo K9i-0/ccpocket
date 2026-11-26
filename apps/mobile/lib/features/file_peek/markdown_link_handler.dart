@@ -8,7 +8,7 @@ import '../../services/bridge_service.dart';
 import '../settings/state/settings_cubit.dart';
 
 import 'package:flutter/services.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:markdown_kit/markdown_kit.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../theme/markdown_style.dart';
@@ -77,15 +77,15 @@ MarkdownLinkTarget classifyMarkdownLink(
   return MarkdownLinkTarget.unsupported(raw);
 }
 
-MarkdownTapLinkCallback buildChatMarkdownLinkHandler(
+MarkdownLinkTapCallback buildChatMarkdownLinkHandler(
   BuildContext context, {
   required FilePathTapCallback? onFileTap,
   Set<String> knownPathSuffixes = const {},
 }) {
-  return (text, href, title) {
-    if (href == null) return;
+  return (url, title) {
+    if (url.isEmpty) return;
     final target = classifyMarkdownLink(
-      href,
+      url,
       knownPathSuffixes: knownPathSuffixes,
     );
     unawaited(_openMarkdownTarget(context, target, onFileTap));

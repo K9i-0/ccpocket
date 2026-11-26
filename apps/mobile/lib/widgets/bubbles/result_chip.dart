@@ -1,27 +1,27 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 
 import '../../features/file_peek/file_path_syntax.dart';
-import '../../features/file_peek/markdown_link_handler.dart';
 import '../../models/messages.dart';
 import '../../providers/bridge_cubits.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/markdown_style.dart';
-import '../google_search_text_selection.dart';
-import '../link_hover_underline.dart';
+import '../markdown/ccpocket_markdown.dart';
 
 class ResultChip extends StatelessWidget {
   final ResultMessage message;
   final FilePathTapCallback? onFileTap;
   final bool showSuccessResultText;
+  final String? documentId;
+  final int documentOrder;
 
   const ResultChip({
     super.key,
     required this.message,
     this.onFileTap,
     this.showSuccessResultText = false,
+    this.documentId,
+    this.documentOrder = 0,
   });
 
   @override
@@ -101,32 +101,13 @@ class ResultChip extends StatelessWidget {
                 color: appColors.assistantBubble,
                 borderRadius: AppSpacing.assistantBubbleBorderRadius,
               ),
-              child: GoogleSearchSelectionArea(
-                child: LinkHoverUnderline(
-                  child: MarkdownBody(
-                    data: resultText,
-                    selectable: false,
-                    styleSheet: buildMarkdownStyle(context),
-                    onTapLink: buildChatMarkdownLinkHandler(
-                      context,
-                      onFileTap: onFileTap,
-                      knownPathSuffixes: fileSuffixes,
-                    ),
-                    inlineSyntaxes: [
-                      if (onFileTap != null) ...[
-                        FilePathSyntax(knownPathSuffixes: fileSuffixes),
-                        BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
-                      ],
-                      ...colorCodeInlineSyntaxes,
-                      ...localhostAutolinkInlineSyntaxes,
-                    ],
-                    builders: {
-                      if (onFileTap != null)
-                        'filePath': FilePathBuilder(onTap: onFileTap),
-                      ...markdownBuilders,
-                    },
-                  ),
-                ),
+              child: CcpocketMarkdown(
+                data: resultText,
+                documentId: documentId,
+                documentOrder: documentOrder,
+                onFileTap: onFileTap,
+                knownPathSuffixes: fileSuffixes,
+                useChatLinkHandler: true,
               ),
             ),
           ),

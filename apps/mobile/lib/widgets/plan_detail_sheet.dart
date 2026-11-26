@@ -3,17 +3,13 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 
 import '../features/file_peek/file_path_syntax.dart';
-import '../features/file_peek/markdown_link_handler.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/bridge_cubits.dart';
 import '../theme/app_theme.dart';
-import '../theme/markdown_style.dart';
-import 'google_search_text_selection.dart';
+import 'markdown/ccpocket_markdown.dart';
 import 'workspace_pane_chrome.dart';
-import 'link_hover_underline.dart';
 
 /// Shows a full-screen bottom sheet with the complete plan text.
 Future<void> showPlanDetailSheet(
@@ -160,34 +156,19 @@ class _PlanViewMode extends StatelessWidget {
     final fileSuffixes = onFileTap != null
         ? FilePathSyntax.cachedSuffixSet(context.watch<FileListCubit>().state)
         : const <String>{};
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: GoogleSearchSelectionArea(
-        child: LinkHoverUnderline(
-          child: MarkdownBody(
-            data: planText,
-            selectable: false,
-            styleSheet: buildMarkdownStyle(context),
-            onTapLink: buildChatMarkdownLinkHandler(
-              context,
+    return CcpocketSelectionScope(
+      child: CustomScrollView(
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.all(16),
+            sliver: CcpocketSliverMarkdown(
+              data: planText,
               onFileTap: onFileTap,
               knownPathSuffixes: fileSuffixes,
+              useChatLinkHandler: true,
             ),
-            inlineSyntaxes: [
-              if (onFileTap != null) ...[
-                FilePathSyntax(knownPathSuffixes: fileSuffixes),
-                BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
-              ],
-              ...colorCodeInlineSyntaxes,
-              ...localhostAutolinkInlineSyntaxes,
-            ],
-            builders: {
-              if (onFileTap != null)
-                'filePath': FilePathBuilder(onTap: onFileTap),
-              ...markdownBuilders,
-            },
           ),
-        ),
+        ],
       ),
     );
   }

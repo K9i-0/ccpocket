@@ -984,6 +984,25 @@ void main() {
         await tester.pumpAndSettle();
         expect(copiedClipboardText, '## Alpha Beta Gamma');
 
+        // 6b. Right-click on unselected text on macOS selects the word under
+        // the pointer and opens the context menu toolbar.
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(controller.hasSelection, isFalse);
+
+        final unselectedRightMouse = await tester.createGesture(
+          kind: PointerDeviceKind.mouse,
+          buttons: kSecondaryMouseButton,
+        );
+        await unselectedRightMouse.down(clickPoint);
+        await unselectedRightMouse.up();
+        await tester.pumpAndSettle();
+        expect(controller.getText(), 'Alpha');
+        expect(
+          find.byKey(MarkdownSelectionHandleOverlay.toolbarKey),
+          findsOneWidget,
+        );
+
         // 7. Cmd+A selects all blocks.
         await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
         await tester.sendKeyDownEvent(LogicalKeyboardKey.keyA);

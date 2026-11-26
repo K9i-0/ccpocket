@@ -409,7 +409,7 @@ void main() {
         );
         expect(input.controller?.text, 'draft survives context hydration');
 
-        await tester.tap(find.text('main.dart'));
+        await tester.tap(find.text('main.dart', findRichText: true));
         await tester.pump();
 
         // Unknown paths are resolved by filesystem type before previewing.

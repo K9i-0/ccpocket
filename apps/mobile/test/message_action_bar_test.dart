@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ccpocket/l10n/app_localizations.dart';
@@ -9,6 +8,7 @@ import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/widgets/bubbles/assistant_bubble.dart';
 import 'package:ccpocket/widgets/bubbles/message_action_bar.dart';
+import 'package:ccpocket/widgets/markdown/ccpocket_markdown.dart';
 
 Widget _wrap(Widget child) {
   return MaterialApp(
@@ -165,7 +165,7 @@ void main() {
       await tester.pumpWidget(_wrap(AssistantBubble(message: message)));
 
       expect(find.text('Thinking'), findsNothing);
-      expect(find.text('Visible response'), findsOneWidget);
+      expect(find.text('Visible response', findRichText: true), findsOneWidget);
     });
 
     testWidgets('shows action bar when message has TextContent', (
@@ -189,43 +189,44 @@ void main() {
       expect(find.byType(MessageActionBar), findsNothing);
     });
 
-    testWidgets('plain text toggle switches to SelectableText', (tester) async {
+    testWidgets('plain text toggle switches to CcpocketSelectableText', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _wrap(AssistantBubble(message: _textMessage('# Hello'))),
       );
 
-      // Initially shows MarkdownBody (not plain SelectableText)
-      expect(find.byType(MarkdownBody), findsOneWidget);
+      // Initially shows CcpocketMarkdown (not plain CcpocketSelectableText)
+      expect(find.byType(CcpocketMarkdown), findsOneWidget);
 
       // Tap plain text toggle
       await tester.tap(find.byKey(const ValueKey('plain_text_toggle')));
       await tester.pumpAndSettle();
 
-      // MarkdownBody is gone, raw markdown text visible in SelectableText
-      expect(find.byType(MarkdownBody), findsNothing);
-      expect(find.widgetWithText(SelectableText, '# Hello'), findsOneWidget);
+      // CcpocketMarkdown is gone, raw markdown text visible in CcpocketSelectableText
+      expect(find.byType(CcpocketMarkdown), findsNothing);
+      expect(find.byType(CcpocketSelectableText), findsOneWidget);
+      expect(find.text('# Hello', findRichText: true), findsOneWidget);
     });
 
-    testWidgets('plain text toggle switches back to MarkdownBody', (
+    testWidgets('plain text toggle switches back to CcpocketMarkdown', (
       tester,
     ) async {
       await tester.pumpWidget(
         _wrap(AssistantBubble(message: _textMessage('**Bold text**'))),
       );
 
-      // Toggle ON → MarkdownBody disappears
+      // Toggle ON -> CcpocketMarkdown disappears
       await tester.tap(find.byKey(const ValueKey('plain_text_toggle')));
       await tester.pumpAndSettle();
-      expect(find.byType(MarkdownBody), findsNothing);
-      expect(
-        find.widgetWithText(SelectableText, '**Bold text**'),
-        findsOneWidget,
-      );
+      expect(find.byType(CcpocketMarkdown), findsNothing);
+      expect(find.byType(CcpocketSelectableText), findsOneWidget);
+      expect(find.text('**Bold text**', findRichText: true), findsOneWidget);
 
-      // Toggle OFF → MarkdownBody returns
+      // Toggle OFF -> CcpocketMarkdown returns
       await tester.tap(find.byKey(const ValueKey('plain_text_toggle')));
       await tester.pumpAndSettle();
-      expect(find.byType(MarkdownBody), findsOneWidget);
+      expect(find.byType(CcpocketMarkdown), findsOneWidget);
     });
 
     testWidgets('copy button copies all text content', (tester) async {

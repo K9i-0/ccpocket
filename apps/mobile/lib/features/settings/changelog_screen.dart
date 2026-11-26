@@ -1,13 +1,10 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../l10n/app_localizations.dart';
-import '../../theme/markdown_style.dart';
-import '../../widgets/google_search_text_selection.dart';
-import '../../widgets/link_hover_underline.dart';
+import '../../widgets/markdown/ccpocket_markdown.dart';
 
 const _changelogUrl =
     'https://raw.githubusercontent.com/K9i-0/ccpocket/main/CHANGELOG.md';
@@ -195,19 +192,15 @@ class _ChangelogScreenState extends State<ChangelogScreen> {
         ? _markdown!
         : _filterByVersion(_markdown!);
 
-    return Scrollbar(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: GoogleSearchSelectionArea(
-          child: LinkHoverUnderline(
-            child: MarkdownBody(
-              data: displayMarkdown,
-              selectable: false,
-              styleSheet: buildMarkdownStyle(context),
-              onTapLink: handleMarkdownLink,
-              builders: markdownBuilders,
+    return CcpocketSelectionScope(
+      child: Scrollbar(
+        child: CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.all(16),
+              sliver: CcpocketSliverMarkdown(data: displayMarkdown),
             ),
-          ),
+          ],
         ),
       ),
     );

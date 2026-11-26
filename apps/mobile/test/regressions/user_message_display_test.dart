@@ -85,7 +85,7 @@ void main() {
 
         // Should still show exactly one "My test message" entry
         // (not duplicated)
-        final userTextFinder = find.text('My test message');
+        final userTextFinder = find.text('My test message', findRichText: true);
         // At most 1 visible user message with this text
         expect(
           userTextFinder,

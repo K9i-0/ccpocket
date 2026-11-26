@@ -37,9 +37,12 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text('Claude 인증 문제 해결'), findsOneWidget);
+      expect(find.text('Claude 인증 문제 해결', findRichText: true), findsOneWidget);
       expect(find.text('한국어'), findsOneWidget);
-      expect(find.textContaining('Bridge 컴퓨터를 직접 사용할 수 없을 때'), findsOneWidget);
+      expect(
+        find.textContaining('Bridge 컴퓨터를 직접 사용할 수 없을 때', findRichText: true),
+        findsOneWidget,
+      );
     });
   });
 }

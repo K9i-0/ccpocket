@@ -1,12 +1,9 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 
 import '../../l10n/app_localizations.dart';
-import '../../theme/markdown_style.dart';
-import '../../widgets/google_search_text_selection.dart';
-import '../../widgets/link_hover_underline.dart';
+import '../../widgets/markdown/ccpocket_markdown.dart';
 
 enum _AuthHelpLanguage { ja, en, zhHans, ko }
 
@@ -143,19 +140,15 @@ class _AuthHelpBody extends StatelessWidget {
         ),
         const Divider(height: 1),
         Expanded(
-          child: Scrollbar(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: GoogleSearchSelectionArea(
-                child: LinkHoverUnderline(
-                  child: MarkdownBody(
-                    data: markdown,
-                    selectable: false,
-                    styleSheet: buildMarkdownStyle(context),
-                    onTapLink: handleMarkdownLink,
-                    builders: markdownBuilders,
+          child: CcpocketSelectionScope(
+            child: Scrollbar(
+              child: CustomScrollView(
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.all(16),
+                    sliver: CcpocketSliverMarkdown(data: markdown),
                   ),
-                ),
+                ],
               ),
             ),
           ),

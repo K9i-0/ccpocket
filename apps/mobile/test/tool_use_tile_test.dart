@@ -157,7 +157,10 @@ void main() {
           ),
         );
 
-        expect(find.text('Here are the generated options.'), findsOneWidget);
+        expect(
+          find.text('Here are the generated options.', findRichText: true),
+          findsOneWidget,
+        );
         expect(find.text('Generating image'), findsNothing);
         expect(find.text('Hidden generation prompt'), findsNothing);
       },

@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/rendering.dart';
+import 'package:markdown_kit/markdown_kit.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
@@ -12,7 +12,7 @@ import '../../theme/app_theme.dart';
 import '../../utils/command_parser.dart';
 import '../../utils/platform_helper.dart';
 import '../adaptive_context_menu.dart';
-import '../google_search_text_selection.dart';
+import '../markdown/ccpocket_markdown.dart';
 import 'handoff_bubble.dart';
 
 enum _UserMessageAction { rewind, restoreFiles }
@@ -36,6 +36,8 @@ class UserBubble extends StatefulWidget {
 
   /// Number of images attached (from history restoration when actual data is unavailable).
   final int imageCount;
+  final String? documentId;
+  final int documentOrder;
 
   const UserBubble({
     super.key,
@@ -49,6 +51,8 @@ class UserBubble extends StatefulWidget {
     this.httpBaseUrl,
     this.imageBytesList = const [],
     this.imageCount = 0,
+    this.documentId,
+    this.documentOrder = 0,
   });
 
   @override
@@ -59,11 +63,63 @@ class _UserBubbleState extends State<UserBubble> {
   bool _editing = false;
   TextEditingController? _editController;
   bool _hasSelectedText = false;
+  final _selectableTextKey = GlobalKey();
 
-  void _handleSelectionChanged(SelectedContent? content) {
-    final hasSelection = content?.plainText.isNotEmpty ?? false;
+  void _handleSelectionChanged(MarkdownSelection? selection) {
+    final hasSelection = selection != null && !selection.isCollapsed;
     if (hasSelection == _hasSelectedText) return;
     setState(() => _hasSelectedText = hasSelection);
+  }
+
+  Rect? _selectableTextGlobalRect() {
+    final renderObject = _selectableTextKey.currentContext?.findRenderObject();
+    if (renderObject is! RenderBox ||
+        !renderObject.attached ||
+        !renderObject.hasSize) {
+      return null;
+    }
+    return renderObject.localToGlobal(Offset.zero) & renderObject.size;
+  }
+
+  void _handleSecondaryTapUp(
+    BuildContext context,
+    TapUpDetails details, {
+    required VoidCallback? onEdit,
+  }) {
+    final global = details.globalPosition;
+    final ancestorScope = MarkdownSelectionScope.maybeStateOf(context);
+    if (ancestorScope != null) {
+      final textRect = _selectableTextGlobalRect();
+      if (textRect != null && textRect.contains(global)) {
+        final ctrl = ancestorScope.controller;
+        final sameDoc =
+            ctrl.hasSelection &&
+            (widget.documentId != null
+                ? ctrl.selection?.base.documentId == widget.documentId
+                : ctrl.globalSelectionRects().any((r) => r.overlaps(textRect)));
+        final insideSelection =
+            sameDoc &&
+            ctrl.globalSelectionRects().any(
+              (r) => r.inflate(4.0).contains(global),
+            );
+        if (insideSelection) {
+          ancestorScope.focusNode.requestFocus();
+          ancestorScope.showToolbar(global);
+          return;
+        }
+        if (isMacOSPlatform && ctrl.hitsSelectableContent(global)) {
+          ancestorScope.focusNode.requestFocus();
+          if (ctrl.selectWordAtGlobal(global)) {
+            ancestorScope.showToolbar(global);
+            return;
+          }
+        }
+      }
+      _showContextMenu(context, position: global, onEdit: onEdit);
+      return;
+    }
+    if (_hasSelectedText) return;
+    _showContextMenu(context, position: global, onEdit: onEdit);
   }
 
   @override
@@ -125,10 +181,12 @@ class _UserBubbleState extends State<UserBubble> {
             onEdit: null,
             onCopy: _copyText,
             actionsButtonKey: actionsButtonKey,
-            hasSelectedText: _hasSelectedText,
+            selectableTextKey: _selectableTextKey,
+            documentId: widget.documentId,
+            documentOrder: widget.documentOrder,
             onSelectionChanged: _handleSelectionChanged,
-            onShowContextMenu: (position) =>
-                _showContextMenu(context, position: position, onEdit: null),
+            onSecondaryTapUp: (details) =>
+                _handleSecondaryTapUp(context, details, onEdit: null),
           );
         }
 
@@ -144,10 +202,12 @@ class _UserBubbleState extends State<UserBubble> {
           httpBaseUrl: widget.httpBaseUrl,
           onCopy: _copyText,
           actionsButtonKey: actionsButtonKey,
-          hasSelectedText: _hasSelectedText,
+          selectableTextKey: _selectableTextKey,
+          documentId: widget.documentId,
+          documentOrder: widget.documentOrder,
           onSelectionChanged: _handleSelectionChanged,
-          onShowContextMenu: (position) =>
-              _showContextMenu(context, position: position, onEdit: onEdit),
+          onSecondaryTapUp: (details) =>
+              _handleSecondaryTapUp(context, details, onEdit: onEdit),
         );
       },
     );
@@ -362,9 +422,11 @@ class _StandardBubble extends StatelessWidget {
   final String? httpBaseUrl;
   final VoidCallback onCopy;
   final GlobalKey<_UserMessageActionsButtonState> actionsButtonKey;
-  final bool hasSelectedText;
-  final ValueChanged<SelectedContent?> onSelectionChanged;
-  final ValueChanged<Offset?> onShowContextMenu;
+  final GlobalKey selectableTextKey;
+  final String? documentId;
+  final int documentOrder;
+  final ValueChanged<MarkdownSelection?> onSelectionChanged;
+  final ValueChanged<TapUpDetails> onSecondaryTapUp;
 
   const _StandardBubble({
     required this.displayText,
@@ -378,9 +440,11 @@ class _StandardBubble extends StatelessWidget {
     required this.httpBaseUrl,
     required this.onCopy,
     required this.actionsButtonKey,
-    required this.hasSelectedText,
+    required this.selectableTextKey,
+    required this.documentId,
+    required this.documentOrder,
     required this.onSelectionChanged,
-    required this.onShowContextMenu,
+    required this.onSecondaryTapUp,
   });
 
   @override
@@ -391,9 +455,7 @@ class _StandardBubble extends StatelessWidget {
       alignment: Alignment.centerRight,
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
-        onSecondaryTapDown: hasSelectedText
-            ? null
-            : (details) => onShowContextMenu(details.globalPosition),
+        onSecondaryTapUp: onSecondaryTapUp,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -477,12 +539,13 @@ class _StandardBubble extends StatelessWidget {
                         ),
                       ),
                     if (displayText.isNotEmpty)
-                      GoogleSearchSelectionArea(
+                      CcpocketSelectableText(
+                        displayText,
+                        key: selectableTextKey,
+                        documentId: documentId,
+                        documentOrder: documentOrder,
+                        style: TextStyle(color: appColors.userBubbleText),
                         onSelectionChanged: onSelectionChanged,
-                        child: Text(
-                          displayText,
-                          style: TextStyle(color: appColors.userBubbleText),
-                        ),
                       ),
                   ],
                 ),
@@ -513,9 +576,11 @@ class _CommandBubble extends StatelessWidget {
   final VoidCallback? onEdit;
   final VoidCallback onCopy;
   final GlobalKey<_UserMessageActionsButtonState> actionsButtonKey;
-  final bool hasSelectedText;
-  final ValueChanged<SelectedContent?> onSelectionChanged;
-  final ValueChanged<Offset?> onShowContextMenu;
+  final GlobalKey selectableTextKey;
+  final String? documentId;
+  final int documentOrder;
+  final ValueChanged<MarkdownSelection?> onSelectionChanged;
+  final ValueChanged<TapUpDetails> onSecondaryTapUp;
 
   const _CommandBubble({
     required this.command,
@@ -526,23 +591,22 @@ class _CommandBubble extends StatelessWidget {
     required this.onEdit,
     required this.onCopy,
     required this.actionsButtonKey,
-    required this.hasSelectedText,
+    required this.selectableTextKey,
+    required this.documentId,
+    required this.documentOrder,
     required this.onSelectionChanged,
-    required this.onShowContextMenu,
+    required this.onSecondaryTapUp,
   });
 
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
-    final hasArgs = command.args != null && command.args!.isNotEmpty;
 
     return Align(
       alignment: Alignment.centerRight,
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
-        onSecondaryTapDown: hasSelectedText
-            ? null
-            : (details) => onShowContextMenu(details.globalPosition),
+        onSecondaryTapUp: onSecondaryTapUp,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -571,28 +635,14 @@ class _CommandBubble extends StatelessWidget {
                   color: appColors.userBubble,
                   borderRadius: AppSpacing.userBubbleBorderRadius,
                 ),
-                child: GoogleSearchSelectionArea(
+                child: CcpocketSelectableCommandText(
+                  key: selectableTextKey,
+                  commandName: command.commandName,
+                  args: command.args,
+                  textColor: appColors.userBubbleText,
+                  documentId: documentId,
+                  documentOrder: documentOrder,
                   onSelectionChanged: onSelectionChanged,
-                  child: Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(
-                          text: command.commandName,
-                          style: TextStyle(
-                            color: appColors.userBubbleText,
-                            fontWeight: FontWeight.w600,
-                            fontFamily: 'monospace',
-                          ),
-                        ),
-                        if (hasArgs) ...[
-                          TextSpan(
-                            text: ' ${command.args}',
-                            style: TextStyle(color: appColors.userBubbleText),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
                 ),
               ),
             ),

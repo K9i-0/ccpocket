@@ -1560,7 +1560,10 @@ void main() {
     );
     await _pumpUi(tester);
     expect(
-      find.text('I will keep this chat open while the bridge reconnects.'),
+      find.text(
+        'I will keep this chat open while the bridge reconnects.',
+        findRichText: true,
+      ),
       findsOneWidget,
     );
 
@@ -1574,7 +1577,10 @@ void main() {
       selection.sessionId,
     );
     expect(
-      find.text('I will keep this chat open while the bridge reconnects.'),
+      find.text(
+        'I will keep this chat open while the bridge reconnects.',
+        findRichText: true,
+      ),
       findsOneWidget,
     );
 
@@ -1589,7 +1595,10 @@ void main() {
       selection.sessionId,
     );
     expect(
-      find.text('I will keep this chat open while the bridge reconnects.'),
+      find.text(
+        'I will keep this chat open while the bridge reconnects.',
+        findRichText: true,
+      ),
       findsOneWidget,
     );
   });

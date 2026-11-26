@@ -4,14 +4,14 @@ import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/providers/bridge_cubits.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/widgets/bubbles/assistant_bubble.dart';
+import 'package:ccpocket/widgets/markdown/ccpocket_markdown.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:markdown_kit/markdown_kit.dart';
 
-/// Assistant markdown is selected through one [SelectionArea] per text block
-/// instead of a SelectableText (an EditableText) per paragraph, which made
-/// long replies slow to build on iOS and Android.
+/// Assistant markdown is selected through [MarkdownSelectionScope] and
+/// [MarkdownView] instead of a SelectableText (an EditableText) per paragraph.
 void main() {
   final platforms = TargetPlatformVariant({
     TargetPlatform.android,
@@ -29,13 +29,18 @@ void main() {
 
       await tester.pumpWidget(_wrap(_bubble(markdown)));
 
-      expect(find.text('Paragraph 29 with some prose words.'), findsOne);
+      expect(
+        find.text('Paragraph 29 with some prose words.', findRichText: true),
+        findsOne,
+      );
       expect(find.byType(EditableText), findsNothing);
       expect(find.byType(SelectableText), findsNothing);
-      expect(find.byType(SelectionArea), findsOneWidget);
+      expect(find.byType(CcpocketMarkdown), findsOneWidget);
+      expect(find.byType(MarkdownView), findsOneWidget);
+      expect(find.byType(MarkdownSelectionScope), findsOneWidget);
     }, variant: platforms);
 
-    testWidgets('prose stays selectable through the selection area', (
+    testWidgets('prose stays selectable through MarkdownSelectionScope', (
       tester,
     ) async {
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
@@ -44,19 +49,24 @@ void main() {
       ].join('\n\n');
       await tester.pumpWidget(_wrap(_bubble(markdown)));
 
-      final target = find.text('Paragraph 2 with some prose words.');
+      final target = find.text(
+        'Paragraph 2 with some prose words.',
+        findRichText: true,
+      );
       await tester.longPress(target);
       await tester.pumpAndSettle();
 
-      final paragraph = tester.renderObject<RenderParagraph>(
-        find.descendant(of: target, matching: find.byType(RichText)),
+      final scopeState = tester.state<MarkdownSelectionScopeState>(
+        find.byType(MarkdownSelectionScope),
       );
-      expect(paragraph.selections, isNotEmpty);
+      expect(scopeState.controller.hasSelection, isTrue);
+      expect(scopeState.selectedPlainText, isNotEmpty);
       expect(
-        find.descendant(
-          of: find.byType(SelectionArea),
-          matching: find.byType(SelectableRegion),
-        ),
+        find.byKey(MarkdownSelectionHandleOverlay.startHandleKey),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(MarkdownSelectionHandleOverlay.endHandleKey),
         findsOneWidget,
       );
     }, variant: platforms);
@@ -74,7 +84,13 @@ void main() {
         ),
       );
 
-      await tester.tap(find.textContaining('the report', findRichText: true));
+      final paraFinder = find.textContaining('the report', findRichText: true);
+      final para = tester.renderObject<RenderSelectableParagraph>(paraFinder);
+      final boxes = para.getBoxesForSelection(
+        const TextSelection(baseOffset: 4, extentOffset: 14),
+      );
+      final linkCenter = para.localToGlobal(boxes.first.toRect().center);
+      await tester.tapAt(linkCenter);
       await tester.pump();
 
       expect(openedPath, path);
@@ -92,7 +108,16 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('lib/main.dart'));
+      final paraFinder = find.textContaining(
+        'lib/main.dart',
+        findRichText: true,
+      );
+      final para = tester.renderObject<RenderSelectableParagraph>(paraFinder);
+      final boxes = para.getBoxesForSelection(
+        const TextSelection(baseOffset: 8, extentOffset: 21),
+      );
+      final pathCenter = para.localToGlobal(boxes.first.toRect().center);
+      await tester.tapAt(pathCenter);
       await tester.pump();
 
       expect(openedPath, 'lib/main.dart');

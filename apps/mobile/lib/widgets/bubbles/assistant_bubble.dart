@@ -5,7 +5,6 @@ import 'package:auto_route/auto_route.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../providers/bridge_cubits.dart';
@@ -14,27 +13,24 @@ import '../../router/app_router.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/code_text_style.dart';
-import '../../theme/markdown_style.dart';
 import '../../utils/structured_error_inference.dart';
 import '../../utils/diff_parser.dart';
 import '../../utils/tool_categories.dart';
 import '../../utils/codex_plan_update.dart';
 import '../../features/file_peek/file_path_syntax.dart';
-import '../../features/file_peek/markdown_link_handler.dart';
 import '../../features/generated_image_preview/generated_image_preview_item.dart';
 import '../../features/generated_image_preview/generated_image_preview_mapper.dart';
 import '../../features/generated_image_preview/widgets/generated_image_chat_group.dart';
-import 'markdown_image_chip.dart';
 import 'error_bubble.dart';
 import '../plan_detail_sheet.dart';
 import '../google_search_text_selection.dart';
+import '../markdown/ccpocket_markdown.dart';
 import 'inline_edit_diff.dart';
 import 'message_action_bar.dart';
 import 'plan_card.dart';
 import 'swarm_post_card.dart';
 import 'thinking_bubble.dart';
 import 'todo_write_widget.dart';
-import '../link_hover_underline.dart';
 
 const _imageGenerationToolName = 'ImageGeneration';
 
@@ -54,6 +50,8 @@ class AssistantBubble extends StatefulWidget {
 
   /// Bridge HTTP origin used to load images attached to the message.
   final String? httpBaseUrl;
+  final String? documentId;
+  final int documentOrder;
 
   const AssistantBubble({
     super.key,
@@ -63,6 +61,8 @@ class AssistantBubble extends StatefulWidget {
     this.httpBaseUrl,
     this.onFork,
     this.hiddenToolUseIds = const {},
+    this.documentId,
+    this.documentOrder = 0,
   });
 
   @override
@@ -117,6 +117,8 @@ class _AssistantBubbleState extends State<AssistantBubble> {
         onFileTap: widget.onFileTap,
         onFork: widget.onFork,
         hiddenToolUseIds: widget.hiddenToolUseIds,
+        documentId: widget.documentId,
+        documentOrder: widget.documentOrder,
         onTogglePlainText: () {
           setState(() => _plainTextMode = !_plainTextMode);
         },
@@ -140,6 +142,8 @@ class _AssistantBubbleState extends State<AssistantBubble> {
       onFileTap: widget.onFileTap,
       onFork: widget.onFork,
       hiddenToolUseIds: widget.hiddenToolUseIds,
+      documentId: widget.documentId,
+      documentOrder: widget.documentOrder,
       onTogglePlainText: () {
         setState(() => _plainTextMode = !_plainTextMode);
       },
@@ -157,6 +161,8 @@ class _PlanLayout extends StatelessWidget {
   final VoidCallback? onFork;
   final VoidCallback onTogglePlainText;
   final Set<String> hiddenToolUseIds;
+  final String? documentId;
+  final int documentOrder;
 
   const _PlanLayout({
     required this.contents,
@@ -167,6 +173,8 @@ class _PlanLayout extends StatelessWidget {
     this.onFileTap,
     this.onFork,
     required this.hiddenToolUseIds,
+    this.documentId,
+    this.documentOrder = 0,
     required this.onTogglePlainText,
   });
 
@@ -195,6 +203,7 @@ class _PlanLayout extends StatelessWidget {
       }
     }
 
+    var contentIndex = 0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -214,12 +223,18 @@ class _PlanLayout extends StatelessWidget {
                       name: name,
                       input: input,
                       onFileTap: onFileTap,
+                      documentId: documentId != null
+                          ? '$documentId:swarm:${id.isNotEmpty ? id : contentIndex}'
+                          : null,
+                      documentOrder: documentOrder + contentIndex++,
                     ),
             TextContent() => const SizedBox.shrink(),
           },
         PlanCard(
           planText: originalPlanText,
           onFileTap: onFileTap,
+          documentId: documentId,
+          documentOrder: documentOrder + contentIndex,
           onViewFullPlan: () => showPlanDetailSheet(
             context,
             originalPlanText,
@@ -248,6 +263,8 @@ class _DefaultLayout extends StatelessWidget {
   final VoidCallback? onFork;
   final VoidCallback onTogglePlainText;
   final Set<String> hiddenToolUseIds;
+  final String? documentId;
+  final int documentOrder;
 
   const _DefaultLayout({
     required this.contents,
@@ -258,6 +275,8 @@ class _DefaultLayout extends StatelessWidget {
     this.onFileTap,
     this.onFork,
     required this.hiddenToolUseIds,
+    this.documentId,
+    this.documentOrder = 0,
     required this.onTogglePlainText,
   });
 
@@ -266,6 +285,8 @@ class _DefaultLayout extends StatelessWidget {
     final fileSuffixes = onFileTap != null
         ? FilePathSyntax.cachedSuffixSet(context.watch<FileListCubit>().state)
         : const <String>{};
+    var textIndex = 0;
+    var contentIndex = 0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -275,6 +296,8 @@ class _DefaultLayout extends StatelessWidget {
               context,
               text,
               fileSuffixes,
+              textIndex++,
+              contentIndex++,
             ),
             ToolUseContent(:final id, :final name, :final input) =>
               name == _imageGenerationToolName && hiddenToolUseIds.contains(id)
@@ -286,6 +309,10 @@ class _DefaultLayout extends StatelessWidget {
                       name: name,
                       input: input,
                       onFileTap: onFileTap,
+                      documentId: documentId != null
+                          ? '$documentId:swarm:${id.isNotEmpty ? id : contentIndex}'
+                          : null,
+                      documentOrder: documentOrder + contentIndex++,
                     ),
             ThinkingContent(:final thinking) => ThinkingBubble(
               thinking: thinking,
@@ -307,11 +334,16 @@ class _DefaultLayout extends StatelessWidget {
     BuildContext context,
     String text,
     Set<String> fileSuffixes,
+    int textIndex,
+    int contentIndex,
   ) {
     final planInput = plainTextMode ? null : codexPlanUpdateInputFromText(text);
     if (planInput != null) {
       return TodoWriteWidget(input: planInput);
     }
+
+    final textDocId = documentId != null ? '$documentId:text:$textIndex' : null;
+    final textDocOrder = documentOrder + contentIndex;
 
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -319,42 +351,20 @@ class _DefaultLayout extends StatelessWidget {
         horizontal: AppSpacing.bubbleMarginH,
       ),
       child: plainTextMode
-          ? SelectableText(
+          ? CcpocketSelectableText(
               text,
+              documentId: textDocId != null ? 'plain:$textDocId' : null,
+              documentOrder: textDocOrder,
               style: Theme.of(context).textTheme.bodyMedium,
-              contextMenuBuilder: googleSearchSelectableTextContextMenuBuilder,
             )
-          : GoogleSearchSelectionArea(
-              child: LinkHoverUnderline(
-                child: MarkdownBody(
-                  data: text,
-                  // The surrounding selection area handles selection;
-                  // per-paragraph SelectableTexts are expensive to build.
-                  selectable: false,
-                  styleSheet: buildMarkdownStyle(context),
-                  onTapLink: buildChatMarkdownLinkHandler(
-                    context,
-                    onFileTap: onFileTap,
-                    knownPathSuffixes: fileSuffixes,
-                  ),
-                  sizedImageBuilder: chatMarkdownImageBuilder(
-                    onFileTap: onFileTap,
-                  ),
-                  inlineSyntaxes: [
-                    if (onFileTap != null) ...[
-                      FilePathSyntax(knownPathSuffixes: fileSuffixes),
-                      BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
-                    ],
-                    ...colorCodeInlineSyntaxes,
-                    ...localhostAutolinkInlineSyntaxes,
-                  ],
-                  builders: {
-                    if (onFileTap != null)
-                      'filePath': FilePathBuilder(onTap: onFileTap),
-                    ...markdownBuilders,
-                  },
-                ),
-              ),
+          : CcpocketMarkdown(
+              data: text,
+              documentId: textDocId,
+              documentOrder: textDocOrder,
+              onFileTap: onFileTap,
+              knownPathSuffixes: fileSuffixes,
+              useChatLinkHandler: true,
+              useChatImageBuilder: true,
             ),
     );
   }
@@ -365,12 +375,16 @@ class ToolUseTile extends StatefulWidget {
   final String name;
   final Map<String, dynamic> input;
   final FilePathTapCallback? onFileTap;
+  final String? documentId;
+  final int documentOrder;
   const ToolUseTile({
     super.key,
     this.toolUseId = '',
     required this.name,
     required this.input,
     this.onFileTap,
+    this.documentId,
+    this.documentOrder = 0,
   });
 
   @override
@@ -470,7 +484,12 @@ class _ToolUseTileState extends State<ToolUseTile> {
       );
     }
     if (widget.name == swarmPostToolName) {
-      return SwarmPostCard(input: widget.input, onFileTap: widget.onFileTap);
+      return SwarmPostCard(
+        input: widget.input,
+        onFileTap: widget.onFileTap,
+        documentId: widget.documentId,
+        documentOrder: widget.documentOrder,
+      );
     }
 
     if (_expansion == ToolUseExpansion.collapsed) {

@@ -253,7 +253,7 @@ void main() {
     testWidgets('keeps ordinary messages as they are', (tester) async {
       await tester.pumpWidget(_wrap(const UserBubble(text: 'hello')));
       expect(find.byKey(const ValueKey('handoff_bubble')), findsNothing);
-      expect(find.text('hello'), findsOneWidget);
+      expect(find.text('hello', findRichText: true), findsOneWidget);
     });
   });
 

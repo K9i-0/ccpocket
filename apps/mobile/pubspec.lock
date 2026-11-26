@@ -717,14 +717,6 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
-  flutter_markdown:
-    dependency: "direct main"
-    description:
-      name: flutter_markdown
-      sha256: "08fb8315236099ff8e90cb87bb2b935e0a724a3af1623000a9cec930468e0f27"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.7.7+1"
   flutter_painter:
     dependency: "direct main"
     description:
@@ -1181,6 +1173,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "7.3.1"
+  markdown_kit:
+    dependency: "direct main"
+    description:
+      path: "../../packages/markdown_kit"
+      relative: true
+    source: path
+    version: "0.1.0"
   matcher:
     dependency: transitive
     description:

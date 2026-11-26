@@ -60,6 +60,8 @@ class ChatEntryWidget extends StatelessWidget {
 
   /// Opens the full transcript from a compaction or older-history card.
   final VoidCallback? onOpenTranscript;
+  final String? documentId;
+  final int documentOrder;
 
   const ChatEntryWidget({
     super.key,
@@ -81,6 +83,8 @@ class ChatEntryWidget extends StatelessWidget {
     this.onBeforeStreamingTextUpdate,
     this.isCodex = false,
     this.onOpenTranscript,
+    this.documentId,
+    this.documentOrder = 0,
   });
 
   @override
@@ -102,6 +106,8 @@ class ChatEntryWidget extends StatelessWidget {
             onForkMessage: onForkMessage,
             isCodex: isCodex,
             onOpenTranscript: onOpenTranscript,
+            documentId: documentId,
+            documentOrder: documentOrder,
           ),
           QuestionAnswerChatEntry(:final transcript) =>
             QuestionAnswerTranscriptBubble(transcript: transcript),
@@ -129,12 +135,16 @@ class ChatEntryWidget extends StatelessWidget {
             httpBaseUrl: httpBaseUrl,
             imageBytesList: user.imageBytesList,
             imageCount: user.imageCount,
+            documentId: documentId,
+            documentOrder: documentOrder,
           ),
           StreamingChatEntry(:final text, :final thinking) => StreamingBubble(
             text: text,
             thinking: thinking,
             onFileTap: onFileTap,
             onBeforeTextUpdate: onBeforeStreamingTextUpdate,
+            documentId: documentId,
+            documentOrder: documentOrder,
           ),
         },
         // Image attachment tap button — placed below the bubble to avoid
@@ -216,6 +226,8 @@ class ServerMessageWidget extends StatelessWidget {
   final void Function(AssistantServerMessage)? onForkMessage;
   final bool isCodex;
   final VoidCallback? onOpenTranscript;
+  final String? documentId;
+  final int documentOrder;
 
   const ServerMessageWidget({
     super.key,
@@ -230,6 +242,8 @@ class ServerMessageWidget extends StatelessWidget {
     this.onForkMessage,
     this.isCodex = false,
     this.onOpenTranscript,
+    this.documentId,
+    this.documentOrder = 0,
   });
 
   /// Whether [build] renders anything for [message]. Keep in sync with the
@@ -288,6 +302,8 @@ class ServerMessageWidget extends StatelessWidget {
         onFileTap: onFileTap,
         httpBaseUrl: httpBaseUrl,
         onFork: onForkMessage != null ? () => onForkMessage!(msg) : null,
+        documentId: documentId,
+        documentOrder: documentOrder,
       ),
       // Hide tool results that are summarized by a tool_use_summary or are redundant
       final ToolResultMessage msg =>
@@ -302,6 +318,8 @@ class ServerMessageWidget extends StatelessWidget {
         message: msg,
         onFileTap: onFileTap,
         showSuccessResultText: showSuccessResultText,
+        documentId: documentId,
+        documentOrder: documentOrder,
       ),
       final GuardianApprovalMessage msg => GuardianApprovalNotice(message: msg),
       final ErrorMessage msg => ErrorBubble(message: msg),
@@ -316,6 +334,8 @@ class ServerMessageWidget extends StatelessWidget {
       final ContextCompactionMessage msg => ContextCompactionCard(
         message: msg,
         onOpenTranscript: onOpenTranscript,
+        documentId: documentId,
+        documentOrder: documentOrder,
       ),
       final SessionRecapMessage msg => SessionRecapCard(message: msg),
       AgentActivityMessage() => const SizedBox.shrink(),

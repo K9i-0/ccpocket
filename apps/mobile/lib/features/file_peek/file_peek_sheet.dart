@@ -3,7 +3,6 @@ import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../media_feedback/media_feedback_scope.dart';
@@ -17,14 +16,7 @@ import '../../services/bridge_service.dart';
 import '../file_transfer/widgets/file_transfer_dialog.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/code_text_style.dart';
-import '../../theme/markdown_style.dart'
-    show
-        buildMarkdownStyle,
-        colorCodeInlineSyntaxes,
-        localhostAutolinkInlineSyntaxes,
-        handleMarkdownLink,
-        highlightToTextSpans,
-        markdownBuilders;
+import '../../theme/markdown_style.dart' show highlightToTextSpans;
 import '../../utils/media_file_types.dart';
 import '../../utils/platform_helper.dart';
 import '../../widgets/file_type_icon.dart';
@@ -36,7 +28,7 @@ import 'widgets/file_peek_model_preview.dart';
 import 'glb_preview_data.dart';
 import 'widgets/finder_reveal_button.dart';
 import '../../widgets/google_search_text_selection.dart';
-import '../../widgets/link_hover_underline.dart';
+import '../../widgets/markdown/ccpocket_markdown.dart';
 import '../../widgets/zoomable_image_viewer.dart';
 
 /// Resolves a potentially partial file path against the project's file list,
@@ -687,23 +679,15 @@ class FilePeekMarkdown extends StatelessWidget {
   });
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      controller: controller,
-      padding: const EdgeInsets.all(16),
-      child: GoogleSearchSelectionArea(
-        child: LinkHoverUnderline(
-          child: MarkdownBody(
-            data: content,
-            selectable: false,
-            styleSheet: buildMarkdownStyle(context),
-            onTapLink: handleMarkdownLink,
-            inlineSyntaxes: [
-              ...colorCodeInlineSyntaxes,
-              ...localhostAutolinkInlineSyntaxes,
-            ],
-            builders: markdownBuilders,
+    return CcpocketSelectionScope(
+      child: CustomScrollView(
+        controller: controller,
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.all(16),
+            sliver: CcpocketSliverMarkdown(data: content),
           ),
-        ),
+        ],
       ),
     );
   }

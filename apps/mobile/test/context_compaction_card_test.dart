@@ -37,13 +37,16 @@ void main() {
 
     expect(find.text('Context compacted'), findsOneWidget);
     expect(find.text('Auto · 182k → 9.1k tokens'), findsOneWidget);
-    expect(find.text('Earlier work summary'), findsNothing);
+    expect(find.text('Earlier work summary', findRichText: true), findsNothing);
 
     await tester.tap(
       find.byKey(const ValueKey('context_compaction_summary_button')),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Earlier work summary'), findsOneWidget);
+    expect(
+      find.text('Earlier work summary', findRichText: true),
+      findsOneWidget,
+    );
 
     await tester.tap(
       find.byKey(const ValueKey('context_compaction_transcript_button')),

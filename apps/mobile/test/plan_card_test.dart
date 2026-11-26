@@ -105,8 +105,8 @@ void main() {
       await tester.pumpWidget(buildSubject(planText: shortPlan));
 
       // Markdown renders "Step 1" and "Step 2" as headings
-      expect(find.textContaining('Step 1'), findsOneWidget);
-      expect(find.textContaining('Step 2'), findsOneWidget);
+      expect(find.textContaining('Step 1', findRichText: true), findsOneWidget);
+      expect(find.textContaining('Step 2', findRichText: true), findsOneWidget);
     });
 
     testWidgets('wrapped single-paragraph plan is collapsed on Android width', (

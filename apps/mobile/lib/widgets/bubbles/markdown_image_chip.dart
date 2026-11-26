@@ -1,5 +1,5 @@
+import 'package:markdown_kit/markdown_kit.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 
 import '../../features/file_peek/file_path_syntax.dart';
 
@@ -30,21 +30,22 @@ String? markdownLocalImagePath(Uri uri) {
 /// A phone cannot load a path on the Bridge host directly, so local images
 /// become a compact tappable label here; the Bridge attaches the actual
 /// pictures to the message and they are shown as a gallery below the text.
-MarkdownSizedImageBuilder chatMarkdownImageBuilder({
+MarkdownImageBuilder chatMarkdownImageBuilder({
   required FilePathTapCallback? onFileTap,
 }) {
-  return (config) {
-    final path = markdownLocalImagePath(config.uri);
+  return (context, image, theme) {
+    final uri = Uri.tryParse(image.source);
+    final path = uri != null ? markdownLocalImagePath(uri) : null;
     if (path == null) {
       return Image.network(
-        config.uri.toString(),
-        width: config.width,
-        height: config.height,
-        errorBuilder: (context, error, stackTrace) =>
-            _MarkdownImageChip(label: config.alt ?? config.uri.toString()),
+        image.source,
+        semanticLabel: image.alt.isNotEmpty ? image.alt : null,
+        errorBuilder: (context, error, stackTrace) => _MarkdownImageChip(
+          label: image.alt.trim().isNotEmpty ? image.alt.trim() : image.source,
+        ),
       );
     }
-    final alt = config.alt?.trim() ?? '';
+    final alt = image.alt.trim();
     return _MarkdownImageChip(
       label: alt.isNotEmpty ? alt : path.split(RegExp(r'[/\\]')).last,
       onTap: onFileTap == null ? null : () => onFileTap(path),

@@ -1,7 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 /// Gives dependencies that still import `package:flutter/material.dart`
-/// (flutter_markdown, skeletonizer, talker_flutter, ...) the legacy Theme and
+/// (skeletonizer, talker_flutter, ...) the legacy Theme and
 /// MaterialLocalizations, which package:material_ui no longer provides.
 ///
 /// Remove together with the bridge once those dependencies have migrated.

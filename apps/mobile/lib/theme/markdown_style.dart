@@ -1,18 +1,16 @@
 import 'dart:async';
 
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:highlight/highlight.dart' as hl;
-import 'package:markdown/markdown.dart' as md;
+import 'package:markdown_kit/markdown_kit.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:syntax_highlight/syntax_highlight.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:flutter/services.dart';
 
 import '../core/logger.dart';
 import '../l10n/app_localizations.dart';
-import '../widgets/google_search_text_selection.dart';
 import 'app_theme.dart';
 import 'code_text_style.dart';
 
@@ -20,7 +18,22 @@ final _syntaxHighlight = _SyntaxHighlightRegistry();
 final markdownPerformanceProbe = MarkdownPerformanceProbe();
 final _highlightCache = _HighlightSpanCache(maxEntries: 80);
 
-const _maxHighlightedCodeBlockChars = 1800;
+// Single-slot cache for actively streaming (unclosed) code blocks so incremental
+// token updates never thrash the shared 80-entry completed-block LRU cache.
+_HighlightCacheKey? _streamingHighlightKey;
+List<TextSpan>? _streamingHighlightSpans;
+
+const _maxHighlightedCodeBlockChars = 6000;
+
+@visibleForTesting
+int get highlightCacheLengthForTesting => _highlightCache.length;
+
+@visibleForTesting
+void resetHighlightCacheForTesting() {
+  _highlightCache.clear();
+  _streamingHighlightKey = null;
+  _streamingHighlightSpans = null;
+}
 
 class MarkdownPerformanceProbe {
   var codeBlockBuilds = 0;
@@ -72,10 +85,10 @@ Future<void> initializeMarkdownSyntaxHighlight() async {
 }
 
 /// Handles tapping on markdown links by opening them in browser.
-Future<void> handleMarkdownLink(String text, String? href, String title) async {
-  if (href == null || href.isEmpty) return;
+Future<void> handleMarkdownLink(String url, String title) async {
+  if (url.isEmpty) return;
 
-  final uri = Uri.tryParse(href);
+  final uri = Uri.tryParse(url);
   if (uri == null) return;
 
   await launchMarkdownUri(uri);
@@ -95,265 +108,331 @@ Future<bool> launchMarkdownUri(Uri uri) async {
   }
 }
 
-/// Same defaults as `MarkdownStyleSheet.fromTheme`, which only accepts the
-/// legacy `package:flutter/material.dart` `ThemeData`.
-MarkdownStyleSheet _baseMarkdownStyle(ThemeData theme) {
-  final body = theme.textTheme.bodyMedium!;
-  final cardColor = theme.cardTheme.color;
-  return MarkdownStyleSheet(
-    a: const TextStyle(color: Colors.blue),
-    p: body,
-    pPadding: EdgeInsets.zero,
-    code: body.copyWith(
-      backgroundColor: cardColor,
-      fontFamily: 'monospace',
-      fontSize: body.fontSize! * 0.85,
-    ),
-    h1: theme.textTheme.headlineSmall,
-    h1Padding: EdgeInsets.zero,
-    h2: theme.textTheme.titleLarge,
-    h2Padding: EdgeInsets.zero,
-    h3: theme.textTheme.titleMedium,
-    h3Padding: EdgeInsets.zero,
-    h4: theme.textTheme.bodyLarge,
-    h4Padding: EdgeInsets.zero,
-    h5: theme.textTheme.bodyLarge,
-    h5Padding: EdgeInsets.zero,
-    h6: theme.textTheme.bodyLarge,
-    h6Padding: EdgeInsets.zero,
-    em: const TextStyle(fontStyle: FontStyle.italic),
-    strong: const TextStyle(fontWeight: FontWeight.bold),
-    del: const TextStyle(decoration: TextDecoration.lineThrough),
-    blockquote: body,
-    img: body,
-    checkbox: body.copyWith(color: theme.primaryColor),
-    blockSpacing: 8,
-    listIndent: 24,
-    listBullet: body,
-    listBulletPadding: const EdgeInsets.only(right: 4),
-    tableHead: const TextStyle(fontWeight: FontWeight.w600),
-    tableBody: body,
-    tableHeadAlign: TextAlign.center,
-    tablePadding: const EdgeInsets.only(bottom: 4),
-    tableBorder: TableBorder.all(color: theme.dividerColor),
-    tableColumnWidth: const FlexColumnWidth(),
-    tableCellsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-    tableCellsDecoration: const BoxDecoration(),
-    blockquotePadding: const EdgeInsets.all(8),
-    blockquoteDecoration: BoxDecoration(
-      color: Colors.blue.shade100,
-      borderRadius: BorderRadius.circular(2),
-    ),
-    codeblockPadding: const EdgeInsets.all(8),
-    codeblockDecoration: BoxDecoration(
-      color: cardColor ?? theme.cardColor,
-      borderRadius: BorderRadius.circular(2),
-    ),
-    horizontalRuleDecoration: BoxDecoration(
-      border: Border(top: BorderSide(width: 5, color: theme.dividerColor)),
-    ),
-  );
-}
+final Expando<_CachedMarkdownTheme> _markdownThemeCache =
+    Expando<_CachedMarkdownTheme>('ccpocket markdown theme');
 
-MarkdownStyleSheet buildMarkdownStyle(BuildContext context) {
-  final appColors = Theme.of(context).extension<AppColors>()!;
+/// Builds and caches a [MarkdownThemeData] from the current `material_ui`
+/// [ThemeData], [AppColors], and [CodeTextSettings].
+MarkdownThemeData buildMarkdownTheme(BuildContext context) {
   final theme = Theme.of(context);
-  final baseStyle = theme.textTheme.bodyMedium ?? const TextStyle();
+  final appColors = theme.extension<AppColors>()!;
   final codeSettings = codeTextSettingsOf(context);
+
+  final cached = _markdownThemeCache[theme];
+  if (cached != null &&
+      cached.appColors == appColors &&
+      cached.codeFamily == codeSettings.family &&
+      cached.codeFontSize == codeSettings.fontSize) {
+    return cached.data;
+  }
+
+  final cs = theme.colorScheme;
   final isDark = theme.brightness == Brightness.dark;
-  final inlineCodeBackground = theme.colorScheme.onSurface.withValues(
+  final baseStyle = theme.textTheme.bodyMedium ?? const TextStyle();
+  final inlineCodeBackground = cs.onSurface.withValues(
     alpha: isDark ? 0.09 : 0.07,
   );
+  final codeBaseStyle = codeSettings.style(
+    color: baseStyle.color,
+    fontWeight: FontWeight.w500,
+  );
+  final codeBlockTextStyle = codeSettings.style(
+    height: 1.45,
+    color: cs.onSurface,
+  );
+  final selectionColor =
+      theme.textSelectionTheme.selectionColor ??
+      cs.primary.withValues(alpha: 0.40);
+  final defaultPalette = isDark
+      ? MarkdownThemeData.dark()
+      : MarkdownThemeData.fallback();
 
-  return _baseMarkdownStyle(theme).copyWith(
-    p: baseStyle,
-    strong: GoogleFonts.ibmPlexSans(
+  final data = MarkdownThemeData(
+    bodyStyle: baseStyle,
+    h1Style: theme.textTheme.headlineSmall ?? defaultPalette.h1Style,
+    h2Style: theme.textTheme.titleLarge ?? defaultPalette.h2Style,
+    h3Style: theme.textTheme.titleMedium ?? defaultPalette.h3Style,
+    h4Style: theme.textTheme.bodyLarge ?? defaultPalette.h4Style,
+    h5Style: theme.textTheme.bodyLarge ?? defaultPalette.h5Style,
+    h6Style: theme.textTheme.bodyLarge ?? defaultPalette.h6Style,
+    strongStyle: GoogleFonts.ibmPlexSans(
       textStyle: baseStyle,
       fontWeight: FontWeight.w700,
     ),
-    em: baseStyle.copyWith(fontStyle: FontStyle.italic),
-    code: codeSettings.style(
-      color: baseStyle.color,
-      fontWeight: FontWeight.w500,
-      backgroundColor: inlineCodeBackground,
+    emphasisStyle: const TextStyle(fontStyle: FontStyle.italic),
+    strikethroughStyle: const TextStyle(decoration: TextDecoration.lineThrough),
+    underlineStyle: const TextStyle(decoration: TextDecoration.underline),
+    linkStyle: const TextStyle(color: Colors.blue),
+    linkHoverStyle: const TextStyle(
+      color: Colors.blue,
+      decoration: TextDecoration.underline,
     ),
-    codeblockDecoration: BoxDecoration(
+    inlineCodeStyle: MarkdownInlineCodeStyle(
+      fontFamily: codeBaseStyle.fontFamily,
+      fontFamilyFallback: codeBaseStyle.fontFamilyFallback,
+      fontSize: codeBaseStyle.fontSize,
+      fontWeight: FontWeight.w500,
+      color: baseStyle.color,
+      backgroundColor: inlineCodeBackground,
+      borderRadius: 4.0,
+      padding: const EdgeInsets.symmetric(horizontal: 3.5, vertical: 1.0),
+    ),
+    keyboardStyle: MarkdownInlineCodeStyle(
+      fontFamily: codeBaseStyle.fontFamily,
+      fontFamilyFallback: codeBaseStyle.fontFamilyFallback,
+      fontSize: codeBaseStyle.fontSize,
+      fontWeight: FontWeight.w500,
+      color: baseStyle.color,
+      backgroundColor: appColors.codeBackground,
+      borderColor: appColors.codeBorder,
+      borderWidth: 1.0,
+      borderRadius: 4.0,
+      padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 1.0),
+    ),
+    codeBlockStyle: MarkdownCodeBlockStyle(
+      backgroundColor: appColors.codeBackground,
+      borderColor: appColors.codeBorder,
+      borderWidth: 1.0,
+      borderRadius: const BorderRadius.all(Radius.circular(8.0)),
+      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
+      textStyle: codeBlockTextStyle,
+      headerStyle: codeBlockTextStyle.copyWith(
+        fontSize: 11.0,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0.2,
+        height: 1.0,
+        color: appColors.subtleText,
+      ),
+    ),
+    blockquoteStyle: MarkdownBlockquoteStyle(
+      barColor: appColors.subtleText,
+      barWidth: 3.0,
+      padding: const EdgeInsets.only(left: 12.0, top: 4.0, bottom: 4.0),
+      textStyle: baseStyle,
+    ),
+    alertStyles: defaultPalette.alertStyles,
+    listBulletColor: baseStyle.color ?? cs.onSurface,
+    listIndent: 24.0,
+    listItemSpacing: 4.0,
+    tableStyle: MarkdownTableStyle(
+      borderColor: theme.dividerColor,
+      borderWidth: 1.0,
+      borderRadius: const BorderRadius.all(Radius.circular(6.0)),
+      headerBackground: appColors.codeBackground,
+      headerTextStyle: baseStyle.copyWith(fontWeight: FontWeight.w600),
+      rowStripeColor: cs.onSurface.withValues(alpha: isDark ? 0.04 : 0.025),
+      cellPadding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+    ),
+    dividerColor: theme.dividerColor,
+    dividerThickness: 1.0,
+    detailsStyle: MarkdownDetailsStyle(
+      borderColor: appColors.codeBorder,
+      borderWidth: 1.0,
+      summaryStyle: baseStyle.copyWith(fontWeight: FontWeight.w600),
+      iconColor: appColors.subtleText,
+    ),
+    latexStyle: MarkdownLatexStyle(
+      inlineStyle: baseStyle.copyWith(
+        fontFamily: 'serif',
+        fontStyle: FontStyle.italic,
+      ),
+      blockStyle: baseStyle.copyWith(
+        fontFamily: 'serif',
+        fontStyle: FontStyle.italic,
+        fontSize: (baseStyle.fontSize ?? 14.0) + 1.0,
+      ),
+      blockBackgroundColor: appColors.codeBackground,
+      blockBorderColor: appColors.codeBorder,
+    ),
+    footnoteStyle: MarkdownFootnoteStyle(
+      refStyle: TextStyle(
+        fontSize: 11.0,
+        fontWeight: FontWeight.w600,
+        color: cs.primary,
+      ),
+      labelStyle: TextStyle(
+        fontSize: 12.0,
+        fontWeight: FontWeight.w600,
+        color: appColors.subtleText,
+      ),
+      textStyle: baseStyle.copyWith(
+        fontSize: (baseStyle.fontSize ?? 14.0) - 1.0,
+        color: appColors.subtleText,
+      ),
+      dividerColor: theme.dividerColor,
+    ),
+    selectionColor: selectionColor,
+    blockSpacing: 8.0,
+  );
+
+  _markdownThemeCache[theme] = _CachedMarkdownTheme(
+    appColors: appColors,
+    codeFamily: codeSettings.family,
+    codeFontSize: codeSettings.fontSize,
+    data: data,
+  );
+  return data;
+}
+
+class _CachedMarkdownTheme {
+  const _CachedMarkdownTheme({
+    required this.appColors,
+    required this.codeFamily,
+    required this.codeFontSize,
+    required this.data,
+  });
+
+  final AppColors appColors;
+  final Object codeFamily;
+  final double codeFontSize;
+  final MarkdownThemeData data;
+}
+
+/// Normalizes common fenced-code language aliases to canonical highlight keys.
+String? normalizeCodeLanguage(String? language) {
+  if (language == null || language.isEmpty) return null;
+  switch (language.toLowerCase()) {
+    case 'ts':
+      return 'typescript';
+    case 'js':
+      return 'javascript';
+    case 'py':
+      return 'python';
+    case 'kt':
+      return 'kotlin';
+    case 'rs':
+      return 'rust';
+    case 'sh':
+    case 'zsh':
+      return 'bash';
+    case 'yml':
+      return 'yaml';
+    case 'objc':
+      return 'objectivec';
+    case 'plain':
+    case 'plaintext':
+    case 'text':
+      return null;
+    default:
+      return language.toLowerCase();
+  }
+}
+
+/// Renders ccpocket's fenced code block frame (non-selectable language header
+/// + copy button + horizontally scrollable selectable code with syntax
+/// highlighting).
+Widget buildCcpocketCodeBlock(
+  BuildContext context,
+  CodeBlock block,
+  Widget codeContent,
+  MarkdownThemeData markdownTheme,
+) {
+  final buildWatch = !kReleaseMode ? (Stopwatch()..start()) : null;
+  final source = block.code.trimRight();
+  if (source.isEmpty) return const SizedBox.shrink();
+
+  final language = normalizeCodeLanguage(block.language);
+  final displayLanguage = language ?? 'text';
+  final hasExplicitLanguage = language != null;
+
+  final appColors = Theme.of(context).extension<AppColors>()!;
+  final baseStyle = codeTextSettingsOf(context)
+      .style(height: 1.45, color: Theme.of(context).colorScheme.onSurface);
+  final highlightedSpans = highlightToTextSpans(
+    context: context,
+    source: block.code,
+    baseStyle: baseStyle,
+    language: language,
+    isStreaming: !block.closed,
+  );
+  if (buildWatch != null) {
+    buildWatch.stop();
+    markdownPerformanceProbe
+      ..codeBlockBuilds += 1
+      ..codeBlockBuildMicros += buildWatch.elapsedMicroseconds;
+  }
+
+  final Widget effectiveCodeContent;
+  if (codeContent is SelectableParagraph) {
+    final safeSpans = _spansTextLength(highlightedSpans) == block.code.length
+        ? highlightedSpans
+        : <TextSpan>[TextSpan(text: block.code, style: baseStyle)];
+    effectiveCodeContent = SelectableParagraph(
+      documentId: codeContent.documentId,
+      blockIndex: codeContent.blockIndex,
+      textOffsetInBlock: codeContent.textOffsetInBlock,
+      canonicalLength: codeContent.canonicalLength,
+      offsetMapping: codeContent.offsetMapping,
+      text: TextSpan(style: baseStyle, children: safeSpans),
+      textAlign: codeContent.textAlign,
+      textDirection: codeContent.textDirection,
+      softWrap: codeContent.softWrap,
+      overflow: codeContent.overflow,
+      textScaler: codeContent.textScaler,
+      maxLines: codeContent.maxLines,
+      locale: codeContent.locale,
+      strutStyle: codeContent.strutStyle,
+      textWidthBasis: codeContent.textWidthBasis,
+      textHeightBehavior: codeContent.textHeightBehavior,
+      selectionColor: codeContent.selectionColor,
+      inlineCodeStyle: codeContent.inlineCodeStyle,
+      selectable: codeContent.selectable,
+      onSurfaceAttach: codeContent.onSurfaceAttach,
+      onSurfaceDetach: codeContent.onSurfaceDetach,
+    );
+  } else {
+    effectiveCodeContent = codeContent;
+  }
+
+  return Container(
+    key: ValueKey(
+      'code_block_container_${displayLanguage}_${source.length}_${source.hashCode}',
+    ),
+    width: double.infinity,
+    clipBehavior: Clip.antiAlias,
+    decoration: BoxDecoration(
       color: appColors.codeBackground,
       borderRadius: BorderRadius.circular(8),
       border: Border.all(color: appColors.codeBorder),
     ),
-    codeblockPadding: const EdgeInsets.all(12),
-    blockquoteDecoration: BoxDecoration(
-      border: Border(left: BorderSide(color: appColors.subtleText, width: 3)),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _CodeBlockToolbar(
+          displayLanguage: displayLanguage,
+          hasExplicitLanguage: hasExplicitLanguage,
+          baseStyle: baseStyle,
+          source: source,
+        ),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: effectiveCodeContent,
+        ),
+      ],
     ),
-    blockquotePadding: const EdgeInsets.only(left: 12, top: 4, bottom: 4),
-    listBullet: baseStyle.copyWith(fontSize: 14),
   );
 }
 
-// ---------------------------------------------------------------------------
-// Color code preview: shows a colored circle next to HEX color codes
-// ---------------------------------------------------------------------------
-
-/// Inline syntax that matches HEX color codes in backtick-quoted inline code.
-///
-/// Matches patterns like `#f00`, `#FF5733`, `#FF5733AA` inside backticks and
-/// emits a custom `colorCode` element so [ColorCodeBuilder] can render a
-/// colored swatch next to the code text.
-class ColorCodeSyntax extends md.InlineSyntax {
-  // Match backtick-wrapped hex color: `#fff`, `#FF5733`, `#FF5733AA`
-  // Negative lookbehind for backtick prevents matching inside fenced code.
-  ColorCodeSyntax()
-    : super(
-        r'`(#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8}))`',
-        startCharacter: 0x60, // backtick '`'
-      );
-
-  @override
-  bool onMatch(md.InlineParser parser, Match match) {
-    final colorText = match[1]!; // e.g. "#FF5733"
-    final el = md.Element('colorCode', [md.Text(colorText)]);
-    el.attributes['color'] = colorText;
-    parser.addNode(el);
-    return true;
-  }
-}
-
-/// Builds a widget for `colorCode` elements produced by [ColorCodeSyntax].
-///
-/// Renders a small colored circle followed by the color code text styled as
-/// inline code.
-class ColorCodeBuilder extends MarkdownElementBuilder {
-  @override
-  Widget? visitElementAfterWithContext(
-    BuildContext context,
-    md.Element element,
-    TextStyle? preferredStyle,
-    TextStyle? parentStyle,
-  ) {
-    final colorHex = element.attributes['color'] ?? '';
-    final color = _parseHexColor(colorHex);
-    if (color == null) return null;
-
-    final codeStyle = codeTextSettingsOf(
-      context,
-    ).style(color: preferredStyle?.color, backgroundColor: Colors.transparent);
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: Theme.of(context).colorScheme.outline
-                  .withValues(alpha: 0.3),
-              width: 0.5,
-            ),
-          ),
-        ),
-        const SizedBox(width: 4),
-        Text(colorHex, style: codeStyle),
-      ],
-    );
-  }
-}
-
-/// Builds fenced code blocks with language-aware syntax highlighting.
-class FencedCodeBlockBuilder extends MarkdownElementBuilder {
-  @override
-  bool isBlockElement() => true;
-
-  @override
-  Widget? visitText(md.Text text, TextStyle? preferredStyle) {
-    // flutter_markdown keeps an internal inline stack for `pre > code > text`.
-    // Returning a placeholder here ensures that stack is drained correctly
-    // before the block-level widget is produced in visitElementAfterWithContext.
-    return const SizedBox.shrink();
-  }
-
-  @override
-  Widget? visitElementAfterWithContext(
-    BuildContext context,
-    md.Element element,
-    TextStyle? preferredStyle,
-    TextStyle? parentStyle,
-  ) {
-    final buildWatch = !kReleaseMode ? (Stopwatch()..start()) : null;
-    final codeElement = element.children
-        ?.whereType<md.Element>()
-        .cast<md.Element?>()
-        .firstWhere((child) => child?.tag == 'code', orElse: () => null);
-
-    final source = (codeElement?.textContent ?? element.textContent)
-        .trimRight();
-    if (source.isEmpty) return const SizedBox.shrink();
-
-    final className = codeElement?.attributes['class'] ?? '';
-    final language = _normalizeLanguage(_extractFenceLanguage(className));
-    final displayLanguage = language ?? 'text';
-    final hasExplicitLanguage = language != null;
-
-    final appColors = Theme.of(context).extension<AppColors>()!;
-    final baseStyle = codeTextSettingsOf(context)
-        .style(height: 1.45, color: Theme.of(context).colorScheme.onSurface);
-    final highlightedSpans = highlightToTextSpans(
-      context: context,
-      source: source,
-      baseStyle: baseStyle,
-      language: language,
-    );
-    if (buildWatch != null) {
-      buildWatch.stop();
-      markdownPerformanceProbe
-        ..codeBlockBuilds += 1
-        ..codeBlockBuildMicros += buildWatch.elapsedMicroseconds;
+int _spansTextLength(List<TextSpan> spans) {
+  var total = 0;
+  void visit(InlineSpan span) {
+    if (span is TextSpan) {
+      total += span.text?.length ?? 0;
+      final children = span.children;
+      if (children != null) {
+        for (final child in children) {
+          visit(child);
+        }
+      }
     }
-
-    final hasAncestorSelectionArea =
-        SelectionContainer.maybeOf(context) != null;
-    final codeSpan = TextSpan(style: baseStyle, children: highlightedSpans);
-
-    return Container(
-      key: ValueKey(
-        'code_block_container_${displayLanguage}_${source.length}_${source.hashCode}',
-      ),
-      width: double.infinity,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: appColors.codeBackground,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: appColors.codeBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SelectionContainer.disabled(
-            child: _CodeBlockToolbar(
-              displayLanguage: displayLanguage,
-              hasExplicitLanguage: hasExplicitLanguage,
-              baseStyle: baseStyle,
-              source: source,
-            ),
-          ),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: hasAncestorSelectionArea
-                ? Text.rich(codeSpan)
-                : SelectableText.rich(
-                    codeSpan,
-                    contextMenuBuilder:
-                        googleSearchSelectableTextContextMenuBuilder,
-                  ),
-          ),
-        ],
-      ),
-    );
   }
+
+  for (final span in spans) {
+    visit(span);
+  }
+  return total;
 }
 
 class _CodeBlockToolbar extends StatefulWidget {
@@ -401,7 +480,7 @@ class _CodeBlockToolbarState extends State<_CodeBlockToolbar> {
     final headerBackground = colorScheme.onSurface.withValues(
       alpha: isDark ? 0.035 : 0.03,
     );
-    final l = AppLocalizations.of(context);
+    final l = Localizations.of<AppLocalizations>(context, AppLocalizations);
     return Container(
       height: 32,
       padding: const EdgeInsets.only(left: 12, right: 4),
@@ -426,7 +505,7 @@ class _CodeBlockToolbarState extends State<_CodeBlockToolbar> {
           const Spacer(),
           IconButton(
             key: ValueKey('code_block_copy_button_${widget.displayLanguage}'),
-            tooltip: _copied ? l.copied : l.copy,
+            tooltip: _copied ? (l?.copied ?? 'Copied') : (l?.copy ?? 'Copy'),
             onPressed: _handleCopy,
             visualDensity: VisualDensity.compact,
             style: const ButtonStyle(
@@ -447,53 +526,15 @@ class _CodeBlockToolbarState extends State<_CodeBlockToolbar> {
 void _copyCodeBlock(BuildContext context, String source) {
   Clipboard.setData(ClipboardData(text: source));
   HapticFeedback.lightImpact();
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(AppLocalizations.of(context).copied),
-      duration: const Duration(seconds: 1),
-    ),
-  );
-}
-
-String? _extractFenceLanguage(String className) {
-  if (className.isEmpty) return null;
-  for (final token in className.split(' ')) {
-    if (token.startsWith('language-') && token.length > 9) {
-      return token.substring(9);
-    }
-    if (token.startsWith('lang-') && token.length > 5) {
-      return token.substring(5);
-    }
-  }
-  return null;
-}
-
-String? _normalizeLanguage(String? language) {
-  if (language == null || language.isEmpty) return null;
-  switch (language.toLowerCase()) {
-    case 'ts':
-      return 'typescript';
-    case 'js':
-      return 'javascript';
-    case 'py':
-      return 'python';
-    case 'kt':
-      return 'kotlin';
-    case 'rs':
-      return 'rust';
-    case 'sh':
-    case 'zsh':
-      return 'bash';
-    case 'yml':
-      return 'yaml';
-    case 'objc':
-      return 'objectivec';
-    case 'plain':
-    case 'plaintext':
-    case 'text':
-      return null;
-    default:
-      return language.toLowerCase();
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  if (messenger != null) {
+    final l = Localizations.of<AppLocalizations>(context, AppLocalizations);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(l?.copied ?? 'Copied'),
+        duration: const Duration(seconds: 1),
+      ),
+    );
   }
 }
 
@@ -502,6 +543,7 @@ List<TextSpan> highlightToTextSpans({
   required String source,
   required TextStyle baseStyle,
   required String? language,
+  bool isStreaming = false,
 }) {
   if (source.length > _maxHighlightedCodeBlockChars) {
     if (!kReleaseMode) markdownPerformanceProbe.highlightSkipped += 1;
@@ -513,11 +555,23 @@ List<TextSpan> highlightToTextSpans({
     language: language ?? 'text',
     source: source,
     brightness: isDark ? Brightness.dark : Brightness.light,
+    fontFamily: baseStyle.fontFamily,
+    fontSize: baseStyle.fontSize,
+    textColor: baseStyle.color,
   );
-  final cached = _highlightCache.get(cacheKey);
-  if (cached != null) {
-    if (!kReleaseMode) markdownPerformanceProbe.highlightCacheHits += 1;
-    return cached;
+
+  if (isStreaming) {
+    if (_streamingHighlightKey == cacheKey &&
+        _streamingHighlightSpans != null) {
+      if (!kReleaseMode) markdownPerformanceProbe.highlightCacheHits += 1;
+      return _streamingHighlightSpans!;
+    }
+  } else {
+    final cached = _highlightCache.get(cacheKey);
+    if (cached != null) {
+      if (!kReleaseMode) markdownPerformanceProbe.highlightCacheHits += 1;
+      return cached;
+    }
   }
 
   final watch = !kReleaseMode ? (Stopwatch()..start()) : null;
@@ -528,7 +582,12 @@ List<TextSpan> highlightToTextSpans({
         ..highlightCalls += 1
         ..highlightMicros += watch.elapsedMicroseconds;
     }
-    _highlightCache.put(cacheKey, spans);
+    if (isStreaming) {
+      _streamingHighlightKey = cacheKey;
+      _streamingHighlightSpans = spans;
+    } else {
+      _highlightCache.put(cacheKey, spans);
+    }
     return spans;
   }
 
@@ -664,11 +723,17 @@ class _HighlightCacheKey {
   final String language;
   final String source;
   final Brightness brightness;
+  final String? fontFamily;
+  final double? fontSize;
+  final Color? textColor;
 
   const _HighlightCacheKey({
     required this.language,
     required this.source,
     required this.brightness,
+    required this.fontFamily,
+    required this.fontSize,
+    required this.textColor,
   });
 
   @override
@@ -676,11 +741,21 @@ class _HighlightCacheKey {
     return other is _HighlightCacheKey &&
         other.language == language &&
         other.source == source &&
-        other.brightness == brightness;
+        other.brightness == brightness &&
+        other.fontFamily == fontFamily &&
+        other.fontSize == fontSize &&
+        other.textColor == textColor;
   }
 
   @override
-  int get hashCode => Object.hash(language, source, brightness);
+  int get hashCode => Object.hash(
+    language,
+    source,
+    brightness,
+    fontFamily,
+    fontSize,
+    textColor,
+  );
 }
 
 class _HighlightSpanCache {
@@ -688,6 +763,8 @@ class _HighlightSpanCache {
   final Map<_HighlightCacheKey, List<TextSpan>> _entries = {};
 
   _HighlightSpanCache({required this.maxEntries});
+
+  int get length => _entries.length;
 
   List<TextSpan>? get(_HighlightCacheKey key) {
     final value = _entries.remove(key);
@@ -703,6 +780,8 @@ class _HighlightSpanCache {
       _entries.remove(_entries.keys.first);
     }
   }
+
+  void clear() => _entries.clear();
 }
 
 class _SyntaxHighlightRegistry {
@@ -792,14 +871,15 @@ class _SyntaxHighlightRegistry {
 ///
 /// Supports 3-digit (#RGB), 4-digit (#RGBA), 6-digit (#RRGGBB),
 /// and 8-digit (#RRGGBBAA) formats.
-Color? _parseHexColor(String hex) {
+Color? parseHexColor(String hex) {
   if (!hex.startsWith('#')) return null;
   final h = hex.substring(1);
+  if (!_hexDigitsOnly.hasMatch(h)) return null;
   switch (h.length) {
-    case 3: // #RGB → #RRGGBB
+    case 3: // #RGB -> #RRGGBB
       final r = h[0], g = h[1], b = h[2];
       return Color(int.parse('FF$r$r$g$g$b$b', radix: 16));
-    case 4: // #RGBA → #RRGGBBAA
+    case 4: // #RGBA -> #RRGGBBAA
       final r = h[0], g = h[1], b = h[2], a = h[3];
       return Color(int.parse('$a$a$r$r$g$g$b$b', radix: 16));
     case 6: // #RRGGBB
@@ -813,47 +893,58 @@ Color? _parseHexColor(String hex) {
   }
 }
 
-/// Custom inline syntaxes for color code preview.
-List<md.InlineSyntax> get colorCodeInlineSyntaxes => [ColorCodeSyntax()];
+final RegExp _hexDigitsOnly = RegExp(r'^[0-9a-fA-F]+$');
 
-/// Autolinks bare `http(s)://` URLs whose host has no dot, such as
-/// `http://localhost:3013/dashboard`.
+/// Fast post-parse inline rule that autolinks bare `http(s)://` URLs whose
+/// host has no dot, such as `http://localhost:3013/dashboard`.
 ///
 /// The GFM autolink extension requires a dotted domain, so local dev server
-/// URLs stay plain text without this. Dotted hosts are left to that extension.
-class SingleLabelHostAutolinkSyntax extends md.InlineSyntax {
-  SingleLabelHostAutolinkSyntax()
-    : super(
-        r'https?://[a-z0-9](?:[-a-z0-9]*[a-z0-9])?(?![-\w]|\.[-\w])'
-        // Do not link just the prefix of user-info or an invalid port.
-        r'(?::\d{1,5})?(?![:@\w-])(?:[/?#][^\s<]*)?',
-        startCharacter: 0x68, // 'h'
-        caseSensitive: false,
-      );
+/// URLs stay plain text without this. Dotted hosts are left to GFM autolinks.
+class SingleLabelHostAutolinkRule extends MarkdownInlineRule {
+  const SingleLabelHostAutolinkRule();
 
-  static const _validPrecedingChars = {'\n', ' ', '*', '_', '~', '(', '>'};
-  static final _trailingPunctuation = RegExp(r'[?!.,:*_~]+$');
+  static final RegExp _pattern = RegExp(
+    r'https?://[a-z0-9](?:[-a-z0-9]*[a-z0-9])?(?![-\w]|\.[-\w])'
+    // Do not link just the prefix of user-info or an invalid port.
+    r'(?::\d{1,5})?(?![:@\w-])(?:[/?#][^\s<]*)?',
+    caseSensitive: false,
+  );
+
+  static const Set<int> _triggerUnits = {0x68 /* h */, 0x48 /* H */};
+  static const Set<String> _validPrecedingChars = {
+    '\n',
+    ' ',
+    '*',
+    '_',
+    '~',
+    '(',
+    '>',
+  };
+  static final RegExp _trailingPunctuation = RegExp(r'[?!.,:*_~]+$');
 
   @override
-  bool tryMatch(md.InlineParser parser, [int? startMatchPos]) {
-    startMatchPos ??= parser.pos;
-    final match = pattern.matchAsPrefix(parser.source, startMatchPos);
-    if (match == null) return false;
-    if (parser.pos > 0) {
-      final precededBy = String.fromCharCode(parser.charAt(parser.pos - 1));
-      if (!_validPrecedingChars.contains(precededBy)) return false;
+  Set<int> get triggerCodeUnits => _triggerUnits;
+
+  @override
+  MarkdownInlineMatch? matchAt(String text, int index) {
+    if (index > 0) {
+      final precededBy = String.fromCharCode(text.codeUnitAt(index - 1));
+      if (!_validPrecedingChars.contains(precededBy)) return null;
     }
-    parser.writeText();
-    return onMatch(parser, match);
-  }
+    final match = _pattern.matchAsPrefix(text, index);
+    if (match == null) return null;
 
-  @override
-  bool onMatch(md.InlineParser parser, Match match) {
     final url = _trimTrailing(match[0]!);
-    parser
-      ..addNode(md.Element.text('a', url)..attributes['href'] = url)
-      ..consume(url.length);
-    return true;
+    if (url.isEmpty) return null;
+
+    return MarkdownInlineMatch(
+      end: index + url.length,
+      inline: LinkInline(
+        destination: url,
+        children: [TextInline(url)],
+        isAutolink: true,
+      ),
+    );
   }
 
   /// Drops trailing punctuation and unbalanced closing parentheses, matching
@@ -871,15 +962,15 @@ class SingleLabelHostAutolinkSyntax extends md.InlineSyntax {
       text = trimmed;
     }
   }
+
+  @override
+  bool operator ==(Object other) => other is SingleLabelHostAutolinkRule;
+
+  @override
+  int get hashCode => (SingleLabelHostAutolinkRule).hashCode;
 }
 
-/// Inline syntaxes that autolink URLs the GFM extension misses.
-List<md.InlineSyntax> get localhostAutolinkInlineSyntaxes => [
-  SingleLabelHostAutolinkSyntax(),
+/// Inline scanner rules that autolink URLs the GFM extension misses.
+const List<MarkdownInlineRule> localhostAutolinkInlineRules = [
+  SingleLabelHostAutolinkRule(),
 ];
-
-/// Custom element builders for color code preview.
-Map<String, MarkdownElementBuilder> get markdownBuilders => {
-  'colorCode': ColorCodeBuilder(),
-  'pre': FencedCodeBlockBuilder(),
-};

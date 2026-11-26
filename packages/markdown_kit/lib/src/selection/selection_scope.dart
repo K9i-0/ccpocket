@@ -170,6 +170,10 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
 
   FocusNode get _focusNode => widget.focusNode ?? _ownedFocusNode!;
 
+  /// Focus node backing keyboard shortcuts (Cmd/Ctrl+C, Cmd/Ctrl+A, Esc,
+  /// Shift+Arrow) for this selection scope.
+  FocusNode get focusNode => _focusNode;
+
   /// Active selection formatted as plain text.
   String get selectedPlainText => controller.getText();
 
@@ -871,9 +875,30 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
 
   void _onDesktopSecondaryTapUp(TapUpDetails details) {
     if (!widget.enabled) return;
+    final global = details.globalPosition;
     if (controller.hasSelection) {
+      if (defaultTargetPlatform == TargetPlatform.macOS &&
+          !_isPointInsideSelection(global) &&
+          (widget.canStartSelectionAt == null ||
+              widget.canStartSelectionAt!(global)) &&
+          controller.hitsSelectableContent(global)) {
+        _focusNode.requestFocus();
+        controller.selectWordAtGlobal(global);
+        showToolbar(global);
+        return;
+      }
       _focusNode.requestFocus();
-      showToolbar(details.globalPosition);
+      showToolbar(global);
+      return;
+    }
+    if (defaultTargetPlatform == TargetPlatform.macOS &&
+        (widget.canStartSelectionAt == null ||
+            widget.canStartSelectionAt!(global)) &&
+        controller.hitsSelectableContent(global)) {
+      _focusNode.requestFocus();
+      if (controller.selectWordAtGlobal(global)) {
+        showToolbar(global);
+      }
     }
   }
 

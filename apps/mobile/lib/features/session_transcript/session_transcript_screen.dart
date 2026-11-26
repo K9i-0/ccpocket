@@ -1,10 +1,12 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:markdown_kit/markdown_kit.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../models/chat_display_filter.dart';
 import '../../models/messages.dart';
 import '../../services/bridge_service.dart';
+import '../../widgets/markdown/ccpocket_markdown.dart';
 import '../../widgets/message_bubble.dart';
 import '../../widgets/workspace_pane_chrome.dart';
 import '../chat_session/lite_mode_projection.dart';
@@ -132,22 +134,34 @@ class _TranscriptList extends StatelessWidget {
     final count = entries.length + headerCount;
     // Reversed so the page opens at its newest message: the compaction
     // boundary the user came from.
-    return ListView.builder(
-      key: const ValueKey('session_transcript_list'),
-      reverse: true,
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: count,
-      itemBuilder: (context, index) {
-        final entryIndex = count - 1 - index - headerCount;
-        if (entryIndex < 0) return _LoadOlderButton(state: state);
-        return ChatEntryWidget(
-          entry: entries[entryIndex],
-          previous: entryIndex > 0 ? entries[entryIndex - 1] : null,
-          httpBaseUrl: httpBaseUrl,
-          hiddenToolUseIds: hiddenToolUseIds,
-          isCodex: isCodex,
-        );
-      },
+    return CcpocketSelectionScope(
+      allowCrossDocumentSelection: false,
+      isPlainTextDocument: (id) =>
+          id.startsWith('user_') || id.startsWith('plain:'),
+      autoscroll: const MarkdownSelectionAutoscrollConfig(
+        useHostUnionGate: false,
+      ),
+      child: ListView.builder(
+        key: const ValueKey('session_transcript_list'),
+        reverse: true,
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: count,
+        itemBuilder: (context, index) {
+          final entryIndex = count - 1 - index - headerCount;
+          if (entryIndex < 0) return _LoadOlderButton(state: state);
+          final entry = entries[entryIndex];
+          final docPrefix = entry is UserChatEntry ? 'user_' : 'transcript_';
+          return ChatEntryWidget(
+            entry: entry,
+            previous: entryIndex > 0 ? entries[entryIndex - 1] : null,
+            httpBaseUrl: httpBaseUrl,
+            hiddenToolUseIds: hiddenToolUseIds,
+            isCodex: isCodex,
+            documentId: '$docPrefix$entryIndex',
+            documentOrder: entryIndex * 100,
+          );
+        },
+      ),
     );
   }
 }

@@ -1,18 +1,14 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../features/file_peek/file_path_syntax.dart';
-import '../../features/file_peek/markdown_link_handler.dart';
 import '../../l10n/app_localizations.dart';
 import '../../providers/bridge_cubits.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/markdown_style.dart';
 import '../../theme/swarm_colors.dart';
-import '../google_search_text_selection.dart';
-import '../link_hover_underline.dart';
+import '../markdown/ccpocket_markdown.dart';
 import '../workspace_pane_chrome.dart';
 
 /// Tool name the Bridge uses for a post on an Antigravity swarm's board.
@@ -168,8 +164,16 @@ SwarmPostSummary parseSwarmPostSummary(Map<String, dynamic> input) {
 class SwarmPostCard extends StatefulWidget {
   final Map<String, dynamic> input;
   final FilePathTapCallback? onFileTap;
+  final String? documentId;
+  final int documentOrder;
 
-  const SwarmPostCard({super.key, required this.input, this.onFileTap});
+  const SwarmPostCard({
+    super.key,
+    required this.input,
+    this.onFileTap,
+    this.documentId,
+    this.documentOrder = 0,
+  });
 
   @override
   State<SwarmPostCard> createState() => _SwarmPostCardState();
@@ -294,6 +298,8 @@ class _SwarmPostCardState extends State<SwarmPostCard> {
                   child: _SwarmPostMarkdownBody(
                     text: summary.fullText,
                     onFileTap: widget.onFileTap,
+                    documentId: widget.documentId,
+                    documentOrder: widget.documentOrder,
                   ),
                 ),
               ],
@@ -531,8 +537,15 @@ class _HeaderIconButton extends StatelessWidget {
 class _SwarmPostMarkdownBody extends StatelessWidget {
   final String text;
   final FilePathTapCallback? onFileTap;
+  final String? documentId;
+  final int documentOrder;
 
-  const _SwarmPostMarkdownBody({required this.text, this.onFileTap});
+  const _SwarmPostMarkdownBody({
+    required this.text,
+    this.onFileTap,
+    this.documentId,
+    this.documentOrder = 0,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -542,32 +555,13 @@ class _SwarmPostMarkdownBody extends StatelessWidget {
     final fileSuffixes = fileListCubit != null
         ? FilePathSyntax.cachedSuffixSet(fileListCubit.state)
         : const <String>{};
-    return GoogleSearchSelectionArea(
-      child: LinkHoverUnderline(
-        child: MarkdownBody(
-          data: text,
-          selectable: false,
-          styleSheet: buildMarkdownStyle(context),
-          onTapLink: buildChatMarkdownLinkHandler(
-            context,
-            onFileTap: onFileTap,
-            knownPathSuffixes: fileSuffixes,
-          ),
-          inlineSyntaxes: [
-            if (onFileTap != null) ...[
-              FilePathSyntax(knownPathSuffixes: fileSuffixes),
-              BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
-            ],
-            ...colorCodeInlineSyntaxes,
-            ...localhostAutolinkInlineSyntaxes,
-          ],
-          builders: {
-            if (onFileTap != null)
-              'filePath': FilePathBuilder(onTap: onFileTap),
-            ...markdownBuilders,
-          },
-        ),
-      ),
+    return CcpocketMarkdown(
+      data: text,
+      documentId: documentId,
+      documentOrder: documentOrder,
+      onFileTap: onFileTap,
+      knownPathSuffixes: fileSuffixes,
+      useChatLinkHandler: true,
     );
   }
 }
@@ -703,11 +697,13 @@ class _SwarmPostDetailSheet extends StatelessWidget {
           ),
           const Divider(height: 1),
           Flexible(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: _SwarmPostMarkdownBody(
-                text: summary.fullText,
-                onFileTap: onFileTap,
+            child: CcpocketSelectionScope(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: _SwarmPostMarkdownBody(
+                  text: summary.fullText,
+                  onFileTap: onFileTap,
+                ),
               ),
             ),
           ),

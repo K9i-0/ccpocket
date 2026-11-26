@@ -77,11 +77,11 @@ void main() {
       'My sample request',
     );
     await tap(tester, 'demo_send_button');
-    expect(find.text('My sample request'), findsOneWidget);
+    expect(find.text('My sample request', findRichText: true), findsOneWidget);
     await tap(tester, 'demo_reject_button');
     expect(find.byKey(const ValueKey('demo_diff_button')), findsNothing);
     await tap(tester, 'demo_try_again_button');
-    expect(find.text('My sample request'), findsNothing);
+    expect(find.text('My sample request', findRichText: true), findsNothing);
     await tap(tester, 'demo_exit_button');
     expect(find.byType(DemoScreen), findsNothing);
     expect(tester.takeException(), isNull);

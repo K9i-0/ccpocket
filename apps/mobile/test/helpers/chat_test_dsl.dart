@@ -239,7 +239,7 @@ class ChatTestScenario {
           await pumpN($.tester);
 
         case _TapTextStep():
-          await $.tester.tap(find.text(step.text));
+          await $.tester.tap(find.text(step.text, findRichText: true));
           await pumpN($.tester);
 
         case _EnterTextStep():
@@ -289,14 +289,14 @@ class ChatTestScenario {
 
         case _ExpectTextStep():
           expect(
-            find.text(step.text),
+            find.text(step.text, findRichText: true),
             findsWidgets,
             reason: 'Expected text "${step.text}" to be visible',
           );
 
         case _ExpectNoTextStep():
           expect(
-            find.text(step.text),
+            find.text(step.text, findRichText: true),
             findsNothing,
             reason: 'Expected text "${step.text}" to NOT be visible',
           );

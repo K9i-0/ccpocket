@@ -1,10 +1,11 @@
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:markdown/markdown.dart' as md;
+import 'package:markdown_kit/markdown_kit.dart';
 
 /// Callback invoked when a file path is tapped.
 typedef FilePathTapCallback = void Function(String filePath);
+
+/// [CustomInline.kind] emitted by [BareFilePathRule] for matched project paths.
+const String kFilePathInlineKind = 'filePath';
 
 final filePathSuffixPerformanceProbe = FilePathSuffixPerformanceProbe();
 
@@ -37,30 +38,15 @@ class FilePathSuffixPerformanceProbe {
   }
 }
 
-/// Inline syntax that detects file paths in backtick-quoted inline code
-/// by matching against a known set of project file paths.
-///
-/// Any backtick-enclosed text is checked against [knownPathSuffixes].
-/// If it matches (exact or suffix), it is rendered as a tappable file link.
-/// Otherwise [tryMatch] returns false and the built-in [CodeSyntax] renders
-/// it as normal inline code.
-class FilePathSyntax extends md.InlineSyntax {
+/// Helper utilities for detecting file paths in backtick-quoted inline code
+/// and bare text by matching against a known set of project file paths.
+abstract final class FilePathSyntax {
   static final _suffixCache = Expando<_CachedFilePathSuffixes>(
     'file path suffixes',
   );
 
-  final Set<String> _knownPathSuffixes;
-
-  /// Creates a [FilePathSyntax] with a pre-built suffix set.
-  ///
-  /// Use [buildSuffixSet] to create the set from a list of project file paths.
-  FilePathSyntax({Set<String> knownPathSuffixes = const {}})
-    : _knownPathSuffixes = knownPathSuffixes,
-      super(
-        // Match any backtick-enclosed content (single line).
-        r'`([^`\n]+)`',
-        startCharacter: 0x60, // backtick
-      );
+  static final _lineColPattern = RegExp(r'(:\d+){1,2}$');
+  static final _windowsDrivePrefix = RegExp(r'^[A-Za-z]:[\\/]');
 
   /// Builds a suffix set from a list of file paths for efficient lookup.
   ///
@@ -111,52 +97,24 @@ class FilePathSyntax extends md.InlineSyntax {
     return next.suffixes;
   }
 
-  static final _lineColPattern = RegExp(r'(:\d+){1,2}$');
-
   /// Strips trailing line:col suffixes like `:42` or `:42:10`.
-  static String _stripLineCol(String text) {
+  static String stripLineCol(String text) {
     return text.replaceFirst(_lineColPattern, '');
   }
 
-  /// Overrides [tryMatch] to return false early when the backtick content
-  /// is not a known file path. This prevents the base class from calling
-  /// [writeText] and returning true without consuming the match.
-  @override
-  bool tryMatch(md.InlineParser parser, [int? startMatchPos]) {
-    startMatchPos ??= parser.pos;
-
-    if (parser.source.codeUnitAt(startMatchPos) != 0x60) return false;
-    final match = pattern.matchAsPrefix(parser.source, startMatchPos);
-    if (match == null) return false;
-
-    final raw = match[1]!;
-    final stripped = _stripLineCol(raw);
-    final matchesRaw = _knownPathSuffixes.contains(raw);
-    final matchesStripped =
-        !matchesRaw && _knownPathSuffixes.contains(stripped);
-
-    final explicitPath =
-        raw.startsWith('/') ||
+  /// Whether a backtick inline-code string [raw] represents a tappable file
+  /// path (matching [knownPathSuffixes], optionally after stripping `:line:col`,
+  /// or an explicit path prefix/suffix).
+  static bool isBacktickFilePath(String raw, Set<String> knownPathSuffixes) {
+    if (raw.isEmpty || raw.contains('\n')) return false;
+    if (knownPathSuffixes.contains(raw)) return true;
+    final stripped = stripLineCol(raw);
+    if (stripped != raw && knownPathSuffixes.contains(stripped)) return true;
+    return raw.startsWith('/') ||
         raw.startsWith('./') ||
         raw.startsWith('../') ||
         raw.endsWith('/') ||
-        RegExp(r'^[A-Za-z]:[\\/]').hasMatch(raw);
-    if (!matchesRaw && !matchesStripped && !explicitPath) return false;
-
-    final path = raw;
-    final el = md.Element('filePath', [md.Text(raw)]);
-    el.attributes['path'] = path;
-
-    parser.writeText();
-    parser.addNode(el);
-    parser.consume(match[0]!.length);
-    return true;
-  }
-
-  @override
-  bool onMatch(md.InlineParser parser, Match match) {
-    // Not called — logic is in tryMatch.
-    return false;
+        _windowsDrivePrefix.hasMatch(raw);
   }
 }
 
@@ -170,97 +128,93 @@ class _CachedFilePathSuffixes {
   });
 }
 
-/// Inline syntax that detects bare file paths (without backticks) in text
-/// by matching path-like patterns against the known project file list.
-///
-/// Matches sequences like `docs/install/index.html` or `README.ja.md`
-/// that appear as plain text (not inside backticks). Must be added AFTER
-/// [FilePathSyntax] in [inlineSyntaxes] so backtick-enclosed paths are
-/// handled first.
-class BareFilePathSyntax extends md.InlineSyntax {
-  final Set<String> _knownPathSuffixes;
+/// Fast post-parse inline rule that detects bare file paths (without backticks)
+/// in plain text by matching path-like words at boundaries against
+/// [knownPathSuffixes].
+class BareFilePathRule extends MarkdownInlineRule {
+  const BareFilePathRule({this.knownPathSuffixes = const {}});
 
-  BareFilePathSyntax({Set<String> knownPathSuffixes = const {}})
-    : _knownPathSuffixes = knownPathSuffixes,
-      // Path-like string: word chars / dots / slashes / hyphens,
-      // must contain at least one dot (file extension).
-      super(r'([\w][\w./-]*[\w/])');
+  final Set<String> knownPathSuffixes;
 
   @override
-  bool tryMatch(md.InlineParser parser, [int? startMatchPos]) {
-    startMatchPos ??= parser.pos;
-    if (_knownPathSuffixes.isEmpty) return false;
-
-    final match = pattern.matchAsPrefix(parser.source, startMatchPos);
-    if (match == null) return false;
-
-    final text = match[1]!;
-    if ((!text.contains('/') && !text.contains('.')) ||
-        !_knownPathSuffixes.contains(text)) {
-      return false;
+  bool mayMatch(String text) {
+    if (knownPathSuffixes.isEmpty || text.length < 2) return false;
+    for (var i = 0; i < text.length; i++) {
+      final cu = text.codeUnitAt(i);
+      if (cu == 0x2E /* . */ || cu == 0x2F /* / */ ) {
+        return true;
+      }
     }
-
-    final el = md.Element('filePath', [md.Text(text)]);
-    el.attributes['path'] = text;
-
-    parser.writeText();
-    parser.addNode(el);
-    parser.consume(match[0]!.length);
-    return true;
+    return false;
   }
 
   @override
-  bool onMatch(md.InlineParser parser, Match match) => false;
-}
+  MarkdownInlineMatch? matchAt(String text, int index) {
+    if (knownPathSuffixes.isEmpty) return null;
+    if (!_isWordChar(text.codeUnitAt(index))) return null;
+    if (index > 0 && _isPathTokenChar(text.codeUnitAt(index - 1))) {
+      return null;
+    }
 
-/// Builds a tappable widget for file path elements.
-class FilePathBuilder extends MarkdownElementBuilder {
-  final FilePathTapCallback? onTap;
+    var end = index + 1;
+    var hasDotOrSlash = false;
+    while (end < text.length) {
+      final cu = text.codeUnitAt(end);
+      if (_isPathTokenChar(cu)) {
+        if (cu == 0x2E || cu == 0x2F) hasDotOrSlash = true;
+        end++;
+      } else {
+        break;
+      }
+    }
 
-  FilePathBuilder({this.onTap});
+    // Match must end on a word char or '/', not a trailing '.' or '-'.
+    while (end > index) {
+      final last = text.codeUnitAt(end - 1);
+      if (_isWordChar(last) || last == 0x2F) break;
+      end--;
+    }
 
-  @override
-  Widget? visitElementAfterWithContext(
-    BuildContext context,
-    md.Element element,
-    TextStyle? preferredStyle,
-    TextStyle? parentStyle,
-  ) {
-    final path = element.attributes['path'] ?? '';
-    final displayText = element.textContent;
-    final cs = Theme.of(context).colorScheme;
+    if (!hasDotOrSlash || end - index < 2) return null;
 
-    final codeStyle = (preferredStyle ?? const TextStyle()).copyWith(
-      fontFamily: 'monospace',
-      fontSize: 13,
-      fontWeight: FontWeight.w600,
-      backgroundColor: Colors.transparent,
-      color: cs.primary,
-      decoration: TextDecoration.underline,
-      decorationColor: cs.primary.withValues(alpha: 0.4),
-      decorationStyle: TextDecorationStyle.dotted,
-    );
+    final candidate = text.substring(index, end);
+    if ((!candidate.contains('/') && !candidate.contains('.')) ||
+        !knownPathSuffixes.contains(candidate)) {
+      return null;
+    }
 
-    return MouseRegion(
-      cursor: onTap != null ? SystemMouseCursors.click : MouseCursor.defer,
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: onTap != null ? () => onTap!(path) : null,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SelectionContainer.disabled(
-              child: Icon(
-                Icons.description_outlined,
-                size: 12,
-                color: cs.primary.withValues(alpha: 0.7),
-              ),
-            ),
-            const SizedBox(width: 3),
-            Flexible(child: Text(displayText, style: codeStyle)),
-          ],
-        ),
+    return MarkdownInlineMatch(
+      end: end,
+      inline: CustomInline(
+        kind: kFilePathInlineKind,
+        text: candidate,
+        data: {'path': candidate},
       ),
     );
   }
+
+  static bool _isWordChar(int cu) {
+    return (cu >= 0x30 && cu <= 0x39) || // 0-9
+        (cu >= 0x41 && cu <= 0x5A) || // A-Z
+        (cu >= 0x61 && cu <= 0x7A) || // a-z
+        cu == 0x5F; // _
+  }
+
+  static bool _isPathTokenChar(int cu) {
+    return _isWordChar(cu) ||
+        cu == 0x2E || // .
+        cu == 0x2F || // /
+        cu == 0x2D; // -
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is BareFilePathRule &&
+        (identical(other.knownPathSuffixes, knownPathSuffixes) ||
+            setEquals(other.knownPathSuffixes, knownPathSuffixes));
+  }
+
+  @override
+  int get hashCode => Object.hash(BareFilePathRule, knownPathSuffixes.length);
 }

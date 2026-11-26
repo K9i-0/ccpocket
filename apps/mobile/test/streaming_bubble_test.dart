@@ -5,10 +5,10 @@ import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/theme/markdown_style.dart';
 import 'package:ccpocket/widgets/bubbles/streaming_bubble.dart';
 import 'package:ccpocket/widgets/bubbles/thinking_bubble.dart';
-import 'package:ccpocket/widgets/link_hover_underline.dart';
+import 'package:ccpocket/widgets/markdown/ccpocket_markdown.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:markdown_kit/markdown_kit.dart';
 
 void main() {
   testWidgets('autolinks localhost URLs in streamed markdown', (tester) async {
@@ -21,9 +21,10 @@ void main() {
       ),
     );
 
-    final markdown = tester.widget<MarkdownBody>(find.byType(MarkdownBody));
+    final markdown = tester.widget<MarkdownView>(find.byType(MarkdownView));
     expect(
-      markdown.inlineSyntaxes!.whereType<SingleLabelHostAutolinkSyntax>(),
+      markdown.parserOptions.inlineRules
+          .whereType<SingleLabelHostAutolinkRule>(),
       isNotEmpty,
     );
   });
@@ -46,23 +47,23 @@ void main() {
     }
 
     await pumpBubble('first');
-    final initialStyle = tester
-        .widget<MarkdownBody>(find.byType(MarkdownBody))
-        .styleSheet;
+    final initialTheme = tester
+        .widget<MarkdownView>(find.byType(MarkdownView))
+        .theme;
 
     await pumpBubble('first second');
-    var markdown = tester.widget<MarkdownBody>(find.byType(MarkdownBody));
+    var markdown = tester.widget<MarkdownView>(find.byType(MarkdownView));
     expect(markdown.data, 'first');
-    expect(identical(markdown.styleSheet, initialStyle), isTrue);
+    expect(markdown.theme, initialTheme);
 
     await tester.pump(const Duration(milliseconds: 12));
     await pumpBubble('first second latest');
-    markdown = tester.widget<MarkdownBody>(find.byType(MarkdownBody));
+    markdown = tester.widget<MarkdownView>(find.byType(MarkdownView));
     expect(markdown.data, 'first');
     expect(beforeTextUpdateCalls, 0);
 
     await tester.pump(const Duration(milliseconds: 20));
-    markdown = tester.widget<MarkdownBody>(find.byType(MarkdownBody));
+    markdown = tester.widget<MarkdownView>(find.byType(MarkdownView));
     expect(markdown.data, 'first second latest');
     expect(beforeTextUpdateCalls, 1);
   });
@@ -82,7 +83,7 @@ void main() {
     await pumpBubble('first');
     await pumpBubble('first$largeDelta');
 
-    final markdown = tester.widget<MarkdownBody>(find.byType(MarkdownBody));
+    final markdown = tester.widget<MarkdownView>(find.byType(MarkdownView));
     expect(markdown.data, 'first$largeDelta');
   });
 
@@ -127,8 +128,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 40));
     }
 
-    List<MarkdownBody> bodies(WidgetTester tester) =>
-        tester.widgetList<MarkdownBody>(find.byType(MarkdownBody)).toList();
+    List<MarkdownBlockRenderer> blocks(WidgetTester tester) => tester
+        .widgetList<MarkdownBlockRenderer>(find.byType(MarkdownBlockRenderer))
+        .where((b) => b.baseOffsetInBlock == 0 && b.listDepth == 0)
+        .toList();
 
     testWidgets('only rebuilds the growing trailing block', (tester) async {
       const prefix =
@@ -138,20 +141,14 @@ void main() {
       await pumpBubble(tester, text);
       markdownPerformanceProbe.reset();
 
-      var previous = bodies(tester);
-      expect(previous.map((b) => b.data), [
-        '# Title\n\n',
-        'First paragraph.\n\n',
-        '- one\n\n- two\n\n',
-        '```dart\nfinal a = 1;\n\nfinal b = 2;\n```\n\n',
-        'Grow',
-      ]);
+      var previous = blocks(tester);
+      expect(previous, hasLength(5));
 
       const updates = 6;
       for (var i = 0; i < updates; i++) {
         text = '$text ing$i';
         await pumpBubble(tester, text);
-        final current = bodies(tester);
+        final current = blocks(tester);
         expect(current, hasLength(previous.length));
         for (var b = 0; b < current.length - 1; b++) {
           expect(
@@ -160,7 +157,6 @@ void main() {
             reason: 'completed block $b must be reused on update $i',
           );
         }
-        expect(current.last.data, text.substring(prefix.length));
         expect(identical(current.last, previous.last), isFalse);
         previous = current;
       }
@@ -172,27 +168,29 @@ void main() {
       );
     });
 
-    testWidgets('spaces blocks like MarkdownBody block spacing', (
+    testWidgets('spaces blocks with MarkdownThemeData blockSpacing', (
       tester,
     ) async {
       await pumpBubble(tester, 'one\n\ntwo\n\nthree');
 
-      expect(find.byType(MarkdownBody), findsNWidgets(3));
+      expect(find.byType(MarkdownBlockRenderer), findsNWidgets(3));
       final column = tester.widget<Column>(
         find
             .ancestor(
-              of: find.byType(MarkdownBody).first,
+              of: find.byType(MarkdownBlockRenderer).first,
               matching: find.byType(Column),
             )
             .first,
       );
       expect(column.crossAxisAlignment, CrossAxisAlignment.start);
       expect(column.mainAxisSize, MainAxisSize.min);
-      final style = bodies(tester).first.styleSheet!;
+      final mdTheme = tester
+          .widget<MarkdownView>(find.byType(MarkdownView))
+          .theme!;
       final spacers = column.children.whereType<SizedBox>().toList();
       expect(spacers, hasLength(2));
       for (final spacer in spacers) {
-        expect(spacer.height, style.blockSpacing);
+        expect(spacer.height, mdTheme.blockSpacing);
       }
     });
 
@@ -200,23 +198,25 @@ void main() {
       tester,
     ) async {
       await pumpBubble(tester, '- item\n\nnext');
-      var current = bodies(tester);
-      expect(current.map((b) => b.data), ['- item\n\n', 'next']);
+      expect(find.text('next', findRichText: true), findsOneWidget);
 
       await pumpBubble(tester, '- item\n\n  continued');
-      current = bodies(tester);
-      expect(current.map((b) => b.data), ['- item\n\n  continued']);
+      expect(find.text('continued', findRichText: true), findsOneWidget);
     });
 
-    testWidgets('renders text with reference definitions as one block', (
+    testWidgets('renders text with reference definitions cleanly', (
       tester,
     ) async {
       const text = 'See [docs][d].\n\nMore.\n\n[d]: https://example.com';
       await pumpBubble(tester, text);
-      expect(bodies(tester).single.data, text);
+      expect(
+        find.textContaining('See docs.', findRichText: true),
+        findsOneWidget,
+      );
+      expect(find.text('More.', findRichText: true), findsOneWidget);
     });
 
-    testWidgets('lays out like a single MarkdownBody of the same text', (
+    testWidgets('lays out identically to non-streaming CcpocketMarkdown', (
       tester,
     ) async {
       const text =
@@ -224,41 +224,28 @@ void main() {
           '```dart\nfinal a = 1;\n\nfinal b = 2;\n```\n\n'
           '| h | v |\n|---|---|\n| 1 | 2 |\n\n> quote\n\n---\n\nDone.';
       await pumpBubble(tester, text);
-      expect(find.byType(MarkdownBody), findsNWidgets(8));
-      final split = tester.getSize(find.byType(LinkHoverUnderline));
+      final streamingSize = tester.getSize(find.byType(CcpocketMarkdown));
 
       await tester.pumpWidget(
         MaterialApp(
           theme: theme,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
-          home: Scaffold(
+          home: const Scaffold(
             body: SingleChildScrollView(
               child: Padding(
-                padding: const EdgeInsets.symmetric(
+                padding: EdgeInsets.symmetric(
                   vertical: AppSpacing.bubbleMarginV,
                   horizontal: AppSpacing.bubbleMarginH,
                 ),
-                child: Builder(
-                  builder: (context) => LinkHoverUnderline(
-                    child: MarkdownBody(
-                      data: text,
-                      styleSheet: buildMarkdownStyle(context),
-                      inlineSyntaxes: [
-                        ...colorCodeInlineSyntaxes,
-                        ...localhostAutolinkInlineSyntaxes,
-                      ],
-                      builders: markdownBuilders,
-                    ),
-                  ),
-                ),
+                child: CcpocketMarkdown(data: text),
               ),
             ),
           ),
         ),
       );
       await tester.pump();
-      expect(tester.getSize(find.byType(LinkHoverUnderline)), split);
+      expect(tester.getSize(find.byType(CcpocketMarkdown)), streamingSize);
     });
   });
 
@@ -284,7 +271,7 @@ void main() {
       expect(thinkingBubble.isStreaming, isTrue);
       expect(find.text('Thinking...'), findsOneWidget);
       expect(find.text('Line 2\nLine 3'), findsOneWidget);
-      expect(find.byType(MarkdownBody), findsNothing);
+      expect(find.byType(CcpocketMarkdown), findsNothing);
     });
 
     testWidgets(
@@ -307,7 +294,7 @@ void main() {
         );
         expect(thinkingBubble.isStreaming, isFalse);
         expect(find.text('Thinking'), findsOneWidget);
-        expect(find.byType(MarkdownBody), findsOneWidget);
+        expect(find.byType(CcpocketMarkdown), findsOneWidget);
       },
     );
 

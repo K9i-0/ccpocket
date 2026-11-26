@@ -1,36 +1,79 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:markdown/markdown.dart' as md;
+import 'package:markdown_kit/markdown_kit.dart';
 
 import 'package:ccpocket/features/file_peek/file_path_syntax.dart';
 
-/// Parses [input] with [FilePathSyntax] and returns detected file paths.
+/// Parses [input] and returns backtick inline-code paths matching
+/// [FilePathSyntax.isBacktickFilePath].
 List<String> _detectFilePaths(String input, Set<String> knownSuffixes) {
-  final doc = md.Document(
-    inlineSyntaxes: [FilePathSyntax(knownPathSuffixes: knownSuffixes)],
-  );
-  final nodes = doc.parseInline(input);
+  final doc = GfmMarkdownParser().parse(input);
   final paths = <String>[];
-  for (final node in nodes) {
-    if (node is md.Element && node.tag == 'filePath') {
-      paths.add(node.attributes['path']!);
+  void visit(List<MarkdownInline> inlines) {
+    for (final inline in inlines) {
+      switch (inline) {
+        case InlineCodeInline(:final code):
+          if (FilePathSyntax.isBacktickFilePath(code, knownSuffixes)) {
+            paths.add(code);
+          }
+        case EmphasisInline(:final children):
+        case StrongInline(:final children):
+        case StrikethroughInline(:final children):
+        case UnderlineInline(:final children):
+        case SubscriptInline(:final children):
+        case SuperscriptInline(:final children):
+        case KeyboardInline(:final children):
+          visit(children);
+        default:
+          break;
+      }
+    }
+  }
+
+  for (final block in doc.blocks) {
+    if (block is ParagraphBlock) {
+      visit(block.inlines);
     }
   }
   return paths;
 }
 
-/// Parses [input] with both [FilePathSyntax] and [BareFilePathSyntax].
+/// Parses [input] with [BareFilePathRule] and returns both backtick and bare
+/// detected file paths in reading order.
 List<String> _detectAllFilePaths(String input, Set<String> knownSuffixes) {
-  final doc = md.Document(
-    inlineSyntaxes: [
-      FilePathSyntax(knownPathSuffixes: knownSuffixes),
-      BareFilePathSyntax(knownPathSuffixes: knownSuffixes),
-    ],
+  final parser = GfmMarkdownParser(
+    options: MarkdownParserOptions(
+      inlineRules: [BareFilePathRule(knownPathSuffixes: knownSuffixes)],
+    ),
   );
-  final nodes = doc.parseInline(input);
+  final doc = parser.parse(input);
   final paths = <String>[];
-  for (final node in nodes) {
-    if (node is md.Element && node.tag == 'filePath') {
-      paths.add(node.attributes['path']!);
+  void visit(List<MarkdownInline> inlines) {
+    for (final inline in inlines) {
+      switch (inline) {
+        case InlineCodeInline(:final code):
+          if (FilePathSyntax.isBacktickFilePath(code, knownSuffixes)) {
+            paths.add(code);
+          }
+        case CustomInline(:final kind, :final data, :final text)
+            when kind == kFilePathInlineKind:
+          paths.add(data['path'] as String? ?? text);
+        case EmphasisInline(:final children):
+        case StrongInline(:final children):
+        case StrikethroughInline(:final children):
+        case UnderlineInline(:final children):
+        case SubscriptInline(:final children):
+        case SuperscriptInline(:final children):
+        case KeyboardInline(:final children):
+          visit(children);
+        default:
+          break;
+      }
+    }
+  }
+
+  for (final block in doc.blocks) {
+    if (block is ParagraphBlock) {
+      visit(block.inlines);
     }
   }
   return paths;
@@ -93,7 +136,7 @@ void main() {
     });
   });
 
-  group('FilePathSyntax detection', () {
+  group('FilePathSyntax backtick detection', () {
     final knownFiles = [
       'lib/main.dart',
       'lib/models/messages.dart',
@@ -163,6 +206,22 @@ void main() {
       expect(paths, isEmpty);
     });
 
+    test('detects explicit paths even when suffix set is empty', () {
+      expect(
+        _detectFilePaths(
+          'Open `/etc/hosts`, `./local.txt`, `../parent.txt`, `C:\\work\\a.dart`, `src/`',
+          const {},
+        ),
+        [
+          '/etc/hosts',
+          './local.txt',
+          '../parent.txt',
+          r'C:\work\a.dart',
+          'src/',
+        ],
+      );
+    });
+
     test('detects deep nested path by suffix', () {
       final paths = _detectFilePaths(
         'Updated `file_path_syntax.dart`',
@@ -171,29 +230,27 @@ void main() {
       expect(paths, ['file_path_syntax.dart']);
     });
 
-    test('backtick paths still detected with both syntaxes', () {
+    test('backtick paths still detected with BareFilePathRule active', () {
       final paths = _detectAllFilePaths(
         'See `lib/main.dart` for details',
         suffixes,
       );
       expect(paths, ['lib/main.dart']);
     });
+
     test('preserves line number in display text', () {
-      final doc = md.Document(
-        inlineSyntaxes: [FilePathSyntax(knownPathSuffixes: suffixes)],
+      final doc = GfmMarkdownParser().parse('At `main.dart:42`');
+      final paragraph = doc.blocks.single as ParagraphBlock;
+      final codeNode = paragraph.inlines.whereType<InlineCodeInline>().single;
+      expect(
+        FilePathSyntax.isBacktickFilePath(codeNode.code, suffixes),
+        isTrue,
       );
-      final nodes = doc.parseInline('At `main.dart:42`');
-      final fileNode = nodes.whereType<md.Element>().firstWhere(
-        (e) => e.tag == 'filePath',
-      );
-      // Navigation retains the line number.
-      expect(fileNode.attributes['path'], 'main.dart:42');
-      // display text should keep the line number
-      expect(fileNode.textContent, 'main.dart:42');
+      expect(codeNode.code, 'main.dart:42');
     });
   });
 
-  group('BareFilePathSyntax — real session messages', () {
+  group('BareFilePathRule — real session messages', () {
     // Real file list from ccpocket project (subset)
     final knownFiles = [
       'docs/install/index.html',
@@ -207,7 +264,6 @@ void main() {
     final suffixes = FilePathSyntax.buildSuffixSet(knownFiles);
 
     test('detects bare file paths from actual Codex session', () {
-      // Actual message text from running session 2dfd0f83
       final paths = _detectAllFilePaths(
         'docs/install/index.html の軽改修',
         suffixes,
@@ -258,6 +314,16 @@ void main() {
         suffixes,
       );
       expect(paths, ['file_peek_file_list_refresh_test.dart']);
+    });
+
+    test('fast pre-filter skips prose without dot or slash', () {
+      final rule = BareFilePathRule(knownPathSuffixes: suffixes);
+      expect(rule.mayMatch('plain prose without paths'), isFalse);
+      expect(rule.mayMatch('check lib/main.dart'), isTrue);
+      expect(
+        const BareFilePathRule(knownPathSuffixes: {}).mayMatch('lib/main.dart'),
+        isFalse,
+      );
     });
   });
 }

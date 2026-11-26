@@ -46,7 +46,8 @@ dependencies:
   sqflite: ^2.4.5
   sqflite_common_ffi: ^2.4.5
   flutter_local_notifications: ^22.3.3
-  flutter_markdown: ^0.7.7+1
+  markdown_kit:
+    path: ../../packages/markdown_kit
   markdown: ^7.3.0
   google_fonts: ^9.0.0
   mobile_scanner: ^7.1.4

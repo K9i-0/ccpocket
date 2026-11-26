@@ -90,7 +90,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('評価レポート'));
+    await tester.tap(find.text('評価レポート', findRichText: true));
     await tester.pump();
 
     expect(openedPath, path);
@@ -101,7 +101,7 @@ void main() {
       _wrap(AssistantBubble(message: _messageWithText('[Section](#details)'))),
     );
 
-    await tester.tap(find.text('Section'));
+    await tester.tap(find.text('Section', findRichText: true));
     await tester.pump();
 
     expect(find.text('This link type is not supported.'), findsOneWidget);
@@ -127,7 +127,7 @@ void main() {
           files: const ['dashboard'],
         ),
       );
-      await tester.tap(find.text(url));
+      await tester.tap(find.text(url, findRichText: true));
       await tester.pumpAndSettle();
       expect(launcher.lastUrl, url);
       expect(openedPath, isNull);
@@ -148,7 +148,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('Website'));
+    await tester.tap(find.text('Website', findRichText: true));
     await tester.pumpAndSettle();
 
     expect(launcher.lastUrl, 'https://example.com/report');

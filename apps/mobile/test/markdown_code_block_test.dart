@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:markdown_kit/markdown_kit.dart';
 
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/l10n/app_localizations_delegates.dart';
@@ -95,8 +96,11 @@ void main() {
         find.byKey(const ValueKey('code_block_language_dart')),
         findsOneWidget,
       );
-      expect(find.textContaining('final value = 42;'), findsOneWidget);
-      expect(find.byType(SelectionArea), findsOneWidget);
+      expect(
+        find.textContaining('final value = 42;', findRichText: true),
+        findsOneWidget,
+      );
+      expect(find.byType(MarkdownSelectionScope), findsOneWidget);
       expect(find.byType(SelectableText), findsNothing);
     });
 
@@ -110,7 +114,10 @@ void main() {
         find.byKey(const ValueKey('code_block_language_bash')),
         findsOneWidget,
       );
-      expect(find.textContaining('echo hello'), findsOneWidget);
+      expect(
+        find.textContaining('echo hello', findRichText: true),
+        findsOneWidget,
+      );
     });
 
     testWidgets('normalizes js language label to javascript', (tester) async {
@@ -123,7 +130,10 @@ void main() {
         find.byKey(const ValueKey('code_block_language_javascript')),
         findsOneWidget,
       );
-      expect(find.textContaining('const value = 1;'), findsOneWidget);
+      expect(
+        find.textContaining('const value = 1;', findRichText: true),
+        findsOneWidget,
+      );
     });
 
     testWidgets('normalizes py language label to python', (tester) async {
@@ -136,7 +146,10 @@ void main() {
         find.byKey(const ValueKey('code_block_language_python')),
         findsOneWidget,
       );
-      expect(find.textContaining('print("hello")'), findsOneWidget);
+      expect(
+        find.textContaining('print("hello")', findRichText: true),
+        findsOneWidget,
+      );
     });
 
     testWidgets('normalizes yml language label to yaml', (tester) async {
@@ -149,7 +162,10 @@ void main() {
         find.byKey(const ValueKey('code_block_language_yaml')),
         findsOneWidget,
       );
-      expect(find.textContaining('name: ccpocket'), findsOneWidget);
+      expect(
+        find.textContaining('name: ccpocket', findRichText: true),
+        findsOneWidget,
+      );
     });
 
     testWidgets('hides language label when fence has no language', (
@@ -164,7 +180,10 @@ void main() {
         find.byKey(const ValueKey('code_block_language_text')),
         findsNothing,
       );
-      expect(find.textContaining('just plain block'), findsOneWidget);
+      expect(
+        find.textContaining('just plain block', findRichText: true),
+        findsOneWidget,
+      );
     });
 
     testWidgets(
@@ -182,7 +201,7 @@ void main() {
           find.byKey(const ValueKey('code_block_copy_button_dart')),
         );
         final codeRect = tester.getRect(
-          find.textContaining('final value = 42;'),
+          find.textContaining('final value = 42;', findRichText: true),
         );
 
         expect(languageRect.left, lessThan(copyRect.left));
@@ -268,11 +287,17 @@ void main() {
       );
       final selectable = find.descendant(
         of: codeBlock,
-        matching: find.textContaining('echo selectable text'),
+        matching: find.textContaining(
+          'echo selectable text',
+          findRichText: true,
+        ),
       );
       expect(selectable, findsOneWidget);
       expect(
-        find.ancestor(of: selectable, matching: find.byType(SelectionArea)),
+        find.ancestor(
+          of: selectable,
+          matching: find.byType(MarkdownSelectionScope),
+        ),
         findsOneWidget,
       );
       final longPressAncestors = tester

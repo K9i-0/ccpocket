@@ -1,14 +1,10 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 
 import '../../features/file_peek/file_path_syntax.dart';
-import '../../features/file_peek/markdown_link_handler.dart';
 import '../../providers/bridge_cubits.dart';
 import '../../theme/app_spacing.dart';
-import '../../theme/markdown_style.dart';
-import '../google_search_text_selection.dart';
-import '../link_hover_underline.dart';
+import '../markdown/ccpocket_markdown.dart';
 
 /// A visually distinct card for rendering implementation plans inline in chat.
 ///
@@ -18,6 +14,8 @@ class PlanCard extends StatefulWidget {
   final String planText;
   final VoidCallback onViewFullPlan;
   final FilePathTapCallback? onFileTap;
+  final String? documentId;
+  final int documentOrder;
 
   /// Max height for the preview area before fade-out is applied.
   static const double _maxPreviewHeight = 200;
@@ -27,6 +25,8 @@ class PlanCard extends StatefulWidget {
     required this.planText,
     required this.onViewFullPlan,
     this.onFileTap,
+    this.documentId,
+    this.documentOrder = 0,
   });
 
   @override
@@ -75,6 +75,8 @@ class _PlanCardState extends State<PlanCard> {
             planText: widget.planText,
             onOverflowChanged: _handleOverflowChanged,
             onFileTap: widget.onFileTap,
+            documentId: widget.documentId,
+            documentOrder: widget.documentOrder,
           ),
           if (_isLongPlan) _PlanFooter(onViewFullPlan: widget.onViewFullPlan),
         ],
@@ -147,11 +149,15 @@ class _PlanBody extends StatefulWidget {
   final String planText;
   final ValueChanged<bool> onOverflowChanged;
   final FilePathTapCallback? onFileTap;
+  final String? documentId;
+  final int documentOrder;
 
   const _PlanBody({
     required this.planText,
     required this.onOverflowChanged,
     this.onFileTap,
+    this.documentId,
+    this.documentOrder = 0,
   });
 
   @override
@@ -190,32 +196,13 @@ class _PlanBodyState extends State<_PlanBody> {
         : const <String>{};
     final markdownWidget = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: GoogleSearchSelectionArea(
-        child: LinkHoverUnderline(
-          child: MarkdownBody(
-            data: widget.planText,
-            selectable: false,
-            styleSheet: buildMarkdownStyle(context),
-            onTapLink: buildChatMarkdownLinkHandler(
-              context,
-              onFileTap: widget.onFileTap,
-              knownPathSuffixes: fileSuffixes,
-            ),
-            inlineSyntaxes: [
-              if (widget.onFileTap != null) ...[
-                FilePathSyntax(knownPathSuffixes: fileSuffixes),
-                BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
-              ],
-              ...colorCodeInlineSyntaxes,
-              ...localhostAutolinkInlineSyntaxes,
-            ],
-            builders: {
-              if (widget.onFileTap != null)
-                'filePath': FilePathBuilder(onTap: widget.onFileTap),
-              ...markdownBuilders,
-            },
-          ),
-        ),
+      child: CcpocketMarkdown(
+        data: widget.planText,
+        documentId: widget.documentId,
+        documentOrder: widget.documentOrder,
+        onFileTap: widget.onFileTap,
+        knownPathSuffixes: fileSuffixes,
+        useChatLinkHandler: true,
       ),
     );
 

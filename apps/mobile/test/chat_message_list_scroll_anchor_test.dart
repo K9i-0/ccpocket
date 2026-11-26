@@ -91,7 +91,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     await scrollFuture;
-    final target = find.text('message 35');
+    final target = find.text('message 35', findRichText: true);
     expect(target, findsOneWidget);
 
     for (final width in [430.0, 862.0, 600.0, 900.0]) {
@@ -176,7 +176,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     await scrollFuture;
-    final target = find.text('message 35');
+    final target = find.text('message 35', findRichText: true);
     expect(target, findsOneWidget);
 
     final beforeStreamingStart = tester.getTopLeft(target).dy;
