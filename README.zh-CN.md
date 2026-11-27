@@ -7,7 +7,7 @@
 
 [了解 CC Pocket](https://k9i-0.github.io/ccpocket/install/?lang=zh) · 免费使用 · 开源
 
-[English README](README.md) | [日本語 README](README.ja.md) | [한국어 README](README.ko.md)
+[English README](README.md) | [日本語 README](README.ja.md) | [한국어 README](README.ko.md) | [Türkçe README](README.tr.md)
 
 <p align="center">
   <img src="docs/images/screenshots-zh-CN.png" alt="CC Pocket 截图" width="800">
