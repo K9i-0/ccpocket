@@ -344,8 +344,11 @@ class _EditorPageState extends State<EditorPage> {
     final offset = ranges[index].start.clamp(0, _text.text.length);
     // The preview is where the user is looking: it stays put and the editor
     // comes to it.
-    _skipFollow = true;
-    _text.selection = TextSelection.collapsed(offset: offset);
+    final selection = TextSelection.collapsed(offset: offset);
+    if (_text.selection != selection) {
+      _skipFollow = true;
+      _text.selection = selection;
+    }
     if (_syncScroll) _sync.sourceFollowsPreview();
     _sync.withoutFollowing(
       () => _editableKey.currentState?.bringIntoView(
@@ -524,7 +527,11 @@ class _EditorPageState extends State<EditorPage> {
               label: 'Preview',
               on: _showPreview,
               colors: colors,
-              onChanged: (on) => setState(() => _showPreview = on),
+              onChanged: (on) {
+                setState(() => _showPreview = on);
+                // The source is out of sight: put the keyboard away with it.
+                if (on) _focus.unfocus();
+              },
             ),
             const SizedBox(width: 6),
           ],

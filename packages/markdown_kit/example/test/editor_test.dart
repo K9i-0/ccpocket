@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -35,6 +36,30 @@ Finder _preview(String text) => find.descendant(
   of: find.byType(MarkdownView),
   matching: find.textContaining(text, findRichText: true),
 );
+
+/// Selection handles that are shown. The text field keeps a hidden one in
+/// the tree, faded out, whenever there is a selection.
+int _visibleHandles(WidgetTester tester) {
+  var count = 0;
+  final handles = find.byWidgetPredicate(
+    (widget) =>
+        widget is CustomPaint &&
+        widget.painter.runtimeType.toString() == '_HandlePainter',
+  );
+  for (final element in handles.evaluate()) {
+    var visible = true;
+    element.visitAncestorElements((ancestor) {
+      final widget = ancestor.widget;
+      if (widget is FadeTransition) {
+        visible = widget.opacity.value > 0;
+        return false;
+      }
+      return true;
+    });
+    if (visible) count++;
+  }
+  return count;
+}
 
 String _long() => [
   for (var i = 0; i < 40; i++)
@@ -145,6 +170,132 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.pump();
     expect(editable.textEditingValue.text, '  - **word**');
+  });
+
+  testWidgets('a long-press selects a word and offers the menu and handles', (
+    tester,
+  ) async {
+    await _pump(tester, text: 'select this word please');
+    final editable = _editable(tester);
+    final at = editable.renderEditable.localToGlobal(
+      editable.renderEditable
+          .getLocalRectForCaret(const TextPosition(offset: 9))
+          .center,
+    );
+    await tester.longPressAt(at);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(
+      editable.textEditingValue.selection,
+      const TextSelection(baseOffset: 7, extentOffset: 11),
+    );
+    // The menu and both handles are in the overlay.
+    expect(find.text('Copy'), findsOneWidget);
+    expect(find.text('Select all'), findsOneWidget);
+    expect(_visibleHandles(tester), 2);
+
+    await tester.tap(find.text('Select all'));
+    await tester.pumpAndSettle();
+    expect(
+      editable.textEditingValue.selection,
+      const TextSelection(baseOffset: 0, extentOffset: 23),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the menu copies the selection', (tester) async {
+    final copied = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied.add((call.arguments as Map)['text'] as String);
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    await _pump(tester, text: 'copy this word');
+    final editable = _editable(tester);
+    await tester.longPressAt(
+      editable.renderEditable.localToGlobal(
+        editable.renderEditable
+            .getLocalRectForCaret(const TextPosition(offset: 6))
+            .center,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Copy'));
+    await tester.pumpAndSettle();
+    expect(copied, ['this']);
+    expect(find.text('Copy'), findsNothing);
+  });
+
+  testWidgets('a right-click opens the menu at the pointer', (tester) async {
+    await _pump(tester, text: 'right click here');
+    final editable = _editable(tester);
+    final at = editable.renderEditable.localToGlobal(
+      editable.renderEditable
+          .getLocalRectForCaret(const TextPosition(offset: 8))
+          .center,
+    );
+    final gesture = await tester.startGesture(
+      at,
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Select all'), findsOneWidget);
+    final menu = tester.getRect(find.text('Select all'));
+    expect((menu.center - at).distance, lessThan(200));
+    // Handles are for touch only.
+    expect(_visibleHandles(tester), 0);
+  });
+
+  testWidgets('text an input method is composing is underlined, with its '
+      'colours kept', (tester) async {
+    await _pump(tester, text: '');
+    await tester.showKeyboard(find.byType(EditableText));
+    // "にほん" being composed inside bold markers.
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: '# 題 **にほん**',
+        selection: TextSelection.collapsed(offset: 9),
+        composing: TextRange(start: 6, end: 9),
+      ),
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    final span = _editable(tester).buildTextSpan();
+    expect(span.toPlainText(), '# 題 **にほん**');
+    final underlined = StringBuffer();
+    span.visitChildren((child) {
+      if (child is TextSpan &&
+          child.style?.decoration == TextDecoration.underline) {
+        underlined.write(child.text);
+      }
+      return true;
+    });
+    expect(underlined.toString(), 'にほん');
+    expect(_preview('題'), findsOneWidget);
+
+    // A line break while composing is left to the input method.
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: '- あ\n',
+        selection: TextSelection.collapsed(offset: 4),
+        composing: TextRange(start: 2, end: 4),
+      ),
+    );
+    await tester.pump();
+    expect(_editable(tester).textEditingValue.text, '- あ\n');
   });
 
   testWidgets('scrolling the source moves the preview, and back', (
@@ -307,10 +458,15 @@ void main() {
     expect(find.byType(EditableText), findsOneWidget);
     expect(_preview('Body text.'), findsNothing);
 
+    await tester.showKeyboard(find.byType(EditableText));
+    final focus = _editable(tester).widget.focusNode;
+    expect(focus.hasFocus, isTrue);
     await tester.tap(find.byKey(const ValueKey('show-preview')));
     await tester.pump();
     expect(_preview('Body text.'), findsOneWidget);
     expect(find.byType(EditableText), findsNothing);
+    // The keyboard goes away with the source.
+    expect(focus.hasFocus, isFalse);
 
     // Text typed before the switch is still there after switching back.
     await tester.tap(find.byKey(const ValueKey('show-preview')));

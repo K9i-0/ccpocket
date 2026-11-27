@@ -1161,6 +1161,78 @@ void main() {
       },
     );
 
+    testWidgets('a selection held while a block is put before it stays on its '
+        'text', (tester) async {
+      final controller = MarkdownSelectionController();
+      addTearDown(controller.dispose);
+      Widget view(String data) => _app(
+        child: MarkdownSelectionScope(
+          controller: controller,
+          child: MarkdownView(documentId: 'held', data: data),
+        ),
+      );
+      await tester.pumpWidget(view(before));
+      final charlie = _para(tester, 'charlie');
+      await tester.longPressAt(charlie.localToGlobal(const Offset(8, 8)));
+      await tester.pump();
+      expect(controller.getText(), 'charlie');
+      expect(controller.selection!.base.blockIndex, 2);
+
+      // The block moves from index 2 to 3 while it is selected.
+      await tester.pumpWidget(view(inserted));
+      await tester.pump();
+      await tester.pump();
+      expect(_drain(tester), isEmpty);
+      expect(identical(_para(tester, 'charlie'), charlie), isTrue);
+      expect(controller.getText(), 'charlie');
+      expect(controller.selection!.base.blockIndex, 3);
+      // The highlight is on the moved paragraph and nowhere else.
+      expect(
+        charlie.selectionHighlightRange,
+        const TextRange(start: 0, end: 7),
+      );
+      expect(_para(tester, 'new one').selectionHighlightRange, isNull);
+
+      // And back, with the block removed again.
+      await tester.pumpWidget(view(before));
+      await tester.pump();
+      await tester.pump();
+      expect(_drain(tester), isEmpty);
+      expect(controller.getText(), 'charlie');
+      expect(controller.selection!.base.blockIndex, 2);
+      expect(
+        charlie.selectionHighlightRange,
+        const TextRange(start: 0, end: 7),
+      );
+
+      await tester.tapAt(const Offset(400, 600));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('a scrolled table keeps its offset when a block is put before '
+        'it', (tester) async {
+      final table =
+          '| ${List.filled(8, 'wide column').join(' | ')} |\n'
+          '| ${List.filled(8, '---').join(' | ')} |\n'
+          '| ${List.filled(8, 'v').join(' | ')} |';
+      Widget view(String data) => _app(
+        child: MarkdownView(documentId: 'table-moved', data: data),
+      );
+      await tester.pumpWidget(view('lead\n\n$table'));
+      final scroller = find.descendant(
+        of: find.byType(MarkdownTableWidget),
+        matching: find.byType(SingleChildScrollView),
+      );
+      await tester.drag(scroller, const Offset(-200, 0));
+      await tester.pumpAndSettle();
+      final left = tester.getTopLeft(find.byType(Table)).dx;
+      expect(left, lessThan(-100.0));
+
+      await tester.pumpWidget(view('lead\n\nadded\n\n$table'));
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.byType(Table)).dx, left);
+    });
+
     testWidgets('equal blocks side by side do not collide', (tester) async {
       final probe = _Probe();
       await tester.pumpWidget(

@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:markdown_kit/markdown_kit.dart' show kMarkdownMonospaceFallback;
@@ -79,6 +79,7 @@ class _SourcePaneState extends State<SourcePane>
   late final _gestures = TextSelectionGestureDetectorBuilder(delegate: this);
   late _SelectionControls _controls = _SelectionControls(widget.colors.cursor);
   bool _showHandles = false;
+  bool _touched = false;
 
   @override
   void didUpdateWidget(covariant SourcePane oldWidget) {
@@ -101,9 +102,10 @@ class _SourcePaneState extends State<SourcePane>
     TextSelection selection,
     SelectionChangedCause? cause,
   ) {
-    // Handles are for fingers: shown after a touch, not after a key or click.
+    // Handles are for fingers: shown after a touch, not after a key or a
+    // click (a right-click selects too, and has no use for them).
     final show =
-        _gestures.shouldShowSelectionToolbar &&
+        _touched &&
         cause != SelectionChangedCause.keyboard &&
         (cause == SelectionChangedCause.longPress ||
             cause == SelectionChangedCause.stylusHandwriting ||
@@ -138,43 +140,48 @@ class _SourcePaneState extends State<SourcePane>
             minHeight: (constraints.maxHeight - SourcePane.padding.vertical)
                 .clamp(0, double.infinity),
           ),
-          child: MouseRegion(
-            cursor: SystemMouseCursors.text,
-            child: _gestures.buildGestureDetector(
-              behavior: HitTestBehavior.translucent,
-              child: EditableText(
-                key: widget.editableKey,
-                controller: widget.controller,
-                focusNode: widget.focusNode,
-                style: style,
-                strutStyle: StrutStyle.fromTextStyle(
-                  style,
-                  forceStrutHeight: true,
-                ),
-                cursorColor: colors.cursor,
-                backgroundCursorColor: colors.selection,
-                selectionColor: colors.selection,
-                cursorWidth: 2,
-                cursorRadius: const Radius.circular(1),
-                maxLines: null,
-                keyboardType: TextInputType.multiline,
-                textInputAction: TextInputAction.newline,
-                textCapitalization: TextCapitalization.none,
-                autocorrect: false,
-                enableSuggestions: false,
-                smartDashesType: SmartDashesType.disabled,
-                smartQuotesType: SmartQuotesType.disabled,
-                inputFormatters: const [MarkdownEnterFormatter()],
-                // The pane scrolls, not the field inside it.
-                scrollPhysics: const NeverScrollableScrollPhysics(),
-                rendererIgnoresPointer: true,
-                showSelectionHandles: _showHandles,
-                selectionControls: _controls,
-                onSelectionChanged: _selectionChanged,
-                contextMenuBuilder: (context, editable) => _ContextMenu(
-                  anchors: editable.contextMenuAnchors,
-                  items: editable.contextMenuButtonItems,
-                  colors: colors,
+          child: Listener(
+            onPointerDown: (event) => _touched =
+                event.kind == PointerDeviceKind.touch ||
+                event.kind == PointerDeviceKind.stylus,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.text,
+              child: _gestures.buildGestureDetector(
+                behavior: HitTestBehavior.translucent,
+                child: EditableText(
+                  key: widget.editableKey,
+                  controller: widget.controller,
+                  focusNode: widget.focusNode,
+                  style: style,
+                  strutStyle: StrutStyle.fromTextStyle(
+                    style,
+                    forceStrutHeight: true,
+                  ),
+                  cursorColor: colors.cursor,
+                  backgroundCursorColor: colors.selection,
+                  selectionColor: colors.selection,
+                  cursorWidth: 2,
+                  cursorRadius: const Radius.circular(1),
+                  maxLines: null,
+                  keyboardType: TextInputType.multiline,
+                  textInputAction: TextInputAction.newline,
+                  textCapitalization: TextCapitalization.none,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  smartDashesType: SmartDashesType.disabled,
+                  smartQuotesType: SmartQuotesType.disabled,
+                  inputFormatters: const [MarkdownEnterFormatter()],
+                  // The pane scrolls, not the field inside it.
+                  scrollPhysics: const NeverScrollableScrollPhysics(),
+                  rendererIgnoresPointer: true,
+                  showSelectionHandles: _showHandles,
+                  selectionControls: _controls,
+                  onSelectionChanged: _selectionChanged,
+                  contextMenuBuilder: (context, editable) => _ContextMenu(
+                    anchors: editable.contextMenuAnchors,
+                    items: editable.contextMenuButtonItems,
+                    colors: colors,
+                  ),
                 ),
               ),
             ),
@@ -186,7 +193,11 @@ class _SourcePaneState extends State<SourcePane>
 }
 
 /// Selection handles drawn without a design system: a dot on a short stem.
-class _SelectionControls extends TextSelectionControls {
+///
+/// [TextSelectionHandleControls] says these controls draw handles only, which
+/// is what makes the text field take its menu from `contextMenuBuilder`.
+class _SelectionControls extends TextSelectionControls
+    with TextSelectionHandleControls {
   _SelectionControls(this.color);
 
   final Color color;
@@ -216,18 +227,6 @@ class _SelectionControls extends TextSelectionControls {
       ),
     );
   }
-
-  @override
-  Widget buildToolbar(
-    BuildContext context,
-    Rect globalEditableRegion,
-    double textLineHeight,
-    Offset selectionMidpoint,
-    List<TextSelectionPoint> endpoints,
-    TextSelectionDelegate delegate,
-    ValueListenable<ClipboardStatus>? clipboardStatus,
-    Offset? lastSecondaryTapDownPosition,
-  ) => const SizedBox.shrink();
 }
 
 class _HandlePainter extends CustomPainter {
