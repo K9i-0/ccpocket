@@ -27,17 +27,33 @@ is different, and that is where they hurt:
 
 It is built on `package:flutter/widgets.dart` only (no Material or Cupertino
 import), so colours, text styles, handles, the context menu and every block
-can be replaced. It was written for
-[CC Pocket](https://github.com/K9i-0/ccpocket), a mobile client for coding
-agents, and renders every message there.
+can be replaced.
+
+It was written for [CC Pocket](https://github.com/K9i-0/ccpocket), a mobile
+client for coding agents, and renders every message there. CC Pocket has
+shipped continuously since January 2026, most of that time on other Markdown
+widgets. What is held back while streaming, how a selection behaves in a lazy
+list, what Copy returns and how large a handle has to be were each decided by
+a problem met in that app.
 
 ## When to use something else
 
-- You need full HTML rendering. Only a small set of tags is supported; the
-  rest is shown as text.
-- You need math typeset out of the box. Math is parsed and handed to a
-  builder; bring your own renderer.
-- You are on Flutter older than 3.50.
+- **You are rendering HTML documents.** Like most Markdown widgets for
+  Flutter, this one does not lay out HTML. It maps a short list of tags onto
+  its own nodes (see [Behaviour worth knowing](#behaviour-worth-knowing)) and
+  shows the rest as text, so layout tags such as `<div>` and `<span>` stay
+  as written. The list was chosen from what agents emit inside Markdown.
+  For HTML itself use an HTML widget such as
+  [flutter_widget_from_html](https://pub.dev/packages/flutter_widget_from_html);
+  for Markdown with a much longer tag list,
+  [gpt_markdown](https://pub.dev/packages/gpt_markdown).
+- **You want math typeset with no extra code.** `\(…\)` and `\[…\]` are
+  parsed and handed to a builder, and the package ships no typesetter. The
+  example adds one with
+  [flutter_math_fork](https://pub.dev/packages/flutter_math_fork) in a single
+  file you can copy, [`example/lib/math.dart`](example/lib/math.dart); CC
+  Pocket renders math the same way.
+- **You are on Flutter older than 3.50.**
 
 ## Requirements
 
