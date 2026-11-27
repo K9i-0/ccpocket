@@ -42,7 +42,7 @@
     {
       "type": "video",
       "x": 816,
-      "y": 300,
+      "y": 258,
       "width": 294,
       "height": 640,
       "fit": "cover",
@@ -58,10 +58,10 @@
     },
     {
       "type": "video",
-      "x": 248,
-      "y": 110,
-      "width": 386,
-      "height": 840,
+      "x": 204,
+      "y": 92,
+      "width": 374,
+      "height": 814,
       "fit": "cover",
       "clips": [
         {
@@ -76,10 +76,10 @@
     },
     {
       "type": "video",
-      "x": 256,
-      "y": 128,
-      "width": 1408,
-      "height": 836,
+      "x": 272,
+      "y": 138,
+      "width": 1376,
+      "height": 818,
       "fit": "cover",
       "radius": 8,
       "clips": [
@@ -95,10 +95,10 @@
     },
     {
       "type": "video",
-      "x": 256,
-      "y": 128,
-      "width": 1408,
-      "height": 836,
+      "x": 272,
+      "y": 138,
+      "width": 1376,
+      "height": 818,
       "fit": "cover",
       "radius": 8,
       "clips": [

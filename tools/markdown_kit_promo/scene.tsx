@@ -44,20 +44,24 @@ interface SubtitleCue {
   text: string;
 }
 
-// Sentence-synced subtle narration captions (aligned to measured WAV silence boundaries @ 30fps)
+// Short, mobile-readable 1-line subtitle cues synced to measured WAV speech boundaries @ 30fps
 const SUBTITLES: SubtitleCue[] = [
   {from: 8, to: 108, text: 'Meet markdown_kit — AI chat Markdown for Flutter.'},
-  {from: 132, to: 241, text: 'When agents stream token by token, finished blocks build once,'},
-  {from: 243, to: 367, text: 'while unfinished bold, code, and tables stay held back with zero flicker.'},
+  {from: 132, to: 200, text: 'When agents stream token by token,'},
+  {from: 201, to: 243, text: 'finished blocks build once,'},
+  {from: 244, to: 367, text: 'while unfinished syntax stays held back — zero flicker.'},
   {from: 472, to: 570, text: 'Drag touch handles across lists, code, and tables.'},
   {from: 572, to: 645, text: 'Scroll freely and your highlight stays anchored.'},
   {from: 647, to: 705, text: 'Copy plain text or Markdown.'},
   {from: 814, to: 872, text: 'Built-in dark theme included.'},
   {from: 904, to: 983, text: 'On desktop, it drives a live-preview editor.'},
-  {from: 985, to: 1124, text: 'Every keystroke re-parses only the active block in under half a millisecond.'},
+  {from: 985, to: 1058, text: 'Every keystroke re-parses only the active block'},
+  {from: 1059, to: 1124, text: 'in under half a millisecond.'},
   {from: 1200, to: 1287, text: 'Source and preview scroll in sync, block by block.'},
-  {from: 1289, to: 1400, text: 'Tap any block to jump to its source, and switch to dark mode instantly.'},
-  {from: 1476, to: 1624, text: 'Pure Flutter widgets only — with slivers, alerts, math, custom rules, and RTL.'},
+  {from: 1289, to: 1344, text: 'Tap any block to jump to its source,'},
+  {from: 1345, to: 1400, text: 'and switch to dark mode instantly.'},
+  {from: 1476, to: 1522, text: 'Pure Flutter widgets only —'},
+  {from: 1523, to: 1624, text: 'slivers, alerts, math, custom rules, and RTL.'},
   {from: 1644, to: 1701, text: 'Battle-tested in CC Pocket.'},
   {from: 1703, to: 1762, text: 'Try the live web demo today.'},
 ];
@@ -97,10 +101,7 @@ function themeColors(dark: number) {
     text: mixHex('#0f172a', '#f8fafc', dark),
     sub: mixHex('#475569', '#cbd5e1', dark),
     muted: mixHex('#64748b', '#94a3b8', dark),
-    cardBg: dark > 0.5 ? 'rgba(30, 41, 59, 0.72)' : 'rgba(255, 255, 255, 0.88)',
-    cardBorder: dark > 0.5 ? 'rgba(148, 163, 184, 0.22)' : 'rgba(15, 23, 42, 0.10)',
     accent: mixHex('#1f6feb', '#58a6ff', dark),
-    accentSoft: dark > 0.5 ? 'rgba(88, 166, 255, 0.16)' : 'rgba(31, 111, 235, 0.10)',
     gridDot: dark > 0.5 ? 'rgba(148, 163, 184, 0.10)' : 'rgba(15, 23, 42, 0.06)',
     winBar: mixHex('#eef2f6', '#161b22', dark),
     winBorder: dark > 0.5 ? 'rgba(148, 163, 184, 0.22)' : 'rgba(15, 23, 42, 0.14)',
@@ -121,9 +122,9 @@ interface IPhoneSpec {
 
 const HERO_IPHONE: IPhoneSpec = {
   screenX: 816,
-  screenY: 266,
+  screenY: 224,
   screenW: 294,
-  screenH: 696, // 34 (status) + 640 (video) + 22 (home)
+  screenH: 696, // 34 (status) + 640 (video) + 22 (home) -> bottom edge 931 (clean gap above 38px subtitle)
   statusH: 34,
   homeH: 22,
   bezel: 11,
@@ -131,10 +132,10 @@ const HERO_IPHONE: IPhoneSpec = {
 };
 
 const MAIN_IPHONE: IPhoneSpec = {
-  screenX: 248,
-  screenY: 66,
-  screenW: 386,
-  screenH: 908, // 44 (status) + 840 (video) + 24 (home)
+  screenX: 204,
+  screenY: 48,
+  screenW: 374,
+  screenH: 882, // 44 (status) + 814 (video) + 24 (home) -> bottom edge 944 (clean gap above 38px subtitle)
   statusH: 44,
   homeH: 24,
   bezel: 14,
@@ -186,7 +187,7 @@ const MacWindowChrome: React.FC<{
           <span style={{width: 11, height: 11, borderRadius: '50%', background: '#febc2e', display: 'inline-block'}} />
           <span style={{width: 11, height: 11, borderRadius: '50%', background: '#28c840', display: 'inline-block'}} />
         </div>
-        <div className="mono" style={{fontSize: 13, fontWeight: 500, color: c.winTitle}}>
+        <div className="mono" style={{fontSize: 13.5, fontWeight: 500, color: c.winTitle}}>
           {title}
         </div>
         <div style={{width: 48}} />
@@ -477,7 +478,7 @@ const IPhoneScreenOverlay: React.FC<{
 };
 
 /**
- * Subtle, unobtrusive narration subtitle pill anchored cleanly in the bottom margin.
+ * Mobile-readable yet understated narration subtitle pill (38px on 1080p ≈ 7.8pt on a 390pt phone feed).
  */
 const SubtleSubtitle: React.FC<{frame: number; dark: number}> = ({frame, dark}) => {
   const cue = SUBTITLES.find((c) => frame >= c.from && frame <= c.to);
@@ -490,9 +491,9 @@ const SubtleSubtitle: React.FC<{frame: number; dark: number}> = ({frame, dark}) 
     <div
       style={{
         position: 'absolute',
-        left: 96,
-        right: 96,
-        bottom: 24,
+        left: 64,
+        right: 64,
+        bottom: 20,
         display: 'flex',
         justifyContent: 'center',
         opacity: op,
@@ -501,17 +502,17 @@ const SubtleSubtitle: React.FC<{frame: number; dark: number}> = ({frame, dark}) 
     >
       <div
         style={{
-          padding: '8px 22px',
+          padding: '11px 30px',
           borderRadius: 999,
-          background: dark > 0.5 ? 'rgba(15, 23, 42, 0.78)' : 'rgba(15, 23, 42, 0.74)',
-          border: dark > 0.5 ? '1px solid rgba(148, 163, 184, 0.22)' : '1px solid rgba(255, 255, 255, 0.12)',
-          color: 'rgba(248, 250, 252, 0.94)',
-          fontSize: 20,
-          fontWeight: 500,
-          letterSpacing: '0.005em',
-          lineHeight: 1.35,
+          background: dark > 0.5 ? 'rgba(15, 23, 42, 0.84)' : 'rgba(15, 23, 42, 0.80)',
+          border: dark > 0.5 ? '1.5px solid rgba(148, 163, 184, 0.28)' : '1.5px solid rgba(255, 255, 255, 0.14)',
+          color: 'rgba(248, 250, 252, 0.96)',
+          fontSize: 38,
+          fontWeight: 600,
+          letterSpacing: '-0.005em',
+          lineHeight: 1.25,
           whiteSpace: 'nowrap',
-          boxShadow: '0 6px 20px rgba(0, 0, 0, 0.16)',
+          boxShadow: '0 8px 26px rgba(0, 0, 0, 0.20)',
         }}
       >
         {cue.text}
@@ -614,10 +615,10 @@ export const scenes = {
           {/* S3 Centered large Desktop editor window */}
           {editorOp > 0 && (
             <MacWindowChrome
-              x={256}
-              y={94}
-              width={1408}
-              height={870}
+              x={272}
+              y={104}
+              width={1376}
+              height={852}
               barHeight={34}
               title="markdown_kit — Live Editor"
               dark={dark}
@@ -628,10 +629,10 @@ export const scenes = {
           {/* S4 Centered large Desktop showcase window */}
           {showcaseOp > 0 && (
             <MacWindowChrome
-              x={256}
-              y={94}
-              width={1408}
-              height={870}
+              x={272}
+              y={104}
+              width={1376}
+              height={852}
               barHeight={34}
               title="markdown_kit — SliverMarkdownView"
               dark={1}
@@ -665,7 +666,7 @@ export const scenes = {
       const c = themeColors(dark);
 
       // ================================================================
-      // S0: HERO OPENER (0 - 120) — Minimal, crisp, zero clutter
+      // S0: HERO OPENER (0 - 120) — Mobile-legible large title
       // ================================================================
       if (frame < tl.heroEnd) {
         const outOp = interpolate(frame, [tl.heroEnd - 8, tl.heroEnd], [1, 0], 'outCubic');
@@ -676,23 +677,23 @@ export const scenes = {
               <div
                 style={{
                   position: 'absolute',
-                  left: 108,
-                  top: 310,
-                  width: 650,
+                  left: 84,
+                  top: 254,
+                  width: 690,
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 22,
+                  gap: 28,
                 }}
               >
                 <div>
                   <span
                     className="mono"
                     style={{
-                      padding: '7px 14px',
+                      padding: '10px 20px',
                       borderRadius: 999,
                       background: '#1f6feb',
                       color: '#ffffff',
-                      fontSize: 15,
+                      fontSize: 24,
                       fontWeight: 700,
                       letterSpacing: '0.07em',
                     }}
@@ -704,7 +705,7 @@ export const scenes = {
                 <div
                   className="mono"
                   style={{
-                    fontSize: 84,
+                    fontSize: 96,
                     fontWeight: 700,
                     color: '#0f172a',
                     letterSpacing: '-0.03em',
@@ -716,14 +717,16 @@ export const scenes = {
 
                 <div
                   style={{
-                    fontSize: 34,
-                    fontWeight: 500,
+                    fontSize: 48,
+                    fontWeight: 600,
                     color: '#475569',
-                    lineHeight: 1.32,
-                    letterSpacing: '-0.01em',
+                    lineHeight: 1.25,
+                    letterSpacing: '-0.015em',
                   }}
                 >
-                  Markdown for AI chat &amp; editors.
+                  Markdown for AI chat
+                  <br />
+                  &amp; live editors.
                 </div>
               </div>
             </div>
@@ -734,7 +737,7 @@ export const scenes = {
       }
 
       // ================================================================
-      // S1 & S2: MOBILE CHAT (120 - 885) — Large iPhone + single punchy headline
+      // S1 & S2: MOBILE CHAT (120 - 885) — Large iPhone + bold mobile-legible headline
       // ================================================================
       if (frame < tl.editorStart) {
         const isStreaming = frame < tl.selectionStart;
@@ -779,20 +782,20 @@ export const scenes = {
             <div
               style={{
                 position: 'absolute',
-                left: 770,
-                top: 340,
-                width: 1020,
+                left: 710,
+                top: 280,
+                width: 1120,
                 opacity: textOp,
                 transform: `translateY(${slide.toFixed(1)}px)`,
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 24,
+                gap: 28,
               }}
             >
               <div
                 className="mono"
                 style={{
-                  fontSize: 18,
+                  fontSize: 28,
                   fontWeight: 700,
                   color: c.accent,
                   letterSpacing: '0.12em',
@@ -803,10 +806,10 @@ export const scenes = {
 
               <div
                 style={{
-                  fontSize: 92,
+                  fontSize: 118,
                   fontWeight: 700,
                   color: c.text,
-                  lineHeight: 1.05,
+                  lineHeight: 1.04,
                   letterSpacing: '-0.03em',
                 }}
               >
@@ -817,11 +820,11 @@ export const scenes = {
 
               <div
                 style={{
-                  fontSize: 25,
+                  fontSize: 40,
                   fontWeight: 500,
                   color: c.sub,
-                  letterSpacing: '-0.005em',
-                  marginTop: 4,
+                  letterSpacing: '-0.01em',
+                  marginTop: 6,
                 }}
               >
                 {meta}
@@ -834,14 +837,13 @@ export const scenes = {
       }
 
       // ================================================================
-      // S3: DESKTOP LIVE EDITOR (885 - 1470) — Centered full-focus window
+      // S3: DESKTOP LIVE EDITOR (885 - 1470) — Centered window + large mobile-readable header
       // ================================================================
       if (frame < tl.showcaseStart) {
         const op = sectionFade(frame, tl.editorStart, tl.showcaseStart, 8, 8);
         const phase = frame < 1185 ? 0 : frame < tl.editorDarkFrame ? 1 : 2;
         const title = phase === 0 ? 'Live preview in < 0.5 ms.' : phase === 1 ? 'Synced scroll & tap to jump.' : 'Instant Dark Mode.';
 
-        // Subtle pointer pill sitting in the blank area of the editor status bar during typing
         const parseCalloutOp =
           frame >= 945 && frame <= 1085
             ? Math.min(
@@ -859,27 +861,27 @@ export const scenes = {
             <div
               style={{
                 position: 'absolute',
-                left: 256,
-                right: 256,
-                top: 32,
+                left: 272,
+                right: 272,
+                top: 26,
                 display: 'flex',
                 alignItems: 'baseline',
                 justifyContent: 'space-between',
                 opacity: op,
               }}
             >
-              <div style={{display: 'flex', alignItems: 'baseline', gap: 18}}>
+              <div style={{display: 'flex', alignItems: 'baseline', gap: 22}}>
                 <span
                   className="mono"
-                  style={{fontSize: 16, fontWeight: 700, color: c.accent, letterSpacing: '0.10em'}}
+                  style={{fontSize: 24, fontWeight: 700, color: c.accent, letterSpacing: '0.10em'}}
                 >
                   LIVE EDITOR
                 </span>
-                <span style={{fontSize: 36, fontWeight: 700, color: c.text, letterSpacing: '-0.02em'}}>
+                <span style={{fontSize: 52, fontWeight: 700, color: c.text, letterSpacing: '-0.025em'}}>
                   {title}
                 </span>
               </div>
-              <span className="mono" style={{fontSize: 16, fontWeight: 600, color: c.muted}}>
+              <span className="mono" style={{fontSize: 24, fontWeight: 600, color: c.muted}}>
                 markdown_kit
               </span>
             </div>
@@ -888,8 +890,8 @@ export const scenes = {
               <div
                 style={{
                   position: 'absolute',
-                  left: 746,
-                  top: 932,
+                  left: 750,
+                  top: 917,
                   opacity: parseCalloutOp,
                   transform: `scale(${(0.92 + 0.08 * parsePulse).toFixed(3)})`,
                   transformOrigin: 'left center',
@@ -897,13 +899,13 @@ export const scenes = {
               >
                 <div
                   style={{
-                    padding: '4px 12px',
+                    padding: '6px 18px',
                     borderRadius: 999,
                     background: '#1f6feb',
                     color: '#ffffff',
-                    fontSize: 13.5,
+                    fontSize: 21,
                     fontWeight: 700,
-                    boxShadow: '0 6px 18px rgba(31, 111, 235, 0.34)',
+                    boxShadow: '0 6px 20px rgba(31, 111, 235, 0.36)',
                   }}
                 >
                   ← &lt; 0.5 ms per keystroke
@@ -917,7 +919,7 @@ export const scenes = {
       }
 
       // ================================================================
-      // S4: SHOWCASE (1470 - 1626) — Centered full-focus dark window
+      // S4: SHOWCASE (1470 - 1626) — Centered dark window + large mobile-readable header
       // ================================================================
       if (frame < tl.outroStart) {
         const op = sectionFade(frame, tl.showcaseStart, tl.outroStart, 8, 10);
@@ -927,27 +929,27 @@ export const scenes = {
             <div
               style={{
                 position: 'absolute',
-                left: 256,
-                right: 256,
-                top: 32,
+                left: 272,
+                right: 272,
+                top: 26,
                 display: 'flex',
                 alignItems: 'baseline',
                 justifyContent: 'space-between',
                 opacity: op,
               }}
             >
-              <div style={{display: 'flex', alignItems: 'baseline', gap: 18}}>
+              <div style={{display: 'flex', alignItems: 'baseline', gap: 22}}>
                 <span
                   className="mono"
-                  style={{fontSize: 16, fontWeight: 700, color: '#58a6ff', letterSpacing: '0.10em'}}
+                  style={{fontSize: 24, fontWeight: 700, color: '#58a6ff', letterSpacing: '0.10em'}}
                 >
                   EXTENSIBLE
                 </span>
-                <span style={{fontSize: 36, fontWeight: 700, color: '#f8fafc', letterSpacing: '-0.02em'}}>
+                <span style={{fontSize: 52, fontWeight: 700, color: '#f8fafc', letterSpacing: '-0.025em'}}>
                   Pure flutter/widgets.dart.
                 </span>
               </div>
-              <span className="mono" style={{fontSize: 16, fontWeight: 600, color: '#94a3b8'}}>
+              <span className="mono" style={{fontSize: 24, fontWeight: 600, color: '#94a3b8'}}>
                 SliverMarkdownView
               </span>
             </div>
@@ -958,7 +960,7 @@ export const scenes = {
       }
 
       // ================================================================
-      // S5: OUTRO CTA (1626 - 1800) — Clean pub.dev + GitHub + Live Demo links
+      // S5: OUTRO CTA (1626 - 1800) — Stacked high-legibility pub.dev + GitHub cards
       // ================================================================
       const local = frame - tl.outroStart;
       const inOp = interpolate(local, [0, 14], [0, 1], 'outCubic');
@@ -976,7 +978,7 @@ export const scenes = {
               alignItems: 'center',
               justifyContent: 'center',
               textAlign: 'center',
-              paddingBottom: 32,
+              paddingBottom: 68,
               opacity: inOp * endFade,
               transform: `scale(${scale.toFixed(4)})`,
             }}
@@ -984,67 +986,67 @@ export const scenes = {
             <div
               className="mono"
               style={{
-                fontSize: 102,
+                fontSize: 124,
                 fontWeight: 700,
                 color: '#f8fafc',
                 letterSpacing: '-0.03em',
-                lineHeight: 1.04,
+                lineHeight: 1.02,
               }}
             >
               markdown_kit
             </div>
 
-            <div style={{display: 'flex', gap: 20, marginTop: 42}}>
+            <div style={{display: 'flex', flexDirection: 'column', gap: 20, marginTop: 44, width: 1080}}>
               <div
                 style={{
-                  padding: '20px 34px',
-                  borderRadius: 16,
-                  background: 'rgba(31, 111, 235, 0.18)',
-                  border: '1.5px solid rgba(88, 166, 255, 0.55)',
-                  boxShadow: '0 16px 48px rgba(31, 111, 235, 0.22)',
+                  padding: '24px 44px',
+                  borderRadius: 20,
+                  background: 'rgba(31, 111, 235, 0.22)',
+                  border: '2px solid rgba(88, 166, 255, 0.62)',
+                  boxShadow: '0 18px 52px rgba(31, 111, 235, 0.24)',
                   display: 'flex',
-                  flexDirection: 'column',
-                  gap: 6,
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
                 }}
               >
-                <div className="mono" style={{fontSize: 13, fontWeight: 700, color: '#93c5fd', letterSpacing: '0.08em'}}>
+                <span className="mono" style={{fontSize: 24, fontWeight: 700, color: '#93c5fd', letterSpacing: '0.08em'}}>
                   PUB.DEV
-                </div>
-                <div className="mono" style={{fontSize: 25, fontWeight: 700, color: '#f8fafc'}}>
+                </span>
+                <span className="mono" style={{fontSize: 44, fontWeight: 700, color: '#f8fafc'}}>
                   pub.dev/packages/markdown_kit
-                </div>
+                </span>
               </div>
 
               <div
                 style={{
-                  padding: '20px 34px',
-                  borderRadius: 16,
-                  background: 'rgba(30, 41, 59, 0.80)',
-                  border: '1.5px solid rgba(148, 163, 184, 0.28)',
+                  padding: '24px 44px',
+                  borderRadius: 20,
+                  background: 'rgba(30, 41, 59, 0.84)',
+                  border: '2px solid rgba(148, 163, 184, 0.30)',
                   display: 'flex',
-                  flexDirection: 'column',
-                  gap: 6,
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
                 }}
               >
-                <div className="mono" style={{fontSize: 13, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em'}}>
+                <span className="mono" style={{fontSize: 24, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em'}}>
                   GITHUB
-                </div>
-                <div className="mono" style={{fontSize: 25, fontWeight: 700, color: '#f8fafc'}}>
+                </span>
+                <span className="mono" style={{fontSize: 44, fontWeight: 700, color: '#f8fafc'}}>
                   github.com/K9i-0/ccpocket
-                </div>
+                </span>
               </div>
             </div>
 
             <div
               className="mono"
               style={{
-                marginTop: 28,
-                fontSize: 20,
+                marginTop: 32,
+                fontSize: 32,
                 fontWeight: 500,
                 color: '#94a3b8',
               }}
             >
-              Live demo · <span style={{color: '#58a6ff'}}>k9i-0.github.io/markdown_kit</span> · MIT
+              Demo: <span style={{color: '#58a6ff', fontWeight: 700}}>k9i-0.github.io/markdown_kit</span> · MIT
             </div>
           </div>
 
