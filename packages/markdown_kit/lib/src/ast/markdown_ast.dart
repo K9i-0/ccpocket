@@ -63,18 +63,23 @@ class MarkdownDocument {
   /// This is what links a position in the source to a block on screen, for
   /// example to keep an editor and its preview scrolled to the same place.
   ///
-  /// The ranges are as fine as the parser can split the source without
-  /// changing the result, which is coarser than one block in two cases:
+  /// The ranges are as fine as the parser can cut the source into pieces
+  /// that parse on their own, which is one block in most documents and
+  /// coarser in two cases:
   ///
   /// - Blocks with no blank line between them (a heading directly followed by
   ///   its paragraph) share one range covering all of them.
-  /// - In a document with link reference definitions, footnote definitions or
-  ///   a raw HTML block that may span blank lines, every block shares one
-  ///   range covering the whole source.
+  /// - Raw HTML that runs across blank lines (a comment, `<pre>`) makes every
+  ///   block share one range covering the whole source.
   ///
-  /// Blocks that share a range refer to the same instance. A range includes
-  /// the blank lines that follow its blocks. Ranges are in source order and do
-  /// not overlap, but source that produces no block (a comment) is in none.
+  /// Blocks that share a range have equal entries. A range includes the blank
+  /// lines that follow its blocks. Ranges are in source order and do not
+  /// overlap, but source that produces no block (a comment, a link reference
+  /// definition) is in none.
+  ///
+  /// Reading the ranges is free, except in a document with link reference or
+  /// footnote definitions: there they are worked out on the first read, at
+  /// about the cost of parsing the document once more.
   ///
   /// Not part of `==`: the ranges are derived from [source].
   final List<MarkdownSourceRange>? blockSourceRanges;

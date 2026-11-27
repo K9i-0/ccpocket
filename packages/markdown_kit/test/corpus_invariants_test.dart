@@ -73,6 +73,29 @@ void main() {
     expect(different, {'[Foo\n  bar]: /url\n\n[Baz][Foo bar]\n'});
   });
 
+  test('source ranges are in order and inside the source for every '
+      'document', () {
+    for (final source in corpus) {
+      final document = GfmMarkdownParser().parse(source);
+      final ranges = document.blockSourceRanges;
+      if (document.isEmpty) {
+        expect(ranges, anyOf(isNull, isEmpty), reason: _visible(source));
+        continue;
+      }
+      expect(ranges, hasLength(document.blocks.length));
+      var previous = const MarkdownSourceRange(0, 0);
+      for (final range in ranges!) {
+        expect(range.end, lessThanOrEqualTo(source.length));
+        expect(
+          range == previous || range.start >= previous.end,
+          isTrue,
+          reason: _visible(source),
+        );
+        previous = range;
+      }
+    }
+  });
+
   test('streaming every prefix converges on the complete parse', () {
     final degraded = <String>{};
     for (final source in corpus) {

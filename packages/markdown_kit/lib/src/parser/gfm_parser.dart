@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import 'package:markdown/markdown.dart' as md;
 import 'package:meta/meta.dart';
 
@@ -111,11 +113,19 @@ class GfmMarkdownParser implements MarkdownParser {
     final List<MarkdownSourceRange> ranges;
 
     if (chunks.length <= 1) {
-      blocks = _parseChunk(effectiveSource, resolveFootnotes: true);
-      ranges = List<MarkdownSourceRange>.filled(
-        blocks.length,
-        MarkdownSourceRange(0, effectiveSource.length),
-      );
+      final wholeBlocks = _parseChunk(effectiveSource, resolveFootnotes: true);
+      blocks = wholeBlocks;
+      // Finding where each block of an unsplit document came from takes a
+      // second parse. Only something that reads the ranges pays for it.
+      ranges = wholeBlocks.length <= 1
+          ? List<MarkdownSourceRange>.filled(
+              wholeBlocks.length,
+              MarkdownSourceRange(0, effectiveSource.length),
+            )
+          : _LazyList<MarkdownSourceRange>(
+              wholeBlocks.length,
+              () => _rangesOfUnsplitDocument(effectiveSource, wholeBlocks),
+            );
     } else {
       final combined = <MarkdownBlock>[];
       final combinedRanges = <MarkdownSourceRange>[];
@@ -135,13 +145,7 @@ class GfmMarkdownParser implements MarkdownParser {
             _lastStreamingTailBlocks = chunkBlocks;
           }
         } else {
-          final cachedChunk = _blockCache.get(chunk);
-          if (cachedChunk != null) {
-            chunkBlocks = cachedChunk;
-          } else {
-            chunkBlocks = _parseChunk(chunk, resolveFootnotes: false);
-            _blockCache.put(chunk, chunkBlocks);
-          }
+          chunkBlocks = _cachedChunkBlocks(chunk);
         }
         combined.addAll(chunkBlocks);
         final chunkEnd = chunkStart + chunk.length;
@@ -154,13 +158,13 @@ class GfmMarkdownParser implements MarkdownParser {
         chunkStart = chunkEnd;
       }
       blocks = List.unmodifiable(combined);
-      ranges = combinedRanges;
+      ranges = List.unmodifiable(combinedRanges);
     }
 
     final document = MarkdownDocument(
       blocks: blocks,
       source: effectiveSource,
-      blockSourceRanges: List.unmodifiable(ranges),
+      blockSourceRanges: ranges,
     );
 
     if (isStreaming) {
@@ -171,6 +175,68 @@ class GfmMarkdownParser implements MarkdownParser {
     }
 
     return document;
+  }
+
+  List<MarkdownBlock> _cachedChunkBlocks(String chunk) {
+    final cached = _blockCache.get(chunk);
+    if (cached != null) return cached;
+    final parsed = _parseChunk(chunk, resolveFootnotes: false);
+    _blockCache.put(chunk, parsed);
+    return parsed;
+  }
+
+  /// Source ranges for [blocks], the result of parsing [source] in one piece
+  /// because it holds something every chunk has to see (a link reference
+  /// definition, say).
+  ///
+  /// The same source cut into chunks parses to the same blocks, save for
+  /// what the chunks cannot see of each other. So each chunk is parsed on its
+  /// own, only to count its blocks, and those counts place the real blocks.
+  /// When the chunks do not add up to [blocks] (raw HTML that runs across
+  /// blank lines), every block gets the whole source as its range.
+  List<MarkdownSourceRange> _rangesOfUnsplitDocument(
+    String source,
+    List<MarkdownBlock> blocks,
+  ) {
+    List<MarkdownSourceRange> whole() => List<MarkdownSourceRange>.filled(
+      blocks.length,
+      MarkdownSourceRange(0, source.length),
+    );
+
+    final chunks = splitMarkdownBlocks(
+      source,
+      ignoreCrossBlockConstructs: true,
+      bracketMath: options.enableLatex,
+      dollarMath: options.enableLatex && options.enableDollarLatex,
+    );
+    if (chunks.length <= 1) return whole();
+
+    final ranges = <MarkdownSourceRange>[];
+    var chunkStart = 0;
+    for (final chunk in chunks) {
+      final chunkEnd = chunkStart + chunk.length;
+      final chunkBlocks = _cachedChunkBlocks(chunk);
+      if (chunkBlocks.isNotEmpty) {
+        final range = MarkdownSourceRange(chunkStart, chunkEnd);
+        for (final chunkBlock in chunkBlocks) {
+          final index = ranges.length;
+          if (index >= blocks.length ||
+              blocks[index].runtimeType != chunkBlock.runtimeType) {
+            return whole();
+          }
+          ranges.add(range);
+        }
+      }
+      chunkStart = chunkEnd;
+    }
+
+    // Footnote definitions are gathered into one block at the end.
+    if (ranges.length == blocks.length - 1 &&
+        ranges.isNotEmpty &&
+        blocks.last is FootnoteDefinitionsBlock) {
+      ranges.add(ranges.last);
+    }
+    return ranges.length == blocks.length ? ranges : whole();
   }
 
   List<MarkdownBlock> _parseChunk(
@@ -2024,4 +2090,38 @@ List<MarkdownInline> _coalesceTextInlines(List<MarkdownInline> inlines) {
   }
   flush();
   return List.unmodifiable(result);
+}
+
+/// An unmodifiable list whose elements are computed the first time one is
+/// read. Its length is known up front.
+class _LazyList<E> extends ListBase<E> {
+  _LazyList(this._length, this._compute);
+
+  final int _length;
+  List<E> Function()? _compute;
+  List<E>? _elements;
+
+  List<E> get _resolved {
+    final elements = _elements;
+    if (elements != null) return elements;
+    final computed = _compute!();
+    assert(computed.length == _length);
+    _compute = null;
+    return _elements = computed;
+  }
+
+  @override
+  int get length => _length;
+
+  @override
+  set length(int value) => throw UnsupportedError(
+    'Cannot change the length of an unmodifiable list',
+  );
+
+  @override
+  E operator [](int index) => _resolved[index];
+
+  @override
+  void operator []=(int index, E value) =>
+      throw UnsupportedError('Cannot modify an unmodifiable list');
 }

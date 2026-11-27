@@ -48,16 +48,67 @@ void main() {
       expect(_slice(doc, 2), 'Next.\n');
     });
 
-    test('a document with a reference definition is one range', () {
+    test('a document with a reference definition still has a range per '
+        'block', () {
       const source =
-          'See [the docs][d].\n\nMore.\n\n[d]: https://example.com\n';
+          'See [the docs][d].\n\n[d]: https://example.com\n\nMore.\n\n- end\n';
+      final doc = GfmMarkdownParser().parse(source);
+
+      expect(doc.blocks, hasLength(3));
+      // The link was resolved, so the document was parsed in one piece.
+      expect(
+        (doc.blocks[0] as ParagraphBlock).inlines.whereType<LinkInline>(),
+        hasLength(1),
+      );
+      expect(_slice(doc, 0), 'See [the docs][d].\n\n');
+      // The definition makes no block and is in no range.
+      expect(_slice(doc, 1), 'More.\n\n');
+      expect(_slice(doc, 2), '- end\n');
+      expect(doc.blockIndexAtSourceOffset(source.indexOf('[d]:')), 1);
+    });
+
+    test('the footnotes block shares the range of the last block', () {
+      const source = 'Text[^1].\n\nMore.\n\n[^1]: The note.\n';
       final doc = GfmMarkdownParser().parse(source);
       final ranges = doc.blockSourceRanges!;
 
-      expect(doc.blocks, hasLength(2));
-      expect(ranges, hasLength(2));
-      for (final range in ranges) {
+      expect(doc.blocks.last, isA<FootnoteDefinitionsBlock>());
+      expect(ranges, hasLength(doc.blocks.length));
+      expect(_slice(doc, 0), 'Text[^1].\n\n');
+      expect(_slice(doc, 1), 'More.\n\n');
+      expect(ranges.last, ranges[ranges.length - 2]);
+    });
+
+    test('raw HTML across blank lines leaves one range for everything', () {
+      const source = 'Before.\n\n<pre>\na\n\nb\n</pre>\n\nAfter.\n';
+      final doc = GfmMarkdownParser().parse(source);
+
+      expect(doc.blocks.length, greaterThan(1));
+      for (final range in doc.blockSourceRanges!) {
         expect(range, const MarkdownSourceRange(0, source.length));
+      }
+    });
+
+    test('the ranges of an unsplit document are only worked out when read', () {
+      final parser = GfmMarkdownParser();
+      final doc = parser.parse('One [a][d].\n\nTwo.\n\n[d]: /u\n');
+
+      // Parsed in one piece: nothing went through the cache of chunks.
+      expect(parser.blockCacheLength, 0);
+      expect(doc.blockSourceRanges, hasLength(2));
+      expect(parser.blockCacheLength, 0);
+      expect(doc.blockSourceRanges![1], const MarkdownSourceRange(13, 19));
+      expect(parser.blockCacheLength, greaterThan(0));
+    });
+
+    test('the ranges cannot be changed', () {
+      for (final source in ['a\n\nb\n', 'a [x][d]\n\nb\n\n[d]: /u\n']) {
+        final ranges = GfmMarkdownParser().parse(source).blockSourceRanges!;
+        expect(
+          () => ranges[0] = const MarkdownSourceRange(0, 0),
+          throwsUnsupportedError,
+        );
+        expect(ranges.clear, throwsUnsupportedError);
       }
     });
 
