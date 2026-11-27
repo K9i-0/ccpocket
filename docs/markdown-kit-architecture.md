@@ -189,15 +189,32 @@ ccpocket 本体は `apps/mobile/pubspec.yaml` から `path: ../../packages/markd
 
 ### 5.2 公開当日の手順
 
-`packages/markdown_kit` は `publish_to: none`・version `0.1.0` のまま運用している。一時コピーで `publish_to` を外し version を `1.0.0` にした状態の `flutter pub publish --dry-run` は、警告が「`repository` 欄が無い」の 1 件だけであることを確認済み。公開時に行うこと:
+`packages/markdown_kit` は `publish_to: none`・version `0.1.0` のまま運用している。分離先は `K9i-0/markdown_kit`（pub.dev に同名・類似名のパッケージが無いことは 2026-11-27 に確認）。
 
-1. 新しいリポジトリへ `packages/markdown_kit/` を移す（履歴を残すなら `git filter-repo --subdirectory-filter packages/markdown_kit`）。この文書のうち 1〜2 章と 5〜7 章はパッケージ側へ移し、3 章（ccpocket への統合）は ccpocket に残す。
-2. `pubspec.yaml`: `publish_to: none` を削除、`version: 1.0.0`、`repository:`（と必要なら `issue_tracker:`）を追加。
-3. `CHANGELOG.md` の `1.0.0` の内容を最終確認する。
-4. 新リポジトリに CI を用意する（`flutter pub get` → `dart format --output=none --set-exit-if-changed .` → `dart analyze .` → `flutter test`、`example/` でも `flutter test`）。
-5. `flutter pub publish --dry-run` で警告ゼロを確認してから `flutter pub publish`。公開は取り消せない。
-6. ccpocket の `apps/mobile/pubspec.yaml` を path 依存から `markdown_kit: ^1.0.0` に切り替え、`packages/markdown_kit/`、CI の `markdown-kit` ジョブ、`scripts/release/run-checks.sh` と `scripts/worktree-bootstrap.sh` の該当行を削除する。
-7. 上流の dart-lang/tools #2932・#2933 が修正されたら、生テキストへのフォールバックとストリーミング末尾の保留が不要になっていないかを見直す。
+分離先で使う CI 一式は `packages/markdown_kit/` に置いてあり、ccpocket の中では動かない。構成は `simple_loading_dialog` に合わせている。
+
+- `.github/workflows/check_pr.yml`: 解析・整形・テスト・example のテスト・`flutter pub publish --dry-run`。別ジョブで下限の Flutter 3.50.0 でも同じテストを走らせる。example にプラットフォームのフォルダが無いので、Patrol の E2E は入れていない。
+- `.github/workflows/publish.yml`: `markdown_kit-v<version>` タグの push で、`tool/validate_release.py`（タグ・pubspec・CHANGELOG の一致と、main に載っていること）→ 上のチェック → OIDC で公開。
+- `.github/dependabot.yaml`、`.github/actions/setup-application-runtime/`、`tool/check_format.sh`、`.mise.toml`。
+
+2026-11-27 に、作業ツリーを一時ディレクトリへ書き出し、下の手順 2 の pubspec 変更を当てた状態で CI と同じ手順を実行した。解析・整形・テスト・example のテストが通り、`flutter pub publish --dry-run` は警告 0 件、アーカイブは 3 MB だった。
+
+pub.dev の自動公開は既存パッケージにしか設定できない。そのため 1.0.0 だけは手元から公開し、1.0.1 以降をタグで公開する。
+
+1. 新しいリポジトリを作り、`packages/markdown_kit/` を移す。履歴を残すなら、ccpocket を別の場所へ clone し直し、その中で `git filter-repo --subdirectory-filter packages/markdown_kit` を実行する（作業中のリポジトリでは実行しない）。この文書のうち 1〜2 章と 5〜7 章はパッケージ側へ移し、3 章（ccpocket への統合）は ccpocket に残す。
+2. `pubspec.yaml`: `publish_to: none` を削除、`version: 1.0.0`、`repository: https://github.com/K9i-0/markdown_kit` と `issue_tracker:` を追加。`CHANGELOG.md` の `1.0.0` の内容を最終確認する。
+3. main へ push し、`check-pr` が両ジョブとも通ることを確認する。
+4. 手元で `flutter pub publish --dry-run` の警告ゼロを確認してから `flutter pub publish`。公開は取り消せない。公開後、pub.dev でパブリッシャー `k9i.app` へ移す。
+5. pub.dev の Admin タブで GitHub Actions からの自動公開を有効にする。リポジトリは `K9i-0/markdown_kit`、タグのパターンは `markdown_kit-v{{version}}`。
+6. `1.0.0` のタグを付ける。そのまま push すると `publish.yml` が公開済みの版をもう一度公開しようとして失敗するので、`gh workflow disable publish.yml` → タグを push → `gh workflow enable publish.yml` の順で行う。GitHub のリリースもここで作る。
+7. ccpocket の `apps/mobile/pubspec.yaml` を path 依存から `markdown_kit: ^1.0.0` に切り替え、次を片付ける。
+   - `packages/markdown_kit/` を削除。
+   - `.github/workflows/test.yml`: `markdown-kit` ジョブと、キャッシュキーの `hashFiles(...)` に入っている `packages/markdown_kit/pubspec.yaml`。
+   - `scripts/release/run-checks.sh` と、その出力を検査している `scripts/release/release-tools.test.mjs`。
+   - `scripts/worktree-bootstrap.sh` の該当行。
+   - ルートの `README.md`・`README.ja.md`・`README.ko.md`・`README.zh-CN.md` にある `spec.json` のライセンスの段落（ファイルが ccpocket から無くなるので不要になる）。
+   - `docs/architecture/stack.md`、`docs/design/file-peek.md`、`docs/flutter-3.50-upgrade.md` の `packages/markdown_kit` への言及。
+8. 上流の dart-lang/tools #2932・#2933 が修正されたら、生テキストへのフォールバックとストリーミング末尾の保留が不要になっていないかを見直す。
 
 ---
 

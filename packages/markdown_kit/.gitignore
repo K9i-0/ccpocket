@@ -3,3 +3,4 @@
 build/
 coverage/
 pubspec.lock
+doc/api/

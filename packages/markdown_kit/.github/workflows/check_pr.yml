@@ -1,0 +1,72 @@
+name: check-pr
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Application Runtime
+        uses: ./.github/actions/setup-application-runtime
+
+      - name: Install example dependencies
+        working-directory: example
+        run: flutter pub get
+
+      - name: Analyze package and example
+        run: flutter analyze --fatal-infos --no-pub
+
+      - name: Check format
+        run: sh tool/check_format.sh
+
+      - name: Test
+        run: flutter test --no-pub
+
+      - name: Test example
+        working-directory: example
+        run: flutter test --no-pub
+
+      - name: Validate the package for pub.dev
+        run: flutter pub publish --dry-run
+
+  # The SDK floor in pubspec.yaml is a promise to users. Run the same tests on
+  # exactly that version so the promise is checked instead of assumed.
+  minimum-sdk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: "3.50.0"
+          channel: stable
+          cache: true
+
+      - name: Install package and example dependencies
+        run: |
+          flutter pub get
+          cd example && flutter pub get
+
+      - name: Analyze on minimum SDK
+        run: flutter analyze --fatal-infos --no-pub
+
+      - name: Test on minimum SDK
+        run: flutter test --no-pub
+
+      - name: Test example on minimum SDK
+        working-directory: example
+        run: flutter test --no-pub
