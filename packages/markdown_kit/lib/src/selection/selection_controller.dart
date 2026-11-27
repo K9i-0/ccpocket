@@ -337,6 +337,28 @@ class MarkdownSelectionController extends ChangeNotifier {
     return false;
   }
 
+  /// Returns `true` if [global] hits rendered text, or sits beside it: at the
+  /// height of a mounted surface but left or right of its glyphs.
+  ///
+  /// A mouse press starts a selection from these places too (the end of a
+  /// short line, a list marker, the padding next to a paragraph), snapping to
+  /// the nearest text. The gaps above and below blocks stay outside.
+  bool isOnSelectableRow(Offset global) {
+    for (final surface in _surfaces) {
+      if (surface.hitsTextAtGlobal(global)) {
+        return true;
+      }
+      final bounds = surface.globalBounds;
+      if (bounds != null &&
+          surface.textLength > 0 &&
+          global.dy >= bounds.top &&
+          global.dy < bounds.bottom) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /// Starts a collapsed selection at the nearest text position to [global].
   ///
   /// Always replaces any prior selection (even across documents when

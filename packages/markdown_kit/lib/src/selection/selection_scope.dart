@@ -894,9 +894,11 @@ class MarkdownSelectionScopeState extends State<MarkdownSelectionScope>
     }
 
     if (tapCount == 1) {
+      // A press beside the text (past the end of a line, in the indent)
+      // starts at the nearest caret, as in a browser or an editor.
       if ((widget.canStartSelectionAt != null &&
               !widget.canStartSelectionAt!(global)) ||
-          !controller.hitsSelectableContent(global)) {
+          !controller.isOnSelectableRow(global)) {
         _mouseDragMode = _MouseDragMode.none;
         clearSelection();
         return;
