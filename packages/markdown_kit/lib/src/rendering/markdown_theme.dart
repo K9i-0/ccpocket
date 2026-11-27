@@ -3,13 +3,24 @@ import 'package:flutter/widgets.dart';
 
 import '../ast/markdown_ast.dart';
 
+/// Fixed-width families tried after `monospace` in the default code styles.
+///
+/// `monospace` is a generic name that Android and Linux resolve, but iOS,
+/// macOS and Windows do not; without these, code there falls back to the
+/// proportional system font.
+const List<String> kMarkdownMonospaceFallback = <String>[
+  'Menlo',
+  'Consolas',
+  'Courier New',
+];
+
 /// Styling for inline code spans (`CodeTextSpan`) and `<kbd>` keycaps.
 @immutable
 class MarkdownInlineCodeStyle {
   /// Creates an inline code style.
   const MarkdownInlineCodeStyle({
     this.fontFamily = 'monospace',
-    this.fontFamilyFallback,
+    this.fontFamilyFallback = kMarkdownMonospaceFallback,
     this.fontSize,
     this.fontWeight,
     this.color,
@@ -142,6 +153,7 @@ class MarkdownCodeBlockStyle {
     this.padding = const EdgeInsets.all(12.0),
     this.textStyle = const TextStyle(
       fontFamily: 'monospace',
+      fontFamilyFallback: kMarkdownMonospaceFallback,
       fontSize: 13.0,
       height: 1.45,
       color: Color(0xFF1F2328),
@@ -929,6 +941,7 @@ class MarkdownThemeData {
       borderColor: Color(0xFF30363D),
       textStyle: TextStyle(
         fontFamily: 'monospace',
+        fontFamilyFallback: kMarkdownMonospaceFallback,
         fontSize: 13.0,
         height: 1.45,
         color: Color(0xFFE6EDF3),

@@ -8,6 +8,14 @@ publish_to: none
 screenshots:
   - description: A reply streaming into a chat, then selected across a list, a code block and a table.
     path: doc/demo.gif
+  - description: Headings, lists, a task list, a code block, a table and an alert with the built-in theme.
+    path: doc/blocks.png
+  - description: A selection running from a list through a code block into a table, with handles and the built-in menu.
+    path: doc/selection.png
+  - description: Typeset math, alerts, a details section, keyboard keys, a quote and a footnote.
+    path: doc/extras.png
+  - description: The built-in dark theme.
+    path: doc/dark.png
 
 topics:
   - markdown

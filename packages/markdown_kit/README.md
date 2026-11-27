@@ -7,6 +7,21 @@ scrolling list, that people still want to select and copy.
   <img src="doc/demo.gif" width="330" alt="A reply streams into a chat; a word is selected with a long-press, the selection is dragged across a list, a code block and a table, and the list is scrolled with the selection kept.">
 </p>
 
+<table>
+  <tr>
+    <td><img src="doc/blocks.png" width="200" alt="A heading, a paragraph with inline code and a link, a nested ordered list, a task list, a Dart code block, a table with aligned columns and a warning alert."></td>
+    <td><img src="doc/selection.png" width="200" alt="A selection that starts in a list, runs through a code block and ends inside a table, with two handles and a menu offering Copy, Copy as Markdown and Select all."></td>
+    <td><img src="doc/extras.png" width="200" alt="Inline and display math typeset as formulas, a note and a tip alert, a collapsed details section, keyboard keys, subscript and superscript, a quote with a nested list and a footnote."></td>
+    <td><img src="doc/dark.png" width="200" alt="The first picture drawn with the built-in dark theme."></td>
+  </tr>
+  <tr>
+    <td align="center">Blocks, with the built-in theme</td>
+    <td align="center">Selection across blocks</td>
+    <td align="center">Math (with a builder), alerts, details, footnotes</td>
+    <td align="center">Built-in dark theme</td>
+  </tr>
+</table>
+
 Most Markdown widgets are built for a finished document. A chat with an agent
 is different, and that is where they hurt:
 
