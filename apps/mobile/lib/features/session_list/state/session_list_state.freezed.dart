@@ -28,8 +28,8 @@ mixin _$SessionListState {
  Set<String> get collapsedProjectPaths;/// Project paths currently loading an additional page.
  Set<String> get loadingProjectPaths;/// Project paths known to have no more recent sessions to load.
  Set<String> get exhaustedProjectPaths;/// Per-project number of recent sessions currently visible in the list.
- Map<String, int> get projectSessionDisplayLimits;/// Stable keys for sessions pinned on this device.
- Set<String> get pinnedSessionKeys;/// Project paths pinned on this device.
+ Map<String, int> get projectSessionDisplayLimits;/// Stable keys for pinned sessions, shared through the Bridge.
+ Set<String> get pinnedSessionKeys;/// Pinned project paths, shared through the Bridge.
  Set<String> get pinnedProjectPaths;/// Provider filter (All / Claude / Codex). Applied server-side.
  ProviderFilter get providerFilter;/// Named-only filter toggle. Applied server-side.
  bool get namedOnly;/// Projects (multi-select), period, pinned only and content search.
@@ -315,18 +315,18 @@ class _SessionListState implements SessionListState {
   return EqualUnmodifiableMapView(_projectSessionDisplayLimits);
 }
 
-/// Stable keys for sessions pinned on this device.
+/// Stable keys for pinned sessions, shared through the Bridge.
  final  Set<String> _pinnedSessionKeys;
-/// Stable keys for sessions pinned on this device.
+/// Stable keys for pinned sessions, shared through the Bridge.
 @override@JsonKey() Set<String> get pinnedSessionKeys {
   if (_pinnedSessionKeys is EqualUnmodifiableSetView) return _pinnedSessionKeys;
   // ignore: implicit_dynamic_type
   return EqualUnmodifiableSetView(_pinnedSessionKeys);
 }
 
-/// Project paths pinned on this device.
+/// Pinned project paths, shared through the Bridge.
  final  Set<String> _pinnedProjectPaths;
-/// Project paths pinned on this device.
+/// Pinned project paths, shared through the Bridge.
 @override@JsonKey() Set<String> get pinnedProjectPaths {
   if (_pinnedProjectPaths is EqualUnmodifiableSetView) return _pinnedProjectPaths;
   // ignore: implicit_dynamic_type

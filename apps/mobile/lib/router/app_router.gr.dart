@@ -263,6 +263,7 @@ class GalleryRoute extends PageRouteInfo<GalleryRouteArgs> {
     Key? key,
     String? sessionId,
     bool embedded = false,
+    bool showAppBar = true,
     VoidCallback? onBack,
     VoidCallback? onClose,
     List<PageRouteInfo>? children,
@@ -272,6 +273,7 @@ class GalleryRoute extends PageRouteInfo<GalleryRouteArgs> {
            key: key,
            sessionId: sessionId,
            embedded: embedded,
+           showAppBar: showAppBar,
            onBack: onBack,
            onClose: onClose,
          ),
@@ -290,6 +292,7 @@ class GalleryRoute extends PageRouteInfo<GalleryRouteArgs> {
         key: args.key,
         sessionId: args.sessionId,
         embedded: args.embedded,
+        showAppBar: args.showAppBar,
         onBack: args.onBack,
         onClose: args.onClose,
       );
@@ -302,6 +305,7 @@ class GalleryRouteArgs {
     this.key,
     this.sessionId,
     this.embedded = false,
+    this.showAppBar = true,
     this.onBack,
     this.onClose,
   });
@@ -312,13 +316,15 @@ class GalleryRouteArgs {
 
   final bool embedded;
 
+  final bool showAppBar;
+
   final VoidCallback? onBack;
 
   final VoidCallback? onClose;
 
   @override
   String toString() {
-    return 'GalleryRouteArgs{key: $key, sessionId: $sessionId, embedded: $embedded, onBack: $onBack, onClose: $onClose}';
+    return 'GalleryRouteArgs{key: $key, sessionId: $sessionId, embedded: $embedded, showAppBar: $showAppBar, onBack: $onBack, onClose: $onClose}';
   }
 
   @override
@@ -328,6 +334,7 @@ class GalleryRouteArgs {
     return key == other.key &&
         sessionId == other.sessionId &&
         embedded == other.embedded &&
+        showAppBar == other.showAppBar &&
         onBack == other.onBack &&
         onClose == other.onClose;
   }
@@ -337,6 +344,7 @@ class GalleryRouteArgs {
       key.hashCode ^
       sessionId.hashCode ^
       embedded.hashCode ^
+      showAppBar.hashCode ^
       onBack.hashCode ^
       onClose.hashCode;
 }
@@ -583,23 +591,27 @@ class SessionLinkRouteArgs {
 class SettingsRoute extends PageRouteInfo<SettingsRouteArgs> {
   SettingsRoute({
     Key? key,
+    SettingsCategory? initialCategory,
     bool focusConnection = false,
     bool focusSupport = false,
     bool focusUsage = false,
     bool focusAppUpdate = false,
     bool embedded = false,
     VoidCallback? onBack,
+    LocalBridgeCubit Function()? createLocalBridgeCubit,
     List<PageRouteInfo>? children,
   }) : super(
          SettingsRoute.name,
          args: SettingsRouteArgs(
            key: key,
+           initialCategory: initialCategory,
            focusConnection: focusConnection,
            focusSupport: focusSupport,
            focusUsage: focusUsage,
            focusAppUpdate: focusAppUpdate,
            embedded: embedded,
            onBack: onBack,
+           createLocalBridgeCubit: createLocalBridgeCubit,
          ),
          initialChildren: children,
        );
@@ -614,12 +626,14 @@ class SettingsRoute extends PageRouteInfo<SettingsRouteArgs> {
       );
       return SettingsScreen(
         key: args.key,
+        initialCategory: args.initialCategory,
         focusConnection: args.focusConnection,
         focusSupport: args.focusSupport,
         focusUsage: args.focusUsage,
         focusAppUpdate: args.focusAppUpdate,
         embedded: args.embedded,
         onBack: args.onBack,
+        createLocalBridgeCubit: args.createLocalBridgeCubit,
       );
     },
   );
@@ -628,15 +642,19 @@ class SettingsRoute extends PageRouteInfo<SettingsRouteArgs> {
 class SettingsRouteArgs {
   const SettingsRouteArgs({
     this.key,
+    this.initialCategory,
     this.focusConnection = false,
     this.focusSupport = false,
     this.focusUsage = false,
     this.focusAppUpdate = false,
     this.embedded = false,
     this.onBack,
+    this.createLocalBridgeCubit,
   });
 
   final Key? key;
+
+  final SettingsCategory? initialCategory;
 
   final bool focusConnection;
 
@@ -650,9 +668,11 @@ class SettingsRouteArgs {
 
   final VoidCallback? onBack;
 
+  final LocalBridgeCubit Function()? createLocalBridgeCubit;
+
   @override
   String toString() {
-    return 'SettingsRouteArgs{key: $key, focusConnection: $focusConnection, focusSupport: $focusSupport, focusUsage: $focusUsage, focusAppUpdate: $focusAppUpdate, embedded: $embedded, onBack: $onBack}';
+    return 'SettingsRouteArgs{key: $key, initialCategory: $initialCategory, focusConnection: $focusConnection, focusSupport: $focusSupport, focusUsage: $focusUsage, focusAppUpdate: $focusAppUpdate, embedded: $embedded, onBack: $onBack, createLocalBridgeCubit: $createLocalBridgeCubit}';
   }
 
   @override
@@ -660,6 +680,7 @@ class SettingsRouteArgs {
     if (identical(this, other)) return true;
     if (other is! SettingsRouteArgs) return false;
     return key == other.key &&
+        initialCategory == other.initialCategory &&
         focusConnection == other.focusConnection &&
         focusSupport == other.focusSupport &&
         focusUsage == other.focusUsage &&
@@ -671,6 +692,7 @@ class SettingsRouteArgs {
   @override
   int get hashCode =>
       key.hashCode ^
+      initialCategory.hashCode ^
       focusConnection.hashCode ^
       focusSupport.hashCode ^
       focusUsage.hashCode ^
