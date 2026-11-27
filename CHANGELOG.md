@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.189.1] - 2026-11-27
+
+### Fixed
+
+- Antigravity: stopped requesting CLI plan quota refreshes (`agy -p /usage`) and updated the Usage settings note to direct users to check remaining plan limits in Antigravity, while keeping per-session context usage and account details.
+
 ## [1.189.0] - 2026-11-27
 
 ### Added
