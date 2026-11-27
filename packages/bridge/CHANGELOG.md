@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.122.1] - 2026-11-27
+
+### Fixed
+
+- Antigravity: removed background `agy -p /usage` plan quota fetching to stay strictly within `agy acp`, since invoking `agy -p` from third-party apps is not supported on consumer plans. Existing `get_usage` requests with `refreshAntigravity` remain accepted and ignored for backwards compatibility.
+
 ## [1.122.0] - 2026-11-25
 
 ### Added
