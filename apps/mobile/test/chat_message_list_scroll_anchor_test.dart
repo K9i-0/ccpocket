@@ -10,6 +10,7 @@ import 'package:ccpocket/features/chat_session/widgets/chat_message_list.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/l10n/app_localizations_delegates.dart';
 import 'package:ccpocket/models/messages.dart';
+import 'package:ccpocket/providers/bridge_cubits.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/widgets/indexed_scroll_controller.dart';
@@ -41,6 +42,9 @@ void main() {
           providers: [
             BlocProvider<ChatSessionCubit>.value(value: chatCubit),
             BlocProvider<StreamingStateCubit>.value(value: streamingCubit),
+            BlocProvider<FileListCubit>(
+              create: (_) => FileListCubit(const [], const Stream.empty()),
+            ),
           ],
           child: MaterialApp(
             theme: AppTheme.darkTheme,
@@ -132,6 +136,9 @@ void main() {
           providers: [
             BlocProvider<ChatSessionCubit>.value(value: chatCubit),
             BlocProvider<StreamingStateCubit>.value(value: streamingCubit),
+            BlocProvider<FileListCubit>(
+              create: (_) => FileListCubit(const [], const Stream.empty()),
+            ),
           ],
           child: MaterialApp(
             theme: AppTheme.darkTheme,
@@ -258,6 +265,9 @@ void main() {
           providers: [
             BlocProvider<ChatSessionCubit>.value(value: chatCubit),
             BlocProvider<StreamingStateCubit>.value(value: streamingCubit),
+            BlocProvider<FileListCubit>(
+              create: (_) => FileListCubit(const [], const Stream.empty()),
+            ),
           ],
           child: MaterialApp(
             theme: AppTheme.darkTheme,
