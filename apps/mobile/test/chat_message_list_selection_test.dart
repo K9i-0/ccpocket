@@ -709,6 +709,24 @@ void main() {
       expect(swarmMarkdown.documentOrder, 0);
     },
   );
+
+  testWidgets('file links can be opened while the answer is streaming', (
+    tester,
+  ) async {
+    final harness = await pumpListHarness(tester, seedHistory: false);
+
+    harness.bridge.emit(const StatusMessage(status: ProcessStatus.running));
+    harness.bridge.emit(
+      const StreamDeltaMessage(text: 'See [notes](/tmp/notes.md)'),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    final streaming = tester.widget<StreamingBubble>(
+      find.byType(StreamingBubble),
+    );
+    expect(streaming.onFileTap, isNotNull);
+  });
 }
 
 class _SelectionTestBridge extends BridgeService {

@@ -1006,6 +1006,19 @@ class _ChatMessageListState extends State<ChatMessageList> {
   // Build
   // ---------------------------------------------------------------------------
 
+  void _openFilePeek(String filePath) {
+    final projectPath = widget.projectPath;
+    if (projectPath == null || projectPath.isEmpty) return;
+    openFilePeek(
+      context,
+      bridge: context.read<BridgeService>(),
+      projectPath: projectPath,
+      filePath: filePath,
+      projectFiles: context.read<FileListCubit>().state,
+      onResolvedFilePath: widget.onFilePeekOpened,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     chatListPerformanceProbe.recordBuild();
@@ -1212,6 +1225,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
                                     collapseToolResults: null,
                                     hiddenToolUseIds: const {},
                                     isCodex: widget.isCodex,
+                                    onFileTap: _openFilePeek,
                                     onBeforeStreamingTextUpdate:
                                         _captureVisibleAnchor,
                                     documentId: streamingDocumentId,
@@ -1286,20 +1300,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
                         permissionTranscriptStatus: permissionTranscriptStatus,
                         hiddenToolUseIds: effectiveHiddenToolUseIds,
                         onOpenTranscript: _openTranscript,
-                        onFileTap: (filePath) {
-                          final projectPath = widget.projectPath;
-                          if (projectPath == null || projectPath.isEmpty) {
-                            return;
-                          }
-                          openFilePeek(
-                            context,
-                            bridge: context.read<BridgeService>(),
-                            projectPath: projectPath,
-                            filePath: filePath,
-                            projectFiles: context.read<FileListCubit>().state,
-                            onResolvedFilePath: widget.onFilePeekOpened,
-                          );
-                        },
+                        onFileTap: _openFilePeek,
                         onImageTap: (user) {
                           final claudeSessionId = context
                               .read<ChatSessionCubit>()
