@@ -70,7 +70,13 @@ class MachineManagerService {
     this._prefs,
     this._secureStorage, {
     BridgeEndpointProbe? endpointProbe,
-  }) : _endpointProbe = endpointProbe ?? BridgeEndpointProbe();
+    Future<http.Response> Function(Uri url)? versionHttpGet,
+  }) : _endpointProbe = endpointProbe ?? BridgeEndpointProbe(),
+       _versionHttpGet = versionHttpGet ?? http.get;
+
+  /// Reads `/version`; replaced in tests.
+  final Future<http.Response> Function(Uri url) _versionHttpGet;
+  bool _disposed = false;
 
   void configureBridgeTunnelResolvers({
     BridgeWsUrlResolver? wsUrlResolver,
@@ -507,6 +513,17 @@ class MachineManagerService {
     _lastChecked[machine.id] = DateTime.now();
     final hadError = _lastErrors.remove(machine.id) != null;
     if (!wasOnline || hadError) _notifyListeners();
+    unawaited(_refreshVersionAfterConnect(machine));
+  }
+
+  /// A new connection may be to a Bridge that was restarted on another
+  /// version (that is how it is updated), so the version read by the last
+  /// health probe can be stale: read it again.
+  Future<void> _refreshVersionAfterConnect(Machine machine) async {
+    final before = _versionCache[machine.id];
+    await _fetchVersionInfo(machine);
+    if (_disposed || _versionCache[machine.id] == before) return;
+    _notifyListeners();
   }
 
   // ---- CRUD Operations ----
@@ -920,8 +937,7 @@ class MachineManagerService {
         promptForPassword: promptForPassword,
       );
       final versionUrl = '$httpBaseUrl/version';
-      final response = await http
-          .get(Uri.parse(versionUrl))
+      final response = await _versionHttpGet(Uri.parse(versionUrl))
           .timeout(const Duration(seconds: 3));
 
       if (response.statusCode == 200) {
@@ -1106,6 +1122,7 @@ class MachineManagerService {
 
   /// Dispose resources
   void dispose() {
+    _disposed = true;
     stopPeriodicHealthCheck();
     _machinesController.close();
   }
