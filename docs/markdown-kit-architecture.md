@@ -197,14 +197,14 @@ ccpocket 本体は `apps/mobile/pubspec.yaml` から `path: ../../packages/markd
 - `.github/workflows/publish.yml`: `markdown_kit-v<version>` タグの push で、`tool/validate_release.py`（タグ・pubspec・CHANGELOG の一致と、main に載っていること）→ 上のチェック → OIDC で公開。
 - `.github/dependabot.yaml`、`.github/actions/setup-application-runtime/`、`tool/check_format.sh`、`.mise.toml`。
 
-2026-11-27 に、作業ツリーを一時ディレクトリへ書き出し、下の手順 2 の pubspec 変更を当てた状態で CI と同じ手順を実行した。解析・整形・テスト・example のテストが通り、`flutter pub publish --dry-run` は警告 0 件、アーカイブは 3 MB だった。
+2026-11-27 に、作業ツリーを一時ディレクトリへ書き出し、下の手順 2 の pubspec 変更を当てた状態で CI と同じ手順を実行した。解析・整形・テスト・example のテストが通り、`flutter pub publish --dry-run` は警告 0 件、アーカイブは 3 MB だった。下限の Flutter 3.50.0 でも解析とテスト（1883 件と example の 3 件）が通った。
 
 pub.dev の自動公開は既存パッケージにしか設定できない。そのため 1.0.0 だけは手元から公開し、1.0.1 以降をタグで公開する。
 
-1. 新しいリポジトリを作り、`packages/markdown_kit/` を移す。履歴を残すなら、ccpocket を別の場所へ clone し直し、その中で `git filter-repo --subdirectory-filter packages/markdown_kit` を実行する（作業中のリポジトリでは実行しない）。この文書のうち 1〜2 章と 5〜7 章はパッケージ側へ移し、3 章（ccpocket への統合）は ccpocket に残す。
+1. 新しいリポジトリ `K9i-0/markdown_kit` を作り、履歴つきで `packages/markdown_kit/` を移す。ccpocket で `git subtree split --prefix=packages/markdown_kit -b markdown-kit-split` を実行すると、このフォルダに触れたコミットだけを並べ直したブランチができる（ccpocket の main や作業ツリーは変わらない。2026-11-27 に試し、36 コミットで中身が `packages/markdown_kit/` と一致することを確認した）。これを新リポジトリの `main` として push し、ccpocket 側のブランチは消す。この文書のうち 1〜2 章と 5〜7 章はパッケージ側へ移し、3 章（ccpocket への統合）は ccpocket に残す。
 2. `pubspec.yaml`: `publish_to: none` を削除、`version: 1.0.0`、`repository: https://github.com/K9i-0/markdown_kit` と `issue_tracker:` を追加。`CHANGELOG.md` の `1.0.0` の内容を最終確認する。
 3. main へ push し、`check-pr` が両ジョブとも通ることを確認する。
-4. 手元で `flutter pub publish --dry-run` の警告ゼロを確認してから `flutter pub publish`。公開は取り消せない。公開後、pub.dev でパブリッシャー `k9i.app` へ移す。
+4. 手元（pub.dev にログイン済みの端末）で `flutter pub publish --dry-run` の警告ゼロを確認してから `flutter pub publish`。公開は取り消せない。公開後、pub.dev でパブリッシャー `k9i.app` へ移す。
 5. pub.dev の Admin タブで GitHub Actions からの自動公開を有効にする。リポジトリは `K9i-0/markdown_kit`、タグのパターンは `markdown_kit-v{{version}}`。
 6. `1.0.0` のタグを付ける。そのまま push すると `publish.yml` が公開済みの版をもう一度公開しようとして失敗するので、`gh workflow disable publish.yml` → タグを push → `gh workflow enable publish.yml` の順で行う。GitHub のリリースもここで作る。
 7. ccpocket の `apps/mobile/pubspec.yaml` を path 依存から `markdown_kit: ^1.0.0` に切り替え、次を片付ける。
