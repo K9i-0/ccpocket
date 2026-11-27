@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.190.1] - 2026-11-27
+
+### Changed
+
+- Markdown rendering: the `markdown_kit` renderer is now a published package ([pub.dev](https://pub.dev/packages/markdown_kit), [K9i-0/markdown_kit](https://github.com/K9i-0/markdown_kit)) and the app uses version 1.0.0 from there instead of a copy inside this repository.
+
+### Fixed
+
+- Desktop text selection: pressing the mouse beside the text of a message (past the end of a short line, or in the indent of a list) and dragging now starts a selection at the nearest character, instead of clearing the selection and ignoring the drag.
+
 ## [1.190.0] - 2026-11-27
 
 ### Added
