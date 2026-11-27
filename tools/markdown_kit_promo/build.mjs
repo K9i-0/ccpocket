@@ -67,7 +67,7 @@ const narrationPlan = [
   {id: '05_editor_type', from: 904},// 30.13s (Desktop live typing + <0.5ms parse)
   {id: '06_editor_sync', from: 1200},// 40.00s (Synced scroll -> tap jump -> 46.3s dark toggle)
   {id: '07_showcase', from: 1476},  // 49.20s (Dark Showcase: alerts, math, custom rules, RTL)
-  {id: '08_outro', from: 1644},     // 54.80s (Outro CTA + 1.2s BGM tail)
+  {id: '08_outro', from: 1640},     // 54.67s (Outro CTA + 0.8s BGM tail)
 ];
 
 const bgmFile = path.join(__dirname, 'audio/bgm_60s.wav');

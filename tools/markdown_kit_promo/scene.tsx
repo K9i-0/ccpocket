@@ -65,8 +65,8 @@ const SUBTITLES: SubtitleCue[] = [
   {from: 1345, to: 1400, text: 'and switch to dark mode instantly.'},
   {from: 1476, to: 1522, text: 'Pure Flutter widgets only —'},
   {from: 1523, to: 1624, text: 'slivers, alerts, math, custom rules, and RTL.'},
-  {from: 1644, to: 1701, text: 'Battle-tested in CC Pocket.'},
-  {from: 1703, to: 1762, text: 'Try the live web demo today.'},
+  {from: 1640, to: 1715, text: 'Available now on pub.dev and GitHub.'},
+  {from: 1717, to: 1776, text: 'Try the live web demo today.'},
 ];
 
 function mixHex(a: string, b: string, t: number): string {

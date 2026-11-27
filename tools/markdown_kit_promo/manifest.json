@@ -201,8 +201,8 @@
     },
     {
       "src": "audio/narration/08_outro.wav",
-      "from": 1644,
-      "durationInFrames": 118,
+      "from": 1640,
+      "durationInFrames": 136,
       "group": "narration",
       "volume": 1,
       "fadeIn": 2,

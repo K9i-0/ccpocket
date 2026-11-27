@@ -75,7 +75,7 @@ export const NARRATION_SEGMENTS = [
     id: '08_outro',
     targetFromFrame: 1636,
     maxDurationSec: 4.9,
-    text: 'Battle-tested in C C Pocket. Try the live web demo today.',
+    text: 'Available now on pub dev and GitHub. Try the live web demo today.',
   },
 ];
 
