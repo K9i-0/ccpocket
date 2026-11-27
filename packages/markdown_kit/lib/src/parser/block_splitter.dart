@@ -142,7 +142,7 @@ List<String> splitMarkdownBlocks(
     // Only lines in or after a list need a look, so text without lists pays
     // nothing for this.
     if (itemIndent != null || listMarker != null) {
-      final lineIndent = _indentWidth(_leadingWhitespace(content));
+      final lineIndent = _leadingIndent(content);
       if (itemIndent != null) {
         if (listMarker == null || lineIndent < listMarkerContentIndent) {
           // An item of the outermost list, or the start of another one.
@@ -162,8 +162,7 @@ List<String> splitMarkdownBlocks(
           listMarkerUnsure = true;
         }
       } else if (listMarker != null && lineIndent < listMarkerContentIndent) {
-        if (_thematicBreakLine.hasMatch(content) ||
-            _closesList.hasMatch(content)) {
+        if (_isThematicBreak(content) || _closesList.hasMatch(content)) {
           // A rule, heading or quote outside the item ends the list for sure.
           listMarker = null;
           listMarkerUnsure = false;
@@ -518,7 +517,6 @@ final _listItemParts = RegExp(
 final _nonItemBlockStart = RegExp(
   r'^(?:>|#{1,6}(?:[ \t]|$)|<|(?:[-*_][ \t]*){3,}$)',
 );
-final _thematicBreakLine = RegExp(r'^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$');
 final _closesList = RegExp(r'^ {0,3}(?:>|#{1,6}(?:[ \t]|$))');
 final _fenceOpen = RegExp(r'^([ \t]*)(`{3,}|~{3,})(.*)$');
 final _partialFenceStart = RegExp(r'^[ \t]*(`{1,2}|~{1,2})$');
@@ -560,13 +558,60 @@ bool _startsNewBlock(
 /// or the delimiter (`.` or `)`) of an ordered one. [line] must be a list
 /// item.
 int _listMarkerOf(String line) {
-  final marker = _listItem.firstMatch(line)!.group(1)!;
-  return marker.codeUnitAt(marker.length - 1);
+  var i = 0;
+  while (line.codeUnitAt(i) == 0x20) {
+    i++;
+  }
+  // Past the digits of an ordered item to its delimiter.
+  while (line.codeUnitAt(i) >= 0x30 && line.codeUnitAt(i) <= 0x39) {
+    i++;
+  }
+  return line.codeUnitAt(i);
 }
 
 /// A line such as `* * *` looks like a list item and is a thematic break.
 bool _isListItem(String line) =>
-    _listItem.hasMatch(line) && !_thematicBreakLine.hasMatch(line);
+    _listItem.hasMatch(line) && !_isThematicBreak(line);
+
+/// Whether [line] is three or more `-`, `*` or `_` with nothing but spaces
+/// between them, indented by at most three spaces.
+bool _isThematicBreak(String line) {
+  final length = line.length;
+  var i = 0;
+  while (i < length && i < 4 && line.codeUnitAt(i) == 0x20) {
+    i++;
+  }
+  if (i > 3 || i >= length) return false;
+  final mark = line.codeUnitAt(i);
+  if (mark != 0x2D && mark != 0x2A && mark != 0x5F) return false;
+  var marks = 0;
+  for (; i < length; i++) {
+    final unit = line.codeUnitAt(i);
+    if (unit == mark) {
+      marks++;
+    } else if (unit != 0x20 && unit != 0x09) {
+      return false;
+    }
+  }
+  return marks >= 3;
+}
+
+/// Width of the indentation of [line], with tabs going to the next multiple
+/// of four.
+int _leadingIndent(String line) {
+  var width = 0;
+  for (var i = 0; i < line.length; i++) {
+    final unit = line.codeUnitAt(i);
+    if (unit == 0x20) {
+      width++;
+    } else if (unit == 0x09) {
+      width += 4 - (width % 4);
+    } else {
+      break;
+    }
+  }
+  return width;
+}
 
 /// Column where the content of the list item starting on [line] begins, or
 /// null when [line] does not start one.
