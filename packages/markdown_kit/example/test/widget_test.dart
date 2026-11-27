@@ -17,7 +17,7 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.tap(find.text('Ask'));
+    await tester.tap(find.byKey(const ValueKey('chat-send')));
     // Two characters per frame: enough frames for the whole reply.
     for (var i = 0; i < sampleReply.length ~/ 2 + 20; i++) {
       await tester.pump(const Duration(milliseconds: 16));
@@ -28,6 +28,7 @@ void main() {
       find.textContaining('dart:convert docs', findRichText: true),
       findsWidgets,
     );
+    expect(find.byKey(const ValueKey('chat-send')), findsOneWidget);
   });
 
   testWidgets('toggles Hold syntax and streams presets in chat', (

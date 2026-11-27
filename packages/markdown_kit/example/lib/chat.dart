@@ -7,6 +7,9 @@ import 'package:markdown_kit/markdown_kit.dart';
 import 'math.dart';
 import 'theme.dart';
 
+/// Maximum width of the floating chat composer capsule.
+const double _kComposerMaxWidth = 640;
+
 /// Default streaming reply shown in the chat example.
 const sampleReply = r'''
 ## Reading a JSON file
@@ -331,7 +334,10 @@ class _ChatTabState extends State<ChatTab> {
   }
 
   void _submitInput() {
-    if (_busy) return;
+    if (_busy) {
+      _stopStream();
+      return;
+    }
     final typed = _input.text.trim();
     if (typed.isEmpty) {
       final preset = _presets[_nextPresetIndex % _presets.length];
@@ -378,43 +384,50 @@ class _ChatTabState extends State<ChatTab> {
         Expanded(
           child: ColoredBox(
             color: colors.background,
-            // The scope sits above the scroll view, so selection survives
-            // messages scrolling out of the lazy list, and dragging a handle
-            // to the edge scrolls the list.
-            child: MarkdownSelectionScope(
-              controller: _selection,
-              child: ListView.builder(
-                key: const ValueKey('chat-list'),
-                reverse: true,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 16,
-                ),
-                itemCount: _messages.length,
-                itemBuilder: (context, reversedIndex) {
-                  final index = _messages.length - 1 - reversedIndex;
-                  return Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(
-                        maxWidth: kReadingMaxWidth,
-                      ),
-                      child: _MessageItem(
-                        message: _messages[index],
-                        order: index,
-                        holdSyntax: _holdSyntax,
-                        colors: colors,
-                        onLinkTap: (url) =>
-                            setState(() => _notice = 'Link: $url'),
-                      ),
+            child: Stack(
+              children: [
+                // The scope sits above the scroll view, so selection survives
+                // messages scrolling out of the lazy list, and dragging a
+                // handle to the edge scrolls the list.
+                Positioned.fill(
+                  child: MarkdownSelectionScope(
+                    controller: _selection,
+                    child: ListView.builder(
+                      key: const ValueKey('chat-list'),
+                      reverse: true,
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 132),
+                      itemCount: _messages.length,
+                      itemBuilder: (context, reversedIndex) {
+                        final index = _messages.length - 1 - reversedIndex;
+                        return Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxWidth: kReadingMaxWidth,
+                            ),
+                            child: _MessageItem(
+                              message: _messages[index],
+                              order: index,
+                              holdSyntax: _holdSyntax,
+                              colors: colors,
+                              onLinkTap: (url) =>
+                                  setState(() => _notice = 'Link: $url'),
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
+                  ),
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _buildFloatingComposer(colors),
+                ),
+              ],
             ),
           ),
         ),
-        Hairline(colors.border),
-        _buildComposerArea(colors),
       ],
     );
   }
@@ -454,184 +467,130 @@ class _ChatTabState extends State<ChatTab> {
             const SizedBox(width: 8),
             Hairline.vertical(colors.border),
             const SizedBox(width: 8),
-            if (_busy)
-              ActionButton(
-                key: const ValueKey('chat-stop'),
-                label: 'Stop',
-                colors: colors,
-                onPressed: _stopStream,
-              )
-            else
-              ActionButton(
-                key: const ValueKey('chat-reset'),
-                label: 'Reset',
-                colors: colors,
-                onPressed: _messages.length > 2 ? _resetChat : null,
-              ),
+            ActionButton(
+              key: const ValueKey('chat-reset'),
+              label: 'Reset',
+              colors: colors,
+              onPressed: _messages.length > 2 ? _resetChat : null,
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildComposerArea(ExampleColors colors) {
+  Widget _buildFloatingComposer(ExampleColors colors) {
     final hasSelection = _selection.hasSelection;
     final selectedLength = hasSelection ? _selection.getText().length : 0;
+    final dark = identical(colors, ExampleColors.dark);
+    final notice = _notice;
 
-    return ColoredBox(
-      color: colors.chrome,
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: kReadingMaxWidth + 32),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            colors.background.withValues(alpha: 0),
+            colors.background.withValues(alpha: 0.92),
+            colors.background,
+          ],
+          stops: const [0, 0.42, 1],
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _kComposerMaxWidth),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisSize: MainAxisSize.min,
               children: [
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      for (var i = 0; i < _presets.length; i++) ...[
-                        if (i > 0) const SizedBox(width: 6),
-                        ActionButton(
-                          key: ValueKey('chat-preset-${_presets[i].id}'),
-                          label: _presets[i].label,
-                          colors: colors,
-                          onPressed: _busy
-                              ? null
-                              : () => _startStream(
-                                  prompt: _presets[i].prompt,
-                                  replyText: _presets[i].reply,
-                                ),
-                        ),
-                      ],
+                if (hasSelection)
+                  _buildSelectionBanner(colors, selectedLength)
+                else if (notice != null)
+                  _buildNoticeBanner(colors, notice)
+                else
+                  _buildPresetRow(colors),
+                const SizedBox(height: 8),
+                DecoratedBox(
+                  key: const ValueKey('chat-composer'),
+                  decoration: BoxDecoration(
+                    color: dark ? colors.chrome : colors.background,
+                    border: Border.all(color: colors.border),
+                    borderRadius: const BorderRadius.all(Radius.circular(26)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: dark
+                            ? const Color(0x4D000000)
+                            : const Color(0x14000000),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: colors.background,
-                          border: Border.all(color: colors.border),
-                          borderRadius: const BorderRadius.all(
-                            Radius.circular(8),
-                          ),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 9,
-                          ),
-                          child: Stack(
-                            alignment: Alignment.centerLeft,
-                            children: [
-                              ValueListenableBuilder<TextEditingValue>(
-                                valueListenable: _input,
-                                builder: (context, value, _) {
-                                  if (value.text.isNotEmpty) {
-                                    return const SizedBox.shrink();
-                                  }
-                                  return IgnorePointer(
-                                    child: Text(
-                                      'Ask a question or pick a preset above…',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: colors.muted,
-                                        fontSize: 14,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 6, 6, 6),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: Stack(
+                              alignment: Alignment.centerLeft,
+                              children: [
+                                ValueListenableBuilder<TextEditingValue>(
+                                  valueListenable: _input,
+                                  builder: (context, value, _) {
+                                    if (value.text.isNotEmpty) {
+                                      return const SizedBox.shrink();
+                                    }
+                                    return IgnorePointer(
+                                      child: Text(
+                                        'Ask a question or pick a preset…',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: colors.muted,
+                                          fontSize: 14.5,
+                                        ),
                                       ),
-                                    ),
-                                  );
-                                },
-                              ),
-                              EditableText(
-                                key: const ValueKey('chat-input'),
-                                controller: _input,
-                                focusNode: _inputFocus,
-                                style: TextStyle(
-                                  color: colors.text,
-                                  fontSize: 14,
-                                  height: 1.3,
+                                    );
+                                  },
                                 ),
-                                cursorColor: colors.accent,
-                                backgroundCursorColor: colors.hover,
-                                selectionColor: colors.accent.withValues(
-                                  alpha: 0.25,
+                                EditableText(
+                                  key: const ValueKey('chat-input'),
+                                  controller: _input,
+                                  focusNode: _inputFocus,
+                                  style: TextStyle(
+                                    color: colors.text,
+                                    fontSize: 14.5,
+                                    height: 1.35,
+                                  ),
+                                  cursorColor: colors.accent,
+                                  backgroundCursorColor: colors.hover,
+                                  selectionColor: colors.accent.withValues(
+                                    alpha: 0.25,
+                                  ),
+                                  maxLines: 1,
+                                  textInputAction: TextInputAction.send,
+                                  onSubmitted: (_) => _submitInput(),
                                 ),
-                                maxLines: 1,
-                                textInputAction: TextInputAction.send,
-                                onSubmitted: (_) => _submitInput(),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    ActionButton(
-                      key: const ValueKey('chat-ask'),
-                      label: 'Ask',
-                      tone: ActionTone.primary,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      fontSize: 14,
-                      colors: colors,
-                      onPressed: _busy ? null : _submitInput,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        hasSelection
-                            ? 'Selected $selectedLength chars'
-                            : (_notice ??
-                                  'Select across blocks even while streaming. '
-                                      'Right-click or long-press to copy.'),
-                        key: const ValueKey('chat-status'),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: colors.muted, fontSize: 12),
-                      ),
-                    ),
-                    if (hasSelection) ...[
-                      const SizedBox(width: 8),
-                      ActionButton(
-                        key: const ValueKey('chat-copy-plain'),
-                        label: 'Copy',
-                        tone: ActionTone.subtle,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
+                        const SizedBox(width: 8),
+                        _SendButton(
+                          key: ValueKey(_busy ? 'chat-stop' : 'chat-send'),
+                          busy: _busy,
+                          colors: colors,
+                          onPressed: _submitInput,
                         ),
-                        fontSize: 12,
-                        colors: colors,
-                        onPressed: () => _copySelection(asMarkdown: false),
-                      ),
-                      const SizedBox(width: 4),
-                      ActionButton(
-                        key: const ValueKey('chat-copy-markdown'),
-                        label: 'Copy as Markdown',
-                        tone: ActionTone.subtle,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        fontSize: 12,
-                        colors: colors,
-                        onPressed: () => _copySelection(asMarkdown: true),
-                      ),
-                    ],
-                  ],
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -640,6 +599,226 @@ class _ChatTabState extends State<ChatTab> {
       ),
     );
   }
+
+  Widget _buildPresetRow(ExampleColors colors) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < _presets.length; i++) ...[
+            if (i > 0) const SizedBox(width: 6),
+            ActionButton(
+              key: ValueKey('chat-preset-${_presets[i].id}'),
+              label: _presets[i].label,
+              colors: colors,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              fontSize: 12,
+              onPressed: _busy
+                  ? null
+                  : () => _startStream(
+                      prompt: _presets[i].prompt,
+                      replyText: _presets[i].reply,
+                    ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectionBanner(ExampleColors colors, int selectedLength) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.chrome,
+        border: Border.all(color: colors.border),
+        borderRadius: const BorderRadius.all(Radius.circular(20)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 3, 4, 3),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Selected $selectedLength chars',
+              key: const ValueKey('chat-status'),
+              style: TextStyle(color: colors.muted, fontSize: 12),
+            ),
+            const SizedBox(width: 8),
+            ActionButton(
+              key: const ValueKey('chat-copy-plain'),
+              label: 'Copy',
+              tone: ActionTone.subtle,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              fontSize: 12,
+              colors: colors,
+              onPressed: () => _copySelection(asMarkdown: false),
+            ),
+            const SizedBox(width: 2),
+            ActionButton(
+              key: const ValueKey('chat-copy-markdown'),
+              label: 'Copy as Markdown',
+              tone: ActionTone.subtle,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              fontSize: 12,
+              colors: colors,
+              onPressed: () => _copySelection(asMarkdown: true),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoticeBanner(ExampleColors colors, String notice) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.chrome,
+        border: Border.all(color: colors.border),
+        borderRadius: const BorderRadius.all(Radius.circular(20)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 3, 4, 3),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                notice,
+                key: const ValueKey('chat-status'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: colors.muted, fontSize: 12),
+              ),
+            ),
+            const SizedBox(width: 4),
+            ActionButton(
+              label: '×',
+              tone: ActionTone.subtle,
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              fontSize: 12.5,
+              colors: colors,
+              onPressed: () => setState(() => _notice = null),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Circular `↑` send button that turns into a stop square while streaming.
+class _SendButton extends StatefulWidget {
+  const _SendButton({
+    super.key,
+    required this.busy,
+    required this.colors,
+    required this.onPressed,
+  });
+
+  final bool busy;
+  final ExampleColors colors;
+  final VoidCallback onPressed;
+
+  @override
+  State<_SendButton> createState() => _SendButtonState();
+}
+
+class _SendButtonState extends State<_SendButton> {
+  bool _hovered = false;
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = widget.colors;
+    final fill = widget.busy
+        ? (_pressed ? colors.text.withValues(alpha: 0.8) : colors.text)
+        : (_pressed
+              ? colors.accent.withValues(alpha: 0.85)
+              : (_hovered
+                    ? colors.accent.withValues(alpha: 0.92)
+                    : colors.accent));
+    final glyphColor = widget.busy
+        ? colors.background
+        : const Color(0xFFFFFFFF);
+
+    return Semantics(
+      button: true,
+      label: widget.busy ? 'Stop' : 'Send',
+      excludeSemantics: true,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (_) => setState(() => _pressed = true),
+          onTapCancel: () => setState(() => _pressed = false),
+          onTapUp: (_) => setState(() => _pressed = false),
+          onTap: widget.onPressed,
+          child: SizedBox(
+            width: 36,
+            height: 36,
+            child: DecoratedBox(
+              decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
+              child: Center(
+                child: widget.busy
+                    ? SizedBox(
+                        width: 11,
+                        height: 11,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: glyphColor,
+                            borderRadius: const BorderRadius.all(
+                              Radius.circular(2.5),
+                            ),
+                          ),
+                        ),
+                      )
+                    : CustomPaint(
+                        size: const Size(16, 16),
+                        painter: _UpArrowPainter(glyphColor),
+                      ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _UpArrowPainter extends CustomPainter {
+  const _UpArrowPainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2.0
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
+
+    final cx = size.width / 2;
+    const top = 2.5;
+    final bottom = size.height - 2.5;
+    const head = 4.8;
+
+    // Vertical shaft.
+    canvas.drawLine(Offset(cx, bottom), Offset(cx, top), paint);
+    // Chevron arrowhead.
+    final path = Path()
+      ..moveTo(cx - head, top + head)
+      ..lineTo(cx, top)
+      ..lineTo(cx + head, top + head);
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_UpArrowPainter oldDelegate) => oldDelegate.color != color;
 }
 
 class _MessageItem extends StatelessWidget {
