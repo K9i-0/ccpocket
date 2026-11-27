@@ -115,6 +115,105 @@
       "scene": "overlay"
     }
   ],
+  "audio": [
+    {
+      "src": "audio/bgm_60s.wav",
+      "from": 0,
+      "durationInFrames": 1800,
+      "volume": 0.24,
+      "fadeIn": 18,
+      "fadeOut": 45,
+      "duck": {
+        "by": "narration",
+        "to": 0.38,
+        "attack": 6,
+        "release": 14,
+        "lead": 4,
+        "tail": 8,
+        "threshold": -35
+      }
+    },
+    {
+      "src": "audio/narration/01_hero.wav",
+      "from": 8,
+      "durationInFrames": 100,
+      "group": "narration",
+      "volume": 1,
+      "fadeIn": 2,
+      "fadeOut": 3
+    },
+    {
+      "src": "audio/narration/02_streaming.wav",
+      "from": 132,
+      "durationInFrames": 235,
+      "group": "narration",
+      "volume": 1,
+      "fadeIn": 2,
+      "fadeOut": 3
+    },
+    {
+      "src": "audio/narration/03_selection.wav",
+      "from": 472,
+      "durationInFrames": 233,
+      "group": "narration",
+      "volume": 1,
+      "fadeIn": 2,
+      "fadeOut": 3
+    },
+    {
+      "src": "audio/narration/04_dark_mobile.wav",
+      "from": 806,
+      "durationInFrames": 58,
+      "group": "narration",
+      "volume": 1,
+      "fadeIn": 2,
+      "fadeOut": 3
+    },
+    {
+      "src": "audio/narration/05_editor_type.wav",
+      "from": 904,
+      "durationInFrames": 220,
+      "group": "narration",
+      "volume": 1,
+      "fadeIn": 2,
+      "fadeOut": 3
+    },
+    {
+      "src": "audio/narration/06_editor_sync.wav",
+      "from": 1200,
+      "durationInFrames": 200,
+      "group": "narration",
+      "volume": 1,
+      "fadeIn": 2,
+      "fadeOut": 3
+    },
+    {
+      "src": "audio/narration/07_showcase.wav",
+      "from": 1476,
+      "durationInFrames": 148,
+      "group": "narration",
+      "volume": 1,
+      "fadeIn": 2,
+      "fadeOut": 3
+    },
+    {
+      "src": "audio/narration/08_outro.wav",
+      "from": 1644,
+      "durationInFrames": 118,
+      "group": "narration",
+      "volume": 1,
+      "fadeIn": 2,
+      "fadeOut": 3
+    }
+  ],
+  "master": {
+    "loudnorm": {
+      "i": -16,
+      "tp": -1.5,
+      "lra": 11
+    },
+    "limiter": 0.95
+  },
   "props": {
     "timeline": {
       "fps": 30,

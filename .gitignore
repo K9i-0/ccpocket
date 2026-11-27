@@ -89,6 +89,7 @@ tools/ssh-jump-smoke/generated/
 
 # markdown_kit promo video media and render outputs
 tools/markdown_kit_promo/raw/
+tools/markdown_kit_promo/audio/
 tools/markdown_kit_promo/out/
 tools/markdown_kit_promo/*.mp4
 tools/markdown_kit_promo/*.work/

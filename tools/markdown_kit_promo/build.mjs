@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Builds manifest.json for the markdown_kit X promo video (1920x1080, 30fps, 60.0s, silent).
- * Probes raw footage with kasaneru/media to ensure every trim/duration fits safely.
+ * Builds manifest.json for the markdown_kit X promo video (1920x1080, 30fps, 60.0s).
+ * Probes raw video and generated audio with kasaneru/media so every frame boundary is exact.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -57,6 +57,75 @@ assertClip('hero_mobile', info.mobile, 45, 126);
 assertClip('mobile_main', info.mobile, 0, 773);
 assertClip('desktop_editor', info.editor, 10, 592);
 assertClip('desktop_showcase', info.showcase, 288, 156);
+
+// Audio placement (aligned to on-screen events; verified against probed WAV durations)
+const narrationPlan = [
+  {id: '01_hero', from: 8},         // 0.27s (Hero opener)
+  {id: '02_streaming', from: 132},  // 4.40s (Mobile streaming)
+  {id: '03_selection', from: 472},  // 15.73s (Drag selection -> scroll survival -> Copy)
+  {id: '04_dark_mobile', from: 806},// 26.87s (Mobile dark theme switch)
+  {id: '05_editor_type', from: 904},// 30.13s (Desktop live typing + <0.5ms parse)
+  {id: '06_editor_sync', from: 1200},// 40.00s (Synced scroll -> tap jump -> 46.3s dark toggle)
+  {id: '07_showcase', from: 1476},  // 49.20s (Dark Showcase: alerts, math, custom rules, RTL)
+  {id: '08_outro', from: 1644},     // 54.80s (Outro CTA + 1.2s BGM tail)
+];
+
+const bgmFile = path.join(__dirname, 'audio/bgm_60s.wav');
+const audioTracks = [];
+let hasAudio = false;
+
+if (fs.existsSync(bgmFile)) {
+  const bgmInfo = probeMedia(bgmFile, FPS);
+  console.log(`[probe] bgm: ${bgmInfo.durationSeconds}s (${bgmInfo.durationInFrames} frames, ${bgmInfo.channels}ch)`);
+  audioTracks.push({
+    src: 'audio/bgm_60s.wav',
+    from: 0,
+    durationInFrames: DURATION,
+    volume: 0.24,
+    fadeIn: 18,
+    fadeOut: 45,
+    duck: {
+      by: 'narration',
+      to: 0.38,
+      attack: 6,
+      release: 14,
+      lead: 4,
+      tail: 8,
+      threshold: -35,
+    },
+  });
+  hasAudio = true;
+}
+
+let prevEnd = 0;
+for (const item of narrationPlan) {
+  const rel = `audio/narration/${item.id}.wav`;
+  const abs = path.join(__dirname, rel);
+  if (!fs.existsSync(abs)) continue;
+  const aInfo = probeMedia(abs, FPS);
+  const durFrames = aInfo.durationInFrames;
+  const endFrame = item.from + durFrames;
+  if (item.from < prevEnd) {
+    throw new Error(`Narration overlap: ${item.id} starts at ${item.from} before previous ends at ${prevEnd}`);
+  }
+  if (endFrame > DURATION) {
+    throw new Error(`Narration ${item.id} exceeds video duration: ends at ${endFrame} > ${DURATION}`);
+  }
+  prevEnd = endFrame;
+  console.log(
+    `[audio] ${item.id}: frame ${item.from}..${endFrame} (${(item.from / FPS).toFixed(2)}s..${(endFrame / FPS).toFixed(2)}s, ${aInfo.durationSeconds}s)`
+  );
+  audioTracks.push({
+    src: rel,
+    from: item.from,
+    durationInFrames: durFrames,
+    group: 'narration',
+    volume: 1.0,
+    fadeIn: 2,
+    fadeOut: 3,
+  });
+  hasAudio = true;
+}
 
 const manifest = {
   composition: {
@@ -182,6 +251,15 @@ const manifest = {
       scene: 'overlay',
     },
   ],
+  ...(hasAudio
+    ? {
+        audio: audioTracks,
+        master: {
+          loudnorm: {i: -16, tp: -1.5, lra: 11},
+          limiter: 0.95,
+        },
+      }
+    : {}),
   props: {
     timeline,
   },
@@ -189,4 +267,4 @@ const manifest = {
 
 const outPath = path.join(__dirname, 'manifest.json');
 fs.writeFileSync(outPath, JSON.stringify(manifest, null, 2) + '\n');
-console.log(`Wrote ${outPath} (${DURATION} frames = ${(DURATION / FPS).toFixed(1)}s @ ${FPS}fps)`);
+console.log(`Wrote ${outPath} (${DURATION} frames = ${(DURATION / FPS).toFixed(1)}s @ ${FPS}fps, audio tracks: ${audioTracks.length})`);
