@@ -31,6 +31,22 @@ function getGitInfo(): { commit?: string; branch?: string } {
 
 const gitInfo = getGitInfo();
 
+/**
+ * What started this Bridge, as far as a client needs to know to explain how to
+ * update it. `desktop-app`: the launcher of the CC Pocket desktop app, which
+ * updates the Bridge when it is restarted from that app. `other`: the `setup`
+ * service or a manual run.
+ */
+export type BridgeManagedBy = "desktop-app" | "other";
+
+export function getManagedBy(
+  env: NodeJS.ProcessEnv = process.env,
+): BridgeManagedBy {
+  // Set by the desktop app's launcher (see admin-api.ts); shipped launchers
+  // already pass it, so this needs no app update.
+  return env.CCPOCKET_BRIDGE_SUPERVISED === "1" ? "desktop-app" : "other";
+}
+
 export interface VersionInfo {
   version: string;
   protocolVersion: number;
@@ -38,6 +54,7 @@ export interface VersionInfo {
   nodeVersion: string;
   platform: NodeJS.Platform;
   arch: NodeJS.Architecture;
+  managedBy: BridgeManagedBy;
   startedAt: string;
   uptime: number;
   gitCommit?: string;
@@ -57,6 +74,7 @@ export function getVersionInfo(serverStartedAt: number): VersionInfo {
     nodeVersion: process.version,
     platform: process.platform,
     arch: process.arch,
+    managedBy: getManagedBy(),
     startedAt: new Date(serverStartedAt).toISOString(),
     uptime: Math.floor((Date.now() - serverStartedAt) / 1000),
     ...(gitInfo.commit && { gitCommit: gitInfo.commit }),

@@ -1,6 +1,26 @@
 import { readFileSync } from "node:fs";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { getPackageVersion, getVersionInfo, type VersionInfo } from "./version.js";
+import {
+  getManagedBy,
+  getPackageVersion,
+  getVersionInfo,
+  type VersionInfo,
+} from "./version.js";
+
+describe("getManagedBy", () => {
+  it("reports the desktop app when its launcher started the Bridge", () => {
+    expect(getManagedBy({ CCPOCKET_BRIDGE_SUPERVISED: "1" })).toBe(
+      "desktop-app",
+    );
+  });
+
+  it("reports other for the setup service and manual runs", () => {
+    expect(getManagedBy({ XPC_SERVICE_NAME: "com.ccpocket.bridge" })).toBe(
+      "other",
+    );
+    expect(getManagedBy({})).toBe("other");
+  });
+});
 
 describe("getVersionInfo", () => {
   const mockStartedAt = new Date("2026-02-11T10:00:00.000Z").getTime();
@@ -54,6 +74,7 @@ describe("getVersionInfo", () => {
   it("returns all required fields", () => {
     const info = getVersionInfo(mockStartedAt);
     expect(info).toHaveProperty("version");
+    expect(["desktop-app", "other"]).toContain(info.managedBy);
     expect(info).toMatchObject({
       protocolVersion: 1,
       minimumProtocolVersion: 1,
@@ -111,7 +132,7 @@ describe("git info", () => {
     ]);
     // Only the documented fields are added.
     expect(Object.keys(info).sort()).toEqual([
-      "arch", "gitBranch", "gitCommit", "minimumProtocolVersion", "nodeVersion",
+      "arch", "gitBranch", "gitCommit", "managedBy", "minimumProtocolVersion", "nodeVersion",
       "platform", "protocolVersion", "startedAt", "uptime", "version",
     ]);
   });
