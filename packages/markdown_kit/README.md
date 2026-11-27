@@ -125,8 +125,12 @@ MarkdownSelectionScope(
   `keepDocumentOnDispose: false`), which is what lets a selection reach text
   that has scrolled out of a lazy list.
 
-A runnable version of this screen is in [`example/`](example); run
-`flutter create .` there once to generate the platform folders.
+A runnable demo with three tabs — streaming **Chat**, live-preview **Editor**,
+and a **Showcase** using `SliverMarkdownView` — lives in [`example/`](example).
+It includes a `web/` target so it can be run directly in a browser
+(`cd example && flutter run -d chrome`) or built for static hosting
+(`flutter build web --release`). For mobile or desktop targets, run
+`flutter create .` inside `example/` once.
 
 Outside a chat, `MarkdownView(data: text)` on its own is enough: without a
 scope above it, it manages selection for that one document.
@@ -283,8 +287,8 @@ paths and image handling.
 
 ## Platforms
 
-The package has no platform-specific code. Its tests run on Linux in CI. Web
-has not been exercised.
+The package has no platform-specific code. Its tests run on Linux in CI, and
+the example app builds and runs on the web (`example/web/`).
 
 ## License
 

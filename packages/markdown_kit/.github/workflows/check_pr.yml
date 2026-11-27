@@ -40,6 +40,10 @@ jobs:
         working-directory: example
         run: flutter test --no-pub
 
+      - name: Build example for web
+        working-directory: example
+        run: flutter build web --release --no-pub
+
       - name: Validate the package for pub.dev
         run: flutter pub publish --dry-run
 
