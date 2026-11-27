@@ -459,4 +459,70 @@ void main() {
       ]);
     });
   });
+
+  group('definitions and fences the splitter used to misread', () {
+    const unsplit = '[zz-unsplit]: /unsplit\n\n';
+
+    void expectSameSplitOrNot(String source) {
+      expect(
+        GfmMarkdownParser().parse(source).blocks,
+        GfmMarkdownParser().parse('$unsplit$source').blocks,
+        reason: source,
+      );
+    }
+
+    test('a reference label that runs on to the next line keeps its link', () {
+      const source = 'See [Baz][Foo bar].\n\nMore.\n\n[Foo\n  bar]: /url\n';
+      expect(splitMarkdownBlocks(source), hasLength(1));
+      final first = GfmMarkdownParser().parse(source).blocks.first;
+      expect(
+        (first as ParagraphBlock).inlines
+            .whereType<LinkInline>()
+            .single
+            .destination,
+        '/url',
+      );
+    });
+
+    test('a line that only opens a bracket does not stop the splitting', () {
+      expect(
+        splitMarkdownBlocks('[not a label\n\nnext\n\nlast\n'),
+        hasLength(3),
+      );
+      expect(
+        splitMarkdownBlocks('[open\nclosed] here\n\nnext\n'),
+        hasLength(2),
+      );
+    });
+
+    test('a fence line outside the item opens a new fence', () {
+      // The first fence ends with its item; the second runs to the end and
+      // holds the blank line.
+      const source = '- item\n  ```\n  inside\n```\nouter\n\nstill code\n';
+      expect(splitMarkdownBlocks(source), hasLength(1));
+      expectSameSplitOrNot(source);
+    });
+
+    test('a fence after an empty item and a blank line is not in the item', () {
+      const source = '-\n\n  ```\n  code\nmore\n\nstill code\n  ```\n\nafter\n';
+      expectSameSplitOrNot(source);
+      expect(splitMarkdownBlocks(source).last, 'after\n');
+    });
+
+    test('a fence at the margin ends the list item above it', () {
+      const source =
+          '- a\n```\none\n```\n  ```\n  two\n\n  still two\n  ```\n\nafter\n';
+      expectSameSplitOrNot(source);
+      expect(splitMarkdownBlocks(source).last, 'after\n');
+    });
+
+    test('a fence inside an item still ends where the item does', () {
+      const source = '- item\n  ```\n  code\n\n  more\n  ```\n\nafter\n';
+      expect(splitMarkdownBlocks(source), [
+        '- item\n  ```\n  code\n\n  more\n  ```\n\n',
+        'after\n',
+      ]);
+      expectSameSplitOrNot(source);
+    });
+  });
 }

@@ -67,10 +67,7 @@ void main() {
       if (!_sameBlocks(chunked, whole)) different.add(source);
     }
     expect(split, greaterThan(50));
-    // A reference label that continues on the next line is not seen as a
-    // definition by the splitter, so its link is cut off from it. Anything
-    // new in this set is a regression worth a look.
-    expect(different, {'[Foo\n  bar]: /url\n\n[Baz][Foo bar]\n'});
+    expect(different, isEmpty);
   });
 
   test('source ranges are in order and inside the source for every '

@@ -73,7 +73,7 @@ void main() {
     final different = <String>{};
     var split = 0;
 
-    for (var n = 0; n < 12000; n++) {
+    for (var n = 0; n < 60000; n++) {
       final count = 2 + random.nextInt(12);
       final source =
           '${[for (var i = 0; i < count; i++) _lines[random.nextInt(_lines.length)]].join('\n')}\n';
@@ -92,16 +92,18 @@ void main() {
     }
 
     expect(split, greaterThan(1000));
-    // What is left are two readings of a fence indented under a list item
-    // that the splitter gets wrong: a fence line outside the item is taken to
-    // close the fence inside it, and a fence after an empty item is taken to
-    // belong to that item. Anything new in this set is a regression worth a
-    // look.
+    // What is left needs rules the splitter does not model. An empty list
+    // marker right below text is that text and not an item, so a fence
+    // indented under it is not inside an item; and a fence inside a raw HTML
+    // block such as `<div>` is not a fence. Anything new in this set is a
+    // regression worth a look.
     expect(different, _known);
   });
 }
 
 const _known = <String>{
-  '+ c\n* b\n===\n  ```\n```\n   -\n\n> - q\n',
-  '2. e\n+\n\n  ```\n  - n\n* * *\n  text\n2. e\n\n</details>\n3) g\n  2) x\n',
+  '   -\npara\n+\n  ```\n# head\n|---|---|\n===\n  2) x\npara\n\n_ _ _\n10. ten\n===\n',
+  '<div>\n  - n\n  ```\n- [x] i\n_ _ _\n> - q\n\\]\n---\n\n```\n\n\\]\n',
+  '10. ten\n-\n ---\n  ```\n  2) x\n+\n\n> - q\n  - n\n10. ten\n  - n\n  - n\n',
+  '- a\n  2) x\n  text\n-\n+\n===\n  ```\n|---|---|\n ---\n# head\n\n<b>x</b>\n',
 };

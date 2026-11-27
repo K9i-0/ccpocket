@@ -1,5 +1,5 @@
 {
-  "summary": "572 of 652 examples match; 8 differ in package:markdown, 72 differ in markdown_kit.",
+  "summary": "573 of 652 examples match; 8 differ in package:markdown, 71 differ in markdown_kit.",
   "upstream": [
     6,
     40,
@@ -10,6 +10,9 @@
     625,
     626
   ],
+  "notes": {
+    "40": "A tab written as the entity &#9; at the start of a line is trimmed together with ordinary leading whitespace. package:markdown differs from the specification here too, so the example is filed under upstream."
+  },
   "kit": {
     "21": "By design: raw HTML is shown as literal text, so the expected raw tag can never be produced.",
     "31": "By design: raw HTML is shown as literal text, so the expected raw tag can never be produced.",
@@ -68,7 +71,6 @@
     "494": "By design: raw HTML is shown as literal text, so the expected raw tag can never be produced.",
     "524": "By design: raw HTML is shown as literal text, so the expected raw tag can never be produced.",
     "536": "By design: raw HTML is shown as literal text, so the expected raw tag can never be produced.",
-    "541": "Defect, minor: a reference definition whose label spans two lines is not recognised by the streaming splitter, so the link stays unresolved.",
     "613": "By design: raw HTML is shown as literal text, so the expected raw tag can never be produced.",
     "614": "By design: raw HTML is shown as literal text, so the expected raw tag can never be produced.",
     "615": "By design: raw HTML is shown as literal text, so the expected raw tag can never be produced.",
@@ -83,8 +85,5 @@
     "632": "By design: raw HTML is shown as literal text, so the expected raw tag can never be produced.",
     "642": "By design: raw HTML is shown as literal text, so the expected raw tag can never be produced.",
     "643": "By design: raw HTML is shown as literal text, so the expected raw tag can never be produced."
-  },
-  "notes": {
-    "40": "A tab written as the entity &#9; at the start of a line is trimmed together with ordinary leading whitespace. package:markdown differs from the specification here too, so the example is filed under upstream."
   }
 }

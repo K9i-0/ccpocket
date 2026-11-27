@@ -267,7 +267,7 @@ why.
 
 About 1,900 tests cover the parser, streaming, rendering and selection,
 including right-to-left text, large text scales and hostile input. The 652
-examples of the CommonMark specification run in CI: 572 match, and
+examples of the CommonMark specification run in CI: 573 match, and
 `test/commonmark_spec/baseline.json` lists every one that differs and why
 (mostly raw HTML, which is shown as text by design).
 

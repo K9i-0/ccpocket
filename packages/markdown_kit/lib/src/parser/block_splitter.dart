@@ -54,6 +54,7 @@ List<String> splitMarkdownBlocks(
   var listMarkerUnsure = false;
   var listMaybeClosed = false;
   var previousLineBlank = true;
+  var emptyItemOpen = false;
   // Content column of the list item the line being read can still belong to,
   // or null outside one. Used only to decide if a fence sits inside the item;
   // unlike [currentHasListItem] it is dropped as soon as a block that cannot
@@ -62,22 +63,21 @@ List<String> splitMarkdownBlocks(
   var currentHasContent = false;
   var sawBlankAfterContent = false;
 
-  for (final line in lines) {
+  for (var lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+    final line = lines[lineIndex];
     final content = _stripLineEnding(line);
 
     if (fence != null) {
-      if (fence.isClosedBy(content)) {
-        current.write(line);
+      // A line outside the list item holding the fence ends the item, and
+      // the fence with it, even when that line is itself a fence: it then
+      // opens a new one below.
+      if (fence.isEndedByContainer(content)) {
         fence = null;
-        continue;
-      }
-      if (!fence.isEndedByContainer(content)) {
+      } else {
         current.write(line);
+        if (fence.isClosedBy(content)) fence = null;
         continue;
       }
-      // The list item holding the fence ended without a closing fence; this
-      // line is ordinary content again.
-      fence = null;
     }
 
     if (mathBlock != null) {
@@ -89,7 +89,8 @@ List<String> splitMarkdownBlocks(
     if (detailsDepth > 0) {
       // A definition inside `<details>` is visible to the whole document.
       if (!ignoreCrossBlockConstructs &&
-          _referenceDefinition.hasMatch(content)) {
+          (_referenceDefinition.hasMatch(content) ||
+              _startsSpanningDefinition(lines, lineIndex))) {
         return [text];
       }
       current.write(line);
@@ -102,13 +103,21 @@ List<String> splitMarkdownBlocks(
 
     // Cross-block definitions and spanning raw HTML blocks disable splitting.
     // Only inspected outside fences, math blocks, and `<details>`.
-    if (!ignoreCrossBlockConstructs && _hasCrossBlockConstruct(content)) {
+    if (!ignoreCrossBlockConstructs &&
+        (_hasCrossBlockConstruct(content) ||
+            _startsSpanningDefinition(lines, lineIndex))) {
       return [text];
     }
 
     if (_isBlank(content)) {
       current.write(line);
       if (currentHasContent) sawBlankAfterContent = true;
+      // An item with nothing on its marker line ends at a blank line, so
+      // what follows is not inside it however far it is indented.
+      if (emptyItemOpen) {
+        listContentIndent = null;
+        emptyItemOpen = false;
+      }
       previousLineBlank = true;
       continue;
     }
@@ -138,6 +147,7 @@ List<String> splitMarkdownBlocks(
     } else if (_endsListItem(content)) {
       listContentIndent = null;
     }
+    emptyItemOpen = itemIndent != null && _isEmptyListItem(content);
 
     // Only lines in or after a list need a look, so text without lists pays
     // nothing for this.
@@ -176,7 +186,11 @@ List<String> splitMarkdownBlocks(
     previousLineBlank = false;
 
     fence = _Fence.tryOpen(content, containerIndent: listContentIndent);
-    if (fence != null) continue;
+    if (fence != null) {
+      // A fence that is not inside the list item ends that item.
+      if (fence.containerIndent == null) listContentIndent = null;
+      continue;
+    }
 
     mathBlock = _BlockMathDelimiter.tryOpen(
       content,
@@ -241,6 +255,7 @@ String sanitizeStreamingTail(
   _Fence? openFence;
   _BlockMathDelimiter? openMath;
   int? listContentIndent;
+  var emptyItemOpen = false;
   // The last two complete lines outside fences and math, for spotting a
   // table whose delimiter row has not arrived yet.
   String? lastLine;
@@ -256,13 +271,15 @@ String sanitizeStreamingTail(
     scanned += rawLine.length;
 
     if (openFence != null) {
-      if (openFence.isClosedBy(content)) {
+      if (openFence.isEndedByContainer(content)) {
         openFence = null;
-        lastLine = lineBeforeLast = null;
+      } else {
+        if (openFence.isClosedBy(content)) {
+          openFence = null;
+          lastLine = lineBeforeLast = null;
+        }
         continue;
       }
-      if (!openFence.isEndedByContainer(content)) continue;
-      openFence = null;
     }
     if (openMath != null) {
       if (openMath.isClosedBy(content)) openMath = null;
@@ -273,14 +290,24 @@ String sanitizeStreamingTail(
     lastLine = content;
     lastLineStart = lineStart;
 
+    if (emptyItemOpen && _isBlank(content)) {
+      listContentIndent = null;
+      emptyItemOpen = false;
+    }
     final itemIndent = _listItemContentIndent(content);
     if (itemIndent != null) {
       listContentIndent = itemIndent;
     } else if (_endsListItem(content)) {
       listContentIndent = null;
     }
+    if (!_isBlank(content)) {
+      emptyItemOpen = itemIndent != null && _isEmptyListItem(content);
+    }
     openFence = _Fence.tryOpen(content, containerIndent: listContentIndent);
-    if (openFence != null) continue;
+    if (openFence != null) {
+      if (openFence.containerIndent == null) listContentIndent = null;
+      continue;
+    }
     openMath = _BlockMathDelimiter.tryOpen(
       content,
       bracket: bracketMath,
@@ -532,6 +559,36 @@ final _bracketMathSingleLine = RegExp(r'^ {0,3}\\\[.*\\\][ \t]*$');
 final _bracketMathCloseLine = RegExp(r'\\\][ \t]*$');
 final _partialDollarClose = RegExp(r'^ {0,3}\$$');
 final _partialBracketClose = RegExp(r'^ {0,3}\\$');
+
+/// Whether the list item on [line] has nothing after its marker.
+bool _isEmptyListItem(String line) =>
+    line.length <= 14 && _emptyListItem.hasMatch(line);
+
+final _emptyListItem = RegExp(r'^ {0,3}(?:[-*+]|\d{1,9}[.)])[ \t]*$');
+
+// A label that is still open at the end of its line, after the same
+// prefixes [_referenceDefinition] allows.
+final _openLabel = RegExp(
+  r'^[ \t]*(?:>[ \t]*)*(?:(?:[-*+]|\d{1,9}[.)])[ \t]+)?\[[^\]]*$',
+);
+
+/// Whether the line at [index] opens a reference definition whose label runs
+/// on to a later line (`[Foo` / `bar]: /url`). A label cannot hold a blank
+/// line, so the search stops at one.
+bool _startsSpanningDefinition(List<String> lines, int index) {
+  final first = lines[index];
+  // Nearly every line is ruled out here, before any pattern is tried.
+  if (!first.contains('[') || first.contains(']')) return false;
+  if (!_openLabel.hasMatch(_stripLineEnding(first))) return false;
+  for (var i = index + 1; i < lines.length; i++) {
+    final line = _stripLineEnding(lines[i]);
+    if (_isBlank(line)) return false;
+    final close = line.indexOf(']');
+    if (close < 0) continue;
+    return close + 1 < line.length && line.codeUnitAt(close + 1) == 0x3A;
+  }
+  return false;
+}
 
 bool _hasCrossBlockConstruct(String line) {
   return _referenceDefinition.hasMatch(line) ||
