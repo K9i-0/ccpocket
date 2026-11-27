@@ -128,5 +128,3 @@ Katkı yönergeleri için [CONTRIBUTING.md](CONTRIBUTING.md) dosyasına bakın.
 ## Lisans
 
 [MIT](LICENSE)
-
-Bir test düzeneği farklı bir lisans altındadır: `packages/markdown_kit/test/commonmark_spec/spec.json` dosyasındaki CommonMark spesifikasyon örnekleri CC BY-SA 4.0 lisanslıdır. Bkz. [packages/markdown_kit/NOTICE.md](packages/markdown_kit/NOTICE.md).
