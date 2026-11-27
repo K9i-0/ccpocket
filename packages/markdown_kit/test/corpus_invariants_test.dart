@@ -26,6 +26,14 @@ List<String> _corpus() {
 
 String _visible(String source) => jsonEncode(source);
 
+bool _sameBlocks(List<MarkdownBlock> a, List<MarkdownBlock> b) {
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
+}
+
 void main() {
   final corpus = _corpus();
 
@@ -42,6 +50,27 @@ void main() {
         reason: _visible(source),
       );
     }
+  });
+
+  test('parsing chunk by chunk gives the blocks of parsing in one piece', () {
+    // A reference definition in front turns the splitter off for the whole
+    // document, and makes no block of its own.
+    const unsplit = '[zz-unsplit]: /unsplit\n\n';
+    var split = 0;
+    final different = <String>{};
+    for (final source in corpus) {
+      if (splitMarkdownBlocks(source).length < 2) continue;
+      split++;
+      expect(splitMarkdownBlocks('$unsplit$source'), hasLength(1));
+      final chunked = GfmMarkdownParser().parse(source).blocks;
+      final whole = GfmMarkdownParser().parse('$unsplit$source').blocks;
+      if (!_sameBlocks(chunked, whole)) different.add(source);
+    }
+    expect(split, greaterThan(50));
+    // A reference label that continues on the next line is not seen as a
+    // definition by the splitter, so its link is cut off from it. Anything
+    // new in this set is a regression worth a look.
+    expect(different, {'[Foo\n  bar]: /url\n\n[Baz][Foo bar]\n'});
   });
 
   test('streaming every prefix converges on the complete parse', () {

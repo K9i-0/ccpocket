@@ -40,6 +40,20 @@ List<String> splitMarkdownBlocks(
   _BlockMathDelimiter? mathBlock;
   var detailsDepth = 0;
   var currentHasListItem = false;
+  // Marker of the outermost list of the current block (a bullet character,
+  // or the delimiter of an ordered list) and where the content of its items
+  // starts. A list item with another marker cannot belong to that list, so
+  // after a blank line it starts a block of its own.
+  //
+  // This follows lists only as far as that needs. Wherever a line could be
+  // read two ways without the rest of the parser's rules, the marker is
+  // marked unsure and a list item is kept with the current block, as it
+  // always was before.
+  int? listMarker;
+  var listMarkerContentIndent = 0;
+  var listMarkerUnsure = false;
+  var listMaybeClosed = false;
+  var previousLineBlank = true;
   // Content column of the list item the line being read can still belong to,
   // or null outside one. Used only to decide if a fence sits inside the item;
   // unlike [currentHasListItem] it is dropped as soon as a block that cannot
@@ -95,15 +109,23 @@ List<String> splitMarkdownBlocks(
     if (_isBlank(content)) {
       current.write(line);
       if (currentHasContent) sawBlankAfterContent = true;
+      previousLineBlank = true;
       continue;
     }
 
     if (sawBlankAfterContent &&
-        _startsNewBlock(content, currentHasListItem: currentHasListItem)) {
+        _startsNewBlock(
+          content,
+          currentHasListItem: currentHasListItem,
+          listMarker: listMarkerUnsure ? null : listMarker,
+        )) {
       blocks.add(current.toString());
       current.clear();
       currentHasListItem = false;
       listContentIndent = null;
+      listMarker = null;
+      listMarkerUnsure = false;
+      listMaybeClosed = false;
     }
     sawBlankAfterContent = false;
     currentHasContent = true;
@@ -116,6 +138,43 @@ List<String> splitMarkdownBlocks(
     } else if (_endsListItem(content)) {
       listContentIndent = null;
     }
+
+    // Only lines in or after a list need a look, so text without lists pays
+    // nothing for this.
+    if (itemIndent != null || listMarker != null) {
+      final lineIndent = _indentWidth(_leadingWhitespace(content));
+      if (itemIndent != null) {
+        if (listMarker == null || lineIndent < listMarkerContentIndent) {
+          // An item of the outermost list, or the start of another one.
+          final marker = _listMarkerOf(content);
+          if (listMarker != null &&
+              marker != listMarker &&
+              !previousLineBlank) {
+            // Right below other text this may be a new list or, where a list
+            // may not interrupt a paragraph, just more of that text.
+            listMarkerUnsure = true;
+          }
+          listMarker = marker;
+          listMarkerContentIndent = itemIndent;
+          listMaybeClosed = false;
+        } else if (listMaybeClosed) {
+          // Nested in the list if it is still open, a list of its own if not.
+          listMarkerUnsure = true;
+        }
+      } else if (listMarker != null && lineIndent < listMarkerContentIndent) {
+        if (_thematicBreakLine.hasMatch(content) ||
+            _closesList.hasMatch(content)) {
+          // A rule, heading or quote outside the item ends the list for sure.
+          listMarker = null;
+          listMarkerUnsure = false;
+          listMaybeClosed = false;
+        } else {
+          // More of the item's paragraph, or a block that ends the list.
+          listMaybeClosed = true;
+        }
+      }
+    }
+    previousLineBlank = false;
 
     fence = _Fence.tryOpen(content, containerIndent: listContentIndent);
     if (fence != null) continue;
@@ -459,6 +518,8 @@ final _listItemParts = RegExp(
 final _nonItemBlockStart = RegExp(
   r'^(?:>|#{1,6}(?:[ \t]|$)|<|(?:[-*_][ \t]*){3,}$)',
 );
+final _thematicBreakLine = RegExp(r'^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$');
+final _closesList = RegExp(r'^ {0,3}(?:>|#{1,6}(?:[ \t]|$))');
 final _fenceOpen = RegExp(r'^([ \t]*)(`{3,}|~{3,})(.*)$');
 final _partialFenceStart = RegExp(r'^[ \t]*(`{1,2}|~{1,2})$');
 final _detailsBlockOpenLine = RegExp(
@@ -479,23 +540,40 @@ bool _hasCrossBlockConstruct(String line) {
       _spanningHtmlBlock.hasMatch(line);
 }
 
-bool _startsNewBlock(String line, {required bool currentHasListItem}) {
+bool _startsNewBlock(
+  String line, {
+  required bool currentHasListItem,
+  required int? listMarker,
+}) {
   // Indented lines may continue a list item or form an indented code block
   // that merges with the preceding one; keep them with the current block.
   if (line.startsWith(' ') || line.startsWith('\t')) return false;
-  // A list item after a blank line continues a (loose) list.
-  if (currentHasListItem && _isListItem(line)) return false;
+  // A list item after a blank line continues a (loose) list, unless its
+  // marker differs from that list's: `1.` after `-` starts another list.
+  if (currentHasListItem && _isListItem(line)) {
+    return listMarker != null && _listMarkerOf(line) != listMarker;
+  }
   return true;
 }
 
-bool _isListItem(String line) => _listItem.hasMatch(line);
+/// What tells one list from another: the bullet character of a bullet item,
+/// or the delimiter (`.` or `)`) of an ordered one. [line] must be a list
+/// item.
+int _listMarkerOf(String line) {
+  final marker = _listItem.firstMatch(line)!.group(1)!;
+  return marker.codeUnitAt(marker.length - 1);
+}
+
+/// A line such as `* * *` looks like a list item and is a thematic break.
+bool _isListItem(String line) =>
+    _listItem.hasMatch(line) && !_thematicBreakLine.hasMatch(line);
 
 /// Column where the content of the list item starting on [line] begins, or
 /// null when [line] does not start one.
 int? _listItemContentIndent(String line) {
   final match = _listItemParts.firstMatch(line);
   if (match == null) return null;
-  if (!_listItem.hasMatch(line)) return null;
+  if (!_isListItem(line)) return null;
   final spaces = match.group(3)?.length ?? 1;
   // Five or more spaces after the marker start an indented code block inside
   // the item, whose content column is one past the marker.

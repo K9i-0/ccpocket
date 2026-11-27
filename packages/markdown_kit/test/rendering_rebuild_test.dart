@@ -197,6 +197,15 @@ class _Probe {
   }
 }
 
+class _WrapperHost {
+  int calls = 0;
+
+  Widget wrap(int index, MarkdownBlock block, Widget child) {
+    calls++;
+    return child;
+  }
+}
+
 void main() {
   setUp(() => _bucket = PageStorageBucket());
 
@@ -1281,6 +1290,27 @@ void main() {
       calls.clear();
       await tester.pumpWidget(view('one\n\ntwo!'));
       expect(calls, [1]);
+    });
+
+    testWidgets('a method passed as the wrapper does not rebuild the blocks', (
+      tester,
+    ) async {
+      // Each `host.wrap` is a new object that is equal to the last one.
+      final host = _WrapperHost();
+      final probe = <int>[];
+      Widget view() => _app(
+        child: MarkdownView(
+          data: 'one\n\ntwo',
+          blockWrapper: host.wrap,
+          onBlockBuilt: (i, _) => probe.add(i),
+        ),
+      );
+      await tester.pumpWidget(view());
+      expect(host.calls, 2);
+      probe.clear();
+      await tester.pumpWidget(view());
+      expect(host.calls, 2);
+      expect(probe, isEmpty);
     });
 
     testWidgets('a moved block is wrapped again with its new index', (

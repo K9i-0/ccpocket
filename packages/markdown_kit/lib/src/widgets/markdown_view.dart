@@ -377,7 +377,7 @@ class _MarkdownDocumentHostState extends State<_MarkdownDocumentHost> {
         _cachedSelectable != widget.selectable ||
         _cachedSelectionColor != effectiveSelectionColor ||
         !identical(_cachedController, controller) ||
-        !identical(_cachedWrapper, widget.blockWrapper);
+        _cachedWrapper != widget.blockWrapper;
 
     if (widgetsStale) {
       _cachedTheme = widget.theme;

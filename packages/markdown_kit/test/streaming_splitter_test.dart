@@ -176,15 +176,18 @@ void main() {
       expect(_split(text), ['| a | b |\n|---|---|\n| 1 | 2 |\n\n', 'next']);
     });
 
-    test('keeps loose unordered and ordered list items in one block', () {
+    test('keeps a loose list in one block and splits where its marker '
+        'changes', () {
       const unordered = 'Intro:\n\n- one\n\n- two\n\n* three\n\nOutro';
       expect(_split(unordered), [
         'Intro:\n\n',
-        '- one\n\n- two\n\n* three\n\n',
+        '- one\n\n- two\n\n',
+        // Another bullet character starts another list.
+        '* three\n\n',
         'Outro',
       ]);
-      const ordered = '1. one\n\n2) two\n\n10. ten\n\nOutro';
-      expect(_split(ordered), ['1. one\n\n2) two\n\n10. ten\n\n', 'Outro']);
+      const ordered = '1. one\n\n2. two\n\n10) ten\n\nOutro';
+      expect(_split(ordered), ['1. one\n\n2. two\n\n', '10) ten\n\n', 'Outro']);
     });
 
     test('keeps indented continuation lines with the preceding block', () {
@@ -382,6 +385,78 @@ void main() {
           expect(block.code.contains('`'), isFalse);
         }
       }
+    });
+  });
+
+  group('lists with different markers', () {
+    List<String> kinds(String source) => [
+      for (final block in GfmMarkdownParser().parse(source).blocks)
+        block is ListBlock
+            ? 'list(${block.items.length})'
+            : block.runtimeType.toString(),
+    ];
+
+    test('a list with another marker after a blank line is its own chunk', () {
+      expect(splitMarkdownBlocks('- a\n\n1. b\n'), ['- a\n\n', '1. b\n']);
+      expect(splitMarkdownBlocks('- a\n\n* b\n'), ['- a\n\n', '* b\n']);
+      expect(splitMarkdownBlocks('1. a\n\n2) b\n'), ['1. a\n\n', '2) b\n']);
+      expect(splitMarkdownBlocks('- a\n- b\n\n1. c\n\n- [ ] d\n'), [
+        '- a\n- b\n\n',
+        '1. c\n\n',
+        '- [ ] d\n',
+      ]);
+    });
+
+    test('a loose list with one marker stays one chunk', () {
+      expect(splitMarkdownBlocks('- a\n\n- b\n\n- c\n'), hasLength(1));
+      expect(splitMarkdownBlocks('1. a\n\n2. b\n'), hasLength(1));
+    });
+
+    test('a nested list with another marker does not end the outer one', () {
+      const source = '- a\n  1. nested\n\n- b\n';
+      expect(splitMarkdownBlocks(source), hasLength(1));
+      expect(kinds(source), ['list(2)']);
+    });
+
+    test('a marker change right below other text does not split', () {
+      // Whether `2.` here is a new list or more of the first item depends on
+      // rules the splitter does not model, so it leaves the block whole.
+      expect(splitMarkdownBlocks('- a\n2. b\n\n- c\n'), hasLength(1));
+      expect(splitMarkdownBlocks('- a\n2. b\n\n3. c\n'), hasLength(1));
+    });
+
+    test('the lists are the same split or not', () {
+      const unsplit = '[zz-unsplit]: /unsplit\n\n';
+      for (final source in [
+        '- a\n\n1. b\n',
+        '- a\n\n* b\n\n+ c\n',
+        '1. a\n\n2) b\n',
+        '3. a\n\n- b\n\n- [ ] c\n',
+        '- a\n\n  more\n\n1. b\n   - nested\n\n* c\n',
+        '- a\n1. b\n\n- c\n',
+        '- a\n2. b\n\n1. c\n',
+        'text\n- a\n\n1. b\n',
+        '- a\n\n* * *\n\n- b\n',
+        '- a\n\n -  b\n\n1. c\n',
+        '10. a\n   - b\n\n- c\n',
+      ]) {
+        expect(
+          GfmMarkdownParser().parse(source).blocks,
+          GfmMarkdownParser().parse('$unsplit$source').blocks,
+          reason: source,
+        );
+      }
+    });
+
+    test('each list gets a source range of its own', () {
+      const source = '- a\n- b\n\n1. c\n\n- [ ] d\n';
+      final document = GfmMarkdownParser().parse(source);
+      expect(document.blocks, hasLength(3));
+      expect(document.blockSourceRanges, const [
+        MarkdownSourceRange(0, 9),
+        MarkdownSourceRange(9, 15),
+        MarkdownSourceRange(15, 23),
+      ]);
     });
   });
 }
