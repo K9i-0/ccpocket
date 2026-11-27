@@ -25,6 +25,7 @@ class BridgeUpdateStatus {
     String? latestBridgeVersion,
     bool isCheckingLatestBridgeVersion = false,
     String? latestBridgeVersionError,
+    bool isLocalBridge = false,
   }) {
     final expectedVersion = AppConstants.expectedBridgeVersion;
     final updateTargetVersion =
@@ -42,8 +43,13 @@ class BridgeUpdateStatus {
         isOnline &&
         versionInfo != null &&
         versionInfo.needsUpdate(updateTargetVersion);
+    // A Bridge older than the `managedBy` report says nothing about what
+    // started it. On the Mac that hosts it, this app is where it is managed,
+    // so point there instead of to the SSH setup.
     final updateFromDesktopApp =
-        bridgeNeedsUpdate && versionInfo.isManagedByDesktopApp;
+        bridgeNeedsUpdate &&
+        (versionInfo.isManagedByDesktopApp ||
+            (isLocalBridge && versionInfo.managedBy == null));
     return BridgeUpdateStatus._(
       expectedVersion: expectedVersion,
       updateTargetVersion: updateTargetVersion,
@@ -123,6 +129,7 @@ class BridgeUpdateStatusTile extends StatelessWidget {
       latestBridgeVersion: latestBridgeVersion,
       isCheckingLatestBridgeVersion: isCheckingLatestBridgeVersion,
       latestBridgeVersionError: latestBridgeVersionError,
+      isLocalBridge: onOpenLocalBridge != null,
     );
     final expectedVersion = status.expectedVersion;
     final updateTargetVersion = status.updateTargetVersion;
