@@ -16,6 +16,8 @@ screenshots:
     path: doc/extras.png
   - description: The built-in dark theme.
     path: doc/dark.png
+  - description: The editor example. Markdown source beside its preview, scrolled to the same place.
+    path: doc/editor.png
 
 topics:
   - markdown

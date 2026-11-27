@@ -139,6 +139,48 @@ Inside a `CustomScrollView`, `SliverMarkdownView` builds only the blocks near
 the viewport while the whole document stays selectable. It needs a
 `MarkdownSelectionScope` above the scroll view.
 
+### An editor with a live preview
+
+The package renders Markdown and does not edit it. What it gives an editor is
+a preview that keeps up with typing, and a way to tell which block came from
+which part of the source.
+
+<p align="center">
+  <img src="doc/editor.png" width="560" alt="Markdown source on the left with its syntax coloured and the caret in a code block; on the right the rendered document scrolled to the same place, with a bar beside that code block.">
+</p>
+
+```dart
+// One parser for the editor. Every keystroke is a new text and none of them
+// comes back, so the cache of whole documents is off.
+final parser = GfmMarkdownParser(maxCacheEntries: 0);
+
+final document = parser.parse(controller.text);
+
+MarkdownView(
+  document: document,
+  builders: builders, // the same instance on every build
+  blockWrapper: wrapBlock, // (index, block, child) => a widget around child
+)
+```
+
+- Only the block being typed in is parsed and built again. A block added or
+  removed in the middle keeps the state and layout of the blocks after it.
+- `document.blockSourceRanges[i]` is the stretch of source block `i` came
+  from, and `document.blockIndexAtSourceOffset(caret)` the block a position is
+  in. Blocks with no blank line between them share a range.
+- `blockWrapper` wraps the widget of each top-level block, which is enough to
+  find a block on screen, scroll to it, or mark the one being edited.
+
+[`example/lib/editor.dart`](example/lib/editor.dart) puts these together:
+source and preview side by side that scroll in step, a marker on the block the
+caret is in, and a tap on a block that jumps to its source. Run it with
+`flutter run -t lib/editor.dart`.
+
+The source pane of that example is a plain Flutter text field, and in a long
+document it is what a keystroke costs: a text field lays out all of its text
+again on every change. On a 24 KB document a keystroke took 9 ms in a profile
+build on a Mac, 6 ms of it in the text field and under 1 ms in the parser.
+
 ### Appearance
 
 ```dart

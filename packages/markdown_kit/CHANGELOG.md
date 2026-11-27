@@ -12,3 +12,7 @@ First public release.
   text or Markdown.
 - `MarkdownThemeData` and `MarkdownBuilders` for appearance and custom
   rendering, and a built-in context menu.
+- For editors with a live preview: `MarkdownDocument.blockSourceRanges` and
+  `blockIndexAtSourceOffset` link the source to its blocks, `blockWrapper`
+  wraps each block of a view, and a block typed into the middle of a document
+  keeps the blocks after it.
