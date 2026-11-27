@@ -323,8 +323,9 @@ void main() {
         _app(child: probe.view(data: '# zero\n\none\n\ntwo')),
       );
       expect(_allParagraphTexts(tester), ['zero', 'one', 'two']);
-      // Positions shifted, so the first slot now shows the heading.
-      expect(identical(_para(tester, 'zero'), oneRender), isTrue);
+      // The paragraph moved down with its render object; the heading in
+      // front of it is new.
+      expect(identical(_para(tester, 'one'), oneRender), isTrue);
       expect(
         _para(tester, 'zero').text.style!.fontSize,
         MarkdownThemeData.fallback().h1Style.fontSize,
@@ -1052,6 +1053,318 @@ void main() {
       await tester.pumpWidget(view('rebuild-details-a'));
       await tester.pumpAndSettle();
       expect(find.textContaining('Secret', findRichText: true), findsOneWidget);
+    });
+  });
+
+  group('blocks added or removed in the middle', () {
+    const before = 'alpha\n\nbravo\n\ncharlie\n\ndelta';
+    const inserted = 'alpha\n\nbravo\n\nnew one\n\ncharlie\n\ndelta';
+
+    testWidgets('a block typed into the middle keeps the ones after it', (
+      tester,
+    ) async {
+      final probe = _Probe();
+      await tester.pumpWidget(_app(child: probe.view(data: before)));
+      final charlie = _para(tester, 'charlie');
+      final delta = _para(tester, 'delta');
+      probe.reset();
+
+      await tester.pumpWidget(_app(child: probe.view(data: inserted)));
+
+      expect(_allParagraphTexts(tester), [
+        'alpha',
+        'bravo',
+        'new one',
+        'charlie',
+        'delta',
+      ]);
+      expect(probe.reused, [0, 1]);
+      expect(identical(_para(tester, 'charlie'), charlie), isTrue);
+      expect(identical(_para(tester, 'delta'), delta), isTrue);
+      // They answer to their new index, which is what a selection addresses.
+      expect(_para(tester, 'new one').blockIndex, 2);
+      expect(charlie.blockIndex, 3);
+      expect(delta.blockIndex, 4);
+      expect(_drain(tester), isEmpty);
+    });
+
+    testWidgets('a block removed from the middle keeps the ones after it', (
+      tester,
+    ) async {
+      final probe = _Probe();
+      await tester.pumpWidget(_app(child: probe.view(data: inserted)));
+      final charlie = _para(tester, 'charlie');
+      final delta = _para(tester, 'delta');
+      probe.reset();
+
+      await tester.pumpWidget(_app(child: probe.view(data: before)));
+
+      expect(_allParagraphTexts(tester), [
+        'alpha',
+        'bravo',
+        'charlie',
+        'delta',
+      ]);
+      expect(probe.reused, [0, 1]);
+      expect(identical(_para(tester, 'charlie'), charlie), isTrue);
+      expect(identical(_para(tester, 'delta'), delta), isTrue);
+      expect(charlie.blockIndex, 2);
+      expect(delta.blockIndex, 3);
+      expect(_drain(tester), isEmpty);
+    });
+
+    testWidgets('a moved block is not laid out again', (tester) async {
+      final probe = _Probe();
+      await tester.pumpWidget(_app(child: probe.view(data: before)));
+      final delta = _para(tester, 'delta');
+      await tester.pumpWidget(_app(child: probe.view(data: inserted)));
+      // Still clean: the insertion moved it without marking it for layout.
+      expect(delta.debugNeedsLayout, isFalse);
+      final top = delta.localToGlobal(Offset.zero).dy;
+      await tester.pumpWidget(_app(child: probe.view(data: before)));
+      expect(delta.localToGlobal(Offset.zero).dy, lessThan(top));
+    });
+
+    testWidgets(
+      'a selection made after an insertion lands on the moved block',
+      (tester) async {
+        final controller = MarkdownSelectionController();
+        addTearDown(controller.dispose);
+        Widget view(String data) => _app(
+          child: MarkdownSelectionScope(
+            controller: controller,
+            child: MarkdownView(documentId: 'moved', data: data),
+          ),
+        );
+        await tester.pumpWidget(view(before));
+        await tester.pumpWidget(view(inserted));
+        await tester.pump();
+
+        final charlie = _para(tester, 'charlie');
+        await tester.longPressAt(charlie.localToGlobal(const Offset(8, 8)));
+        await tester.pump();
+
+        final selection = controller.selection!;
+        expect(selection.base.blockIndex, 3);
+        expect(controller.getText(), 'charlie');
+        await tester.tapAt(const Offset(400, 600));
+        await tester.pumpAndSettle();
+      },
+    );
+
+    testWidgets('equal blocks side by side do not collide', (tester) async {
+      final probe = _Probe();
+      await tester.pumpWidget(
+        _app(child: probe.view(data: 'same\n\nsame\n\nsame')),
+      );
+      await tester.pumpWidget(
+        _app(child: probe.view(data: 'same\n\nsame\n\nsame\n\nsame')),
+      );
+      await tester.pumpWidget(_app(child: probe.view(data: 'same\n\nsame')));
+      expect(_allParagraphTexts(tester), ['same', 'same']);
+      expect(_drain(tester), isEmpty);
+    });
+
+    testWidgets('a reply that grows at the end is matched as before', (
+      tester,
+    ) async {
+      final probe = _Probe();
+      await tester.pumpWidget(
+        _app(child: probe.view(data: 'one\n\ntw', isStreaming: true)),
+      );
+      final one = _para(tester, 'one');
+      final tail = _para(tester, 'tw');
+      probe.reset();
+      await tester.pumpWidget(
+        _app(child: probe.view(data: 'one\n\ntwo\n\nthr', isStreaming: true)),
+      );
+      expect(probe.reused, [0]);
+      expect(probe.built, [1, 2]);
+      expect(identical(_para(tester, 'one'), one), isTrue);
+      // The block still being written keeps its place and render object.
+      expect(identical(_para(tester, 'two'), tail), isTrue);
+    });
+
+    testWidgets('a moved block keeps its element through a theme change', (
+      tester,
+    ) async {
+      final probe = _Probe();
+      await tester.pumpWidget(_app(child: probe.view(data: before)));
+      final delta = _para(tester, 'delta');
+      await tester.pumpWidget(_app(child: probe.view(data: inserted)));
+      await tester.pumpWidget(
+        _app(
+          child: probe.view(data: inserted, theme: MarkdownThemeData.dark()),
+        ),
+      );
+      expect(identical(_para(tester, 'delta'), delta), isTrue);
+      expect(
+        _styleOf(tester, 'delta').color,
+        MarkdownThemeData.dark().bodyStyle.color,
+      );
+    });
+
+    testWidgets('an open details block stays open when a block is put before '
+        'it', (tester) async {
+      const details =
+          '<details>\n<summary>Open me</summary>\n\nInner body\n\n</details>';
+      Widget view(String data) => _app(
+        child: MarkdownView(documentId: 'details-moved', data: data),
+      );
+      await tester.pumpWidget(view('lead\n\n$details'));
+      await tester.tapAt(
+        _para(tester, 'Open me').localToGlobal(const Offset(4, 4)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Inner', findRichText: true), findsOneWidget);
+
+      await tester.pumpWidget(view('lead\n\nadded\n\n$details'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Inner', findRichText: true), findsOneWidget);
+
+      // And it is found open again after being taken out of the tree.
+      await tester.pumpWidget(_app(child: const SizedBox()));
+      await tester.pumpWidget(view('lead\n\nadded\n\n$details'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Inner', findRichText: true), findsOneWidget);
+    });
+  });
+
+  group('blockWrapper', () {
+    Widget wrap(int index, MarkdownBlock block, Widget child) => KeyedSubtree(
+      key: ValueKey<String>('wrapped-$index-${block.runtimeType}'),
+      child: child,
+    );
+
+    testWidgets('wraps every top-level block with its index and block', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _app(
+          child: MarkdownView(
+            data: '# Title\n\nBody\n\n- a',
+            blockWrapper: wrap,
+          ),
+        ),
+      );
+      for (final key in [
+        'wrapped-0-HeadingBlock',
+        'wrapped-1-ParagraphBlock',
+        'wrapped-2-ListBlock',
+      ]) {
+        expect(find.byKey(ValueKey<String>(key)), findsOneWidget);
+      }
+      // The wrapper holds the block it was given.
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey<String>('wrapped-1-ParagraphBlock')),
+          matching: find.text('Body', findRichText: true),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('is not called again for blocks that did not change', (
+      tester,
+    ) async {
+      final calls = <int>[];
+      Widget counting(int index, MarkdownBlock block, Widget child) {
+        calls.add(index);
+        return child;
+      }
+
+      Widget view(String data) => _app(
+        child: MarkdownView(data: data, blockWrapper: counting),
+      );
+      await tester.pumpWidget(view('one\n\ntwo'));
+      expect(calls, [0, 1]);
+      calls.clear();
+      await tester.pumpWidget(view('one\n\ntwo!'));
+      expect(calls, [1]);
+    });
+
+    testWidgets('a moved block is wrapped again with its new index', (
+      tester,
+    ) async {
+      Widget view(String data) => _app(
+        child: MarkdownView(data: data, blockWrapper: wrap),
+      );
+      await tester.pumpWidget(view('one\n\ntwo'));
+      await tester.pumpWidget(view('one\n\n# new\n\ntwo'));
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey<String>('wrapped-2-ParagraphBlock')),
+          matching: find.text('two', findRichText: true),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('wrapped-1-HeadingBlock')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a moved block keeps its render object inside the wrapper', (
+      tester,
+    ) async {
+      Widget pad(int index, MarkdownBlock block, Widget child) =>
+          Padding(padding: const EdgeInsets.only(left: 4), child: child);
+      Widget view(String data) => _app(
+        child: MarkdownView(data: data, blockWrapper: pad),
+      );
+      await tester.pumpWidget(view('one\n\ntwo'));
+      final two = _para(tester, 'two');
+      await tester.pumpWidget(view('one\n\n# new\n\ntwo'));
+      expect(identical(_para(tester, 'two'), two), isTrue);
+      expect(two.blockIndex, 2);
+    });
+
+    testWidgets('a different wrapper rebuilds every block', (tester) async {
+      Widget other(int index, MarkdownBlock block, Widget child) =>
+          KeyedSubtree(key: ValueKey<String>('other-$index'), child: child);
+      Widget view(MarkdownBlockWrapper? wrapper) => _app(
+        child: MarkdownView(data: 'one\n\ntwo', blockWrapper: wrapper),
+      );
+      await tester.pumpWidget(view(wrap));
+      await tester.pumpWidget(view(other));
+      expect(find.byKey(const ValueKey<String>('other-0')), findsOneWidget);
+      expect(find.byKey(const ValueKey<String>('other-1')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('wrapped-0-ParagraphBlock')),
+        findsNothing,
+      );
+      await tester.pumpWidget(view(null));
+      expect(find.byKey(const ValueKey<String>('other-0')), findsNothing);
+      expect(_allParagraphTexts(tester), ['one', 'two']);
+    });
+
+    testWidgets('wraps the blocks a SliverMarkdownView builds', (tester) async {
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: ui.TextDirection.ltr,
+          child: MediaQuery(
+            data: const MediaQueryData(size: Size(420, 680)),
+            child: MarkdownSelectionScope(
+              child: CustomScrollView(
+                slivers: [
+                  SliverMarkdownView(
+                    data: '# Title\n\nBody',
+                    blockWrapper: wrap,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(
+        find.byKey(const ValueKey<String>('wrapped-0-HeadingBlock')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('wrapped-1-ParagraphBlock')),
+        findsOneWidget,
+      );
     });
   });
 

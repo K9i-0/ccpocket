@@ -63,6 +63,6 @@ export 'src/selection/selection_scope.dart'
 
 // Widgets.
 export 'src/widgets/markdown_view.dart'
-    show MarkdownBlockBuildCallback, MarkdownView;
+    show MarkdownBlockBuildCallback, MarkdownBlockWrapper, MarkdownView;
 export 'src/widgets/selectable_plain_text.dart' show SelectablePlainText;
 export 'src/widgets/sliver_markdown_view.dart' show SliverMarkdownView;

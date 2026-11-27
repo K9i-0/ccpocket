@@ -105,11 +105,21 @@ class GfmMarkdownParser implements MarkdownParser {
       dollarMath: options.enableLatex && options.enableDollarLatex,
     );
     final List<MarkdownBlock> blocks;
+    // Kept beside the blocks rather than in them: the same chunk parses to
+    // the same blocks wherever it sits, so cached blocks stay shareable and
+    // equal across positions.
+    final List<MarkdownSourceRange> ranges;
 
     if (chunks.length <= 1) {
       blocks = _parseChunk(effectiveSource, resolveFootnotes: true);
+      ranges = List<MarkdownSourceRange>.filled(
+        blocks.length,
+        MarkdownSourceRange(0, effectiveSource.length),
+      );
     } else {
       final combined = <MarkdownBlock>[];
+      final combinedRanges = <MarkdownSourceRange>[];
+      var chunkStart = 0;
       for (var i = 0; i < chunks.length; i++) {
         final chunk = chunks[i];
         final isStreamingTail = isStreaming && i == chunks.length - 1;
@@ -134,11 +144,24 @@ class GfmMarkdownParser implements MarkdownParser {
           }
         }
         combined.addAll(chunkBlocks);
+        final chunkEnd = chunkStart + chunk.length;
+        if (chunkBlocks.isNotEmpty) {
+          final range = MarkdownSourceRange(chunkStart, chunkEnd);
+          for (var b = 0; b < chunkBlocks.length; b++) {
+            combinedRanges.add(range);
+          }
+        }
+        chunkStart = chunkEnd;
       }
       blocks = List.unmodifiable(combined);
+      ranges = combinedRanges;
     }
 
-    final document = MarkdownDocument(blocks: blocks, source: effectiveSource);
+    final document = MarkdownDocument(
+      blocks: blocks,
+      source: effectiveSource,
+      blockSourceRanges: List.unmodifiable(ranges),
+    );
 
     if (isStreaming) {
       _lastStreamingSource = effectiveSource;

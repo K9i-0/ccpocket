@@ -106,6 +106,14 @@ class _MarkdownDetailsWidgetState extends State<MarkdownDetailsWidget> {
     if (oldWidget.block.initiallyOpen != widget.block.initiallyOpen) {
       _isOpen = widget.block.initiallyOpen;
     }
+    // The block moved (blocks were added or removed before it): keep the
+    // user's choice findable under its new place.
+    if (oldWidget.blockIndex != widget.blockIndex ||
+        oldWidget.documentId != widget.documentId ||
+        oldWidget.baseOffsetInBlock != widget.baseOffsetInBlock) {
+      PageStorage.maybeOf(context)
+          ?.writeState(context, _isOpen, identifier: _storageKey);
+    }
   }
 
   void _toggle() {

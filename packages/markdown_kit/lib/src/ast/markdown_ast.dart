@@ -1,10 +1,52 @@
 import 'package:meta/meta.dart';
 
+/// A half-open range `[start, end)` of UTF-16 offsets into
+/// [MarkdownDocument.source].
+@immutable
+class MarkdownSourceRange {
+  /// Creates the range from [start] up to, but not including, [end].
+  const MarkdownSourceRange(this.start, this.end)
+    : assert(start >= 0),
+      assert(end >= start);
+
+  /// Offset of the first code unit.
+  final int start;
+
+  /// Offset one past the last code unit.
+  final int end;
+
+  /// Number of code units covered.
+  int get length => end - start;
+
+  /// Whether [offset] lies inside the range.
+  bool contains(int offset) => offset >= start && offset < end;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is MarkdownSourceRange &&
+        other.start == start &&
+        other.end == end;
+  }
+
+  @override
+  int get hashCode => Object.hash(start, end);
+
+  @override
+  String toString() => 'MarkdownSourceRange($start, $end)';
+}
+
 /// Root AST node representing a parsed Markdown document.
 @immutable
 class MarkdownDocument {
   /// Creates a document from already-parsed [blocks].
-  const MarkdownDocument({required this.blocks, this.source = ''});
+  ///
+  /// [blockSourceRanges], when given, must have one entry per block.
+  const MarkdownDocument({
+    required this.blocks,
+    this.source = '',
+    this.blockSourceRanges,
+  });
 
   /// Empty document with no blocks.
   static const empty = MarkdownDocument(blocks: []);
@@ -15,11 +57,55 @@ class MarkdownDocument {
   /// The Markdown source string that produced this document.
   final String source;
 
+  /// Where each of [blocks] came from in [source], or null when the document
+  /// was not produced by a parser that records it.
+  ///
+  /// This is what links a position in the source to a block on screen, for
+  /// example to keep an editor and its preview scrolled to the same place.
+  ///
+  /// The ranges are as fine as the parser can split the source without
+  /// changing the result, which is coarser than one block in two cases:
+  ///
+  /// - Blocks with no blank line between them (a heading directly followed by
+  ///   its paragraph) share one range covering all of them.
+  /// - In a document with link reference definitions, footnote definitions or
+  ///   a raw HTML block that may span blank lines, every block shares one
+  ///   range covering the whole source.
+  ///
+  /// Blocks that share a range refer to the same instance. A range includes
+  /// the blank lines that follow its blocks. Ranges are in source order and do
+  /// not overlap, but source that produces no block (a comment) is in none.
+  ///
+  /// Not part of `==`: the ranges are derived from [source].
+  final List<MarkdownSourceRange>? blockSourceRanges;
+
   /// Whether the document has no blocks.
   bool get isEmpty => blocks.isEmpty;
 
   /// Whether the document has at least one block.
   bool get isNotEmpty => blocks.isNotEmpty;
+
+  /// Index of the first block made from the source at [sourceOffset], or null
+  /// when [blockSourceRanges] is null or the document is empty.
+  ///
+  /// An offset in source that produced no block maps to the next block, and an
+  /// offset past the last range to the last block.
+  int? blockIndexAtSourceOffset(int sourceOffset) {
+    final ranges = blockSourceRanges;
+    if (ranges == null || ranges.isEmpty) return null;
+    // First range that ends after the offset.
+    var low = 0;
+    var high = ranges.length;
+    while (low < high) {
+      final middle = (low + high) >> 1;
+      if (ranges[middle].end > sourceOffset) {
+        high = middle;
+      } else {
+        low = middle + 1;
+      }
+    }
+    return low < ranges.length ? low : ranges.length - 1;
+  }
 
   @override
   bool operator ==(Object other) {

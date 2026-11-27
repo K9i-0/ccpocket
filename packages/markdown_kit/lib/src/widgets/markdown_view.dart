@@ -20,6 +20,23 @@ typedef MarkdownBlockBuildCallback = void Function(
   MarkdownBlock block,
 );
 
+/// Wraps the widget of one top-level block in a [MarkdownView] or
+/// [SliverMarkdownView].
+///
+/// [child] draws [block], which is `document.blocks[blockIndex]`. Return a
+/// widget that contains it: to find where a block is on screen, to mark the
+/// block being edited, or to add a gutter beside it.
+///
+/// Called when the widget of a block is created, not on every build, so the
+/// result may depend only on the arguments. To show state that changes, return
+/// a widget that listens to it. Passing a different function rebuilds every
+/// block.
+typedef MarkdownBlockWrapper = Widget Function(
+  int blockIndex,
+  MarkdownBlock block,
+  Widget child,
+);
+
 /// Top-level widget rendering GFM Markdown with block-level caching, streaming
 /// support, and model-anchored selection.
 ///
@@ -54,6 +71,7 @@ class MarkdownView extends StatefulWidget {
     this.onSelectionChanged,
     this.onBlockBuilt,
     this.onBlockReused,
+    this.blockWrapper,
     this.textScaler,
     this.textDirection,
     this.shrinkWrap = true,
@@ -116,12 +134,17 @@ class MarkdownView extends StatefulWidget {
   final ValueChanged<MarkdownSelection?>? onSelectionChanged;
 
   /// Optional performance callback fired whenever a top-level block widget is
-  /// freshly constructed (cache miss).
+  /// freshly constructed (cache miss). That includes an unchanged block whose
+  /// index changed because blocks were added or removed before it: its widget
+  /// is made again for the new index, while its state and layout are kept.
   final MarkdownBlockBuildCallback? onBlockBuilt;
 
   /// Optional performance callback fired whenever an unchanged top-level block
   /// widget instance is reused from cache (cache hit).
   final MarkdownBlockBuildCallback? onBlockReused;
+
+  /// Optional wrapper around the widget of each top-level block.
+  final MarkdownBlockWrapper? blockWrapper;
 
   /// Optional [TextScaler] override applied to this Markdown subtree.
   final TextScaler? textScaler;
@@ -209,6 +232,7 @@ class _MarkdownViewState extends State<MarkdownView> {
           : widget.keepDocumentOnDispose,
       onBlockBuilt: widget.onBlockBuilt,
       onBlockReused: widget.onBlockReused,
+      blockWrapper: widget.blockWrapper,
     );
 
     if (useStandaloneScope) {
@@ -233,8 +257,17 @@ class _MarkdownViewState extends State<MarkdownView> {
 }
 
 class _CachedBlockWidget {
-  const _CachedBlockWidget({required this.block, required this.widget});
+  const _CachedBlockWidget({
+    required this.id,
+    required this.block,
+    required this.widget,
+  });
 
+  /// Identifies the block across builds, and is what its widget is keyed by.
+  /// It follows the block when others are added or removed before it, so the
+  /// element (with its state and layout) moves instead of being rebuilt as a
+  /// different block.
+  final int id;
   final MarkdownBlock block;
   final Widget widget;
 }
@@ -252,6 +285,7 @@ class _MarkdownDocumentHost extends StatefulWidget {
     required this.keepDocumentOnDispose,
     required this.onBlockBuilt,
     required this.onBlockReused,
+    required this.blockWrapper,
   });
 
   final String documentId;
@@ -265,6 +299,7 @@ class _MarkdownDocumentHost extends StatefulWidget {
   final bool keepDocumentOnDispose;
   final MarkdownBlockBuildCallback? onBlockBuilt;
   final MarkdownBlockBuildCallback? onBlockReused;
+  final MarkdownBlockWrapper? blockWrapper;
 
   @override
   State<_MarkdownDocumentHost> createState() => _MarkdownDocumentHostState();
@@ -278,6 +313,8 @@ class _MarkdownDocumentHostState extends State<_MarkdownDocumentHost> {
 
   // Block widget cache state.
   List<_CachedBlockWidget> _blockCache = const [];
+  int _nextBlockId = 0;
+  MarkdownBlockWrapper? _cachedWrapper;
   MarkdownThemeData? _cachedTheme;
   MarkdownBuilders? _cachedBuilders;
   String? _cachedDocumentId;
@@ -331,61 +368,116 @@ class _MarkdownDocumentHostState extends State<_MarkdownDocumentHost> {
         controller?.selectionColor ??
         widget.theme.selectionColor;
 
-    final cacheInvalid =
+    // The cached widgets are stale, but the ids are not: a block keeps its
+    // element across a theme change.
+    final widgetsStale =
         _cachedTheme != widget.theme ||
         _cachedBuilders != widget.builders ||
         _cachedDocumentId != widget.documentId ||
         _cachedSelectable != widget.selectable ||
         _cachedSelectionColor != effectiveSelectionColor ||
-        !identical(_cachedController, controller);
+        !identical(_cachedController, controller) ||
+        !identical(_cachedWrapper, widget.blockWrapper);
 
-    if (cacheInvalid) {
-      _blockCache = const [];
+    if (widgetsStale) {
       _cachedTheme = widget.theme;
       _cachedBuilders = widget.builders;
       _cachedDocumentId = widget.documentId;
       _cachedSelectable = widget.selectable;
       _cachedSelectionColor = effectiveSelectionColor;
       _cachedController = controller;
+      _cachedWrapper = widget.blockWrapper;
     }
+
+    final old = _blockCache;
+    final newLength = blocks.length;
+    final oldLength = old.length;
+
+    // With the same number of blocks, each is compared with the one at its
+    // index. When the number changed, blocks were added or removed somewhere:
+    // the unchanged ones after that point are found from the end, so typing a
+    // new paragraph into the middle of a document does not turn every later
+    // block into a different one. A reply that grows at the end pays one
+    // extra comparison for this, on the frames where it gains a block.
+    var head = 0;
+    var shiftedTail = 0;
+    if (newLength != oldLength) {
+      final shorter = newLength < oldLength ? newLength : oldLength;
+      while (head < shorter && old[head].block == blocks[head]) {
+        head++;
+      }
+      final limit = shorter - head;
+      while (shiftedTail < limit &&
+          old[oldLength - 1 - shiftedTail].block ==
+              blocks[newLength - 1 - shiftedTail]) {
+        shiftedTail++;
+      }
+    }
+    final shiftedFrom = newLength - shiftedTail;
+    final shift = newLength - oldLength;
 
     final nextCache = <_CachedBlockWidget>[];
     final children = <Widget>[];
     final blockSpacing = widget.theme.blockSpacing;
 
-    for (var i = 0; i < blocks.length; i++) {
+    for (var i = 0; i < newLength; i++) {
       final block = blocks[i];
-      final Widget blockWidget;
+      final _CachedBlockWidget entry;
 
-      if (i < _blockCache.length && _blockCache[i].block == block) {
-        blockWidget = _blockCache[i].widget;
-        nextCache.add(_blockCache[i]);
-        widget.onBlockReused?.call(i, block);
-      } else {
-        blockWidget = MarkdownBlockRenderer(
-          key: ValueKey<String>('${widget.documentId}:$i'),
-          documentId: widget.documentId,
-          blockIndex: i,
+      if (i >= shiftedFrom) {
+        // Same block at a new index: same id, new widget for the new index.
+        entry = _CachedBlockWidget(
+          id: old[i - shift].id,
           block: block,
-          theme: widget.theme,
-          builders: widget.builders,
-          selectionColor: effectiveSelectionColor,
-          selectable: widget.selectable,
-          onSurfaceAttach: widget.selectable
-              ? controller?.registerSurface
-              : null,
-          onSurfaceDetach: widget.selectable
-              ? controller?.unregisterSurface
-              : null,
+          widget: _buildBlock(
+            id: old[i - shift].id,
+            index: i,
+            block: block,
+            controller: controller,
+            selectionColor: effectiveSelectionColor,
+          ),
         );
-        nextCache.add(_CachedBlockWidget(block: block, widget: blockWidget));
+        widget.onBlockBuilt?.call(i, block);
+      } else if (i < oldLength - shiftedTail) {
+        final previous = old[i];
+        if (!widgetsStale && (i < head || previous.block == block)) {
+          entry = previous;
+          widget.onBlockReused?.call(i, block);
+        } else {
+          entry = _CachedBlockWidget(
+            id: previous.id,
+            block: block,
+            widget: _buildBlock(
+              id: previous.id,
+              index: i,
+              block: block,
+              controller: controller,
+              selectionColor: effectiveSelectionColor,
+            ),
+          );
+          widget.onBlockBuilt?.call(i, block);
+        }
+      } else {
+        final id = _nextBlockId++;
+        entry = _CachedBlockWidget(
+          id: id,
+          block: block,
+          widget: _buildBlock(
+            id: id,
+            index: i,
+            block: block,
+            controller: controller,
+            selectionColor: effectiveSelectionColor,
+          ),
+        );
         widget.onBlockBuilt?.call(i, block);
       }
 
+      nextCache.add(entry);
       if (i > 0 && blockSpacing > 0) {
         children.add(SizedBox(height: blockSpacing));
       }
-      children.add(blockWidget);
+      children.add(entry.widget);
     }
 
     _blockCache = nextCache;
@@ -395,6 +487,31 @@ class _MarkdownDocumentHostState extends State<_MarkdownDocumentHost> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: children,
     );
+  }
+
+  Widget _buildBlock({
+    required int id,
+    required int index,
+    required MarkdownBlock block,
+    required MarkdownSelectionController? controller,
+    required Color selectionColor,
+  }) {
+    final key = ValueKey<String>('${widget.documentId}:$id');
+    final wrapper = widget.blockWrapper;
+    final Widget renderer = MarkdownBlockRenderer(
+      key: wrapper == null ? key : null,
+      documentId: widget.documentId,
+      blockIndex: index,
+      block: block,
+      theme: widget.theme,
+      builders: widget.builders,
+      selectionColor: selectionColor,
+      selectable: widget.selectable,
+      onSurfaceAttach: widget.selectable ? controller?.registerSurface : null,
+      onSurfaceDetach: widget.selectable ? controller?.unregisterSurface : null,
+    );
+    if (wrapper == null) return renderer;
+    return KeyedSubtree(key: key, child: wrapper(index, block, renderer));
   }
 }
 

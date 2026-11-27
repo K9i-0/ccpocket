@@ -9,7 +9,8 @@ import '../rendering/markdown_theme.dart';
 import '../selection/selection_controller.dart';
 import '../selection/selection_model.dart';
 import '../selection/selection_scope.dart';
-import 'markdown_view.dart' show MarkdownBlockBuildCallback;
+import 'markdown_view.dart'
+    show MarkdownBlockBuildCallback, MarkdownBlockWrapper;
 import 'markdown_widget_helpers.dart';
 
 /// Viewport-lazy sliver widget rendering a Markdown document block-by-block
@@ -36,6 +37,7 @@ class SliverMarkdownView extends StatefulWidget {
     this.selectable = true,
     this.selectionColor,
     this.onBlockBuilt,
+    this.blockWrapper,
     this.textScaler,
     this.textDirection,
     this.keepDocumentOnDispose = true,
@@ -79,6 +81,10 @@ class SliverMarkdownView extends StatefulWidget {
 
   /// Optional callback invoked whenever the sliver builds a block item.
   final MarkdownBlockBuildCallback? onBlockBuilt;
+
+  /// Optional wrapper around the widget of each top-level block. Only blocks
+  /// near the viewport are built, so only those are wrapped.
+  final MarkdownBlockWrapper? blockWrapper;
 
   /// Optional [TextScaler] override applied to built blocks.
   final TextScaler? textScaler;
@@ -188,8 +194,10 @@ class _SliverMarkdownViewState extends State<SliverMarkdownView> {
         final block = blocks[index];
         widget.onBlockBuilt?.call(index, block);
 
+        final key = ValueKey<String>('$docId:$index');
+        final wrapper = widget.blockWrapper;
         Widget item = MarkdownBlockRenderer(
-          key: ValueKey<String>('$docId:$index'),
+          key: wrapper == null ? key : null,
           documentId: docId,
           blockIndex: index,
           block: block,
@@ -204,6 +212,10 @@ class _SliverMarkdownViewState extends State<SliverMarkdownView> {
               ? controller?.unregisterSurface
               : null,
         );
+
+        if (wrapper != null) {
+          item = KeyedSubtree(key: key, child: wrapper(index, block, item));
+        }
 
         if (index > 0 && blockSpacing > 0) {
           item = Padding(
