@@ -229,6 +229,9 @@
       "editorDarkFrame": 1388,
       "showcaseStart": 1470,
       "outroStart": 1626
-    }
+    },
+    "pubUrl": "pub.dev/packages/markdown_kit",
+    "githubRepo": "github.com/K9i-0/markdown_kit",
+    "demoUrl": "k9i-0.github.io/markdown_kit"
   }
 }

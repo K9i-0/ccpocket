@@ -36,6 +36,9 @@ interface Timeline {
 
 interface Props {
   timeline: Timeline;
+  pubUrl?: string;
+  githubRepo?: string;
+  demoUrl?: string;
 }
 
 interface SubtitleCue {
@@ -1013,7 +1016,7 @@ export const scenes = {
                   PUB.DEV
                 </span>
                 <span className="mono" style={{fontSize: 44, fontWeight: 700, color: '#f8fafc'}}>
-                  pub.dev/packages/markdown_kit
+                  {props.pubUrl ?? 'pub.dev/packages/markdown_kit'}
                 </span>
               </div>
 
@@ -1032,7 +1035,7 @@ export const scenes = {
                   GITHUB
                 </span>
                 <span className="mono" style={{fontSize: 44, fontWeight: 700, color: '#f8fafc'}}>
-                  github.com/K9i-0/ccpocket
+                  {props.githubRepo ?? 'github.com/K9i-0/markdown_kit'}
                 </span>
               </div>
             </div>
@@ -1046,7 +1049,7 @@ export const scenes = {
                 color: '#94a3b8',
               }}
             >
-              Demo: <span style={{color: '#58a6ff', fontWeight: 700}}>k9i-0.github.io/markdown_kit</span> · MIT
+              Demo: <span style={{color: '#58a6ff', fontWeight: 700}}>{props.demoUrl ?? 'k9i-0.github.io/markdown_kit'}</span> · MIT
             </div>
           </div>
 

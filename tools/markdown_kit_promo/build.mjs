@@ -266,6 +266,9 @@ const manifest = {
     : {}),
   props: {
     timeline,
+    pubUrl: 'pub.dev/packages/markdown_kit',
+    githubRepo: 'github.com/K9i-0/markdown_kit',
+    demoUrl: 'k9i-0.github.io/markdown_kit',
   },
 };
 
