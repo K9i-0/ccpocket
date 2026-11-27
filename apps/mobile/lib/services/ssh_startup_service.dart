@@ -431,8 +431,8 @@ if command -v launchctl >/dev/null 2>&1; then
   LABEL=com.ccpocket.bridge
   PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
   if [ ! -f "$PLIST" ]; then
-    if launchctl print "gui/$(id -u)/com.k9i.ccpocket.bridge-agent" >/dev/null 2>&1; then
-      echo "The CC Pocket desktop app runs the Bridge on this Mac. Open that app and restart the Bridge from Bridge on this Mac: restarting also updates it. Do not run the setup command." >&2
+    if launchctl print "gui/$(id -u)/com.k9i.ccpocket.bridge-agent" >/dev/null 2>&1 || [ -f "$HOME/.ccpocket/launcher-status.json" ]; then
+      echo "The CC Pocket desktop app runs the Bridge on this Mac. Start, stop or restart it from Bridge on this Mac in that app (restarting also updates it). Do not run the setup command." >&2
       exit 1
     fi
     echo "Bridge auto-start setup is required. Run: npx @ccpocket/bridge@1 setup" >&2
@@ -535,14 +535,26 @@ fi
   @visibleForTesting
   static String get updateCommandForTest => _updateCommand;
 
+  @visibleForTesting
+  static const stopCommandForTest = _stopCommand;
+
   static String get _startCommand =>
       '${_startPreflightCommand.trim()}\n\n$_startServiceCommand';
 
   /// Stop the Bridge service without removing the setup installed by npx.
+  ///
+  /// A Bridge the desktop app runs is not this service: say so instead of
+  /// reporting a stop that did not happen.
   static const _stopCommand = r'''
 if command -v launchctl >/dev/null 2>&1; then
   LABEL=com.ccpocket.bridge
   UID_VALUE=$(id -u)
+  if [ ! -f "$HOME/Library/LaunchAgents/$LABEL.plist" ]; then
+    if launchctl print "gui/$(id -u)/com.k9i.ccpocket.bridge-agent" >/dev/null 2>&1 || [ -f "$HOME/.ccpocket/launcher-status.json" ]; then
+      echo "The CC Pocket desktop app runs the Bridge on this Mac. Start, stop or restart it from Bridge on this Mac in that app (restarting also updates it). Do not run the setup command." >&2
+      exit 1
+    fi
+  fi
   launchctl bootout "gui/$UID_VALUE/$LABEL" 2>/dev/null || \
     launchctl bootout "user/$UID_VALUE/$LABEL" 2>/dev/null || \
     launchctl unload "$HOME/Library/LaunchAgents/$LABEL.plist" 2>/dev/null || \

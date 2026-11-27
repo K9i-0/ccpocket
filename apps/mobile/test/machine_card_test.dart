@@ -33,6 +33,7 @@ Future<void> _pumpCard(
   WidgetTester tester, {
   required MachineStatus status,
   String? version,
+  String? managedBy,
   String? latestBridgeVersion,
   String? lastError,
   bool sshEnabled = true,
@@ -50,7 +51,7 @@ Future<void> _pumpCard(
           lastError: lastError,
           versionInfo: version == null
               ? null
-              : BridgeVersionInfo(version: version),
+              : BridgeVersionInfo(version: version, managedBy: managedBy),
         ),
         onConnect: onConnect ?? () {},
         onStart: () {},
@@ -139,6 +140,23 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Stop Server'), findsOneWidget);
+    });
+
+    testWidgets('offers no SSH stop or update for a desktop app Bridge', (
+      tester,
+    ) async {
+      await _pumpCard(
+        tester,
+        status: MachineStatus.online,
+        version: olderThanRecommendedBridgeVersion,
+        managedBy: 'desktop-app',
+      );
+
+      await tester.tap(find.byKey(const ValueKey('machine_menu_m1')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Stop Server'), findsNothing);
+      expect(find.text('Update Bridge'), findsNothing);
     });
 
     testWidgets('shows update menu only for online old bridge with SSH', (

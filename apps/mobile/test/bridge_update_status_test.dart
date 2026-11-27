@@ -243,19 +243,47 @@ void main() {
     });
   });
 
-  group('SSH preflight', () {
-    test('points to the desktop app when its launcher runs the Bridge', () {
+  group('MachineWithStatus.canStopOverSsh', () {
+    test('excludes a desktop app Bridge', () {
+      expect(
+        _machine(ssh: true, managedBy: 'desktop-app').canStopOverSsh,
+        isFalse,
+      );
+      expect(_machine(ssh: true).canStopOverSsh, isTrue);
+      expect(_machine(ssh: false).canStopOverSsh, isFalse);
+    });
+  });
+
+  group('SSH commands on a Mac the desktop app manages', () {
+    const marker = 'The CC Pocket desktop app runs the Bridge on this Mac';
+
+    test('start and update report it before the setup message', () {
       final preflight = SshStartupService.startPreflightCommandForTest;
-      final desktopIndex = preflight.indexOf('com.k9i.ccpocket.bridge-agent');
+      final desktopIndex = preflight.indexOf(marker);
       final setupIndex = preflight.indexOf(
         'Bridge auto-start setup is required',
       );
 
       expect(desktopIndex, isNonNegative);
       expect(desktopIndex, lessThan(setupIndex));
+      expect(preflight, contains('com.k9i.ccpocket.bridge-agent'));
+      // Also after the app's agent was unregistered by stopping the Bridge.
+      expect(preflight, contains('.ccpocket/launcher-status.json'));
       expect(preflight, contains('Do not run the setup command'));
       // Only reads the launcher's state: the desktop app owns that service.
       expect(preflight, isNot(contains('kickstart')));
+    });
+
+    test('stop reports it instead of stopping the setup service', () {
+      final stop = SshStartupService.stopCommandForTest;
+
+      expect(stop.indexOf(marker), isNonNegative);
+      expect(stop.indexOf(marker), lessThan(stop.indexOf('launchctl bootout')));
+      // Applies only when the setup service is not installed.
+      expect(
+        stop.indexOf(r'[ ! -f "$HOME/Library/LaunchAgents/$LABEL.plist" ]'),
+        lessThan(stop.indexOf(marker)),
+      );
     });
   });
 }

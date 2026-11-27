@@ -246,8 +246,13 @@ two KeepAlive services on one port. Restarting stays local on purpose (see
   note that they do not apply to a Bridge the desktop app runs. This is the
   case that matters in practice, because a Bridge that needs an update is an
   old one.
-- The SSH preflight reports the same when the `setup` service is missing and
-  the app's agent (`com.k9i.ccpocket.bridge-agent`) is registered. It reads
-  the agent's state only and never restarts it.
+- The SSH start, stop and update commands report the same when the `setup`
+  service is missing and the Mac shows signs of the app's launcher: its agent
+  (`com.k9i.ccpocket.bridge-agent`) is registered, or
+  `~/.ccpocket/launcher-status.json` exists (the agent is unregistered once
+  the Bridge is stopped from the app). They only read that state and never
+  start, stop or restart the agent.
+- `desktop-app` also hides the SSH stop action. Start stays available because
+  an offline Bridge reports nothing; the command above answers instead.
 - `ccpocket-bridge setup` still bakes settings into the service definition as
   environment variables; those win over the file and show as locked.

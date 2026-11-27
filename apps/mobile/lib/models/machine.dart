@@ -233,10 +233,17 @@ abstract class MachineWithStatus with _$MachineWithStatus {
     return versionInfo!.needsUpdate(expectedVersion);
   }
 
+  /// The CC Pocket desktop app runs the Bridge, so the SSH actions (which
+  /// drive the `setup` service) do not apply to it.
+  bool get isManagedByDesktopApp => versionInfo?.isManagedByDesktopApp ?? false;
+
   /// The update can be started from this app over SSH.
   bool canUpdateOverSsh(String expectedVersion) =>
+      canStopOverSsh && needsUpdate(expectedVersion);
+
+  /// The running Bridge can be stopped from this app over SSH.
+  bool get canStopOverSsh =>
       status == MachineStatus.online &&
-      needsUpdate(expectedVersion) &&
       machine.canStartRemotely &&
-      !(versionInfo?.isManagedByDesktopApp ?? false);
+      !isManagedByDesktopApp;
 }

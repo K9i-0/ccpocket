@@ -130,6 +130,7 @@ class MachineCard extends StatelessWidget {
                       machine: machine,
                       status: status,
                       canUpdateOverSsh: canUpdateOverSsh,
+                      canStopOverSsh: machineWithStatus.canStopOverSsh,
                       colorScheme: colorScheme,
                       onEdit: onEdit,
                       onDelete: onDelete,
@@ -178,10 +179,7 @@ class MachineCard extends StatelessWidget {
         machine.canStartRemotely &&
         !isStarting;
     final canUpdate = canUpdateOverSsh && onUpdate != null;
-    final canStop =
-        status == MachineStatus.online &&
-        machine.canStartRemotely &&
-        onStop != null;
+    final canStop = machineWithStatus.canStopOverSsh && onStop != null;
 
     final action = await showAdaptiveActionMenu<String>(
       context: context,
@@ -445,6 +443,7 @@ class _MenuButton extends StatelessWidget {
   final Machine machine;
   final MachineStatus status;
   final bool canUpdateOverSsh;
+  final bool canStopOverSsh;
   final ColorScheme colorScheme;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -456,6 +455,7 @@ class _MenuButton extends StatelessWidget {
     required this.machine,
     required this.status,
     required this.canUpdateOverSsh,
+    required this.canStopOverSsh,
     required this.colorScheme,
     required this.onEdit,
     required this.onDelete,
@@ -519,7 +519,7 @@ class _MenuButton extends StatelessWidget {
                 ],
               ),
             ),
-          if (status == MachineStatus.online && machine.canStartRemotely)
+          if (canStopOverSsh)
             PopupMenuItem(
               value: 'stop',
               child: Row(
