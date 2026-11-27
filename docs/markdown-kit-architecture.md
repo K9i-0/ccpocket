@@ -220,7 +220,7 @@ ccpocket 本体は `apps/mobile/pubspec.yaml` から `path: ../../packages/markd
 - パッケージ自身のテストは内部を検証するために `src/` を import してよい。利用側（ccpocket を含む）は barrel だけを import する。例外は `apps/mobile/test/streaming_bubble_test.dart` の 1 箇所で、理由をその場に書いてある。
 - コードブロックの見た目を変える拡張点は 2 つに分かれている。中身（ハイライト）は `codeHighlighter`、枠（ヘッダーやコピーボタン）は `codeBlockBuilder`。`codeBlockBuilder` に渡る `codeContent` は不透明なウィジェットとして配置だけ行い、型を調べたり作り直したりしない。以前 ccpocket がこれを行っていて、パッケージ側が段落を `Directionality` で包んだ際にハイライトが無効になった。
 - `contextMenuBuilder` を渡さない場合は `MarkdownDefaultContextMenu` が出る（widgets のみで描画、ラベル差し替え可）。ccpocket は常に自前のビルダーを渡すので影響しない。
-- `example/` は barrel だけを import するアプリで、widget test を CI で実行している。公開 API に不足が出ると、まずここで気づける。`lib/main.dart` がチャット、`lib/editor.dart` がエディタ（ライブプレビュー、2.7 参照）。
+- `example/` は barrel だけを import するアプリで、widget test を CI で実行している。公開 API に不足が出ると、まずここで気づける。`lib/main.dart` がチャット・エディタ・ショーケースの 3 タブで、`lib/editor.dart` はエディタ（ライブプレビュー、2.7 参照）だけを単独でも起動できる。`web/` があり、GitHub Pages で公開する（5.2 参照）。
 - `analysis_options.yaml` で `public_member_api_docs` を有効にしている。公開メンバーに doc コメントが無いと解析が失敗する。
 
 ### 5.2 公開当日の手順
@@ -229,17 +229,18 @@ ccpocket 本体は `apps/mobile/pubspec.yaml` から `path: ../../packages/markd
 
 分離先で使う CI 一式は `packages/markdown_kit/` に置いてあり、ccpocket の中では動かない。構成は `simple_loading_dialog` に合わせている。
 
-- `.github/workflows/check_pr.yml`: 解析・整形・テスト・example のテスト・`flutter pub publish --dry-run`。別ジョブで下限の Flutter 3.50.0 でも同じテストを走らせる。example にプラットフォームのフォルダが無いので、Patrol の E2E は入れていない。
+- `.github/workflows/check_pr.yml`: 解析・整形・テスト・example のテスト・example の web ビルド・`flutter pub publish --dry-run`。別ジョブで下限の Flutter 3.50.0 でも同じテストを走らせる。example にプラットフォームのフォルダが無いので、Patrol の E2E は入れていない。
 - `.github/workflows/publish.yml`: `markdown_kit-v<version>` タグの push で、`tool/validate_release.py`（タグ・pubspec・CHANGELOG の一致と、main に載っていること）→ 上のチェック → OIDC で公開。
+- `.github/workflows/pages.yml`: main への push（`lib/`・`example/`・`pubspec.yaml` の変更時）で example を web 向けにビルドし、GitHub Pages（`https://k9i-0.github.io/markdown_kit/`）へ出す。base href はリポジトリ名から自動で決まる。
 - `.github/dependabot.yaml`、`.github/actions/setup-application-runtime/`、`tool/check_format.sh`、`.mise.toml`。
 
-2026-11-27 に、作業ツリーを一時ディレクトリへ書き出し、下の手順 2 の pubspec 変更を当てた状態で CI と同じ手順を実行した。解析・整形・テスト・example のテストが通り、`flutter pub publish --dry-run` は警告 0 件、アーカイブは 3 MB だった。下限の Flutter 3.50.0 でも解析とテスト（1883 件と example の 3 件）が通った。
+2026-11-27 に、作業ツリーを一時ディレクトリへ書き出し、下の手順 2 の pubspec 変更を当てた状態で CI と同じ手順を実行した（example に web 版とエディタを足したあとの `76af6d42` で再実行）。解析・整形・テスト（1938 件と example の 55 件）・`--base-href /markdown_kit/` での web ビルドが通り、`flutter pub publish --dry-run` は警告 0 件、アーカイブは 3 MB だった。下限の Flutter 3.50.0 でも解析とテストが通った。
 
 pub.dev の自動公開は既存パッケージにしか設定できない。そのため 1.0.0 だけは手元から公開し、1.0.1 以降をタグで公開する。
 
 1. 新しいリポジトリ `K9i-0/markdown_kit` を作り、履歴つきで `packages/markdown_kit/` を移す。ccpocket で `git subtree split --prefix=packages/markdown_kit -b markdown-kit-split` を実行すると、このフォルダに触れたコミットだけを並べ直したブランチができる（ccpocket の main や作業ツリーは変わらない。2026-11-27 に試し、36 コミットで中身が `packages/markdown_kit/` と一致することを確認した）。これを新リポジトリの `main` として push し、ccpocket 側のブランチは消す。この文書のうち 1〜2 章と 5〜7 章はパッケージ側へ移し、3 章（ccpocket への統合）は ccpocket に残す。
 2. `pubspec.yaml`: `publish_to: none` を削除、`version: 1.0.0`、`repository: https://github.com/K9i-0/markdown_kit` と `issue_tracker:` を追加。`CHANGELOG.md` の `1.0.0` の内容を最終確認する。
-3. main へ push し、`check-pr` が両ジョブとも通ることを確認する。
+3. push の前に、新リポジトリの GitHub Pages を「GitHub Actions から公開」に設定する（`gh api -X POST repos/K9i-0/markdown_kit/pages -f build_type=workflow`）。設定前に push すると `pages.yml` のデプロイが失敗する。そのあと main へ push し、`check-pr` が両ジョブとも通ること、`https://k9i-0.github.io/markdown_kit/` で example が開くことを確認する。README がこの URL を案内しているので、pub.dev への公開より先に済ませる。
 4. 手元（pub.dev にログイン済みの端末）で `flutter pub publish --dry-run` の警告ゼロを確認してから `flutter pub publish`。公開は取り消せない。公開後、pub.dev でパブリッシャー `k9i.app` へ移す。
 5. pub.dev の Admin タブで GitHub Actions からの自動公開を有効にする。リポジトリは `K9i-0/markdown_kit`、タグのパターンは `markdown_kit-v{{version}}`。
 6. `1.0.0` のタグを付ける。そのまま push すると `publish.yml` が公開済みの版をもう一度公開しようとして失敗するので、`gh workflow disable publish.yml` → タグを push → `gh workflow enable publish.yml` の順で行う。GitHub のリリースもここで作る。

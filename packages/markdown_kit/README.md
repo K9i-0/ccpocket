@@ -127,6 +127,7 @@ MarkdownSelectionScope(
 
 A runnable demo with three tabs — streaming **Chat**, live-preview **Editor**,
 and a **Showcase** using `SliverMarkdownView` — lives in [`example/`](example).
+Try it in a browser at <https://k9i-0.github.io/markdown_kit/>.
 It includes a `web/` target so it can be run directly in a browser
 (`cd example && flutter run -d chrome`) or built for static hosting
 (`flutter build web --release`). For mobile or desktop targets, run
