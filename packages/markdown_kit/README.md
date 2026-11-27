@@ -137,16 +137,15 @@ so an unchanged theme never rebuilds anything.
 | `blockLatexBuilder`, `inlineLatexBuilder` | LaTeX math. Return `null` to keep the built-in Unicode rendering, for example for a formula your typesetter rejects. |
 | `onLinkTap` | What a tap on a link does. Without it links are not tappable. |
 
-The package does not depend on a math typesetter. The example wires
-[flutter_math_fork](https://pub.dev/packages/flutter_math_fork) into the two
-LaTeX builders in [`example/lib/math.dart`](example/lib/math.dart), including
-the two things that integration needs: one parsed tree per formula, and a dry
-baseline for formulas inside tables.
-
 Math is not typeset: `\(…\)` and `\[…\]` are parsed and shown as readable text
-until you supply the LaTeX builders with a renderer of your choice. `$…$` is
-opt-in (`MarkdownParserOptions(enableDollarLatex: true)`) because prose about
-prices would otherwise turn into formulas.
+until you supply the LaTeX builders with a renderer of your choice. The package
+does not depend on one. The example wires
+[flutter_math_fork](https://pub.dev/packages/flutter_math_fork) into both
+builders in [`example/lib/math.dart`](example/lib/math.dart), including the two
+things that integration needs: one parsed tree per formula, and a dry baseline
+for formulas inside tables. `$…$` is opt-in
+(`MarkdownParserOptions(enableDollarLatex: true)`) because prose about prices
+would otherwise turn into formulas.
 
 To recognise your own inline syntax (file paths, mentions, issue numbers),
 subclass `MarkdownInlineRule`, pass it in `MarkdownParserOptions.inlineRules`,
