@@ -51,3 +51,21 @@ asc review doctor --app <app-id> --version-id <version-id> --platform IOS
 このworkflowが提出項目へ追加するのはアプリバージョンだけである。新規IAPまたはサブスクリプションを同じ審査へ含める必要がある場合は `ios_review_scope=INCLUDES_NEW_IAP_OR_SUBSCRIPTION` として事前検査を意図的に失敗させ、専用のreview item追加フローを準備する。既存商品の通常動作だけを含む更新は `APP_VERSION_ONLY` を選ぶ。
 
 Appleへの審査メッセージ返信など、App Store Connect APIで扱えない操作が必要なら、その操作だけを未完了として報告する。通常のビルド選択と審査提出はworkflowで完結させる。
+
+## 審査待ちの版を取り下げて新しい候補を出す
+
+App Store Connect は編集できる版を1つしか持てない。前の版が `WAITING_FOR_REVIEW` のまま新しい候補を出すと `asc versions create` が失敗するので、ユーザーが取り下げを依頼した場合に限り、先に `withdraw-ios-review.yml` を使う。依頼がなければ既存の審査を取り消さない。
+
+```bash
+gh workflow run withdraw-ios-review.yml \
+  --ref <target-ref> \
+  -f pending_version=<審査待ちの X.Y.Z> \
+  -f version=<新しい X.Y.Z> \
+  -f build_number=<N> \
+  -f confirmation='WITHDRAW <審査待ちの X.Y.Z> FOR <X.Y.Z>+<N>' \
+  -f expected_ref_sha=<review-sha>
+```
+
+`scripts/store-review/withdraw-ios.sh` が、審査提出の取り消し（`asc submit cancel`）→ 版が編集可能になるまで待機 → 版名の変更（`asc versions update --version`）→ 新しいビルドの添付、を行う。`WAITING_FOR_REVIEW` の版だけが対象で、審査が始まっている（`IN_REVIEW`）版は止める。途中で失敗しても、再実行すれば見つけた状態から続ける。
+
+成功後は通常どおり `upload-metadata.yml`（`ios_version=<新しい X.Y.Z>`）→ `submit-store-review.yml` の順に進める。新しい `ios/v*` タグのビルドが TestFlight で処理済みであることが前提（未処理なら最大30分待つ）。

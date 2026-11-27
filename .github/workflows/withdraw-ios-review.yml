@@ -1,0 +1,97 @@
+name: Withdraw iOS Review
+run-name: Withdraw iOS Review · ${{ inputs.pending_version }} → ${{ inputs.version }}+${{ inputs.build_number }}
+
+# Replaces an iOS version that is still waiting for App Review with a newer
+# release candidate: cancels the submission, renames the version and attaches
+# the new build. Run upload-metadata and submit-store-review afterwards.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pending_version:
+        description: 'Marketing version waiting for review (X.Y.Z)'
+        required: true
+        type: string
+      version:
+        description: 'Marketing version to submit instead (X.Y.Z)'
+        required: true
+        type: string
+      build_number:
+        description: 'Existing release build number of the new version'
+        required: true
+        type: string
+      confirmation:
+        description: 'Type WITHDRAW <pending> FOR <X.Y.Z>+<N> using the exact values above'
+        required: true
+        type: string
+      expected_ref_sha:
+        description: 'Exact 40-character commit SHA approved for this run'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: store-review-submission
+  cancel-in-progress: false
+
+jobs:
+  withdraw:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    environment: store-review
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Verify ref, confirmation and release tag
+        env:
+          EXPECTED_REF_SHA: ${{ inputs.expected_ref_sha }}
+          PENDING_VERSION: ${{ inputs.pending_version }}
+          VERSION: ${{ inputs.version }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          if [[ ! "$EXPECTED_REF_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::expected_ref_sha must be a full lowercase commit SHA"
+            exit 1
+          fi
+          if [[ "$GITHUB_SHA" != "$EXPECTED_REF_SHA" ]]; then
+            echo "::error::Ref moved: expected $EXPECTED_REF_SHA, checked out $GITHUB_SHA"
+            exit 1
+          fi
+          if [[ "$CONFIRMATION" != "WITHDRAW ${PENDING_VERSION} FOR ${VERSION}+${BUILD_NUMBER}" ]]; then
+            echo "::error::confirmation does not match the versions"
+            exit 1
+          fi
+          tag="ios/v${VERSION}+${BUILD_NUMBER}"
+          if ! git rev-parse -q --verify "refs/tags/${tag}^{commit}" >/dev/null; then
+            echo "::error::Release tag ${tag} does not exist"
+            exit 1
+          fi
+          tagged_version=$(git show "refs/tags/${tag}:apps/mobile/pubspec.yaml" | sed -n 's/^version: //p')
+          if [[ "$tagged_version" != "${VERSION}+${BUILD_NUMBER}" ]]; then
+            echo "::error::pubspec.yaml in ${tag} is ${tagged_version}"
+            exit 1
+          fi
+
+      - name: Set up asc
+        uses: rudrankriyam/setup-asc@5358c70a27a3f0d1517604b0f1fdc43e70c1cc4d # v1
+        with:
+          version: 6.3.0
+
+      - name: Verify asc version
+        run: asc --version
+
+      - name: Withdraw the pending version and prepare the new one
+        env:
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
+          ASC_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+          ASC_STRICT_AUTH: 'true'
+          PENDING_VERSION: ${{ inputs.pending_version }}
+          VERSION: ${{ inputs.version }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
+        run: scripts/store-review/withdraw-ios.sh "$PENDING_VERSION" "$VERSION" "$BUILD_NUMBER"
