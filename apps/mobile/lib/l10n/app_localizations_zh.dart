@@ -871,6 +871,34 @@ class AppLocalizationsZh extends AppLocalizations {
   String get bridgeUpdateSetupCommand => 'npx @ccpocket/bridge@1 setup';
 
   @override
+  String get bridgeUpdateFromDesktopApp => '在 Mac 上的 CC Pocket 中重启即可更新';
+
+  @override
+  String get bridgeUpdateRestartHere => '在“这台 Mac 的 Bridge”中重启即可更新';
+
+  @override
+  String get bridgeUpdateDesktopTitle => '从桌面版更新';
+
+  @override
+  String get bridgeUpdateDesktopDescription =>
+      '此 Bridge 由 Mac 上的 CC Pocket 启动。在那里重启即可更新到最新版。';
+
+  @override
+  String get bridgeUpdateDesktopStepOpen => '在运行 Bridge 的 Mac 上打开 CC Pocket。';
+
+  @override
+  String get bridgeUpdateDesktopStepRestart =>
+      '在设置中打开“这台 Mac 的 Bridge”，然后点按“重启”。';
+
+  @override
+  String get bridgeUpdateDesktopNoSetup =>
+      '请不要为此 Bridge 运行设置命令，否则会在同一端口再启动一个 Bridge。';
+
+  @override
+  String get bridgeUpdateSetupDesktopNote =>
+      '如果 Bridge 是由 Mac 上的 CC Pocket（桌面版）启动的，则无需这些准备。请不要运行设置命令，在 Mac 应用的“这台 Mac 的 Bridge”中重启即可更新。';
+
+  @override
   String get stopServer => '停止服务器';
 
   @override

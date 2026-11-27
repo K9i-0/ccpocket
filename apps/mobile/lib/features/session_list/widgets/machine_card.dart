@@ -57,10 +57,16 @@ class MachineCard extends StatelessWidget {
         ? latestBridgeVersion!
         : AppConstants.expectedBridgeVersion;
     final needsUpdate = machineWithStatus.needsUpdate(updateTargetVersion);
+    final canUpdateOverSsh = machineWithStatus.canUpdateOverSsh(
+      updateTargetVersion,
+    );
 
     return AdaptiveContextMenuRegion(
-      onOpen: (position) =>
-          _openContextMenu(context, position, needsUpdate: needsUpdate),
+      onOpen: (position) => _openContextMenu(
+        context,
+        position,
+        canUpdateOverSsh: canUpdateOverSsh,
+      ),
       child: Card(
         margin: const EdgeInsets.only(bottom: 8),
         // Subtle highlight for favorites
@@ -123,7 +129,7 @@ class MachineCard extends StatelessWidget {
                     _MenuButton(
                       machine: machine,
                       status: status,
-                      needsUpdate: needsUpdate,
+                      canUpdateOverSsh: canUpdateOverSsh,
                       colorScheme: colorScheme,
                       onEdit: onEdit,
                       onDelete: onDelete,
@@ -163,7 +169,7 @@ class MachineCard extends StatelessWidget {
   Future<void> _openContextMenu(
     BuildContext context,
     Offset? position, {
-    required bool needsUpdate,
+    required bool canUpdateOverSsh,
   }) async {
     final l = AppLocalizations.of(context);
     final canStart =
@@ -171,11 +177,7 @@ class MachineCard extends StatelessWidget {
             status == MachineStatus.unreachable) &&
         machine.canStartRemotely &&
         !isStarting;
-    final canUpdate =
-        status == MachineStatus.online &&
-        needsUpdate &&
-        machine.canStartRemotely &&
-        onUpdate != null;
+    final canUpdate = canUpdateOverSsh && onUpdate != null;
     final canStop =
         status == MachineStatus.online &&
         machine.canStartRemotely &&
@@ -442,7 +444,7 @@ class _MetadataLine extends StatelessWidget {
 class _MenuButton extends StatelessWidget {
   final Machine machine;
   final MachineStatus status;
-  final bool needsUpdate;
+  final bool canUpdateOverSsh;
   final ColorScheme colorScheme;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -453,7 +455,7 @@ class _MenuButton extends StatelessWidget {
   const _MenuButton({
     required this.machine,
     required this.status,
-    required this.needsUpdate,
+    required this.canUpdateOverSsh,
     required this.colorScheme,
     required this.onEdit,
     required this.onDelete,
@@ -506,9 +508,7 @@ class _MenuButton extends StatelessWidget {
               ],
             ),
           ),
-          if (status == MachineStatus.online &&
-              needsUpdate &&
-              machine.canStartRemotely)
+          if (canUpdateOverSsh)
             PopupMenuItem(
               value: 'update',
               child: Row(

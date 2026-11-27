@@ -16,7 +16,9 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$BridgeVersionInfo {
 
- String get version; String? get nodeVersion; String? get platform; String? get arch; String? get gitCommit; String? get gitBranch;
+ String get version; String? get nodeVersion; String? get platform; String? get arch; String? get gitCommit; String? get gitBranch;/// What started the Bridge: `desktop-app` (the CC Pocket desktop app's
+/// launcher) or `other`. Null on Bridges that do not report it.
+ String? get managedBy;
 /// Create a copy of BridgeVersionInfo
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -30,20 +32,20 @@ $BridgeVersionInfoCopyWith<BridgeVersionInfo> get copyWith => _$BridgeVersionInf
 @override
 bool operator ==(Object other) {
   final _this = this as BridgeVersionInfo;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is BridgeVersionInfo&&(identical(other.version, _this.version) || other.version == _this.version)&&(identical(other.nodeVersion, _this.nodeVersion) || other.nodeVersion == _this.nodeVersion)&&(identical(other.platform, _this.platform) || other.platform == _this.platform)&&(identical(other.arch, _this.arch) || other.arch == _this.arch)&&(identical(other.gitCommit, _this.gitCommit) || other.gitCommit == _this.gitCommit)&&(identical(other.gitBranch, _this.gitBranch) || other.gitBranch == _this.gitBranch));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is BridgeVersionInfo&&(identical(other.version, _this.version) || other.version == _this.version)&&(identical(other.nodeVersion, _this.nodeVersion) || other.nodeVersion == _this.nodeVersion)&&(identical(other.platform, _this.platform) || other.platform == _this.platform)&&(identical(other.arch, _this.arch) || other.arch == _this.arch)&&(identical(other.gitCommit, _this.gitCommit) || other.gitCommit == _this.gitCommit)&&(identical(other.gitBranch, _this.gitBranch) || other.gitBranch == _this.gitBranch)&&(identical(other.managedBy, _this.managedBy) || other.managedBy == _this.managedBy));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as BridgeVersionInfo;
-  return Object.hash(runtimeType,_this.version,_this.nodeVersion,_this.platform,_this.arch,_this.gitCommit,_this.gitBranch);
+  return Object.hash(runtimeType,_this.version,_this.nodeVersion,_this.platform,_this.arch,_this.gitCommit,_this.gitBranch,_this.managedBy);
 }
 
 @override
 String toString() {
   final _this = this as BridgeVersionInfo;
-  return 'BridgeVersionInfo(version: ${_this.version}, nodeVersion: ${_this.nodeVersion}, platform: ${_this.platform}, arch: ${_this.arch}, gitCommit: ${_this.gitCommit}, gitBranch: ${_this.gitBranch})';
+  return 'BridgeVersionInfo(version: ${_this.version}, nodeVersion: ${_this.nodeVersion}, platform: ${_this.platform}, arch: ${_this.arch}, gitCommit: ${_this.gitCommit}, gitBranch: ${_this.gitBranch}, managedBy: ${_this.managedBy})';
 }
 
 
@@ -54,7 +56,7 @@ abstract mixin class $BridgeVersionInfoCopyWith<$Res>  {
   factory $BridgeVersionInfoCopyWith(BridgeVersionInfo value, $Res Function(BridgeVersionInfo) _then) = _$BridgeVersionInfoCopyWithImpl;
 @useResult
 $Res call({
- String version, String? nodeVersion, String? platform, String? arch, String? gitCommit, String? gitBranch
+ String version, String? nodeVersion, String? platform, String? arch, String? gitCommit, String? gitBranch, String? managedBy
 });
 
 
@@ -71,7 +73,7 @@ class _$BridgeVersionInfoCopyWithImpl<$Res>
 
 /// Create a copy of BridgeVersionInfo
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? version = null,Object? nodeVersion = freezed,Object? platform = freezed,Object? arch = freezed,Object? gitCommit = freezed,Object? gitBranch = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? version = null,Object? nodeVersion = freezed,Object? platform = freezed,Object? arch = freezed,Object? gitCommit = freezed,Object? gitBranch = freezed,Object? managedBy = freezed,}) {
   return _then(BridgeVersionInfo(
 version: null == version ? _self.version : version // ignore: cast_nullable_to_non_nullable
 as String,nodeVersion: freezed == nodeVersion ? _self.nodeVersion : nodeVersion // ignore: cast_nullable_to_non_nullable
@@ -79,6 +81,7 @@ as String?,platform: freezed == platform ? _self.platform : platform // ignore: 
 as String?,arch: freezed == arch ? _self.arch : arch // ignore: cast_nullable_to_non_nullable
 as String?,gitCommit: freezed == gitCommit ? _self.gitCommit : gitCommit // ignore: cast_nullable_to_non_nullable
 as String?,gitBranch: freezed == gitBranch ? _self.gitBranch : gitBranch // ignore: cast_nullable_to_non_nullable
+as String?,managedBy: freezed == managedBy ? _self.managedBy : managedBy // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
@@ -164,10 +167,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String version,  String? nodeVersion,  String? platform,  String? arch,  String? gitCommit,  String? gitBranch)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String version,  String? nodeVersion,  String? platform,  String? arch,  String? gitCommit,  String? gitBranch,  String? managedBy)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _BridgeVersionInfo() when $default != null:
-return $default(_that.version,_that.nodeVersion,_that.platform,_that.arch,_that.gitCommit,_that.gitBranch);case _:
+return $default(_that.version,_that.nodeVersion,_that.platform,_that.arch,_that.gitCommit,_that.gitBranch,_that.managedBy);case _:
   return orElse();
 
 }
@@ -185,10 +188,10 @@ return $default(_that.version,_that.nodeVersion,_that.platform,_that.arch,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String version,  String? nodeVersion,  String? platform,  String? arch,  String? gitCommit,  String? gitBranch)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String version,  String? nodeVersion,  String? platform,  String? arch,  String? gitCommit,  String? gitBranch,  String? managedBy)  $default,) {final _that = this;
 switch (_that) {
 case _BridgeVersionInfo():
-return $default(_that.version,_that.nodeVersion,_that.platform,_that.arch,_that.gitCommit,_that.gitBranch);case _:
+return $default(_that.version,_that.nodeVersion,_that.platform,_that.arch,_that.gitCommit,_that.gitBranch,_that.managedBy);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -205,10 +208,10 @@ return $default(_that.version,_that.nodeVersion,_that.platform,_that.arch,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String version,  String? nodeVersion,  String? platform,  String? arch,  String? gitCommit,  String? gitBranch)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String version,  String? nodeVersion,  String? platform,  String? arch,  String? gitCommit,  String? gitBranch,  String? managedBy)?  $default,) {final _that = this;
 switch (_that) {
 case _BridgeVersionInfo() when $default != null:
-return $default(_that.version,_that.nodeVersion,_that.platform,_that.arch,_that.gitCommit,_that.gitBranch);case _:
+return $default(_that.version,_that.nodeVersion,_that.platform,_that.arch,_that.gitCommit,_that.gitBranch,_that.managedBy);case _:
   return null;
 
 }
@@ -220,7 +223,7 @@ return $default(_that.version,_that.nodeVersion,_that.platform,_that.arch,_that.
 @JsonSerializable()
 
 class _BridgeVersionInfo extends BridgeVersionInfo {
-  const _BridgeVersionInfo({required this.version, this.nodeVersion, this.platform, this.arch, this.gitCommit, this.gitBranch}): super._();
+  const _BridgeVersionInfo({required this.version, this.nodeVersion, this.platform, this.arch, this.gitCommit, this.gitBranch, this.managedBy}): super._();
   factory _BridgeVersionInfo.fromJson(Map<String, dynamic> json) => _$BridgeVersionInfoFromJson(json);
 
 @override final  String version;
@@ -229,6 +232,9 @@ class _BridgeVersionInfo extends BridgeVersionInfo {
 @override final  String? arch;
 @override final  String? gitCommit;
 @override final  String? gitBranch;
+/// What started the Bridge: `desktop-app` (the CC Pocket desktop app's
+/// launcher) or `other`. Null on Bridges that do not report it.
+@override final  String? managedBy;
 
 /// Create a copy of BridgeVersionInfo
 /// with the given fields replaced by the non-null parameter values.
@@ -243,18 +249,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _BridgeVersionInfo&&(identical(other.version, version) || other.version == version)&&(identical(other.nodeVersion, nodeVersion) || other.nodeVersion == nodeVersion)&&(identical(other.platform, platform) || other.platform == platform)&&(identical(other.arch, arch) || other.arch == arch)&&(identical(other.gitCommit, gitCommit) || other.gitCommit == gitCommit)&&(identical(other.gitBranch, gitBranch) || other.gitBranch == gitBranch));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _BridgeVersionInfo&&(identical(other.version, version) || other.version == version)&&(identical(other.nodeVersion, nodeVersion) || other.nodeVersion == nodeVersion)&&(identical(other.platform, platform) || other.platform == platform)&&(identical(other.arch, arch) || other.arch == arch)&&(identical(other.gitCommit, gitCommit) || other.gitCommit == gitCommit)&&(identical(other.gitBranch, gitBranch) || other.gitBranch == gitBranch)&&(identical(other.managedBy, managedBy) || other.managedBy == managedBy));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,version,nodeVersion,platform,arch,gitCommit,gitBranch);
+    return Object.hash(runtimeType,version,nodeVersion,platform,arch,gitCommit,gitBranch,managedBy);
 }
 
 @override
 String toString() {
-    return 'BridgeVersionInfo(version: $version, nodeVersion: $nodeVersion, platform: $platform, arch: $arch, gitCommit: $gitCommit, gitBranch: $gitBranch)';
+    return 'BridgeVersionInfo(version: $version, nodeVersion: $nodeVersion, platform: $platform, arch: $arch, gitCommit: $gitCommit, gitBranch: $gitBranch, managedBy: $managedBy)';
 }
 
 
@@ -265,7 +271,7 @@ abstract mixin class _$BridgeVersionInfoCopyWith<$Res> implements $BridgeVersion
   factory _$BridgeVersionInfoCopyWith(_BridgeVersionInfo value, $Res Function(_BridgeVersionInfo) _then) = __$BridgeVersionInfoCopyWithImpl;
 @override @useResult
 $Res call({
- String version, String? nodeVersion, String? platform, String? arch, String? gitCommit, String? gitBranch
+ String version, String? nodeVersion, String? platform, String? arch, String? gitCommit, String? gitBranch, String? managedBy
 });
 
 
@@ -282,7 +288,7 @@ class __$BridgeVersionInfoCopyWithImpl<$Res>
 
 /// Create a copy of BridgeVersionInfo
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? version = null,Object? nodeVersion = freezed,Object? platform = freezed,Object? arch = freezed,Object? gitCommit = freezed,Object? gitBranch = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? version = null,Object? nodeVersion = freezed,Object? platform = freezed,Object? arch = freezed,Object? gitCommit = freezed,Object? gitBranch = freezed,Object? managedBy = freezed,}) {
   return _then(_BridgeVersionInfo(
 version: null == version ? _self.version : version // ignore: cast_nullable_to_non_nullable
 as String,nodeVersion: freezed == nodeVersion ? _self.nodeVersion : nodeVersion // ignore: cast_nullable_to_non_nullable
@@ -290,6 +296,7 @@ as String?,platform: freezed == platform ? _self.platform : platform // ignore: 
 as String?,arch: freezed == arch ? _self.arch : arch // ignore: cast_nullable_to_non_nullable
 as String?,gitCommit: freezed == gitCommit ? _self.gitCommit : gitCommit // ignore: cast_nullable_to_non_nullable
 as String?,gitBranch: freezed == gitBranch ? _self.gitBranch : gitBranch // ignore: cast_nullable_to_non_nullable
+as String?,managedBy: freezed == managedBy ? _self.managedBy : managedBy // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }

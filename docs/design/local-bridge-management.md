@@ -222,5 +222,32 @@ registered.
 - An older Bridge answers `/admin/*` and `/tools` with `404`. The management
   screen and the tools checklist show "update the Bridge" themselves.
 - `adminApiVersion` (currently `1`) lets the app detect later additions.
+
+## Updating the Bridge
+
+The launcher runs `npx --yes @ccpocket/bridge@1`, which installs the newest
+1.x on every start, so restarting from the management screen is the update.
+Nothing restarts a running Bridge when a release appears.
+
+The phone's "update" action is a different path: over SSH it restarts the
+`com.ccpocket.bridge` service written by `setup`. It must not be used for a
+Bridge the desktop app runs: installing `setup` next to the app's agent puts
+two KeepAlive services on one port. Restarting stays local on purpose (see
+`/admin/*` above), so a phone only explains where to update:
+
+- `/version` (public, like `/health`) reports `managedBy`: `desktop-app` when
+  the launcher started the Bridge (`CCPOCKET_BRIDGE_SUPERVISED=1`, already set
+  by shipped launchers), otherwise `other`. It only says which update path
+  applies. Older Bridges omit it, and clients treat that as unknown.
+- `desktop-app`: the app offers no SSH update and no `setup` instructions. It
+  shows the steps for the Mac instead, or opens this screen directly when it
+  is the desktop app connected over loopback.
+- Unknown on macOS (or unknown platform): the `setup` instructions carry a
+  note that they do not apply to a Bridge the desktop app runs. This is the
+  case that matters in practice, because a Bridge that needs an update is an
+  old one.
+- The SSH preflight reports the same when the `setup` service is missing and
+  the app's agent (`com.k9i.ccpocket.bridge-agent`) is registered. It reads
+  the agent's state only and never restarts it.
 - `ccpocket-bridge setup` still bakes settings into the service definition as
   environment variables; those win over the file and show as locked.

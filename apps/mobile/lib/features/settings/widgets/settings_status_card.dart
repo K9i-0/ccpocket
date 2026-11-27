@@ -177,7 +177,8 @@ class _ConnectedStatus extends StatelessWidget {
     final showUpdateRow =
         isUpdating ||
         (updateStatus.needsUpdate && machineWithStatus != null) ||
-        updateStatus.canShowSetupHelp;
+        updateStatus.canShowSetupHelp ||
+        updateStatus.updateFromDesktopApp;
     final success = settingsSuccessColor(theme.brightness);
 
     return InkWell(
@@ -265,7 +266,9 @@ class _ConnectedStatus extends StatelessWidget {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      updateStatus.canShowSetupHelp
+                      updateStatus.updateFromDesktopApp
+                          ? l.bridgeUpdateFromDesktopApp
+                          : updateStatus.canShowSetupHelp
                           ? l.bridgeUpdateRequiresSetup
                           : l.bridgeUpdateAvailable,
                       maxLines: 2,

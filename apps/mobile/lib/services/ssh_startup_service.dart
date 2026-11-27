@@ -431,6 +431,10 @@ if command -v launchctl >/dev/null 2>&1; then
   LABEL=com.ccpocket.bridge
   PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
   if [ ! -f "$PLIST" ]; then
+    if launchctl print "gui/$(id -u)/com.k9i.ccpocket.bridge-agent" >/dev/null 2>&1; then
+      echo "The CC Pocket desktop app runs the Bridge on this Mac. Open that app and restart the Bridge from Bridge on this Mac: restarting also updates it. Do not run the setup command." >&2
+      exit 1
+    fi
     echo "Bridge auto-start setup is required. Run: npx @ccpocket/bridge@1 setup" >&2
     exit 1
   fi

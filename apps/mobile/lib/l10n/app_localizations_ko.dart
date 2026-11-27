@@ -879,6 +879,35 @@ class AppLocalizationsKo extends AppLocalizations {
   String get bridgeUpdateSetupCommand => 'npx @ccpocket/bridge@1 setup';
 
   @override
+  String get bridgeUpdateFromDesktopApp => 'Mac의 CC Pocket에서 재시작하면 업데이트됩니다';
+
+  @override
+  String get bridgeUpdateRestartHere => '\"이 Mac의 Bridge\"에서 재시작하면 업데이트됩니다';
+
+  @override
+  String get bridgeUpdateDesktopTitle => '데스크톱 앱에서 업데이트';
+
+  @override
+  String get bridgeUpdateDesktopDescription =>
+      '이 Bridge는 Mac의 CC Pocket이 실행하고 있습니다. 그쪽에서 재시작하면 최신 버전이 됩니다.';
+
+  @override
+  String get bridgeUpdateDesktopStepOpen =>
+      'Bridge가 실행 중인 Mac에서 CC Pocket을 엽니다.';
+
+  @override
+  String get bridgeUpdateDesktopStepRestart =>
+      '설정에서 \"이 Mac의 Bridge\"를 열고 \"재시작\"을 누릅니다.';
+
+  @override
+  String get bridgeUpdateDesktopNoSetup =>
+      '이 Bridge에서는 설정 명령을 실행하지 마세요. 같은 포트에서 Bridge가 하나 더 실행됩니다.';
+
+  @override
+  String get bridgeUpdateSetupDesktopNote =>
+      'Mac의 CC Pocket(데스크톱 앱)으로 Bridge를 실행 중이라면 이 준비는 필요 없습니다. 설정 명령을 실행하지 말고, Mac 앱의 \"이 Mac의 Bridge\"에서 재시작하면 업데이트됩니다.';
+
+  @override
   String get stopServer => '서버 중지';
 
   @override

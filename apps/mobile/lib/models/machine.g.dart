@@ -14,6 +14,7 @@ _BridgeVersionInfo _$BridgeVersionInfoFromJson(Map<String, dynamic> json) =>
       arch: json['arch'] as String?,
       gitCommit: json['gitCommit'] as String?,
       gitBranch: json['gitBranch'] as String?,
+      managedBy: json['managedBy'] as String?,
     );
 
 Map<String, dynamic> _$BridgeVersionInfoToJson(_BridgeVersionInfo instance) =>
@@ -24,6 +25,7 @@ Map<String, dynamic> _$BridgeVersionInfoToJson(_BridgeVersionInfo instance) =>
       'arch': instance.arch,
       'gitCommit': instance.gitCommit,
       'gitBranch': instance.gitBranch,
+      'managedBy': instance.managedBy,
     };
 
 _Machine _$MachineFromJson(Map<String, dynamic> json) => _Machine(

@@ -82,6 +82,10 @@ abstract class BridgeVersionInfo with _$BridgeVersionInfo {
     String? arch,
     String? gitCommit,
     String? gitBranch,
+
+    /// What started the Bridge: `desktop-app` (the CC Pocket desktop app's
+    /// launcher) or `other`. Null on Bridges that do not report it.
+    String? managedBy,
   }) = _BridgeVersionInfo;
 
   factory BridgeVersionInfo.fromJson(Map<String, dynamic> json) =>
@@ -94,6 +98,10 @@ abstract class BridgeVersionInfo with _$BridgeVersionInfo {
 
   /// Check if update is needed (this version is older than expected)
   bool needsUpdate(String expectedVersion) => compareTo(expectedVersion) < 0;
+
+  /// The CC Pocket desktop app runs this Bridge and updates it on restart, so
+  /// the SSH update (which drives the `setup` service) does not apply.
+  bool get isManagedByDesktopApp => managedBy == 'desktop-app';
 }
 
 /// Unified machine model combining saved machines and recent connections.
@@ -224,4 +232,11 @@ abstract class MachineWithStatus with _$MachineWithStatus {
     if (versionInfo == null) return false;
     return versionInfo!.needsUpdate(expectedVersion);
   }
+
+  /// The update can be started from this app over SSH.
+  bool canUpdateOverSsh(String expectedVersion) =>
+      status == MachineStatus.online &&
+      needsUpdate(expectedVersion) &&
+      machine.canStartRemotely &&
+      !(versionInfo?.isManagedByDesktopApp ?? false);
 }

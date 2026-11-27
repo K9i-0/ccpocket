@@ -15,6 +15,8 @@ class BridgeUpdateStatus {
     required this.bridgeNeedsUpdate,
     required this.needsUpdate,
     required this.canShowSetupHelp,
+    required this.updateFromDesktopApp,
+    required this.setupMayNotApply,
     required this.isKnownUpToDate,
   });
 
@@ -40,14 +42,21 @@ class BridgeUpdateStatus {
         isOnline &&
         versionInfo != null &&
         versionInfo.needsUpdate(updateTargetVersion);
+    final updateFromDesktopApp =
+        bridgeNeedsUpdate && versionInfo.isManagedByDesktopApp;
     return BridgeUpdateStatus._(
       expectedVersion: expectedVersion,
       updateTargetVersion: updateTargetVersion,
       currentVersion: versionInfo?.version,
       latestCheckFailed: latestCheckFailed,
       bridgeNeedsUpdate: bridgeNeedsUpdate,
-      needsUpdate: bridgeNeedsUpdate && hasSshSetup,
-      canShowSetupHelp: bridgeNeedsUpdate && !hasSshSetup,
+      needsUpdate: bridgeNeedsUpdate && hasSshSetup && !updateFromDesktopApp,
+      canShowSetupHelp:
+          bridgeNeedsUpdate && !hasSshSetup && !updateFromDesktopApp,
+      updateFromDesktopApp: updateFromDesktopApp,
+      setupMayNotApply:
+          versionInfo?.managedBy == null &&
+          (versionInfo?.platform == null || versionInfo?.platform == 'darwin'),
       isKnownUpToDate:
           versionInfo != null &&
           !bridgeNeedsUpdate &&
@@ -69,6 +78,14 @@ class BridgeUpdateStatus {
 
   /// An update is needed but SSH is not configured.
   final bool canShowSetupHelp;
+
+  /// An update is needed and the CC Pocket desktop app runs this Bridge: it
+  /// is updated by restarting it from that app, never over SSH.
+  final bool updateFromDesktopApp;
+
+  /// The Bridge does not say what started it and may be on a Mac, so the
+  /// desktop app may run it and the `setup` instructions may be wrong for it.
+  final bool setupMayNotApply;
   final bool isKnownUpToDate;
 }
 
@@ -81,6 +98,10 @@ class BridgeUpdateStatusTile extends StatelessWidget {
   final VoidCallback? onRefreshLatestVersion;
   final VoidCallback? onUpdate;
 
+  /// Opens "Bridge on this Mac". Set only when this app runs on the Mac that
+  /// hosts the connected Bridge.
+  final VoidCallback? onOpenLocalBridge;
+
   const BridgeUpdateStatusTile({
     super.key,
     required this.machineWithStatus,
@@ -90,6 +111,7 @@ class BridgeUpdateStatusTile extends StatelessWidget {
     this.latestBridgeVersionError,
     this.onRefreshLatestVersion,
     this.onUpdate,
+    this.onOpenLocalBridge,
   });
 
   @override
@@ -110,6 +132,8 @@ class BridgeUpdateStatusTile extends StatelessWidget {
     final needsUpdate = status.needsUpdate;
     final canShowSetupHelp = status.canShowSetupHelp;
     final isKnownUpToDate = status.isKnownUpToDate;
+    final fromDesktopApp = status.updateFromDesktopApp;
+    final openLocalBridge = fromDesktopApp ? onOpenLocalBridge : null;
 
     final title = bridgeNeedsUpdate
         ? l.bridgeUpdateAvailable
@@ -118,7 +142,11 @@ class BridgeUpdateStatusTile extends StatelessWidget {
         : isKnownUpToDate
         ? l.bridgeIsUpToDate
         : l.updateBridge;
-    final subtitle = canShowSetupHelp
+    final subtitle = openLocalBridge != null
+        ? l.bridgeUpdateRestartHere
+        : fromDesktopApp
+        ? l.bridgeUpdateFromDesktopApp
+        : canShowSetupHelp
         ? l.bridgeUpdateRequiresSetup
         : isCheckingLatestBridgeVersion
         ? l.bridgeLatestVersionChecking
@@ -143,15 +171,24 @@ class BridgeUpdateStatusTile extends StatelessWidget {
         : cs.onSurfaceVariant;
 
     return ListTile(
-      key: canShowSetupHelp
+      key: fromDesktopApp
+          ? const ValueKey('settings_bridge_update_desktop_tile')
+          : canShowSetupHelp
           ? const ValueKey('settings_bridge_update_setup_tile')
           : null,
       leading: SettingsLeadingIcon(icon, color: iconColor),
       title: Text(title),
       subtitle: Text(subtitle),
-      onTap: canShowSetupHelp
-          ? () => _showBridgeUpdateSetupSheet(context)
-          : null,
+      onTap:
+          openLocalBridge ??
+          (fromDesktopApp
+              ? () => _showBridgeUpdateDesktopSheet(context)
+              : canShowSetupHelp
+              ? () => _showBridgeUpdateSetupSheet(
+                  context,
+                  showDesktopNote: status.setupMayNotApply,
+                )
+              : null),
       trailing: isUpdating
           ? const SizedBox(
               width: 20,
@@ -171,7 +208,7 @@ class BridgeUpdateStatusTile extends StatelessWidget {
               icon: const Icon(Icons.system_update, size: 18),
               label: Text(l.update),
             )
-          : canShowSetupHelp
+          : canShowSetupHelp || fromDesktopApp
           ? Icon(Icons.chevron_right, color: cs.onSurfaceVariant)
           : latestCheckFailed
           ? IconButton(
@@ -184,13 +221,46 @@ class BridgeUpdateStatusTile extends StatelessWidget {
     );
   }
 
-  void _showBridgeUpdateSetupSheet(BuildContext context) {
+  void _showBridgeUpdateSetupSheet(
+    BuildContext context, {
+    required bool showDesktopNote,
+  }) {
     final l = AppLocalizations.of(context);
+    _showBridgeUpdateSheet(
+      context,
+      title: l.bridgeUpdateSetupTitle,
+      description: l.bridgeUpdateSetupDescription,
+      steps: [l.bridgeUpdateSetupEnableSsh, l.bridgeUpdateSetupRunCommand],
+      command: l.bridgeUpdateSetupCommand,
+      note: showDesktopNote ? l.bridgeUpdateSetupDesktopNote : null,
+    );
+  }
+
+  void _showBridgeUpdateDesktopSheet(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    _showBridgeUpdateSheet(
+      context,
+      title: l.bridgeUpdateDesktopTitle,
+      description: l.bridgeUpdateDesktopDescription,
+      steps: [l.bridgeUpdateDesktopStepOpen, l.bridgeUpdateDesktopStepRestart],
+      note: l.bridgeUpdateDesktopNoSetup,
+    );
+  }
+
+  void _showBridgeUpdateSheet(
+    BuildContext context, {
+    required String title,
+    required String description,
+    required List<String> steps,
+    String? command,
+    String? note,
+  }) {
     final cs = Theme.of(context).colorScheme;
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       builder: (context) {
+        final textTheme = Theme.of(context).textTheme;
         return SafeArea(
           child: SingleChildScrollView(
             child: Padding(
@@ -200,43 +270,68 @@ class BridgeUpdateStatusTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    l.bridgeUpdateSetupTitle,
-                    style: Theme.of(context).textTheme.titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                    title,
+                    style: textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    l.bridgeUpdateSetupDescription,
-                    style: Theme.of(context).textTheme.bodyMedium
-                        ?.copyWith(color: cs.onSurfaceVariant),
+                    description,
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 20),
-                  _BridgeUpdateSetupStep(
-                    index: 1,
-                    text: l.bridgeUpdateSetupEnableSsh,
-                  ),
-                  const SizedBox(height: 12),
-                  _BridgeUpdateSetupStep(
-                    index: 2,
-                    text: l.bridgeUpdateSetupRunCommand,
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
+                  for (final (index, step) in steps.indexed) ...[
+                    if (index > 0) const SizedBox(height: 12),
+                    _BridgeUpdateSetupStep(index: index + 1, text: step),
+                  ],
+                  if (command != null) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerHighest.withValues(
+                          alpha: 0.65,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: SelectableText(
+                        command,
+                        style: textTheme.bodyMedium?.copyWith(
+                          fontFamily: 'monospace',
+                        ),
+                      ),
                     ),
-                    decoration: BoxDecoration(
-                      color: cs.surfaceContainerHighest.withValues(alpha: 0.65),
-                      borderRadius: BorderRadius.circular(8),
+                  ],
+                  if (note != null) ...[
+                    const SizedBox(height: 16),
+                    Row(
+                      key: const ValueKey('bridge_update_sheet_note'),
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          size: 18,
+                          color: cs.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            note,
+                            style: textTheme.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    child: SelectableText(
-                      l.bridgeUpdateSetupCommand,
-                      style: Theme.of(context).textTheme.bodyMedium
-                          ?.copyWith(fontFamily: 'monospace'),
-                    ),
-                  ),
+                  ],
                 ],
               ),
             ),

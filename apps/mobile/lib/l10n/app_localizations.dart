@@ -1727,6 +1727,54 @@ abstract class AppLocalizations {
   /// **'npx @ccpocket/bridge@1 setup'**
   String get bridgeUpdateSetupCommand;
 
+  /// No description provided for @bridgeUpdateFromDesktopApp.
+  ///
+  /// In ja, this message translates to:
+  /// **'Mac の CC Pocket から再起動すると更新されます'**
+  String get bridgeUpdateFromDesktopApp;
+
+  /// No description provided for @bridgeUpdateRestartHere.
+  ///
+  /// In ja, this message translates to:
+  /// **'「このMacのBridge」から再起動すると更新されます'**
+  String get bridgeUpdateRestartHere;
+
+  /// No description provided for @bridgeUpdateDesktopTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'デスクトップ版から更新'**
+  String get bridgeUpdateDesktopTitle;
+
+  /// No description provided for @bridgeUpdateDesktopDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'この Bridge は Mac の CC Pocket が起動しています。そちらで再起動すると最新版になります。'**
+  String get bridgeUpdateDesktopDescription;
+
+  /// No description provided for @bridgeUpdateDesktopStepOpen.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridge が動いている Mac で CC Pocket を開きます。'**
+  String get bridgeUpdateDesktopStepOpen;
+
+  /// No description provided for @bridgeUpdateDesktopStepRestart.
+  ///
+  /// In ja, this message translates to:
+  /// **'設定の「このMacのBridge」を開き、「再起動」を押します。'**
+  String get bridgeUpdateDesktopStepRestart;
+
+  /// No description provided for @bridgeUpdateDesktopNoSetup.
+  ///
+  /// In ja, this message translates to:
+  /// **'この Bridge ではセットアップコマンドを実行しないでください。同じポートで Bridge がもう1つ起動します。'**
+  String get bridgeUpdateDesktopNoSetup;
+
+  /// No description provided for @bridgeUpdateSetupDesktopNote.
+  ///
+  /// In ja, this message translates to:
+  /// **'Mac の CC Pocket（デスクトップ版）で Bridge を起動している場合、この準備は不要です。セットアップコマンドは実行せず、Mac のアプリの「このMacのBridge」から再起動すると更新されます。'**
+  String get bridgeUpdateSetupDesktopNote;
+
   /// No description provided for @stopServer.
   ///
   /// In ja, this message translates to:
