@@ -1,3 +1,5 @@
+• Bridge updates: when the CC Pocket desktop app runs the Bridge on a Mac, Settings now explains that restarting it from that app updates it, instead of offering the SSH update or the setup command (needs Bridge 1.123.0 or later).
+• SSH start, stop, and update no longer act on the wrong service for a Bridge the desktop app runs; they tell you where to manage it.
 • Math rendering (preview): formats \(...\) and \[...\] LaTeX math in chat.
 • Stop confirmation: asks before stopping active sessions from the list, with a red stop button.
 • Gallery moved into Settings as its own category.
