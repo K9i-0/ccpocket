@@ -163,11 +163,16 @@ class _ConnectedStatus extends StatelessWidget {
     final machine = machineWithStatus?.machine;
     final isUpdating =
         machine != null && machineState.updatingMachineId == machine.id;
+    final isLocalBridge =
+        visibility.isMacOS &&
+        machine?.sshEnabled != true &&
+        isLoopbackBridgeUrl(bridge.lastUrl);
     final updateStatus = BridgeUpdateStatus.resolve(
       machineWithStatus: machineWithStatus,
       latestBridgeVersion: machineState.latestBridgeVersion,
       isCheckingLatestBridgeVersion: machineState.isCheckingLatestBridgeVersion,
       latestBridgeVersionError: machineState.latestBridgeVersionError,
+      isLocalBridge: isLocalBridge,
     );
     final title =
         machine?.displayName ??
@@ -267,9 +272,7 @@ class _ConnectedStatus extends StatelessWidget {
                   Expanded(
                     child: Text(
                       updateStatus.updateFromDesktopApp
-                          ? (visibility.isMacOS &&
-                                    machine?.sshEnabled != true &&
-                                    isLoopbackBridgeUrl(bridge.lastUrl)
+                          ? (isLocalBridge
                                 ? l.bridgeUpdateRestartHere
                                 : l.bridgeUpdateFromDesktopApp)
                           : updateStatus.canShowSetupHelp

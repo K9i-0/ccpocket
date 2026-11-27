@@ -46,9 +46,7 @@ run_flutter_test() {
   fi
 }
 
-run_analyze "ANALYZE(markdown_kit)" "packages/markdown_kit" "$log_dir/analyze-markdown-kit.log"
 run_analyze "ANALYZE(mobile)" "apps/mobile" "$log_dir/analyze-mobile.log"
-run_flutter_test "TEST(markdown_kit)" "packages/markdown_kit" "$log_dir/flutter-test-markdown-kit.log"
 run_flutter_test "TEST(mobile)" "apps/mobile" "$log_dir/flutter-test-mobile.log"
 
 echo "CHECKS success duration=$((SECONDS - started_at))s"

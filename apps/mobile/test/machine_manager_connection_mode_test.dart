@@ -5,6 +5,7 @@ import 'package:ccpocket/services/bridge_endpoint_probe.dart';
 import 'package:ccpocket/services/machine_manager_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -186,6 +187,43 @@ void main() {
       manager.machinesWithStatus.single.status,
       isNot(MachineStatus.online),
     );
+  });
+
+  test('markConnected reads the version of a restarted Bridge again', () async {
+    final prefs = await SharedPreferences.getInstance();
+    var version = '1.0.0';
+    final manager = MachineManagerService(
+      prefs,
+      const FlutterSecureStorage(),
+      endpointProbe: _StaticProbe(
+        const BridgeEndpointProbeResult.unreachable(),
+      ),
+      versionHttpGet: (url) async {
+        expect(url.path, '/version');
+        return http.Response('{"version":"$version"}', 200);
+      },
+    );
+    addTearDown(manager.dispose);
+    await manager.addMachine(
+      const Machine(id: 'm', host: 'bridge.example.com', port: 8765),
+    );
+
+    manager.markConnected('bridge.example.com', 8765);
+    await pumpEventQueue();
+    expect(manager.machinesWithStatus.single.versionInfo?.version, '1.0.0');
+
+    // The Bridge was updated by restarting it; the app reconnects.
+    version = '1.1.0';
+    final updates = <String?>[];
+    final sub = manager.machines.listen(
+      (machines) => updates.add(machines.single.versionInfo?.version),
+    );
+    addTearDown(sub.cancel);
+    manager.markConnected('bridge.example.com', 8765);
+    await pumpEventQueue();
+
+    expect(manager.machinesWithStatus.single.versionInfo?.version, '1.1.0');
+    expect(updates, contains('1.1.0'));
   });
 
   test('markConnected ignores endpoints without a saved machine', () async {

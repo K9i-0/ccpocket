@@ -157,7 +157,3 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 ## License
 
 [MIT](LICENSE)
-
-One test fixture is under a different license: the CommonMark specification
-examples in `packages/markdown_kit/test/commonmark_spec/spec.json` are CC BY-SA 4.0.
-See [packages/markdown_kit/NOTICE.md](packages/markdown_kit/NOTICE.md).

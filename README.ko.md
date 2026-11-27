@@ -127,5 +127,3 @@ cd apps/mobile && flutter pub get && cd ../..
 ## 라이선스
 
 [MIT](LICENSE)
-
-테스트용 데이터 중 하나만 라이선스가 다릅니다. `packages/markdown_kit/test/commonmark_spec/spec.json`(CommonMark 사양 예제)은 CC BY-SA 4.0입니다. 자세한 내용은 [packages/markdown_kit/NOTICE.md](packages/markdown_kit/NOTICE.md)를 참고하세요.

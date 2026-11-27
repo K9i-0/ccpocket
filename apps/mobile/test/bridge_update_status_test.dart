@@ -195,6 +195,51 @@ void main() {
       expect(find.text(l.bridgeUpdateDesktopTitle), findsNothing);
     });
 
+    testWidgets('an old local Bridge is pointed to Bridge on this Mac', (
+      tester,
+    ) async {
+      var opened = 0;
+      await tester.pumpWidget(
+        _wrap(
+          BridgeUpdateStatusTile(
+            machineWithStatus: _machine(ssh: false),
+            isUpdating: false,
+            onOpenLocalBridge: () => opened++,
+          ),
+        ),
+      );
+      final l = AppLocalizations.of(
+        tester.element(find.byType(BridgeUpdateStatusTile)),
+      );
+
+      expect(find.text(l.bridgeUpdateRestartHere), findsOneWidget);
+      expect(find.text(l.bridgeUpdateRequiresSetup), findsNothing);
+      await tester.tap(
+        find.byKey(const ValueKey('settings_bridge_update_desktop_tile')),
+      );
+      await tester.pumpAndSettle();
+      expect(opened, 1);
+    });
+
+    testWidgets('a local Bridge that reports another launcher keeps setup', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(
+          BridgeUpdateStatusTile(
+            machineWithStatus: _machine(ssh: false, managedBy: 'other'),
+            isUpdating: false,
+            onOpenLocalBridge: () {},
+          ),
+        ),
+      );
+      final l = AppLocalizations.of(
+        tester.element(find.byType(BridgeUpdateStatusTile)),
+      );
+
+      expect(find.text(l.bridgeUpdateRequiresSetup), findsOneWidget);
+    });
+
     testWidgets('warns in the setup sheet when the launcher is unknown', (
       tester,
     ) async {

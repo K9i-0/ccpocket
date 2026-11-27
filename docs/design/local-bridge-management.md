@@ -242,7 +242,10 @@ two KeepAlive services on one port. Restarting stays local on purpose (see
 - `desktop-app`: the app offers no SSH update and no `setup` instructions. It
   shows the steps for the Mac instead, or opens this screen directly when it
   is the desktop app connected over loopback.
-- Unknown on macOS (or unknown platform): the `setup` instructions carry a
+- Unknown, in the desktop app connected over loopback without SSH: treated
+  like `desktop-app`, because on the Mac that hosts the Bridge this app is
+  where it is managed. The row opens this screen.
+- Unknown on macOS (or unknown platform) otherwise: the `setup` instructions carry a
   note that they do not apply to a Bridge the desktop app runs. This is the
   case that matters in practice, because a Bridge that needs an update is an
   old one.
