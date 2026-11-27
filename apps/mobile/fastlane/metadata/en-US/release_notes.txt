@@ -1,6 +1,5 @@
-• New Markdown rendering in chat: select text continuously across paragraphs, lists, tables, and code blocks, and use "Copy as Markdown" to keep the structure of nested lists and tables. Wide tables scroll sideways, and replies stay stable while they stream in.
-• Recent session filters are remembered: the period, date field (modified or created), pinned-only, and content search settings stay as you left them after restarting the app or reconnecting. Project selections are kept separately for each machine.
-• One image viewer everywhere: chat images, generated images, the gallery, and file previews share the same viewer with pinch, double-tap zoom, and pan. Images you have already opened load faster.
-• The interface now uses your device's system font. Code keeps its monospace font.
-• The Swarm coordinator has its own octopus icon.
-• The debug log viewer adds search, level filters, copy, and share.
+• Math rendering (preview): formats \(...\) and \[...\] LaTeX math in chat.
+• Stop confirmation: asks before stopping active sessions from the list, with a red stop button.
+• Gallery moved into Settings as its own category.
+• Unified colors across session cards, answered questions, and approvals; fixed trailing blank lines in thinking bubbles.
+• Antigravity: removed CLI plan quota polling (check plan limits in Antigravity); per-session context usage remains.

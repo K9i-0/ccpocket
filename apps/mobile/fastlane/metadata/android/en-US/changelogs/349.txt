@@ -1,0 +1,5 @@
+• Math rendering (preview): formats \(...\) and \[...\] LaTeX math in chat.
+• Stop confirmation: asks before stopping active sessions from the list, with a red stop button.
+• Gallery moved into Settings as its own category.
+• Unified colors across session cards, answered questions, and approvals; fixed trailing blank lines in thinking bubbles.
+• Antigravity: removed CLI plan quota polling (check plan limits in Antigravity); per-session context usage remains.
