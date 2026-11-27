@@ -38,6 +38,30 @@ interface Props {
   timeline: Timeline;
 }
 
+interface SubtitleCue {
+  from: number;
+  to: number;
+  text: string;
+}
+
+// Sentence-synced subtle narration captions (aligned to measured WAV silence boundaries @ 30fps)
+const SUBTITLES: SubtitleCue[] = [
+  {from: 8, to: 108, text: 'Meet markdown_kit — AI chat Markdown for Flutter.'},
+  {from: 132, to: 241, text: 'When agents stream token by token, finished blocks build once,'},
+  {from: 243, to: 367, text: 'while unfinished bold, code, and tables stay held back with zero flicker.'},
+  {from: 472, to: 570, text: 'Drag touch handles across lists, code, and tables.'},
+  {from: 572, to: 645, text: 'Scroll freely and your highlight stays anchored.'},
+  {from: 647, to: 705, text: 'Copy plain text or Markdown.'},
+  {from: 814, to: 872, text: 'Built-in dark theme included.'},
+  {from: 904, to: 983, text: 'On desktop, it drives a live-preview editor.'},
+  {from: 985, to: 1124, text: 'Every keystroke re-parses only the active block in under half a millisecond.'},
+  {from: 1200, to: 1287, text: 'Source and preview scroll in sync, block by block.'},
+  {from: 1289, to: 1400, text: 'Tap any block to jump to its source, and switch to dark mode instantly.'},
+  {from: 1476, to: 1624, text: 'Pure Flutter widgets only — with slivers, alerts, math, custom rules, and RTL.'},
+  {from: 1644, to: 1701, text: 'Battle-tested in CC Pocket.'},
+  {from: 1703, to: 1762, text: 'Try the live web demo today.'},
+];
+
 function mixHex(a: string, b: string, t: number): string {
   const k = clamp(t, 0, 1);
   const pa = [parseInt(a.slice(1, 3), 16), parseInt(a.slice(3, 5), 16), parseInt(a.slice(5, 7), 16)];
@@ -48,10 +72,6 @@ function mixHex(a: string, b: string, t: number): string {
   return `rgb(${r}, ${g}, ${bl})`;
 }
 
-/**
- * Returns 0 for light studio theme, 1 for dark studio theme, smoothly transitioning
- * in sync with the recorded app's Dark toggle.
- */
 function darkAmount(f: number, tl: Timeline): number {
   if (f < tl.mobileDarkFrame) return 0;
   if (f < tl.editorStart - 6) {
@@ -78,20 +98,48 @@ function themeColors(dark: number) {
     sub: mixHex('#475569', '#cbd5e1', dark),
     muted: mixHex('#64748b', '#94a3b8', dark),
     cardBg: dark > 0.5 ? 'rgba(30, 41, 59, 0.72)' : 'rgba(255, 255, 255, 0.88)',
-    cardBgActive: dark > 0.5 ? 'rgba(30, 58, 138, 0.34)' : 'rgba(255, 255, 255, 0.98)',
-    cardBorder: dark > 0.5 ? 'rgba(148, 163, 184, 0.18)' : 'rgba(15, 23, 42, 0.09)',
-    cardBorderActive: dark > 0.5 ? 'rgba(96, 165, 250, 0.65)' : 'rgba(31, 111, 235, 0.45)',
+    cardBorder: dark > 0.5 ? 'rgba(148, 163, 184, 0.22)' : 'rgba(15, 23, 42, 0.10)',
     accent: mixHex('#1f6feb', '#58a6ff', dark),
     accentSoft: dark > 0.5 ? 'rgba(88, 166, 255, 0.16)' : 'rgba(31, 111, 235, 0.10)',
-    codeBg: dark > 0.5 ? 'rgba(15, 23, 42, 0.8)' : 'rgba(15, 23, 42, 0.06)',
-    gridDot: dark > 0.5 ? 'rgba(148, 163, 184, 0.10)' : 'rgba(15, 23, 42, 0.065)',
+    gridDot: dark > 0.5 ? 'rgba(148, 163, 184, 0.10)' : 'rgba(15, 23, 42, 0.06)',
     winBar: mixHex('#eef2f6', '#161b22', dark),
     winBorder: dark > 0.5 ? 'rgba(148, 163, 184, 0.22)' : 'rgba(15, 23, 42, 0.14)',
     winTitle: mixHex('#475569', '#94a3b8', dark),
-    phoneBezel: mixHex('#181c24', '#1e2430', dark),
-    phoneRim: dark > 0.5 ? 'rgba(255, 255, 255, 0.16)' : 'rgba(255, 255, 255, 0.22)',
   };
 }
+
+interface IPhoneSpec {
+  screenX: number;
+  screenY: number;
+  screenW: number;
+  screenH: number;
+  statusH: number;
+  homeH: number;
+  bezel: number;
+  screenRadius: number;
+}
+
+const HERO_IPHONE: IPhoneSpec = {
+  screenX: 816,
+  screenY: 266,
+  screenW: 294,
+  screenH: 696, // 34 (status) + 640 (video) + 22 (home)
+  statusH: 34,
+  homeH: 22,
+  bezel: 11,
+  screenRadius: 34,
+};
+
+const MAIN_IPHONE: IPhoneSpec = {
+  screenX: 248,
+  screenY: 66,
+  screenW: 386,
+  screenH: 908, // 44 (status) + 840 (video) + 24 (home)
+  statusH: 44,
+  homeH: 24,
+  bezel: 14,
+  screenRadius: 42,
+};
 
 const MacWindowChrome: React.FC<{
   x: number;
@@ -138,15 +186,7 @@ const MacWindowChrome: React.FC<{
           <span style={{width: 11, height: 11, borderRadius: '50%', background: '#febc2e', display: 'inline-block'}} />
           <span style={{width: 11, height: 11, borderRadius: '50%', background: '#28c840', display: 'inline-block'}} />
         </div>
-        <div
-          className="mono"
-          style={{
-            fontSize: 13,
-            fontWeight: 500,
-            color: c.winTitle,
-            letterSpacing: '0.01em',
-          }}
-        >
+        <div className="mono" style={{fontSize: 13, fontWeight: 500, color: c.winTitle}}>
           {title}
         </div>
         <div style={{width: 48}} />
@@ -155,44 +195,6 @@ const MacWindowChrome: React.FC<{
   );
 };
 
-interface IPhoneSpec {
-  screenX: number;
-  screenY: number;
-  screenW: number;
-  screenH: number;
-  statusH: number;
-  homeH: number;
-  bezel: number;
-  screenRadius: number;
-}
-
-const HERO_IPHONE: IPhoneSpec = {
-  screenX: 816,
-  screenY: 284,
-  screenW: 294,
-  screenH: 696, // 34 (status) + 640 (video) + 22 (home)
-  statusH: 34,
-  homeH: 22,
-  bezel: 11,
-  screenRadius: 34,
-};
-
-const MAIN_IPHONE: IPhoneSpec = {
-  screenX: 162,
-  screenY: 68,
-  screenW: 386,
-  screenH: 908, // 44 (status) + 840 (video) + 24 (home)
-  statusH: 44,
-  homeH: 24,
-  bezel: 14,
-  screenRadius: 42,
-};
-
-/**
- * iPhone 16 Pro chassis rendered BEHIND the screen video:
- * outer titanium frame, hardware buttons, drop shadow, black bezel, and
- * top/bottom SafeArea fills that match the Flutter example app chrome/background.
- */
 const IPhoneChassis: React.FC<{
   spec: IPhoneSpec;
   appDark: boolean;
@@ -225,7 +227,6 @@ const IPhoneChassis: React.FC<{
         opacity,
       }}
     >
-      {/* Titanium outer edge subtle specular rim */}
       <div
         style={{
           width: '100%',
@@ -237,7 +238,6 @@ const IPhoneChassis: React.FC<{
           overflow: 'hidden',
         }}
       >
-        {/* Inner screen backing (SafeArea top & bottom + screen fill) */}
         <div
           style={{
             position: 'absolute',
@@ -250,9 +250,7 @@ const IPhoneChassis: React.FC<{
             overflow: 'hidden',
           }}
         >
-          {/* Top SafeArea matching Flutter example top bar chrome */}
           <div style={{width: '100%', height: statusH + 2, background: chromeBg}} />
-          {/* Bottom SafeArea matching Flutter example background */}
           <div
             style={{
               position: 'absolute',
@@ -266,7 +264,7 @@ const IPhoneChassis: React.FC<{
         </div>
       </div>
 
-      {/* Hardware side buttons (right: Power; left: Action, Vol Up, Vol Down) */}
+      {/* Hardware side buttons */}
       <div
         style={{
           position: 'absolute',
@@ -315,12 +313,6 @@ const IPhoneChassis: React.FC<{
   );
 };
 
-/**
- * Rendered ABOVE the screen video:
- * - Clean black bezel ring masking any screen corner edges
- * - iOS Status Bar (9:41, Dynamic Island with camera lens, cellular, Wi-Fi, 100% battery)
- * - iOS Home Indicator pill at the bottom
- */
 const IPhoneScreenOverlay: React.FC<{
   spec: IPhoneSpec;
   appDark: boolean;
@@ -348,7 +340,6 @@ const IPhoneScreenOverlay: React.FC<{
         pointerEvents: 'none',
       }}
     >
-      {/* Hollow bezel ring mask so video corners stay neatly inside the rounded iPhone glass */}
       <div
         style={{
           position: 'absolute',
@@ -357,7 +348,6 @@ const IPhoneScreenOverlay: React.FC<{
           border: `${bezel - 3}px solid #0b0d11`,
         }}
       />
-      {/* Hairline inner screen glass reflection */}
       <div
         style={{
           position: 'absolute',
@@ -370,7 +360,7 @@ const IPhoneScreenOverlay: React.FC<{
         }}
       />
 
-      {/* iOS Status Bar (9:41 + Dynamic Island + Signal / Wi-Fi / Battery) */}
+      {/* iOS Status Bar (9:41 + Dynamic Island + Cellular / Wi-Fi / Battery) */}
       <div
         style={{
           position: 'absolute',
@@ -384,7 +374,6 @@ const IPhoneScreenOverlay: React.FC<{
           padding: `0 ${Math.round(24 * s)}px`,
         }}
       >
-        {/* Left: 9:41 */}
         <div
           style={{
             width: Math.round(64 * s),
@@ -399,7 +388,6 @@ const IPhoneScreenOverlay: React.FC<{
           9:41
         </div>
 
-        {/* Center: Dynamic Island */}
         <div
           style={{
             position: 'absolute',
@@ -417,7 +405,6 @@ const IPhoneScreenOverlay: React.FC<{
             paddingRight: Math.round(9 * s),
           }}
         >
-          {/* Front camera lens dot */}
           <div
             style={{
               width: lensD,
@@ -429,54 +416,19 @@ const IPhoneScreenOverlay: React.FC<{
           />
         </div>
 
-        {/* Right: Cellular + Wi-Fi + Battery */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: Math.round(6 * s),
-          }}
-        >
-          {/* 4-bar cellular signal */}
-          <svg
-            width={Math.round(17 * s)}
-            height={Math.round(12 * s)}
-            viewBox="0 0 17 12"
-            fill="none"
-          >
+        <div style={{display: 'flex', alignItems: 'center', gap: Math.round(6 * s)}}>
+          <svg width={Math.round(17 * s)} height={Math.round(12 * s)} viewBox="0 0 17 12" fill="none">
             <rect x="0.5" y="8" width="2.8" height="3.5" rx="0.8" fill={fg} />
             <rect x="4.8" y="5.8" width="2.8" height="5.7" rx="0.8" fill={fg} />
             <rect x="9.1" y="3.3" width="2.8" height="8.2" rx="0.8" fill={fg} />
             <rect x="13.4" y="0.8" width="2.8" height="10.7" rx="0.8" fill={fg} />
           </svg>
-          {/* Wi-Fi */}
-          <svg
-            width={Math.round(16 * s)}
-            height={Math.round(12 * s)}
-            viewBox="0 0 16 12"
-            fill="none"
-          >
-            <path
-              d="M1.2 3.8C4.9 0.5 11.1 0.5 14.8 3.8"
-              stroke={fg}
-              strokeWidth="1.65"
-              strokeLinecap="round"
-            />
-            <path
-              d="M3.7 6.5C6.1 4.4 9.9 4.4 12.3 6.5"
-              stroke={fg}
-              strokeWidth="1.65"
-              strokeLinecap="round"
-            />
+          <svg width={Math.round(16 * s)} height={Math.round(12 * s)} viewBox="0 0 16 12" fill="none">
+            <path d="M1.2 3.8C4.9 0.5 11.1 0.5 14.8 3.8" stroke={fg} strokeWidth="1.65" strokeLinecap="round" />
+            <path d="M3.7 6.5C6.1 4.4 9.9 4.4 12.3 6.5" stroke={fg} strokeWidth="1.65" strokeLinecap="round" />
             <circle cx="8" cy="10" r="1.45" fill={fg} />
           </svg>
-          {/* Battery 100% */}
-          <svg
-            width={Math.round(25 * s)}
-            height={Math.round(12 * s)}
-            viewBox="0 0 25 12"
-            fill="none"
-          >
+          <svg width={Math.round(25 * s)} height={Math.round(12 * s)} viewBox="0 0 25 12" fill="none">
             <rect
               x="0.75"
               y="0.75"
@@ -524,114 +476,15 @@ const IPhoneScreenOverlay: React.FC<{
   );
 };
 
-const Pill: React.FC<{text: string; accent?: boolean; dark: number}> = ({text, accent, dark}) => {
-  const c = themeColors(dark);
-  return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        padding: '8px 16px',
-        borderRadius: 999,
-        fontSize: 18,
-        fontWeight: 600,
-        letterSpacing: '0.01em',
-        color: accent ? c.accent : c.sub,
-        background: accent ? c.accentSoft : c.cardBg,
-        border: `1px solid ${accent ? c.cardBorderActive : c.cardBorder}`,
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {text}
-    </span>
-  );
-};
-
-const StepCard: React.FC<{
-  num: string;
-  title: string;
-  desc: string;
-  active: boolean;
-  dark: number;
-  compact?: boolean;
-}> = ({num, title, desc, active, dark, compact}) => {
-  const c = themeColors(dark);
-  return (
-    <div
-      style={{
-        padding: compact ? '16px 18px' : '22px 26px',
-        borderRadius: 16,
-        background: active ? c.cardBgActive : c.cardBg,
-        border: `1.5px solid ${active ? c.cardBorderActive : c.cardBorder}`,
-        boxShadow: active
-          ? dark > 0.5
-            ? '0 10px 30px rgba(31, 111, 235, 0.20)'
-            : '0 12px 32px rgba(31, 111, 235, 0.10)'
-          : 'none',
-        opacity: active ? 1 : 0.62,
-        display: 'flex',
-        gap: compact ? 12 : 18,
-        alignItems: 'flex-start',
-      }}
-    >
-      <div
-        className="mono"
-        style={{
-          minWidth: compact ? 32 : 40,
-          height: compact ? 32 : 40,
-          borderRadius: 10,
-          background: active ? c.accent : c.codeBg,
-          color: active ? '#ffffff' : c.muted,
-          fontSize: compact ? 14 : 16,
-          fontWeight: 700,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginTop: 2,
-        }}
-      >
-        {num}
-      </div>
-      <div style={{flex: 1}}>
-        <div
-          style={{
-            fontSize: compact ? 20 : 25,
-            fontWeight: 700,
-            color: c.text,
-            lineHeight: 1.25,
-            letterSpacing: '-0.01em',
-          }}
-        >
-          {title}
-        </div>
-        <div
-          style={{
-            fontSize: compact ? 15.5 : 19,
-            fontWeight: 400,
-            color: c.sub,
-            lineHeight: 1.45,
-            marginTop: compact ? 5 : 7,
-          }}
-        >
-          {desc}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const ProgressFooter: React.FC<{f: number; tl: Timeline; dark: number}> = ({f, tl, dark}) => {
-  if (f < tl.mobileStart - 4 || f >= tl.outroStart) return null;
-  const c = themeColors(dark);
-  const sections = [
-    {label: '01 Streaming', start: tl.mobileStart, end: tl.selectionStart},
-    {label: '02 Selection', start: tl.selectionStart, end: tl.editorStart},
-    {label: '03 Live Editor', start: tl.editorStart, end: tl.showcaseStart},
-    {label: '04 Extensible', start: tl.showcaseStart, end: tl.outroStart},
-  ];
+/**
+ * Subtle, unobtrusive narration subtitle pill anchored cleanly in the bottom margin.
+ */
+const SubtleSubtitle: React.FC<{frame: number; dark: number}> = ({frame, dark}) => {
+  const cue = SUBTITLES.find((c) => frame >= c.from && frame <= c.to);
+  if (!cue) return null;
   const op = Math.min(
-    interpolate(f, [tl.mobileStart, tl.mobileStart + 10], [0, 1], 'outCubic'),
-    interpolate(f, [tl.outroStart - 10, tl.outroStart], [1, 0], 'outCubic')
+    interpolate(frame, [cue.from, cue.from + 4], [0, 1], 'outCubic'),
+    interpolate(frame, [cue.to - 4, cue.to], [1, 0], 'outCubic')
   );
   return (
     <div
@@ -639,71 +492,29 @@ const ProgressFooter: React.FC<{f: number; tl: Timeline; dark: number}> = ({f, t
         position: 'absolute',
         left: 96,
         right: 96,
-        bottom: 36,
-        height: 44,
+        bottom: 24,
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 24,
+        justifyContent: 'center',
         opacity: op,
+        pointerEvents: 'none',
       }}
     >
-      <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
-        <span
-          style={{
-            width: 10,
-            height: 10,
-            borderRadius: '50%',
-            background: c.accent,
-            display: 'inline-block',
-          }}
-        />
-        <span className="mono" style={{fontSize: 16, fontWeight: 700, color: c.text}}>
-          markdown_kit
-        </span>
-        <span style={{fontSize: 15, color: c.muted}}>· Flutter</span>
-      </div>
-
-      <div style={{display: 'flex', alignItems: 'center', gap: 14, flex: 1, maxWidth: 920}}>
-        {sections.map((s) => {
-          const pct = clamp((f - s.start) / (s.end - s.start), 0, 1);
-          const isCurrent = f >= s.start && f < s.end;
-          return (
-            <div key={s.label} style={{flex: 1, display: 'flex', flexDirection: 'column', gap: 5}}>
-              <div
-                style={{
-                  fontSize: 13,
-                  fontWeight: isCurrent ? 700 : 500,
-                  color: isCurrent ? c.accent : c.muted,
-                  letterSpacing: '0.02em',
-                }}
-              >
-                {s.label}
-              </div>
-              <div
-                style={{
-                  height: 4,
-                  borderRadius: 99,
-                  background: c.cardBorder,
-                  overflow: 'hidden',
-                }}
-              >
-                <div
-                  style={{
-                    width: `${(pct * 100).toFixed(1)}%`,
-                    height: '100%',
-                    borderRadius: 99,
-                    background: isCurrent ? c.accent : c.muted,
-                  }}
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="mono" style={{fontSize: 14.5, color: c.muted}}>
-        k9i-0.github.io/markdown_kit
+      <div
+        style={{
+          padding: '8px 22px',
+          borderRadius: 999,
+          background: dark > 0.5 ? 'rgba(15, 23, 42, 0.78)' : 'rgba(15, 23, 42, 0.74)',
+          border: dark > 0.5 ? '1px solid rgba(148, 163, 184, 0.22)' : '1px solid rgba(255, 255, 255, 0.12)',
+          color: 'rgba(248, 250, 252, 0.94)',
+          fontSize: 20,
+          fontWeight: 500,
+          letterSpacing: '0.005em',
+          lineHeight: 1.35,
+          whiteSpace: 'nowrap',
+          boxShadow: '0 6px 20px rgba(0, 0, 0, 0.16)',
+        }}
+      >
+        {cue.text}
       </div>
     </div>
   );
@@ -739,7 +550,6 @@ export const scenes = {
             overflow: 'hidden',
           }}
         >
-          {/* Subtle architectural dot grid */}
           <div
             style={{
               position: 'absolute',
@@ -748,7 +558,6 @@ export const scenes = {
               backgroundSize: '32px 32px',
             }}
           />
-          {/* Soft ambient glow */}
           <div
             style={{
               position: 'absolute',
@@ -786,7 +595,7 @@ export const scenes = {
               width={904}
               height={570}
               barHeight={34}
-              title="markdown_kit — Desktop Editor"
+              title="markdown_kit — Editor"
               dark={0}
               opacity={heroOp}
             />
@@ -802,29 +611,29 @@ export const scenes = {
             />
           )}
 
-          {/* S3 Desktop editor window chrome */}
+          {/* S3 Centered large Desktop editor window */}
           {editorOp > 0 && (
             <MacWindowChrome
-              x={96}
-              y={148}
-              width={1312}
-              height={814}
-              barHeight={36}
-              title="markdown_kit — Live-Preview Editor (Desktop)"
+              x={256}
+              y={94}
+              width={1408}
+              height={870}
+              barHeight={34}
+              title="markdown_kit — Live Editor"
               dark={dark}
               opacity={editorOp}
             />
           )}
 
-          {/* S4 Desktop showcase window chrome */}
+          {/* S4 Centered large Desktop showcase window */}
           {showcaseOp > 0 && (
             <MacWindowChrome
-              x={96}
-              y={148}
-              width={1278}
-              height={794}
-              barHeight={36}
-              title="markdown_kit — SliverMarkdownView Showcase"
+              x={256}
+              y={94}
+              width={1408}
+              height={870}
+              barHeight={34}
+              title="markdown_kit — SliverMarkdownView"
               dark={1}
               opacity={showcaseOp}
             />
@@ -834,7 +643,7 @@ export const scenes = {
     },
   },
 
-  // S0 Hero iPhone chassis rendered ABOVE hero_desktop video so the iPhone cleanly overlaps the desktop!
+  // S0 Hero iPhone chassis rendered ABOVE hero_desktop video so the iPhone overlaps the desktop cleanly
   heroPhone: {
     render(frame: number, props: Props) {
       const tl = props.timeline;
@@ -856,448 +665,234 @@ export const scenes = {
       const c = themeColors(dark);
 
       // ================================================================
-      // S0: HERO OPENER (0 - 120) — Full visibility at frame 0!
+      // S0: HERO OPENER (0 - 120) — Minimal, crisp, zero clutter
       // ================================================================
       if (frame < tl.heroEnd) {
         const outOp = interpolate(frame, [tl.heroEnd - 8, tl.heroEnd], [1, 0], 'outCubic');
         return renderToStaticMarkup(
-          <div style={{position: 'absolute', inset: 0, opacity: outOp}}>
-            <IPhoneScreenOverlay spec={HERO_IPHONE} appDark={false} opacity={1} />
+          <div style={{position: 'absolute', inset: 0}}>
+            <div style={{position: 'absolute', inset: 0, opacity: outOp}}>
+              <IPhoneScreenOverlay spec={HERO_IPHONE} appDark={false} opacity={1} />
+              <div
+                style={{
+                  position: 'absolute',
+                  left: 108,
+                  top: 310,
+                  width: 650,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 22,
+                }}
+              >
+                <div>
+                  <span
+                    className="mono"
+                    style={{
+                      padding: '7px 14px',
+                      borderRadius: 999,
+                      background: '#1f6feb',
+                      color: '#ffffff',
+                      fontSize: 15,
+                      fontWeight: 700,
+                      letterSpacing: '0.07em',
+                    }}
+                  >
+                    FLUTTER PACKAGE
+                  </span>
+                </div>
+
+                <div
+                  className="mono"
+                  style={{
+                    fontSize: 84,
+                    fontWeight: 700,
+                    color: '#0f172a',
+                    letterSpacing: '-0.03em',
+                    lineHeight: 1.02,
+                  }}
+                >
+                  markdown_kit
+                </div>
+
+                <div
+                  style={{
+                    fontSize: 34,
+                    fontWeight: 500,
+                    color: '#475569',
+                    lineHeight: 1.32,
+                    letterSpacing: '-0.01em',
+                  }}
+                >
+                  Markdown for AI chat &amp; editors.
+                </div>
+              </div>
+            </div>
+
+            <SubtleSubtitle frame={frame} dark={0} />
+          </div>
+        );
+      }
+
+      // ================================================================
+      // S1 & S2: MOBILE CHAT (120 - 885) — Large iPhone + single punchy headline
+      // ================================================================
+      if (frame < tl.editorStart) {
+        const isStreaming = frame < tl.selectionStart;
+        const isDarkSection = frame >= tl.mobileDarkFrame;
+
+        const blockStart = isStreaming
+          ? tl.mobileStart
+          : isDarkSection
+            ? tl.mobileDarkFrame
+            : tl.selectionStart;
+        const blockEnd = isStreaming
+          ? tl.selectionStart
+          : isDarkSection
+            ? tl.editorStart
+            : tl.mobileDarkFrame;
+
+        const local = frame - blockStart;
+        const textOp = sectionFade(frame, blockStart, blockEnd, 8, 8);
+        const slide = interpolate(local, [0, 12], [18, 0], 'outCubic');
+
+        const tag = isStreaming ? 'STREAMING' : isDarkSection ? 'THEMING' : 'SELECTION';
+        const headline = isStreaming
+          ? ['Zero syntax', 'flicker.']
+          : isDarkSection
+            ? ['Built-in', 'Dark Mode.']
+            : ['Survives', 'scrolling.'];
+        const meta = isStreaming
+          ? 'Token-by-token · Block cached'
+          : isDarkSection
+            ? 'Light & Dark · Ready out of the box'
+            : 'Cross-block · Copy as Markdown';
+
+        const phoneOp = Math.min(
+          interpolate(frame, [tl.mobileStart - 4, tl.mobileStart + 4], [0, 1], 'outCubic'),
+          interpolate(frame, [tl.editorStart - 6, tl.editorStart], [1, 0], 'outCubic')
+        );
+
+        return renderToStaticMarkup(
+          <div style={{position: 'absolute', inset: 0}}>
+            <IPhoneScreenOverlay spec={MAIN_IPHONE} appDark={isDarkSection} opacity={phoneOp} />
+
             <div
               style={{
                 position: 'absolute',
-                left: 96,
-                top: 170,
-                width: 680,
+                left: 770,
+                top: 340,
+                width: 1020,
+                opacity: textOp,
+                transform: `translateY(${slide.toFixed(1)}px)`,
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 24,
               }}
             >
-              <div style={{display: 'flex', gap: 12, alignItems: 'center'}}>
-                <span
-                  className="mono"
-                  style={{
-                    padding: '7px 14px',
-                    borderRadius: 999,
-                    background: '#1f6feb',
-                    color: '#ffffff',
-                    fontSize: 15,
-                    fontWeight: 700,
-                    letterSpacing: '0.06em',
-                  }}
-                >
-                  FLUTTER PACKAGE
-                </span>
-                <span
-                  style={{
-                    padding: '7px 14px',
-                    borderRadius: 999,
-                    background: 'rgba(15, 23, 42, 0.06)',
-                    color: '#334155',
-                    fontSize: 15,
-                    fontWeight: 600,
-                  }}
-                >
-                  Pure flutter/widgets.dart
-                </span>
-              </div>
-
               <div
                 className="mono"
                 style={{
-                  fontSize: 78,
+                  fontSize: 18,
                   fontWeight: 700,
-                  color: '#0f172a',
-                  letterSpacing: '-0.03em',
+                  color: c.accent,
+                  letterSpacing: '0.12em',
+                }}
+              >
+                {tag}
+              </div>
+
+              <div
+                style={{
+                  fontSize: 92,
+                  fontWeight: 700,
+                  color: c.text,
                   lineHeight: 1.05,
+                  letterSpacing: '-0.03em',
                 }}
               >
-                markdown_kit
-              </div>
-
-              <div
-                style={{
-                  fontSize: 34,
-                  fontWeight: 600,
-                  color: '#334155',
-                  lineHeight: 1.32,
-                  letterSpacing: '-0.015em',
-                }}
-              >
-                Markdown for AI chat &amp; live editors in Flutter.
-              </div>
-
-              <div
-                style={{
-                  fontSize: 21,
-                  color: '#475569',
-                  lineHeight: 1.55,
-                  maxWidth: 620,
-                }}
-              >
-                Built for token-by-token replies, scroll-proof touch selection, and sub-millisecond incremental
-                previews.
-              </div>
-
-              <div style={{display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 8}}>
-                <Pill text="Token streaming" accent dark={0} />
-                <Pill text="Scroll-proof selection" dark={0} />
-                <Pill text="Sub-ms live editor" dark={0} />
-                <Pill text="MIT · Battle-tested in CC Pocket" dark={0} />
-              </div>
-            </div>
-
-            {/* Subtle labels under the two live hero previews */}
-            <div
-              style={{
-                position: 'absolute',
-                left: 1168,
-                top: 748,
-                padding: '12px 18px',
-                borderRadius: 12,
-                background: 'rgba(255,255,255,0.92)',
-                border: '1px solid rgba(15,23,42,0.10)',
-                boxShadow: '0 8px 24px rgba(15,23,42,0.08)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 4,
-              }}
-            >
-              <div style={{fontSize: 15, fontWeight: 700, color: '#0f172a'}}>Real Flutter UI recordings</div>
-              <div style={{fontSize: 14, color: '#475569'}}>Mobile AI Chat + Desktop Split Editor</div>
-            </div>
-          </div>
-        );
-      }
-
-      // ================================================================
-      // S1: MOBILE CHAT — STREAMING (120 - 450)
-      // ================================================================
-      if (frame < tl.selectionStart) {
-        const local = frame - tl.mobileStart;
-        const op = sectionFade(frame, tl.mobileStart, tl.selectionStart, 8, 8);
-        const slide = interpolate(local, [0, 12], [18, 0], 'outCubic');
-        const activeIdx = local < 105 ? 0 : local < 215 ? 1 : 2;
-
-        return renderToStaticMarkup(
-          <div style={{position: 'absolute', inset: 0}}>
-            <IPhoneScreenOverlay
-              spec={MAIN_IPHONE}
-              appDark={false}
-              opacity={interpolate(frame, [tl.mobileStart - 4, tl.mobileStart + 4], [0, 1], 'outCubic')}
-            />
-            <div
-              style={{
-                position: 'absolute',
-                left: 650,
-                top: 112,
-                width: 1170,
-                opacity: op,
-                transform: `translateY(${slide.toFixed(1)}px)`,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 26,
-              }}
-            >
-              <div style={{display: 'flex', alignItems: 'center', gap: 14}}>
-                <span
-                  className="mono"
-                  style={{
-                    fontSize: 17,
-                    fontWeight: 700,
-                    color: c.accent,
-                    letterSpacing: '0.08em',
-                  }}
-                >
-                  01 / MOBILE AI CHAT
-                </span>
-                <span style={{width: 48, height: 2, background: c.accent, opacity: 0.4}} />
-                <span style={{fontSize: 16, fontWeight: 600, color: c.muted}}>Real mobile recording · 402×874</span>
-              </div>
-
-              <div
-                style={{
-                  fontSize: 58,
-                  fontWeight: 700,
-                  color: c.text,
-                  lineHeight: 1.12,
-                  letterSpacing: '-0.025em',
-                }}
-              >
-                Token-by-token streaming
+                {headline[0]}
                 <br />
-                without syntax flicker
-              </div>
-
-              <div style={{fontSize: 22, color: c.sub, lineHeight: 1.48, maxWidth: 980}}>
-                Pass <code style={{background: c.codeBg, padding: '2px 8px', borderRadius: 6}}>isStreaming: true</code>{' '}
-                to <code style={{background: c.codeBg, padding: '2px 8px', borderRadius: 6}}>MarkdownView</code> —
-                earlier blocks stay cached while only the tail updates.
-              </div>
-
-              <div style={{display: 'flex', flexDirection: 'column', gap: 16, marginTop: 8}}>
-                <StepCard
-                  num="01"
-                  title="Finished blocks are parsed & built once"
-                  desc="Appending tokens to the tail never rebuilds earlier headings, lists, or code blocks."
-                  active={activeIdx === 0}
-                  dark={dark}
-                />
-                <StepCard
-                  num="02"
-                  title="Unfinished syntax is held back cleanly"
-                  desc="Open **bold**, `code`, links, tables, and fences wait until closed — no raw punctuation flashes."
-                  active={activeIdx === 1}
-                  dark={dark}
-                />
-                <StepCard
-                  num="03"
-                  title="Rich blocks render seamlessly as tokens arrive"
-                  desc="Dart code blocks, aligned GFM tables, GitHub alerts, and LaTeX math land smoothly."
-                  active={activeIdx === 2}
-                  dark={dark}
-                />
-              </div>
-            </div>
-
-            <ProgressFooter f={frame} tl={tl} dark={dark} />
-          </div>
-        );
-      }
-
-      // ================================================================
-      // S2: MOBILE CHAT — SELECTION, SCROLL SURVIVAL, COPY & DARK (450 - 885)
-      // ================================================================
-      if (frame < tl.editorStart) {
-        const local = frame - tl.selectionStart;
-        const op = sectionFade(frame, tl.selectionStart, tl.editorStart, 8, 8);
-        const slide = interpolate(local, [0, 12], [18, 0], 'outCubic');
-        // Sync card highlights to real video events:
-        // 450..595: drag selection across blocks
-        // 595..740: scroll list up & down with selection kept
-        // 740..806: Copy as Markdown
-        // 806..885: Dark theme toggle
-        const activeIdx = frame < 595 ? 0 : frame < 740 ? 1 : frame < tl.mobileDarkFrame ? 2 : 3;
-
-        return renderToStaticMarkup(
-          <div style={{position: 'absolute', inset: 0}}>
-            <IPhoneScreenOverlay
-              spec={MAIN_IPHONE}
-              appDark={frame >= tl.mobileDarkFrame}
-              opacity={interpolate(frame, [tl.editorStart - 6, tl.editorStart], [1, 0], 'outCubic')}
-            />
-            <div
-              style={{
-                position: 'absolute',
-                left: 650,
-                top: 96,
-                width: 1170,
-                opacity: op,
-                transform: `translateY(${slide.toFixed(1)}px)`,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 20,
-              }}
-            >
-              <div style={{display: 'flex', alignItems: 'center', gap: 14}}>
-                <span
-                  className="mono"
-                  style={{
-                    fontSize: 17,
-                    fontWeight: 700,
-                    color: c.accent,
-                    letterSpacing: '0.08em',
-                  }}
-                >
-                  02 / SELECTION &amp; COPY
-                </span>
-                <span style={{width: 48, height: 2, background: c.accent, opacity: 0.4}} />
-                <span style={{fontSize: 16, fontWeight: 600, color: c.muted}}>
-                  {frame >= tl.mobileDarkFrame ? 'Built-in Dark Theme' : 'Model-anchored selection'}
-                </span>
+                {headline[1]}
               </div>
 
               <div
                 style={{
-                  fontSize: 54,
-                  fontWeight: 700,
-                  color: c.text,
-                  lineHeight: 1.12,
-                  letterSpacing: '-0.025em',
+                  fontSize: 25,
+                  fontWeight: 500,
+                  color: c.sub,
+                  letterSpacing: '-0.005em',
+                  marginTop: 4,
                 }}
               >
-                Selection that survives
-                <br />
-                lazy list scrolling
-              </div>
-
-              <div style={{display: 'flex', flexDirection: 'column', gap: 13, marginTop: 6}}>
-                <StepCard
-                  num="01"
-                  title="Drag across lists, code blocks & tables"
-                  desc="Opaque 44pt touch handles never fight list scrolling or back swipes, with edge auto-scroll."
-                  active={activeIdx === 0}
-                  dark={dark}
-                  compact
-                />
-                <StepCard
-                  num="02"
-                  title="Stays anchored through recycling & streaming"
-                  desc="MarkdownSelectionScope tracks each documentId — scroll away and back with the highlight intact."
-                  active={activeIdx === 1}
-                  dark={dark}
-                  compact
-                />
-                <StepCard
-                  num="03"
-                  title="Copy clean text or Copy as Markdown"
-                  desc="Plain text omits bullet glyphs & code headers; Copy as Markdown rebuilds full Markdown structure."
-                  active={activeIdx === 2}
-                  dark={dark}
-                  compact
-                />
-                <StepCard
-                  num="04"
-                  title="Built-in Light & Dark themes"
-                  desc="Value-compared MarkdownThemeData switches cleanly with zero Material or Cupertino imports."
-                  active={activeIdx === 3}
-                  dark={dark}
-                  compact
-                />
+                {meta}
               </div>
             </div>
 
-            <ProgressFooter f={frame} tl={tl} dark={dark} />
+            <SubtleSubtitle frame={frame} dark={dark} />
           </div>
         );
       }
 
       // ================================================================
-      // S3: DESKTOP LIVE-PREVIEW EDITOR (885 - 1470)
+      // S3: DESKTOP LIVE EDITOR (885 - 1470) — Centered full-focus window
       // ================================================================
       if (frame < tl.showcaseStart) {
-        const local = frame - tl.editorStart;
         const op = sectionFade(frame, tl.editorStart, tl.showcaseStart, 8, 8);
-        const slide = interpolate(local, [0, 12], [14, 0], 'outCubic');
-        // Video event alignment:
-        // 885..1075: live typing & sub-ms parse
-        // 1075..1285: synced block-by-block scroll
-        // 1285..1388: tap block to jump caret
-        // 1388..1470: dark theme
-        const activeIdx = frame < 1075 ? 0 : frame < 1285 ? 1 : frame < tl.editorDarkFrame ? 2 : 3;
+        const phase = frame < 1185 ? 0 : frame < tl.editorDarkFrame ? 1 : 2;
+        const title = phase === 0 ? 'Live preview in < 0.5 ms.' : phase === 1 ? 'Synced scroll & tap to jump.' : 'Instant Dark Mode.';
 
-        // Subtle focus highlight box around the status bar's "parsed in 0.xx ms" during typing!
+        // Subtle pointer pill sitting in the blank area of the editor status bar during typing
         const parseCalloutOp =
-          frame >= 940 && frame <= 1070
+          frame >= 945 && frame <= 1085
             ? Math.min(
-                interpolate(frame, [940, 952], [0, 1], 'outCubic'),
-                interpolate(frame, [1058, 1070], [1, 0], 'outCubic')
+                interpolate(frame, [945, 957], [0, 1], 'outCubic'),
+                interpolate(frame, [1073, 1085], [1, 0], 'outCubic')
               )
             : 0;
         const parsePulse = settle(
-          spring({frame: Math.max(0, frame - 940), fps: tl.fps, stiffness: 180, damping: 16}),
+          spring({frame: Math.max(0, frame - 945), fps: tl.fps, stiffness: 180, damping: 16}),
           1
         );
 
         return renderToStaticMarkup(
           <div style={{position: 'absolute', inset: 0}}>
-            {/* Top header band above desktop window */}
             <div
               style={{
                 position: 'absolute',
-                left: 96,
-                right: 96,
-                top: 46,
+                left: 256,
+                right: 256,
+                top: 32,
                 display: 'flex',
                 alignItems: 'baseline',
                 justifyContent: 'space-between',
                 opacity: op,
-                transform: `translateY(${slide.toFixed(1)}px)`,
               }}
             >
-              <div style={{display: 'flex', alignItems: 'baseline', gap: 22}}>
+              <div style={{display: 'flex', alignItems: 'baseline', gap: 18}}>
                 <span
                   className="mono"
-                  style={{fontSize: 17, fontWeight: 700, color: c.accent, letterSpacing: '0.08em'}}
+                  style={{fontSize: 16, fontWeight: 700, color: c.accent, letterSpacing: '0.10em'}}
                 >
-                  03 / DESKTOP EDITOR
+                  LIVE EDITOR
                 </span>
-                <span
-                  style={{
-                    fontSize: 40,
-                    fontWeight: 700,
-                    color: c.text,
-                    letterSpacing: '-0.02em',
-                  }}
-                >
-                  Live preview that keeps up with every keystroke
+                <span style={{fontSize: 36, fontWeight: 700, color: c.text, letterSpacing: '-0.02em'}}>
+                  {title}
                 </span>
               </div>
-              <span className="mono" style={{fontSize: 16, color: c.muted}}>
-                &lt; 1 ms incremental parse
+              <span className="mono" style={{fontSize: 16, fontWeight: 600, color: c.muted}}>
+                markdown_kit
               </span>
             </div>
 
-            {/* Right sidebar live commentary (never covers editor UI) */}
-            <div
-              style={{
-                position: 'absolute',
-                left: 1440,
-                top: 148,
-                width: 384,
-                opacity: op,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 14,
-              }}
-            >
-              <StepCard
-                num="01"
-                title="Sub-millisecond parsing"
-                desc="Only the edited block re-parses and rebuilds on each keystroke — watch the status bar."
-                active={activeIdx === 0}
-                dark={dark}
-                compact
-              />
-              <StepCard
-                num="02"
-                title="Synced block scrolling"
-                desc="document.blockSourceRanges maps each preview block back to its source lines."
-                active={activeIdx === 1}
-                dark={dark}
-                compact
-              />
-              <StepCard
-                num="03"
-                title="Active block & tap to jump"
-                desc="blockWrapper highlights the caret's block and jumps source when tapped."
-                active={activeIdx === 2}
-                dark={dark}
-                compact
-              />
-              <StepCard
-                num="04"
-                title="Seamless Dark Mode"
-                desc="Editor syntax and preview theme switch instantly in one pass."
-                active={activeIdx === 3}
-                dark={dark}
-                compact
-              />
-            </div>
-
-            {/* Callout pill sitting cleanly in the blank right half of the editor status bar */}
             {parseCalloutOp > 0 && (
               <div
                 style={{
                   position: 'absolute',
-                  left: 560,
+                  left: 746,
                   top: 932,
                   opacity: parseCalloutOp,
                   transform: `scale(${(0.92 + 0.08 * parsePulse).toFixed(3)})`,
                   transformOrigin: 'left center',
-                  display: 'flex',
-                  alignItems: 'center',
                 }}
               >
                 <div
@@ -1308,228 +903,152 @@ export const scenes = {
                     color: '#ffffff',
                     fontSize: 13.5,
                     fontWeight: 700,
-                    letterSpacing: '0.01em',
-                    boxShadow: '0 6px 18px rgba(31, 111, 235, 0.32)',
+                    boxShadow: '0 6px 18px rgba(31, 111, 235, 0.34)',
                   }}
                 >
-                  ← Live incremental parse time (&lt; 0.5 ms)
+                  ← &lt; 0.5 ms per keystroke
                 </div>
               </div>
             )}
 
-            <ProgressFooter f={frame} tl={tl} dark={dark} />
+            <SubtleSubtitle frame={frame} dark={dark} />
           </div>
         );
       }
 
       // ================================================================
-      // S4: SHOWCASE & ARCHITECTURE (1470 - 1660)
+      // S4: SHOWCASE (1470 - 1626) — Centered full-focus dark window
       // ================================================================
       if (frame < tl.outroStart) {
-        const local = frame - tl.showcaseStart;
         const op = sectionFade(frame, tl.showcaseStart, tl.outroStart, 8, 10);
-        const slide = interpolate(local, [0, 12], [14, 0], 'outCubic');
-
-        const features = [
-          {
-            badge: 'ZERO DEPS',
-            title: 'Pure flutter/widgets.dart',
-            desc: 'No Material or Cupertino imports — drop into any design system.',
-          },
-          {
-            badge: 'SLIVERS',
-            title: 'SliverMarkdownView',
-            desc: 'Builds only blocks near the viewport while keeping whole-doc selection.',
-          },
-          {
-            badge: 'PLUGGABLE',
-            title: 'Custom rules & builders',
-            desc: 'Wire LaTeX math, syntax highlighters, alerts & inline pills (#42).',
-          },
-          {
-            badge: 'TESTED',
-            title: '~1,900 tests · CC Pocket',
-            desc: 'CommonMark spec coverage, RTL, large text scales — shipped in production.',
-          },
-        ];
 
         return renderToStaticMarkup(
           <div style={{position: 'absolute', inset: 0}}>
             <div
               style={{
                 position: 'absolute',
-                left: 96,
-                right: 96,
-                top: 46,
+                left: 256,
+                right: 256,
+                top: 32,
                 display: 'flex',
                 alignItems: 'baseline',
                 justifyContent: 'space-between',
                 opacity: op,
-                transform: `translateY(${slide.toFixed(1)}px)`,
               }}
             >
-              <div style={{display: 'flex', alignItems: 'baseline', gap: 22}}>
+              <div style={{display: 'flex', alignItems: 'baseline', gap: 18}}>
                 <span
                   className="mono"
-                  style={{fontSize: 17, fontWeight: 700, color: '#58a6ff', letterSpacing: '0.08em'}}
+                  style={{fontSize: 16, fontWeight: 700, color: '#58a6ff', letterSpacing: '0.10em'}}
                 >
-                  04 / BUILT TO EXTEND
+                  EXTENSIBLE
                 </span>
-                <span style={{fontSize: 40, fontWeight: 700, color: '#f8fafc', letterSpacing: '-0.02em'}}>
-                  Alerts, LaTeX math, details, RTL &amp; custom syntax
+                <span style={{fontSize: 36, fontWeight: 700, color: '#f8fafc', letterSpacing: '-0.02em'}}>
+                  Pure flutter/widgets.dart.
                 </span>
               </div>
-              <span className="mono" style={{fontSize: 16, color: '#94a3b8'}}>
+              <span className="mono" style={{fontSize: 16, fontWeight: 600, color: '#94a3b8'}}>
                 SliverMarkdownView
               </span>
             </div>
 
-            <div
-              style={{
-                position: 'absolute',
-                left: 1408,
-                top: 148,
-                width: 416,
-                opacity: op,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 14,
-              }}
-            >
-              {features.map((item, idx) => {
-                const enter = interpolate(local, [idx * 6, idx * 6 + 12], [0, 1], 'outCubic');
-                return (
-                  <div
-                    key={item.title}
-                    style={{
-                      padding: '17px 20px',
-                      borderRadius: 14,
-                      background: 'rgba(30, 41, 59, 0.78)',
-                      border: '1.5px solid rgba(148, 163, 184, 0.20)',
-                      opacity: enter,
-                      transform: `translateX(${((1 - enter) * 16).toFixed(1)}px)`,
-                    }}
-                  >
-                    <div
-                      className="mono"
-                      style={{
-                        fontSize: 12.5,
-                        fontWeight: 700,
-                        color: '#58a6ff',
-                        letterSpacing: '0.08em',
-                        marginBottom: 4,
-                      }}
-                    >
-                      {item.badge}
-                    </div>
-                    <div style={{fontSize: 21, fontWeight: 700, color: '#f8fafc', lineHeight: 1.25}}>
-                      {item.title}
-                    </div>
-                    <div style={{fontSize: 15.5, color: '#cbd5e1', lineHeight: 1.42, marginTop: 5}}>
-                      {item.desc}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <ProgressFooter f={frame} tl={tl} dark={1} />
+            <SubtleSubtitle frame={frame} dark={1} />
           </div>
         );
       }
 
       // ================================================================
-      // S5: OUTRO CTA CARD (1660 - 1800)
+      // S5: OUTRO CTA (1626 - 1800) — Clean pub.dev + GitHub + Live Demo links
       // ================================================================
       const local = frame - tl.outroStart;
       const inOp = interpolate(local, [0, 14], [0, 1], 'outCubic');
-      const endFade = interpolate(frame, [tl.durationInFrames - 18, tl.durationInFrames - 1], [1, 0.12], 'outCubic');
+      const endFade = interpolate(frame, [tl.durationInFrames - 18, tl.durationInFrames - 1], [1, 0.14], 'outCubic');
       const scale = interpolate(local, [0, 16], [0.96, 1], 'outCubic');
 
       return renderToStaticMarkup(
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            textAlign: 'center',
-            padding: '0 160px',
-            opacity: inOp * endFade,
-            transform: `scale(${scale.toFixed(4)})`,
-          }}
-        >
-          <div
-            className="mono"
-            style={{
-              padding: '8px 18px',
-              borderRadius: 999,
-              background: 'rgba(88, 166, 255, 0.16)',
-              border: '1px solid rgba(88, 166, 255, 0.45)',
-              color: '#58a6ff',
-              fontSize: 17,
-              fontWeight: 700,
-              letterSpacing: '0.08em',
-              marginBottom: 28,
-            }}
-          >
-            OPEN SOURCE · FLUTTER 3.50+
-          </div>
-
-          <div
-            className="mono"
-            style={{
-              fontSize: 98,
-              fontWeight: 700,
-              color: '#f8fafc',
-              letterSpacing: '-0.03em',
-              lineHeight: 1.04,
-            }}
-          >
-            markdown_kit
-          </div>
-
+        <div style={{position: 'absolute', inset: 0}}>
           <div
             style={{
-              fontSize: 34,
-              fontWeight: 500,
-              color: '#cbd5e1',
-              marginTop: 22,
-              lineHeight: 1.35,
-            }}
-          >
-            Markdown for AI chat &amp; live editors in Flutter
-          </div>
-
-          <div
-            style={{
-              marginTop: 44,
-              padding: '22px 42px',
-              borderRadius: 18,
-              background: 'rgba(30, 41, 59, 0.85)',
-              border: '1.5px solid rgba(88, 166, 255, 0.5)',
-              boxShadow: '0 20px 60px rgba(31, 111, 235, 0.24)',
+              position: 'absolute',
+              inset: 0,
               display: 'flex',
               flexDirection: 'column',
-              gap: 8,
+              alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center',
+              paddingBottom: 32,
+              opacity: inOp * endFade,
+              transform: `scale(${scale.toFixed(4)})`,
             }}
           >
-            <div style={{fontSize: 17, fontWeight: 600, color: '#94a3b8', letterSpacing: '0.04em'}}>
-              TRY THE INTERACTIVE WEB DEMO
+            <div
+              className="mono"
+              style={{
+                fontSize: 102,
+                fontWeight: 700,
+                color: '#f8fafc',
+                letterSpacing: '-0.03em',
+                lineHeight: 1.04,
+              }}
+            >
+              markdown_kit
             </div>
-            <div className="mono" style={{fontSize: 32, fontWeight: 700, color: '#58a6ff'}}>
-              k9i-0.github.io/markdown_kit
+
+            <div style={{display: 'flex', gap: 20, marginTop: 42}}>
+              <div
+                style={{
+                  padding: '20px 34px',
+                  borderRadius: 16,
+                  background: 'rgba(31, 111, 235, 0.18)',
+                  border: '1.5px solid rgba(88, 166, 255, 0.55)',
+                  boxShadow: '0 16px 48px rgba(31, 111, 235, 0.22)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 6,
+                }}
+              >
+                <div className="mono" style={{fontSize: 13, fontWeight: 700, color: '#93c5fd', letterSpacing: '0.08em'}}>
+                  PUB.DEV
+                </div>
+                <div className="mono" style={{fontSize: 25, fontWeight: 700, color: '#f8fafc'}}>
+                  pub.dev/packages/markdown_kit
+                </div>
+              </div>
+
+              <div
+                style={{
+                  padding: '20px 34px',
+                  borderRadius: 16,
+                  background: 'rgba(30, 41, 59, 0.80)',
+                  border: '1.5px solid rgba(148, 163, 184, 0.28)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 6,
+                }}
+              >
+                <div className="mono" style={{fontSize: 13, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em'}}>
+                  GITHUB
+                </div>
+                <div className="mono" style={{fontSize: 25, fontWeight: 700, color: '#f8fafc'}}>
+                  github.com/K9i-0/ccpocket
+                </div>
+              </div>
+            </div>
+
+            <div
+              className="mono"
+              style={{
+                marginTop: 28,
+                fontSize: 20,
+                fontWeight: 500,
+                color: '#94a3b8',
+              }}
+            >
+              Live demo · <span style={{color: '#58a6ff'}}>k9i-0.github.io/markdown_kit</span> · MIT
             </div>
           </div>
 
-          <div style={{display: 'flex', gap: 16, marginTop: 42, flexWrap: 'wrap', justifyContent: 'center'}}>
-            <Pill text="MIT License" dark={1} />
-            <Pill text="Pure flutter/widgets.dart" dark={1} />
-            <Pill text="Streaming + Selection + Editor" dark={1} />
-            <Pill text="github.com/K9i-0/ccpocket" dark={1} />
-          </div>
+          <SubtleSubtitle frame={frame} dark={1} />
         </div>
       );
     },

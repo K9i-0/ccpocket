@@ -42,7 +42,7 @@
     {
       "type": "video",
       "x": 816,
-      "y": 318,
+      "y": 300,
       "width": 294,
       "height": 640,
       "fit": "cover",
@@ -58,8 +58,8 @@
     },
     {
       "type": "video",
-      "x": 162,
-      "y": 112,
+      "x": 248,
+      "y": 110,
       "width": 386,
       "height": 840,
       "fit": "cover",
@@ -76,10 +76,10 @@
     },
     {
       "type": "video",
-      "x": 96,
-      "y": 184,
-      "width": 1312,
-      "height": 778,
+      "x": 256,
+      "y": 128,
+      "width": 1408,
+      "height": 836,
       "fit": "cover",
       "radius": 8,
       "clips": [
@@ -95,10 +95,10 @@
     },
     {
       "type": "video",
-      "x": 96,
-      "y": 184,
-      "width": 1278,
-      "height": 758,
+      "x": 256,
+      "y": 128,
+      "width": 1408,
+      "height": 836,
       "fit": "cover",
       "radius": 8,
       "clips": [

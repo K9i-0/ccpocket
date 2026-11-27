@@ -175,7 +175,7 @@ const manifest = {
     {
       type: 'video',
       x: 816,
-      y: 318,
+      y: 300,
       width: 294,
       height: 640,
       fit: 'cover',
@@ -189,11 +189,11 @@ const manifest = {
         },
       ],
     },
-    // 5. S1 + S2: Mobile chat continuous take inside main iPhone screen
+    // 5. S1 + S2: Mobile chat continuous take inside main iPhone screen (balanced left-center)
     {
       type: 'video',
-      x: 162,
-      y: 112,
+      x: 248,
+      y: 110,
       width: 386,
       height: 840,
       fit: 'cover',
@@ -208,13 +208,13 @@ const manifest = {
         },
       ],
     },
-    // 5. S3: Desktop live-preview editor (Typing -> Sub-ms parse -> Sync scroll -> Jump -> Dark)
+    // 6. S3: Desktop live-preview editor centered large (1408x836 exact 1.684 aspect)
     {
       type: 'video',
-      x: 96,
-      y: 184,
-      width: 1312,
-      height: 778,
+      x: 256,
+      y: 128,
+      width: 1408,
+      height: 836,
       fit: 'cover',
       radius: 8,
       clips: [
@@ -228,13 +228,13 @@ const manifest = {
         },
       ],
     },
-    // 6. S4: Desktop showcase in dark mode (5 alerts, LaTeX math, details, custom inline, RTL)
+    // 7. S4: Desktop showcase in dark mode centered large (1408x836 exact 1.684 aspect)
     {
       type: 'video',
-      x: 96,
-      y: 184,
-      width: 1278,
-      height: 758,
+      x: 256,
+      y: 128,
+      width: 1408,
+      height: 836,
       fit: 'cover',
       radius: 8,
       clips: [
