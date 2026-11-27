@@ -69,6 +69,37 @@ jobs:
       - run: dart analyze .
         working-directory: apps/mobile
 
+  # Generated code is committed. Regenerate it and fail when the result
+  # differs, so a source change without its generated output is caught here
+  # instead of surprising the next person who runs build_runner.
+  mobile-codegen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Read Flutter version from .mise.toml
+        id: mise
+        run: echo "flutter_version=$(grep 'flutter' .mise.toml | sed 's/.*= *\"//' | sed 's/\"//')" >> "$GITHUB_OUTPUT"
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ steps.mise.outputs.flutter_version }}
+          cache: true
+      - run: flutter pub get
+        working-directory: apps/mobile
+      - name: Regenerate localizations
+        run: flutter gen-l10n
+        working-directory: apps/mobile
+      - name: Regenerate build_runner output
+        run: dart run build_runner build --delete-conflicting-outputs
+        working-directory: apps/mobile
+      - name: Fail when generated code is out of date
+        run: |
+          if [ -n "$(git status --porcelain -- apps/mobile)" ]; then
+            git status --short -- apps/mobile
+            git diff --stat -- apps/mobile
+            echo "::error::Generated code is out of date. In apps/mobile run: flutter gen-l10n && dart run build_runner build --delete-conflicting-outputs, then commit the result."
+            exit 1
+          fi
+
   mobile-smoke:
     runs-on: ubuntu-latest
     steps:
@@ -182,18 +213,20 @@ jobs:
   mobile:
     name: mobile
     if: always()
-    needs: [markdown-kit, mobile-analyze, mobile-smoke, mobile-test]
+    needs: [markdown-kit, mobile-analyze, mobile-codegen, mobile-smoke, mobile-test]
     runs-on: ubuntu-latest
     steps:
       - name: Verify mobile jobs
         env:
           MARKDOWN_KIT_RESULT: ${{ needs.markdown-kit.result }}
           ANALYZE_RESULT: ${{ needs.mobile-analyze.result }}
+          CODEGEN_RESULT: ${{ needs.mobile-codegen.result }}
           SMOKE_RESULT: ${{ needs.mobile-smoke.result }}
           TEST_RESULT: ${{ needs.mobile-test.result }}
         run: |
           test "$MARKDOWN_KIT_RESULT" = success
           test "$ANALYZE_RESULT" = success
+          test "$CODEGEN_RESULT" = success
           test "$SMOKE_RESULT" = success
           test "$TEST_RESULT" = success
 
