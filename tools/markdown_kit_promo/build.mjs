@@ -44,7 +44,7 @@ const timeline = {
   heroEnd: 120,            // 0.0s - 4.0s
   mobileStart: 120,        // 4.0s - 15.0s (Streaming)
   selectionStart: 450,     // 15.0s - 29.5s (Selection, Scroll survival, Copy, Dark)
-  mobileDarkFrame: 806,    // 26.87s (app toggles to dark mode)
+  mobileDarkFrame: 816,    // 27.20s (app toggles to dark mode at clip frame ~700)
   editorStart: 885,        // 29.5s - 49.0s (Live typing, sub-ms parse, sync scroll, click jump, Dark)
   editorDarkFrame: 1388,   // 46.27s (editor toggles to dark mode)
   showcaseStart: 1470,     // 49.0s - 54.2s (SliverMarkdownView in Dark mode: 5 alerts, LaTeX math, details, RTL)
@@ -63,7 +63,7 @@ const narrationPlan = [
   {id: '01_hero', from: 8},         // 0.27s (Hero opener)
   {id: '02_streaming', from: 132},  // 4.40s (Mobile streaming)
   {id: '03_selection', from: 472},  // 15.73s (Drag selection -> scroll survival -> Copy)
-  {id: '04_dark_mobile', from: 806},// 26.87s (Mobile dark theme switch)
+  {id: '04_dark_mobile', from: 814},// 27.13s (Mobile dark theme switch)
   {id: '05_editor_type', from: 904},// 30.13s (Desktop live typing + <0.5ms parse)
   {id: '06_editor_sync', from: 1200},// 40.00s (Synced scroll -> tap jump -> 46.3s dark toggle)
   {id: '07_showcase', from: 1476},  // 49.20s (Dark Showcase: alerts, math, custom rules, RTL)
@@ -165,15 +165,20 @@ const manifest = {
         },
       ],
     },
-    // 3. S0 Hero: Mobile chat streaming (front-center-right)
+    // 3. S0 Hero: iPhone chassis & shadow ABOVE the desktop window!
+    {
+      type: 'scene',
+      id: 'heroPhone',
+      scene: 'heroPhone',
+    },
+    // 4. S0 Hero: Mobile chat streaming inside the iPhone screen (between status bar & home bar)
     {
       type: 'video',
-      x: 822,
-      y: 334,
-      width: 304,
-      height: 660,
+      x: 816,
+      y: 318,
+      width: 294,
+      height: 640,
       fit: 'cover',
-      radius: 26,
       clips: [
         {
           src: 'raw/mobile_chat.mp4',
@@ -184,15 +189,14 @@ const manifest = {
         },
       ],
     },
-    // 4. S1 + S2: Mobile chat continuous take (Streaming -> Touch Selection -> Scroll -> Copy -> Dark)
+    // 5. S1 + S2: Mobile chat continuous take inside main iPhone screen
     {
       type: 'video',
-      x: 150,
-      y: 80,
-      width: 414,
-      height: 900,
+      x: 162,
+      y: 112,
+      width: 386,
+      height: 840,
       fit: 'cover',
-      radius: 34,
       clips: [
         {
           src: 'raw/mobile_chat.mp4',

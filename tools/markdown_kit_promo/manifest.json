@@ -35,13 +35,17 @@
       ]
     },
     {
+      "type": "scene",
+      "id": "heroPhone",
+      "scene": "heroPhone"
+    },
+    {
       "type": "video",
-      "x": 822,
-      "y": 334,
-      "width": 304,
-      "height": 660,
+      "x": 816,
+      "y": 318,
+      "width": 294,
+      "height": 640,
       "fit": "cover",
-      "radius": 26,
       "clips": [
         {
           "src": "raw/mobile_chat.mp4",
@@ -54,12 +58,11 @@
     },
     {
       "type": "video",
-      "x": 150,
-      "y": 80,
-      "width": 414,
-      "height": 900,
+      "x": 162,
+      "y": 112,
+      "width": 386,
+      "height": 840,
       "fit": "cover",
-      "radius": 34,
       "clips": [
         {
           "src": "raw/mobile_chat.mp4",
@@ -162,7 +165,7 @@
     },
     {
       "src": "audio/narration/04_dark_mobile.wav",
-      "from": 806,
+      "from": 814,
       "durationInFrames": 58,
       "group": "narration",
       "volume": 1,
@@ -221,7 +224,7 @@
       "heroEnd": 120,
       "mobileStart": 120,
       "selectionStart": 450,
-      "mobileDarkFrame": 806,
+      "mobileDarkFrame": 816,
       "editorStart": 885,
       "editorDarkFrame": 1388,
       "showcaseStart": 1470,

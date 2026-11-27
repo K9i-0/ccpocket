@@ -155,69 +155,371 @@ const MacWindowChrome: React.FC<{
   );
 };
 
-const PhoneFrameBg: React.FC<{
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+interface IPhoneSpec {
+  screenX: number;
+  screenY: number;
+  screenW: number;
+  screenH: number;
+  statusH: number;
+  homeH: number;
   bezel: number;
-  radius: number;
-  dark: number;
+  screenRadius: number;
+}
+
+const HERO_IPHONE: IPhoneSpec = {
+  screenX: 816,
+  screenY: 284,
+  screenW: 294,
+  screenH: 696, // 34 (status) + 640 (video) + 22 (home)
+  statusH: 34,
+  homeH: 22,
+  bezel: 11,
+  screenRadius: 34,
+};
+
+const MAIN_IPHONE: IPhoneSpec = {
+  screenX: 162,
+  screenY: 68,
+  screenW: 386,
+  screenH: 908, // 44 (status) + 840 (video) + 24 (home)
+  statusH: 44,
+  homeH: 24,
+  bezel: 14,
+  screenRadius: 42,
+};
+
+/**
+ * iPhone 16 Pro chassis rendered BEHIND the screen video:
+ * outer titanium frame, hardware buttons, drop shadow, black bezel, and
+ * top/bottom SafeArea fills that match the Flutter example app chrome/background.
+ */
+const IPhoneChassis: React.FC<{
+  spec: IPhoneSpec;
+  appDark: boolean;
+  studioDark: number;
   opacity?: number;
-}> = ({x, y, width, height, bezel, radius, dark, opacity = 1}) => {
-  const c = themeColors(dark);
+}> = ({spec, appDark, studioDark, opacity = 1}) => {
+  const {screenX, screenY, screenW, screenH, statusH, homeH, bezel, screenRadius} = spec;
+  const outerW = screenW + bezel * 2;
+  const outerH = screenH + bezel * 2;
+  const outerR = screenRadius + bezel - 1;
+  const scale = screenW / 386;
+  const chromeBg = appDark ? '#161b22' : '#f6f8fa';
+  const bodyBg = appDark ? '#0d1117' : '#ffffff';
+
   return (
     <div
       style={{
         position: 'absolute',
-        left: x - bezel,
-        top: y - bezel,
-        width: width + bezel * 2,
-        height: height + bezel * 2,
-        borderRadius: radius + bezel - 2,
-        background: c.phoneBezel,
-        border: `2px solid ${c.phoneRim}`,
+        left: screenX - bezel,
+        top: screenY - bezel,
+        width: outerW,
+        height: outerH,
+        borderRadius: outerR,
+        background: 'linear-gradient(155deg, #3c424d 0%, #1d2129 22%, #13161c 68%, #2e3440 100%)',
+        padding: 2.5,
         boxShadow:
-          dark > 0.5
-            ? '0 32px 80px rgba(0, 0, 0, 0.65), 0 8px 24px rgba(0, 0, 0, 0.4)'
-            : '0 30px 72px rgba(15, 23, 42, 0.22), 0 8px 20px rgba(15, 23, 42, 0.10)',
+          studioDark > 0.5
+            ? '0 36px 88px rgba(0, 0, 0, 0.72), 0 12px 28px rgba(0, 0, 0, 0.50)'
+            : '0 34px 80px rgba(15, 23, 42, 0.30), 0 10px 24px rgba(15, 23, 42, 0.14)',
         opacity,
       }}
     >
-      {/* Subtle hardware side buttons */}
+      {/* Titanium outer edge subtle specular rim */}
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          borderRadius: outerR - 2.5,
+          background: '#0b0d11',
+          border: '1px solid rgba(255, 255, 255, 0.14)',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Inner screen backing (SafeArea top & bottom + screen fill) */}
+        <div
+          style={{
+            position: 'absolute',
+            left: bezel - 3.5,
+            top: bezel - 3.5,
+            width: screenW,
+            height: screenH,
+            borderRadius: screenRadius,
+            background: bodyBg,
+            overflow: 'hidden',
+          }}
+        >
+          {/* Top SafeArea matching Flutter example top bar chrome */}
+          <div style={{width: '100%', height: statusH + 2, background: chromeBg}} />
+          {/* Bottom SafeArea matching Flutter example background */}
+          <div
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: homeH + 2,
+              background: bodyBg,
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Hardware side buttons (right: Power; left: Action, Vol Up, Vol Down) */}
       <div
         style={{
           position: 'absolute',
-          right: -4,
-          top: 150,
-          width: 4,
-          height: 68,
-          borderRadius: '0 3px 3px 0',
-          background: '#2b3240',
+          right: -3.5,
+          top: Math.round(212 * scale),
+          width: 3.5,
+          height: Math.round(78 * scale),
+          borderRadius: '0 2.5px 2.5px 0',
+          background: 'linear-gradient(180deg, #4b5260 0%, #242933 50%, #3d4350 100%)',
         }}
       />
       <div
         style={{
           position: 'absolute',
-          left: -4,
-          top: 130,
-          width: 4,
-          height: 44,
-          borderRadius: '3px 0 0 3px',
-          background: '#2b3240',
+          left: -3.5,
+          top: Math.round(138 * scale),
+          width: 3.5,
+          height: Math.round(28 * scale),
+          borderRadius: '2.5px 0 0 2.5px',
+          background: 'linear-gradient(180deg, #4b5260 0%, #242933 50%, #3d4350 100%)',
         }}
       />
       <div
         style={{
           position: 'absolute',
-          left: -4,
-          top: 186,
-          width: 4,
-          height: 44,
-          borderRadius: '3px 0 0 3px',
-          background: '#2b3240',
+          left: -3.5,
+          top: Math.round(188 * scale),
+          width: 3.5,
+          height: Math.round(54 * scale),
+          borderRadius: '2.5px 0 0 2.5px',
+          background: 'linear-gradient(180deg, #4b5260 0%, #242933 50%, #3d4350 100%)',
         }}
       />
+      <div
+        style={{
+          position: 'absolute',
+          left: -3.5,
+          top: Math.round(254 * scale),
+          width: 3.5,
+          height: Math.round(54 * scale),
+          borderRadius: '2.5px 0 0 2.5px',
+          background: 'linear-gradient(180deg, #4b5260 0%, #242933 50%, #3d4350 100%)',
+        }}
+      />
+    </div>
+  );
+};
+
+/**
+ * Rendered ABOVE the screen video:
+ * - Clean black bezel ring masking any screen corner edges
+ * - iOS Status Bar (9:41, Dynamic Island with camera lens, cellular, Wi-Fi, 100% battery)
+ * - iOS Home Indicator pill at the bottom
+ */
+const IPhoneScreenOverlay: React.FC<{
+  spec: IPhoneSpec;
+  appDark: boolean;
+  opacity?: number;
+}> = ({spec, appDark, opacity = 1}) => {
+  const {screenX, screenY, screenW, screenH, statusH, homeH, bezel, screenRadius} = spec;
+  const s = screenW / 386;
+  const fg = appDark ? '#f8fafc' : '#0f172a';
+  const islandW = Math.round(108 * s);
+  const islandH = Math.round(28 * s);
+  const islandTop = Math.round((statusH - islandH) / 2);
+  const lensD = Math.round(11 * s);
+  const homeBarW = Math.round(134 * s);
+  const homeBarH = Math.max(4, Math.round(5 * s));
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: screenX - bezel,
+        top: screenY - bezel,
+        width: screenW + bezel * 2,
+        height: screenH + bezel * 2,
+        opacity,
+        pointerEvents: 'none',
+      }}
+    >
+      {/* Hollow bezel ring mask so video corners stay neatly inside the rounded iPhone glass */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 3,
+          borderRadius: screenRadius + bezel - 4,
+          border: `${bezel - 3}px solid #0b0d11`,
+        }}
+      />
+      {/* Hairline inner screen glass reflection */}
+      <div
+        style={{
+          position: 'absolute',
+          left: bezel,
+          top: bezel,
+          width: screenW,
+          height: screenH,
+          borderRadius: screenRadius,
+          boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.08)',
+        }}
+      />
+
+      {/* iOS Status Bar (9:41 + Dynamic Island + Signal / Wi-Fi / Battery) */}
+      <div
+        style={{
+          position: 'absolute',
+          left: bezel,
+          top: bezel,
+          width: screenW,
+          height: statusH,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: `0 ${Math.round(24 * s)}px`,
+        }}
+      >
+        {/* Left: 9:41 */}
+        <div
+          style={{
+            width: Math.round(64 * s),
+            fontSize: Number((14.5 * s).toFixed(1)),
+            fontWeight: 700,
+            color: fg,
+            letterSpacing: '-0.02em',
+            fontVariantNumeric: 'tabular-nums',
+            textAlign: 'left',
+          }}
+        >
+          9:41
+        </div>
+
+        {/* Center: Dynamic Island */}
+        <div
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: islandTop,
+            transform: 'translateX(-50%)',
+            width: islandW,
+            height: islandH,
+            borderRadius: 999,
+            background: '#050608',
+            boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.07)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            paddingRight: Math.round(9 * s),
+          }}
+        >
+          {/* Front camera lens dot */}
+          <div
+            style={{
+              width: lensD,
+              height: lensD,
+              borderRadius: '50%',
+              background: 'radial-gradient(circle at 35% 35%, #2c4a7c 0%, #0d1526 55%, #04060a 100%)',
+              border: '1px solid rgba(148, 163, 184, 0.16)',
+            }}
+          />
+        </div>
+
+        {/* Right: Cellular + Wi-Fi + Battery */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: Math.round(6 * s),
+          }}
+        >
+          {/* 4-bar cellular signal */}
+          <svg
+            width={Math.round(17 * s)}
+            height={Math.round(12 * s)}
+            viewBox="0 0 17 12"
+            fill="none"
+          >
+            <rect x="0.5" y="8" width="2.8" height="3.5" rx="0.8" fill={fg} />
+            <rect x="4.8" y="5.8" width="2.8" height="5.7" rx="0.8" fill={fg} />
+            <rect x="9.1" y="3.3" width="2.8" height="8.2" rx="0.8" fill={fg} />
+            <rect x="13.4" y="0.8" width="2.8" height="10.7" rx="0.8" fill={fg} />
+          </svg>
+          {/* Wi-Fi */}
+          <svg
+            width={Math.round(16 * s)}
+            height={Math.round(12 * s)}
+            viewBox="0 0 16 12"
+            fill="none"
+          >
+            <path
+              d="M1.2 3.8C4.9 0.5 11.1 0.5 14.8 3.8"
+              stroke={fg}
+              strokeWidth="1.65"
+              strokeLinecap="round"
+            />
+            <path
+              d="M3.7 6.5C6.1 4.4 9.9 4.4 12.3 6.5"
+              stroke={fg}
+              strokeWidth="1.65"
+              strokeLinecap="round"
+            />
+            <circle cx="8" cy="10" r="1.45" fill={fg} />
+          </svg>
+          {/* Battery 100% */}
+          <svg
+            width={Math.round(25 * s)}
+            height={Math.round(12 * s)}
+            viewBox="0 0 25 12"
+            fill="none"
+          >
+            <rect
+              x="0.75"
+              y="0.75"
+              width="20.5"
+              height="10.5"
+              rx="3"
+              stroke={fg}
+              strokeOpacity="0.45"
+              strokeWidth="1.2"
+            />
+            <rect x="2.4" y="2.4" width="17.2" height="7.2" rx="1.6" fill={fg} />
+            <path
+              d="M22.8 4.2C23.5 4.4 24 5.1 24 6C24 6.9 23.5 7.6 22.8 7.8V4.2Z"
+              fill={fg}
+              fillOpacity="0.5"
+            />
+          </svg>
+        </div>
+      </div>
+
+      {/* Bottom iOS Home Indicator */}
+      <div
+        style={{
+          position: 'absolute',
+          left: bezel,
+          top: bezel + screenH - homeH,
+          width: screenW,
+          height: homeH,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <div
+          style={{
+            width: homeBarW,
+            height: homeBarH,
+            borderRadius: 999,
+            background: fg,
+            opacity: appDark ? 0.85 : 0.82,
+          }}
+        />
+      </div>
     </div>
   );
 };
@@ -476,42 +778,26 @@ export const scenes = {
             }}
           />
 
-          {/* S0 Hero device frames behind videos */}
+          {/* S0 Hero desktop window frame behind hero_desktop video */}
           {heroOp > 0 && (
-            <>
-              <MacWindowChrome
-                x={910}
-                y={144}
-                width={904}
-                height={570}
-                barHeight={34}
-                title="markdown_kit — Desktop Editor"
-                dark={0}
-                opacity={heroOp}
-              />
-              <PhoneFrameBg
-                x={822}
-                y={334}
-                width={304}
-                height={660}
-                bezel={11}
-                radius={26}
-                dark={0}
-                opacity={heroOp}
-              />
-            </>
+            <MacWindowChrome
+              x={910}
+              y={144}
+              width={904}
+              height={570}
+              barHeight={34}
+              title="markdown_kit — Desktop Editor"
+              dark={0}
+              opacity={heroOp}
+            />
           )}
 
-          {/* S1 + S2 Mobile phone frame */}
+          {/* S1 + S2 Main iPhone chassis */}
           {mobileOp > 0 && (
-            <PhoneFrameBg
-              x={150}
-              y={80}
-              width={414}
-              height={900}
-              bezel={14}
-              radius={34}
-              dark={dark}
+            <IPhoneChassis
+              spec={MAIN_IPHONE}
+              appDark={frame >= tl.mobileDarkFrame}
+              studioDark={dark}
               opacity={mobileOp}
             />
           )}
@@ -548,6 +834,21 @@ export const scenes = {
     },
   },
 
+  // S0 Hero iPhone chassis rendered ABOVE hero_desktop video so the iPhone cleanly overlaps the desktop!
+  heroPhone: {
+    render(frame: number, props: Props) {
+      const tl = props.timeline;
+      if (frame >= tl.heroEnd + 4) return '';
+      const heroOp = sectionFade(frame, 0, tl.heroEnd + 4, 0, 8);
+      if (heroOp <= 0) return '';
+      return renderToStaticMarkup(
+        <div style={{position: 'absolute', inset: 0}}>
+          <IPhoneChassis spec={HERO_IPHONE} appDark={false} studioDark={0} opacity={heroOp} />
+        </div>
+      );
+    },
+  },
+
   overlay: {
     render(frame: number, props: Props) {
       const tl = props.timeline;
@@ -561,6 +862,7 @@ export const scenes = {
         const outOp = interpolate(frame, [tl.heroEnd - 8, tl.heroEnd], [1, 0], 'outCubic');
         return renderToStaticMarkup(
           <div style={{position: 'absolute', inset: 0, opacity: outOp}}>
+            <IPhoneScreenOverlay spec={HERO_IPHONE} appDark={false} opacity={1} />
             <div
               style={{
                 position: 'absolute',
@@ -680,6 +982,11 @@ export const scenes = {
 
         return renderToStaticMarkup(
           <div style={{position: 'absolute', inset: 0}}>
+            <IPhoneScreenOverlay
+              spec={MAIN_IPHONE}
+              appDark={false}
+              opacity={interpolate(frame, [tl.mobileStart - 4, tl.mobileStart + 4], [0, 1], 'outCubic')}
+            />
             <div
               style={{
                 position: 'absolute',
@@ -775,6 +1082,11 @@ export const scenes = {
 
         return renderToStaticMarkup(
           <div style={{position: 'absolute', inset: 0}}>
+            <IPhoneScreenOverlay
+              spec={MAIN_IPHONE}
+              appDark={frame >= tl.mobileDarkFrame}
+              opacity={interpolate(frame, [tl.editorStart - 6, tl.editorStart], [1, 0], 'outCubic')}
+            />
             <div
               style={{
                 position: 'absolute',
