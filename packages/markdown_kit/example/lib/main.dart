@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:markdown_kit/markdown_kit.dart';
 
+import 'math.dart';
+
 void main() => runApp(const ExampleApp());
 
 /// The reply the example "agent" streams.
@@ -31,6 +33,11 @@ Future<Config> loadConfig(File file) async {
 
 > [!TIP]
 > Wrap the call in `try` / `on FormatException` to show a friendly error.
+
+Decoding is linear in the input: \(T(n) = O(n)\) for \(n\) bytes. Reading
+\(k\) files of average size \(\bar{n}\) therefore costs
+
+\[T = \sum_{i=1}^{k} O(n_i) = O(k\,\bar{n})\]
 
 See the [dart:convert docs](https://api.dart.dev/dart-convert) for more.
 ''';
@@ -208,7 +215,13 @@ class _MessageView extends StatelessWidget {
         // the switch from streaming to finished.
         documentId: message.id,
         documentOrder: order,
-        builders: MarkdownBuilders(onLinkTap: (url, title) => onLinkTap(url)),
+        builders: MarkdownBuilders(
+          onLinkTap: (url, title) => onLinkTap(url),
+          // Optional: typeset LaTeX with flutter_math_fork (see math.dart).
+          // Without these two, formulas are shown as Unicode text.
+          inlineLatexBuilder: buildInlineMath,
+          blockLatexBuilder: buildBlockMath,
+        ),
       ),
     );
   }
