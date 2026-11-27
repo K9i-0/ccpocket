@@ -255,7 +255,7 @@ function checksEnvironment({ dartSource, flutterSource }) {
   writeExecutable(
     path.join(binDirectory, 'dart'),
     dartSource ??
-      '#!/usr/bin/env bash\nprintf "dart %s\\n" "$*" >> "$RELEASE_TOOLS_INVOCATIONS"\nif [[ "$*" == *"packages/markdown_kit"* ]]; then printf "No issues found!\\n"; else printf "45 issues found.\\n"; fi\n',
+      '#!/usr/bin/env bash\nprintf "dart %s\\n" "$*" >> "$RELEASE_TOOLS_INVOCATIONS"\nprintf "45 issues found.\\n"\n',
   );
   writeExecutable(path.join(binDirectory, 'flutter'), flutterSource);
   return {
@@ -269,10 +269,10 @@ function checksEnvironment({ dartSource, flutterSource }) {
   };
 }
 
-test('run-checks prints compact lines for markdown_kit and mobile on success', () => {
+test('run-checks prints compact lines for mobile on success', () => {
   const fixture = checksEnvironment({
     flutterSource:
-      '#!/usr/bin/env bash\nprintf "flutter(%s) %s\\n" "$(basename "$PWD")" "$*" >> "$RELEASE_TOOLS_INVOCATIONS"\nif [[ "$(basename "$PWD")" == "markdown_kit" ]]; then printf "00:01 +120: All tests passed!\\n"; else printf "00:01 +1713 ~4: All tests passed!\\n"; fi\n',
+      '#!/usr/bin/env bash\nprintf "flutter(%s) %s\\n" "$(basename "$PWD")" "$*" >> "$RELEASE_TOOLS_INVOCATIONS"\nprintf "00:01 +1713 ~4: All tests passed!\\n"\n',
   });
   try {
     const result = spawnSync('bash', [checksScript], {
@@ -281,26 +281,16 @@ test('run-checks prints compact lines for markdown_kit and mobile on success', (
     });
     assert.equal(result.status, 0, result.stderr);
     const lines = result.stdout.trim().split('\n');
-    assert.equal(lines.length, 5);
-    assert.equal(lines[0], 'ANALYZE(markdown_kit) success issues=0');
-    assert.equal(lines[1], 'ANALYZE(mobile) success issues=45');
+    assert.equal(lines.length, 3);
+    assert.equal(lines[0], 'ANALYZE(mobile) success issues=45');
     assert.match(
-      lines[2],
-      /^TEST\(markdown_kit\) success passed=120 skipped=0 duration=\d+s$/,
-    );
-    assert.match(
-      lines[3],
+      lines[1],
       /^TEST\(mobile\) success passed=1713 skipped=4 duration=\d+s$/,
     );
-    assert.match(lines[4], /^CHECKS success duration=\d+s$/);
+    assert.match(lines[2], /^CHECKS success duration=\d+s$/);
     assert.deepEqual(
       fs.readFileSync(fixture.invocationsPath, 'utf8').trim().split('\n'),
-      [
-        'dart analyze packages/markdown_kit',
-        'dart analyze apps/mobile',
-        'flutter(markdown_kit) test',
-        'flutter(mobile) test',
-      ],
+['dart analyze apps/mobile', 'flutter(mobile) test'],
     );
   } finally {
     fs.rmSync(fixture.directory, { recursive: true, force: true });
@@ -319,11 +309,11 @@ test('run-checks keeps the full failure log and prints a bounded tail', () => {
       env: fixture.env,
     });
     assert.equal(result.status, 1);
-    assert.match(result.stderr, /TEST\(markdown_kit\) failed log=/);
+    assert.match(result.stderr, /TEST\(mobile\) failed log=/);
     assert.match(result.stderr, /EXCEPTION/);
     assert.match(result.stderr, /Expected true/);
     const logPath = result.stderr
-      .match(/TEST\(markdown_kit\) failed log=(.+)/)?.[1]
+      .match(/TEST\(mobile\) failed log=(.+)/)?.[1]
       .trim();
     assert.ok(logPath);
     assert.equal(fs.existsSync(logPath), true);

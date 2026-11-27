@@ -19,8 +19,8 @@ them as different types. Three consequences:
   colour scheme and text theme for them. Remove it once `flutter_painter`
   migrates or is replaced.
 - **Widgets built by those packages are legacy types.**
-  *(Note: `flutter_markdown` was later replaced by the in-repo
-  `packages/markdown_kit` package built solely on `package:flutter/widgets.dart`;
+  *(Note: `flutter_markdown` was later replaced by the
+  [`markdown_kit`](https://pub.dev/packages/markdown_kit) package built solely on `package:flutter/widgets.dart`;
   see [markdown-kit-architecture.md](markdown-kit-architecture.md).)*
 - **Localization delegates.** gen-l10n still emits the `flutter_localizations`
   delegates in `AppLocalizations.localizationsDelegates`; they do not localize

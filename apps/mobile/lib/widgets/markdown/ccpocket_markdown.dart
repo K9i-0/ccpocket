@@ -444,7 +444,7 @@ MarkdownParserOptions _buildCcpocketParserOptions({
   return MarkdownParserOptions(inlineRules: rules);
 }
 
-/// ccpocket Markdown widget backed by `packages/markdown_kit`'s [MarkdownView].
+/// ccpocket Markdown widget backed by `markdown_kit`'s [MarkdownView].
 ///
 /// Caches [MarkdownParserOptions] and [MarkdownBuilders] across rebuilds so
 /// `MarkdownView`'s block-level cache preserves unchanged widgets during
