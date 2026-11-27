@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.190.0] - 2026-11-27
+
+### Added
+
+- Bridge updates: a Bridge that the CC Pocket desktop app runs on a Mac is now pointed to that app. Settings shows that restarting it from "Bridge on this Mac" installs the latest version, with the steps one tap away, instead of offering the SSH update or the `setup` command, which would start a second Bridge on the same port. On the Mac that hosts the Bridge, the row opens "Bridge on this Mac" directly. Detection needs Bridge 1.123.0 or later.
+
+### Changed
+
+- Bridge updates: for a Bridge on a Mac that does not report how it was started, the update setup instructions now begin with a note that they do not apply when the desktop app runs the Bridge.
+
+### Fixed
+
+- SSH start, stop and update no longer act on the `setup` service when the desktop app runs the Bridge on that Mac: they report where to manage it instead of failing with a setup message or claiming a stop that did not happen. "Stop Server" is hidden for such a Bridge.
+
 ## [1.189.1] - 2026-11-27
 
 ### Fixed
