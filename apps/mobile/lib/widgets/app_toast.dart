@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show ImageFilter;
 
 import 'package:material_ui/material_ui.dart';
 
@@ -133,6 +134,13 @@ class _AppToastViewState extends State<_AppToastView>
     final scheme = theme.colorScheme;
     final padding = MediaQuery.viewPaddingOf(context);
     final action = widget.action;
+    // Dark frosted glass in both themes: it stands out over chat text without
+    // the hard block of an opaque inverse surface.
+    final isDark = theme.brightness == Brightness.dark;
+    final fill = isDark ? const Color(0xCC3A3A3C) : const Color(0xC71C1C1E);
+    final outline = Colors.white.withValues(alpha: isDark ? 0.14 : 0.08);
+    final actionColor = isDark ? scheme.primary : scheme.inversePrimary;
+    final radius = BorderRadius.circular(22);
     final curved = CurvedAnimation(
       parent: _controller,
       curve: Curves.easeOutCubic,
@@ -161,51 +169,71 @@ class _AppToastViewState extends State<_AppToastView>
                   key: const ValueKey('app_toast_dismissible'),
                   direction: DismissDirection.up,
                   onDismissed: (_) => widget.onDismissed(),
-                  child: Material(
+                  child: DecoratedBox(
                     key: widget.toastKey ?? const ValueKey('app_toast'),
-                    color: scheme.inverseSurface,
-                    elevation: 6,
-                    shadowColor: Colors.black54,
-                    borderRadius: BorderRadius.circular(22),
-                    clipBehavior: Clip.antiAlias,
-                    child: InkWell(
-                      onTap: _close,
-                      child: Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          16,
-                          action == null ? 10 : 4,
-                          action == null ? 16 : 6,
-                          action == null ? 10 : 4,
+                    decoration: BoxDecoration(
+                      borderRadius: radius,
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x33000000),
+                          blurRadius: 16,
+                          offset: Offset(0, 4),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                widget.message,
-                                maxLines: 4,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: scheme.onInverseSurface,
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: radius,
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: fill,
+                            borderRadius: radius,
+                            border: Border.all(color: outline),
+                          ),
+                          child: Material(
+                            type: MaterialType.transparency,
+                            child: InkWell(
+                              onTap: _close,
+                              child: Padding(
+                                padding: EdgeInsets.fromLTRB(
+                                  16,
+                                  action == null ? 10 : 4,
+                                  action == null ? 16 : 6,
+                                  action == null ? 10 : 4,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        widget.message,
+                                        maxLines: 4,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: theme.textTheme.bodyMedium
+                                            ?.copyWith(color: Colors.white),
+                                      ),
+                                    ),
+                                    if (action != null) ...[
+                                      const SizedBox(width: 8),
+                                      TextButton(
+                                        key: const ValueKey('app_toast_action'),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: actionColor,
+                                          visualDensity: VisualDensity.compact,
+                                        ),
+                                        onPressed: () {
+                                          action.onPressed();
+                                          _close();
+                                        },
+                                        child: Text(action.label),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ),
                             ),
-                            if (action != null) ...[
-                              const SizedBox(width: 8),
-                              TextButton(
-                                key: const ValueKey('app_toast_action'),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: scheme.inversePrimary,
-                                  visualDensity: VisualDensity.compact,
-                                ),
-                                onPressed: () {
-                                  action.onPressed();
-                                  _close();
-                                },
-                                child: Text(action.label),
-                              ),
-                            ],
-                          ],
+                          ),
                         ),
                       ),
                     ),
