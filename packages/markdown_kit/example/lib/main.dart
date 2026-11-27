@@ -1,59 +1,69 @@
-import 'dart:async';
-
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
-import 'package:markdown_kit/markdown_kit.dart';
 
-import 'math.dart';
+import 'chat.dart';
+import 'editor.dart';
+import 'showcase.dart';
+import 'theme.dart';
 
-void main() => runApp(const ExampleApp());
+export 'chat.dart' show sampleReply;
 
-/// The reply the example "agent" streams.
-const sampleReply = r'''
-## Reading a JSON file
-
-Use `dart:convert` and read the file **asynchronously** so the UI stays
-responsive.
-
-1. Read the file as a string
-2. Decode it with `jsonDecode`
-3. Map the result to your own type
-
-```dart
-Future<Config> loadConfig(File file) async {
-  final text = await file.readAsString();
-  final json = jsonDecode(text) as Map<String, Object?>;
-  return Config.fromJson(json);
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  if (kIsWeb) {
+    // Let markdown_kit's context menu (Copy / Copy as Markdown / Select all)
+    // and the editor menu appear on right-click without the browser menu on top.
+    BrowserContextMenu.disableContextMenu();
+  }
+  runApp(ExampleApp(initialTab: _initialTabFromRoute()));
 }
-```
 
-| Step   | API                 | Throws |
-| :----- | :------------------ | :----: |
-| Read   | `File.readAsString` |  yes   |
-| Decode | `jsonDecode`        |  yes   |
+/// The three demos included in the example app.
+enum ExampleTab {
+  /// Token-by-token streaming AI chat with syntax holding and lazy list
+  /// selection.
+  chat(label: 'Chat', fragment: 'chat'),
 
-> [!TIP]
-> Wrap the call in `try` / `on FormatException` to show a friendly error.
+  /// Split-pane Markdown editor with incremental parsing and synced scrolling.
+  editor(label: 'Editor', fragment: 'editor'),
 
-Decoding is linear in the input: \(T(n) = O(n)\) for \(n\) bytes. Reading
-\(k\) files of average size \(\bar{n}\) therefore costs
+  /// Single long document rendered with `SliverMarkdownView`, math builders,
+  /// custom inline rules and Copy vs Copy as Markdown inspection.
+  showcase(label: 'Showcase', fragment: 'showcase');
 
-\[T = \sum_{i=1}^{k} O(n_i) = O(k\,\bar{n})\]
+  const ExampleTab({required this.label, required this.fragment});
 
-See the [dart:convert docs](https://api.dart.dev/dart-convert) for more.
-''';
+  final String label;
+  final String fragment;
+}
 
+ExampleTab _initialTabFromRoute() {
+  final route = WidgetsBinding.instance.platformDispatcher.defaultRouteName
+      .toLowerCase();
+  if (route.contains('editor')) return ExampleTab.editor;
+  if (route.contains('showcase')) return ExampleTab.showcase;
+  return ExampleTab.chat;
+}
+
+/// Interactive demo app for `markdown_kit`, built on `package:flutter/widgets.dart`
+/// only (no Material or Cupertino dependency).
 class ExampleApp extends StatelessWidget {
-  const ExampleApp({super.key});
+  /// Creates the example app.
+  const ExampleApp({super.key, this.initialTab = ExampleTab.chat});
+
+  /// Tab shown first.
+  final ExampleTab initialTab;
 
   @override
   Widget build(BuildContext context) {
     return WidgetsApp(
-      title: 'markdown_kit example',
+      title: 'markdown_kit',
       color: const Color(0xFF1F6FEB),
       debugShowCheckedModeBanner: false,
-      // A Navigator supplies the Overlay that selection handles and the
-      // context menu are drawn in.
-      home: const ChatPage(),
+      // A Navigator supplies the Overlay that selection handles and context
+      // menus are drawn in.
+      home: ExampleShell(initialTab: initialTab),
       pageRouteBuilder: <T>(settings, builder) => PageRouteBuilder<T>(
         settings: settings,
         pageBuilder: (context, _, _) => builder(context),
@@ -62,220 +72,227 @@ class ExampleApp extends StatelessWidget {
   }
 }
 
-class Message {
-  Message({required this.id, required this.fromUser, required this.text});
+/// Top-level tabbed shell hosting the Chat, Editor and Showcase views.
+class ExampleShell extends StatefulWidget {
+  /// Creates the shell starting on [initialTab].
+  const ExampleShell({super.key, this.initialTab = ExampleTab.chat});
 
-  final String id;
-  final bool fromUser;
-  String text;
-  bool streaming = false;
-}
-
-class ChatPage extends StatefulWidget {
-  const ChatPage({super.key});
+  /// Tab shown first.
+  final ExampleTab initialTab;
 
   @override
-  State<ChatPage> createState() => _ChatPageState();
+  State<ExampleShell> createState() => _ExampleShellState();
 }
 
-class _ChatPageState extends State<ChatPage> {
-  // One controller for the whole list. A selection stays inside the message
-  // it started in, which is what a chat usually wants.
-  final _selection = MarkdownSelectionController(
-    allowCrossDocumentSelection: false,
-  );
+class _ExampleShellState extends State<ExampleShell> {
+  late ExampleTab _tab = widget.initialTab;
+  bool _dark = false;
 
-  final _messages = <Message>[
-    Message(id: 'u0', fromUser: true, text: 'How do I read a JSON file?'),
-    Message(id: 'a0', fromUser: false, text: sampleReply),
-  ];
+  ExampleColors get _colors => _dark ? ExampleColors.dark : ExampleColors.light;
 
-  Timer? _timer;
-  String _status = 'Long-press a reply to select. Tap a link to see it here.';
-
-  bool get _busy => _timer?.isActive ?? false;
-
-  void _ask() {
-    if (_busy) return;
-    final index = _messages.length ~/ 2;
-    final reply = Message(id: 'a$index', fromUser: false, text: '')
-      ..streaming = true;
-    setState(() {
-      _messages
-        ..add(Message(id: 'u$index', fromUser: true, text: 'Show me again.'))
-        ..add(reply);
-    });
-
-    var length = 0;
-    _timer = Timer.periodic(const Duration(milliseconds: 16), (timer) {
-      length = (length + 2).clamp(0, sampleReply.length);
-      setState(() {
-        reply.text = sampleReply.substring(0, length);
-        if (length == sampleReply.length) {
-          reply.streaming = false;
-          timer.cancel();
-        }
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _selection.dispose();
-    super.dispose();
+  void _selectTab(ExampleTab tab) {
+    if (tab == _tab) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() => _tab = tab);
   }
 
   @override
   Widget build(BuildContext context) {
+    final colors = _colors;
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+
     return ColoredBox(
-      color: const Color(0xFFFFFFFF),
-      child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              // The scope sits above the scroll view, so the selection
-              // survives messages scrolling out of the lazy list, and dragging
-              // a handle to the edge scrolls the list.
-              child: MarkdownSelectionScope(
-                controller: _selection,
-                child: ListView.builder(
-                  reverse: true,
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _messages.length,
-                  itemBuilder: (context, reversedIndex) {
-                    final index = _messages.length - 1 - reversedIndex;
-                    return _MessageView(
-                      message: _messages[index],
-                      order: index,
-                      onLinkTap: (url) => setState(() => _status = url),
-                    );
-                  },
+      color: colors.chrome,
+      child: DefaultTextStyle(
+        style: TextStyle(color: colors.text, fontSize: 14),
+        child: SafeArea(
+          child: Padding(
+            padding: EdgeInsets.only(bottom: keyboard),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _TopBar(
+                  tab: _tab,
+                  dark: _dark,
+                  colors: colors,
+                  onTabSelected: _selectTab,
+                  onDarkChanged: (on) => setState(() => _dark = on),
                 ),
-              ),
-            ),
-            _Composer(status: _status, busy: _busy, onAsk: _ask),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MessageView extends StatelessWidget {
-  const _MessageView({
-    required this.message,
-    required this.order,
-    required this.onLinkTap,
-  });
-
-  final Message message;
-  final int order;
-  final ValueChanged<String> onLinkTap;
-
-  @override
-  Widget build(BuildContext context) {
-    if (message.fromUser) {
-      return Align(
-        alignment: Alignment.centerRight,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: DecoratedBox(
-            decoration: const BoxDecoration(
-              color: Color(0xFFDDF4FF),
-              borderRadius: BorderRadius.all(Radius.circular(14)),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              // Plain text joins the same selection as the Markdown replies.
-              child: SelectablePlainText(
-                message.text,
-                documentId: message.id,
-                documentOrder: order,
-                style: const TextStyle(
-                  color: Color(0xFF1F2328),
-                  fontSize: 15,
-                  height: 1.4,
+                Hairline(colors.border),
+                Expanded(
+                  child: IndexedStack(
+                    index: _tab.index,
+                    children: [
+                      TickerMode(
+                        enabled: _tab == ExampleTab.chat,
+                        child: ChatTab(
+                          colors: colors,
+                          active: _tab == ExampleTab.chat,
+                        ),
+                      ),
+                      TickerMode(
+                        enabled: _tab == ExampleTab.editor,
+                        child: EditorPage(
+                          showHeader: false,
+                          dark: _dark,
+                          onDarkChanged: (on) => setState(() => _dark = on),
+                          active: _tab == ExampleTab.editor,
+                        ),
+                      ),
+                      TickerMode(
+                        enabled: _tab == ExampleTab.showcase,
+                        child: ShowcaseTab(
+                          colors: colors,
+                          active: _tab == ExampleTab.showcase,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ),
-      );
-    }
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: MarkdownView(
-        data: message.text,
-        // While true, only the block still being written is re-parsed, and
-        // half-typed fences are held back instead of flickering.
-        isStreaming: message.streaming,
-        // A stable id lets a selection survive the item scrolling away and
-        // the switch from streaming to finished.
-        documentId: message.id,
-        documentOrder: order,
-        builders: MarkdownBuilders(
-          onLinkTap: (url, title) => onLinkTap(url),
-          // Optional: typeset LaTeX with flutter_math_fork (see math.dart).
-          // Without these two, formulas are shown as Unicode text.
-          inlineLatexBuilder: buildInlineMath,
-          blockLatexBuilder: buildBlockMath,
-        ),
       ),
     );
   }
 }
 
-class _Composer extends StatelessWidget {
-  const _Composer({
-    required this.status,
-    required this.busy,
-    required this.onAsk,
+class _TopBar extends StatelessWidget {
+  const _TopBar({
+    required this.tab,
+    required this.dark,
+    required this.colors,
+    required this.onTabSelected,
+    required this.onDarkChanged,
   });
 
-  final String status;
-  final bool busy;
-  final VoidCallback onAsk;
+  final ExampleTab tab;
+  final bool dark;
+  final ExampleColors colors;
+  final ValueChanged<ExampleTab> onTabSelected;
+  final ValueChanged<bool> onDarkChanged;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Color(0xFFD0D7DE))),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                status,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Color(0xFF57606A), fontSize: 13),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final showTitle = constraints.maxWidth >= 520;
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: SizedBox(
+            height: 44,
+            child: Row(
+              children: [
+                if (showTitle) ...[
+                  Text(
+                    'markdown_kit',
+                    style: TextStyle(
+                      color: colors.text,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.1,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Hairline.vertical(colors.border, length: 18),
+                  const SizedBox(width: 8),
+                ],
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (final entry in ExampleTab.values)
+                          _NavTab(
+                            key: ValueKey('tab-${entry.fragment}'),
+                            label: entry.label,
+                            selected: entry == tab,
+                            colors: colors,
+                            onTap: () => onTabSelected(entry),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ToggleChip(
+                  key: const ValueKey('app-dark'),
+                  label: 'Dark',
+                  on: dark,
+                  colors: colors,
+                  onChanged: onDarkChanged,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _NavTab extends StatefulWidget {
+  const _NavTab({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.colors,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final ExampleColors colors;
+  final VoidCallback onTap;
+
+  @override
+  State<_NavTab> createState() => _NavTabState();
+}
+
+class _NavTabState extends State<_NavTab> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = widget.colors;
+    final selected = widget.selected;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: widget.label,
+      excludeSemantics: true,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onTap,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: selected ? colors.accent : const Color(0x00000000),
+                  width: 2,
+                ),
               ),
             ),
-            const SizedBox(width: 12),
-            GestureDetector(
-              onTap: onAsk,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: busy
-                      ? const Color(0xFF8C959F)
-                      : const Color(0xFF1F6FEB),
-                  borderRadius: const BorderRadius.all(Radius.circular(8)),
-                ),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-                  child: Text(
-                    'Ask',
-                    style: TextStyle(color: Color(0xFFFFFFFF), fontSize: 15),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Center(
+                child: Text(
+                  widget.label,
+                  style: TextStyle(
+                    color: selected || _hovered ? colors.text : colors.muted,
+                    fontSize: 13.5,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                   ),
                 ),
               ),
             ),
-          ],
+          ),
         ),
       ),
     );

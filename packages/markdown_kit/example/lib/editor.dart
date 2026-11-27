@@ -28,6 +28,9 @@ import 'editor/sample_document.dart';
 import 'editor/scroll_sync.dart';
 import 'editor/source_pane.dart';
 import 'math.dart';
+import 'theme.dart';
+
+export 'theme.dart' show EditorColors;
 
 void main() => runApp(const EditorApp());
 
@@ -56,84 +59,6 @@ class EditorApp extends StatelessWidget {
   }
 }
 
-/// Colours of the editor, light or dark.
-@immutable
-class EditorColors {
-  const EditorColors._({
-    required this.background,
-    required this.chrome,
-    required this.border,
-    required this.text,
-    required this.muted,
-    required this.accent,
-    required this.hover,
-    required this.syntax,
-    required this.markdown,
-  });
-
-  /// Light colours.
-  static final light = EditorColors._(
-    background: const Color(0xFFFFFFFF),
-    chrome: const Color(0xFFF6F8FA),
-    border: const Color(0xFFD0D7DE),
-    text: const Color(0xFF1F2328),
-    muted: const Color(0xFF57606A),
-    accent: const Color(0xFF1F6FEB),
-    hover: const Color(0x14818B98),
-    syntax: SyntaxPalette.light,
-    markdown: MarkdownThemeData.fallback(),
-  );
-
-  /// Dark colours.
-  static final dark = EditorColors._(
-    background: const Color(0xFF0D1117),
-    chrome: const Color(0xFF161B22),
-    border: const Color(0xFF30363D),
-    text: const Color(0xFFE6EDF3),
-    muted: const Color(0xFF8B949E),
-    accent: const Color(0xFF58A6FF),
-    hover: const Color(0x26B1BAC4),
-    syntax: SyntaxPalette.dark,
-    markdown: MarkdownThemeData.dark(),
-  );
-
-  /// Behind both panes.
-  final Color background;
-
-  /// Behind the bars.
-  final Color chrome;
-
-  /// Lines between areas.
-  final Color border;
-
-  /// Primary text.
-  final Color text;
-
-  /// Secondary text.
-  final Color muted;
-
-  /// Caret, active marker and switched-on buttons.
-  final Color accent;
-
-  /// Behind a button under the pointer.
-  final Color hover;
-
-  /// Colours of syntax in the source.
-  final SyntaxPalette syntax;
-
-  /// Theme of the preview.
-  final MarkdownThemeData markdown;
-
-  /// Colours of the source pane.
-  SourcePaneColors get source => SourcePaneColors(
-    text: text,
-    cursor: accent,
-    selection: accent.withValues(alpha: 0.28),
-    menuBackground: const Color(0xFF24292F),
-    menuText: const Color(0xFFFFFFFF),
-  );
-}
-
 /// The parsed document with what the status bar says about it.
 typedef _Parsed = ({
   MarkdownDocument document,
@@ -145,10 +70,32 @@ typedef _Parsed = ({
 /// The editor screen.
 class EditorPage extends StatefulWidget {
   /// Creates the screen, opening [initialText].
-  const EditorPage({super.key, required this.initialText});
+  const EditorPage({
+    super.key,
+    this.initialText = sampleDocument,
+    this.showHeader = true,
+    this.dark,
+    this.onDarkChanged,
+    this.active = true,
+  });
 
   /// Markdown the editor starts with.
   final String initialText;
+
+  /// Whether to render the standalone header bar (title, Sync and Dark
+  /// switches). When false, Sync and narrow-screen Preview switches move into
+  /// the toolbar row so the editor embeds cleanly inside another shell.
+  final bool showHeader;
+
+  /// Optional external dark-mode flag. When null, the editor manages dark mode
+  /// internally.
+  final bool? dark;
+
+  /// Optional callback invoked when the standalone Dark switch is toggled.
+  final ValueChanged<bool>? onDarkChanged;
+
+  /// Whether this pane is currently visible inside a tabbed host.
+  final bool active;
 
   @override
   State<EditorPage> createState() => _EditorPageState();
@@ -216,7 +163,9 @@ class _EditorPageState extends State<EditorPage> {
   bool _followScheduled = false;
   bool _skipFollow = false;
 
-  EditorColors get _colors => _dark ? EditorColors.dark : EditorColors.light;
+  bool get _isDark => widget.dark ?? _dark;
+
+  EditorColors get _colors => _isDark ? EditorColors.dark : EditorColors.light;
 
   @override
   void initState() {
@@ -225,6 +174,17 @@ class _EditorPageState extends State<EditorPage> {
     _blocks.onTap = _jumpToBlock;
     _sync.enabled = _syncScroll;
     _updateActiveBlock();
+  }
+
+  @override
+  void didUpdateWidget(covariant EditorPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.dark != widget.dark) {
+      _text.palette = _colors.syntax;
+    }
+    if (oldWidget.active && !widget.active) {
+      _focus.unfocus();
+    }
   }
 
   @override
@@ -435,6 +395,10 @@ class _EditorPageState extends State<EditorPage> {
   }
 
   void _setDark(bool dark) {
+    if (widget.onDarkChanged != null) {
+      widget.onDarkChanged!(dark);
+      return;
+    }
     setState(() => _dark = dark);
     _text.palette = _colors.syntax;
   }
@@ -466,8 +430,35 @@ class _EditorPageState extends State<EditorPage> {
   @override
   Widget build(BuildContext context) {
     final colors = _colors;
-    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+    final body = LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= _wideLayout;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (widget.showHeader) _buildTopBar(colors, wide: wide),
+            _buildToolbar(colors, wide: wide),
+            _Rule(colors.border),
+            Expanded(
+              child: ColoredBox(
+                color: colors.background,
+                child: wide
+                    ? _buildSplit(colors, constraints.maxWidth)
+                    : _buildSingle(colors),
+              ),
+            ),
+            _Rule(colors.border),
+            _buildStatusBar(colors),
+          ],
+        );
+      },
+    );
 
+    if (!widget.showHeader) {
+      return ColoredBox(color: colors.chrome, child: body);
+    }
+
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
     return ColoredBox(
       color: colors.chrome,
       child: DefaultTextStyle(
@@ -475,29 +466,7 @@ class _EditorPageState extends State<EditorPage> {
         child: SafeArea(
           child: Padding(
             padding: EdgeInsets.only(bottom: keyboard),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final wide = constraints.maxWidth >= _wideLayout;
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _buildTopBar(colors, wide: wide),
-                    _buildToolbar(colors),
-                    _Rule(colors.border),
-                    Expanded(
-                      child: ColoredBox(
-                        color: colors.background,
-                        child: wide
-                            ? _buildSplit(colors, constraints.maxWidth)
-                            : _buildSingle(colors),
-                      ),
-                    ),
-                    _Rule(colors.border),
-                    _buildStatusBar(colors),
-                  ],
-                );
-              },
-            ),
+            child: body,
           ),
         ),
       ),
@@ -522,7 +491,7 @@ class _EditorPageState extends State<EditorPage> {
             ),
           ),
           if (!wide) ...[
-            _Switch(
+            ToggleChip(
               key: const ValueKey('show-preview'),
               label: 'Preview',
               on: _showPreview,
@@ -535,7 +504,7 @@ class _EditorPageState extends State<EditorPage> {
             ),
             const SizedBox(width: 6),
           ],
-          _Switch(
+          ToggleChip(
             key: const ValueKey('sync-scroll'),
             label: 'Sync',
             on: _syncScroll,
@@ -543,10 +512,10 @@ class _EditorPageState extends State<EditorPage> {
             onChanged: _setSync,
           ),
           const SizedBox(width: 6),
-          _Switch(
+          ToggleChip(
             key: const ValueKey('dark'),
             label: 'Dark',
-            on: _dark,
+            on: _isDark,
             colors: colors,
             onChanged: _setDark,
           ),
@@ -555,7 +524,7 @@ class _EditorPageState extends State<EditorPage> {
     );
   }
 
-  Widget _buildToolbar(EditorColors colors) {
+  Widget _buildToolbar(EditorColors colors, {required bool wide}) {
     Widget button(
       String label,
       String name,
@@ -570,9 +539,11 @@ class _EditorPageState extends State<EditorPage> {
       onPressed: () => _apply(command),
     );
 
-    return SingleChildScrollView(
+    final tools = SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      padding: widget.showHeader
+          ? const EdgeInsets.fromLTRB(12, 0, 12, 8)
+          : const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       child: Row(
         children: [
           button(
@@ -605,6 +576,42 @@ class _EditorPageState extends State<EditorPage> {
           button('Link', 'link', insertLink),
         ],
       ),
+    );
+
+    if (widget.showHeader) return tools;
+
+    return Row(
+      children: [
+        Expanded(child: tools),
+        Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!wide) ...[
+                ToggleChip(
+                  key: const ValueKey('show-preview'),
+                  label: 'Preview',
+                  on: _showPreview,
+                  colors: colors,
+                  onChanged: (on) {
+                    setState(() => _showPreview = on);
+                    if (on) _focus.unfocus();
+                  },
+                ),
+                const SizedBox(width: 6),
+              ],
+              ToggleChip(
+                key: const ValueKey('sync-scroll'),
+                label: 'Sync',
+                on: _syncScroll,
+                colors: colors,
+                onChanged: _setSync,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -812,57 +819,6 @@ class _ToolButtonState extends State<_ToolButton> {
                       fontWeight: FontWeight.w600,
                     ).merge(widget.style),
                   ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// An on/off button in the top bar.
-class _Switch extends StatelessWidget {
-  const _Switch({
-    super.key,
-    required this.label,
-    required this.on,
-    required this.colors,
-    required this.onChanged,
-  });
-
-  final String label;
-  final bool on;
-  final EditorColors colors;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      toggled: on,
-      label: label,
-      excludeSemantics: true,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => onChanged(!on),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: on ? colors.accent : null,
-              border: Border.all(color: on ? colors.accent : colors.border),
-              borderRadius: const BorderRadius.all(Radius.circular(6)),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: on ? const Color(0xFFFFFFFF) : colors.muted,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
