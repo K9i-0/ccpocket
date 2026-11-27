@@ -1171,7 +1171,8 @@ class AppLocalizationsJa extends AppLocalizations {
   String get antigravityAuthApiKey => 'APIキー';
 
   @override
-  String get antigravityUsageRefreshHint => '更新ボタンを押すと、プランの残量（5時間・週）を取得します。';
+  String get antigravityUsagePlanNote =>
+      'プランの残量は Antigravity 側で確認してください。コンテキスト使用量は各セッションに表示されます。';
 
   @override
   String get antigravityUsageApiKeyNote =>

@@ -1406,45 +1406,6 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         rmSync(dir, { recursive: true, force: true });
       });
 
-      it("reads Antigravity usage when asked and reuses a recent reading", async () => {
-        const fetchAntigravityUsage = vi.fn(async () => [
-          {
-            provider: "antigravity" as const,
-            label: "Gemini Models",
-            fiveHour: { utilization: 1, resetsAt: "2026-11-19T17:30:14Z" },
-            sevenDay: null,
-          },
-        ]);
-        const bridge = new BridgeWebSocketServer({
-          server: httpServer,
-          detectAntigravity: async () => true,
-          fetchAntigravityUsage,
-          antigravityConfig: { bin: "agy", requireApiKey: false },
-        });
-        const internal = bridge as any;
-        await internal.refreshAntigravityAvailability();
-
-        // Clients asking together share one read.
-        const [first, second] = await Promise.all([
-          internal.antigravityUsage(false),
-          internal.antigravityUsage(false),
-        ]);
-        expect(first).toHaveLength(1);
-        expect(second).toHaveLength(1);
-        // Later requests, and refreshes within a minute, reuse the reading.
-        expect(await internal.antigravityUsage(true)).toHaveLength(1);
-        expect(fetchAntigravityUsage).toHaveBeenCalledTimes(1);
-
-        // A tapped refresh reads again after a minute; other requests wait
-        // fifteen.
-        internal.antigravityUsageCache.at = Date.now() - 2 * 60_000;
-        await internal.antigravityUsage(false);
-        expect(fetchAntigravityUsage).toHaveBeenCalledTimes(1);
-        await internal.antigravityUsage(true);
-        expect(fetchAntigravityUsage).toHaveBeenCalledTimes(2);
-        bridge.close();
-      });
-
       it("keeps the name of a recent Antigravity conversation", async () => {
         const dir = mkdtempSync(join(tmpdir(), "ccpocket-agy-"));
         const bridge = new BridgeWebSocketServer({

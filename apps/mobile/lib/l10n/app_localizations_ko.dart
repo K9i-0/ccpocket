@@ -1168,7 +1168,8 @@ class AppLocalizationsKo extends AppLocalizations {
   String get antigravityAuthApiKey => 'API 키';
 
   @override
-  String get antigravityUsageRefreshHint => '새로고침을 누르면 플랜 잔여량(5시간·주간)을 가져옵니다.';
+  String get antigravityUsagePlanNote =>
+      '플랜 잔여량은 Antigravity에서 확인하세요. 컨텍스트 사용량은 각 세션에 표시됩니다.';
 
   @override
   String get antigravityUsageApiKeyNote =>

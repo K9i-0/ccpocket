@@ -1,5 +1,4 @@
-import { execFile } from "node:child_process";
-import { homedir, tmpdir } from "node:os";
+import { homedir } from "node:os";
 import { fetchClaudeUsage, type ClaudeLiveUsageReader } from "./claude-usage.js";
 import { CodexProcess } from "./codex-process.js";
 
@@ -136,94 +135,6 @@ async function readCodexUsage(): Promise<UsageInfo> {
   } finally {
     proc.stop();
   }
-}
-
-// ── Antigravity ──
-
-function antigravityWindow(bucket: unknown): UsageWindow | null {
-  if (!bucket || typeof bucket !== "object") return null;
-  const { remaining_fraction: remaining, reset_time: resetTime } = bucket as {
-    remaining_fraction?: unknown;
-    reset_time?: unknown;
-  };
-  if (typeof remaining !== "number" || !Number.isFinite(remaining)) return null;
-  return {
-    utilization: Math.min(100, Math.max(0, (1 - remaining) * 100)),
-    resetsAt: typeof resetTime === "string" ? resetTime : "",
-  };
-}
-
-/**
- * Reads the report of `agy -p /usage --output-format json`: one entry per
- * quota group, each with a five-hour and a weekly window.
- */
-export function parseAntigravityUsage(raw: string): UsageInfo[] {
-  const report = JSON.parse(raw) as {
-    command?: { data?: { groups?: unknown } };
-  };
-  const groups = report.command?.data?.groups;
-  if (!Array.isArray(groups)) return [];
-  const usage: UsageInfo[] = [];
-  for (const group of groups) {
-    if (!group || typeof group !== "object") continue;
-    const { name, buckets } = group as { name?: unknown; buckets?: unknown };
-    const list = Array.isArray(buckets) ? buckets : [];
-    const find = (window: string) =>
-      antigravityWindow(
-        list.find(
-          (bucket) =>
-            bucket && typeof bucket === "object" &&
-            (bucket as { window?: unknown }).window === window,
-        ),
-      );
-    const fiveHour = find("5h");
-    const sevenDay = find("weekly");
-    if (!fiveHour && !sevenDay) continue;
-    usage.push({
-      provider: "antigravity",
-      ...(typeof name === "string" && name.trim() ? { label: name.trim() } : {}),
-      fiveHour,
-      sevenDay,
-    });
-  }
-  return usage;
-}
-
-/**
- * Asks the Antigravity CLI for the plan's remaining quota. `/usage` is
- * answered by the CLI itself: no model is called and no conversation is made.
- * It reads the Google login of the default profile, so it is run only when a
- * person asks for a refresh, never on a timer.
- */
-export function fetchAntigravityUsage(bin = "agy"): Promise<UsageInfo[]> {
-  return new Promise((resolve, reject) => {
-    execFile(
-      bin,
-      ["-p", "/usage", "--output-format", "json"],
-      {
-        cwd: tmpdir(),
-        timeout: 60_000,
-        maxBuffer: 1024 * 1024,
-        env: {
-          ...process.env,
-          AGY_CLI_DISABLE_AUTO_UPDATE: "true",
-          // A failed silent sign-in must not open a browser on the Bridge machine.
-          BROWSER: "false",
-        },
-      },
-      (err, stdout) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        try {
-          resolve(parseAntigravityUsage(stdout));
-        } catch (parseError) {
-          reject(parseError);
-        }
-      },
-    );
-  });
 }
 
 // ── Combined ──

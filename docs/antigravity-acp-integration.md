@@ -170,7 +170,7 @@ Issue の回答は規約本文ではない。フレームワークがシステ�
 - **追加ディレクトリ**: `session/new` の `additionalDirectories`（絶対パスの配列）は受理された。
 - **`auto`**: Google ログインの既定プロファイルでは一覧に出て、`session/set_mode` も成功した（プロンプトは送っていない）。APIキーでは `--sandbox` を付けても不可。
 - **プラン名**: `session/new` 応答の `_meta.antigravity.tier.name`（例: `Google AI Ultra`）。APIキーでは付かない。
-- **利用枠の残量は ACP では取れない**（`_antigravity/quota` などは `-32601`）。代わりに CLI の `agy -p /usage --output-format json` を使う（下記「利用量」）。ログや内部 API、Google の OAuth エンドポイントは読まない。
+- **利用枠の残量は ACP では取れない**（`_antigravity/quota` などは `-32601`）。2026-11-19 に一時的に `agy -p /usage --output-format json` を使っていたが、Google AI Developers Forum #203283 で読み取り専用でもサードパーティからの `agy -p` 呼び出しはコンシューマープラン非サポートと明言されたため、2026-11-27 に削除した（下記「利用量」）。ログや内部 API、Google の OAuth エンドポイントも読まない。
 - **ツール種別**: `read_file`（`kind: read`、`rawInput.Path`）、`search_web`（`kind: search`、`rawInput.query`）、`run_command`（`execute`）、`write_file`（`edit`）。`session/set_title` と `session/delete` はない。
 - **画像生成（Nano Banana / `image-generator`）**: 直接の画像生成ツールはなく、通常のプロンプトでもビルトインの `invoke_subagent`（`rawInput.TypeName: "image-generator"`、`Prompt`）が呼ばれる。`invoke_subagent` 自体はサブエージェント起動直後に `completed`（出力なし）で閉じ、生成完了後に自発ターンで `~/.gemini/<プロファイル>/brain/<セッションID>/` 配下の画像ファイルパス（Markdown 画像や `file://` リンク）が返る。APIキー認証でも動作を確認した。
 - **複数選択の質問**: `is_multi_select: true` は `{type: "array", items: {anyOf: [{const, title}]}}` と `<id>_other` で届く（APIキーで確認）。
@@ -442,20 +442,18 @@ Bridge の対応:
     - `permissionModes` に `bypassPermissions` が入る
 - 明示エラーを返す操作: フォーク、巻き戻し、メッセージ編集、サンドボックス切替、ゴール、Codex / Claude 用の設定変更。
 
-### 利用量（2026-11-19 追加）
+### 利用量（2026-11-19 追加、2026-11-27 削除）
 
-- `agy -p /usage --output-format json` は CLI 自身が答えるコマンドで、モデルを呼ばず会話も作らない（`num_turns: 0`、トークン 0）。`command.data.groups[]` に枠のグループ（`Gemini Models`、`Claude and GPT models`）があり、各 `buckets[]` に `window`（`5h` / `weekly`）、`remaining_fraction`、`reset_time` が入る。
-- Bridge は `get_usage` の結果に、グループごとの項目（`provider: "antigravity"`、`label` にグループ名）を足す。Claude / Codex の結果を先に返し、Antigravity の値が変わっていれば同じ `usage_result` をもう一度送る。
-- 読むのは、クライアントが利用量を求めたときに前回から 15 分以上たっている場合と、利用者が更新を押したとき（`get_usage.refreshAntigravity`、1 分に 1 回まで）だけ。タイマーでは動かさない。APIキー認証と `CCPOCKET_ANTIGRAVITY_REQUIRE_API_KEY` の Bridge では実行しない。
-- `agy -p` をプログラムから動かすことは、Issue #1493 の回答で消費者ログインでは不可とされた範囲に入り得る。モデルを呼ばない状態確認であること、アプリを開いている人の操作に応じてだけ動くことを理由に採用した（所有者の判断）。
-- アプリは設定の利用量カードに全グループを、セッション一覧ヘッダーには Gemini のグループだけを出す。ヘッダーは 3 つ並ぶと名前の代わりにアイコンを使う。
+- 2026-11-19 に `agy -p /usage --output-format json` による 5 時間 / 週のプラン残量取得を実装したが、その後の Google AI Developers Forum #203283（[ToS clarification: read-only agy -p /usage & /credits from ACP clients](https://discuss.ai.google.dev/t/tos-clarification-read-only-agy-p-usage-credits-from-acp-clients-or-native-quota-surface/203283)）で、読み取り専用の `agy -p /usage` であってもサードパーティの ACP クライアントから呼ぶことはコンシューマープランで非サポートであり、`agy acp` のみを使うべきと案内された。
+- 2026-11-27 に Bridge の `agy -p /usage` 実行・キャッシュ処理をすべて削除した（互換のため `get_usage.refreshAntigravity` は受け取っても無視する）。
+- 設定の利用量カードには ACP で取れるプラン名・認証方式・`agy` バージョンのみを表示し、プラン残量は Antigravity 側で確認する案内を出す。ACP に公式のクォータ取得手段（[antigravity-cli#1793](https://github.com/google-antigravity/antigravity-cli/issues/1793)）が追加されたら再実装する。
 
 ### 制約
 
 - 再開（`session/load`）するとモデルと承認モードが `agy` の既定に戻るため、Bridge が保存しておいたモデル・承認モード（`bypassPermissions` や plan 前のモードを含む）を設定し直す。Bridge を通さずに使った会話は既定のモデル・モードで再開する。
 - 最近のセッション一覧で Antigravity の行が混ざるのは（プロバイダー未指定時は）先頭ページだけ。タイトル検索・プロジェクトパス・マルチフォルダプロジェクト（`projectId`）・ピン留めのみ・名前付きのみ・期間の絞り込み、および会話ごとのピン留めに対応する。プロバイダーを Antigravity に絞った一覧はページ送りできる。
 - 送信済みプロンプトの取り消し（停止時の入力の巻き戻し）、巻き戻し、フォーク、メッセージ編集はできない（ACP に手段がない）。
-- プランの利用枠（5 時間 / 週）は Google ログインのときだけ表示する（下記「利用量」）。APIキーではプランの枠がないので、認証方式・`agy` のバージョン・セッションごとのコンテキスト使用量だけを出す。
+- プランの利用枠（5 時間 / 週）は表示しない（下記「利用量」）。認証方式・`agy` のバージョン・プラン名・セッションごとのコンテキスト使用量を表示する。
 - 費用（USD）は出ない。`agy` が金額を返さない。
 - 再開時に復元した履歴には元の時刻がない（`agy` が返さない）。拒否した編集は「File change failed」と表示される。
 - `agy` の承認は「今回だけ許可」「拒否」の 2 択。「常に許可」は Bridge が受け持つ: 選ぶと、そのセッションの間（および同じセッションを再開したあとも `antigravity-sessions.json` から引き継いで）、安全な単一コマンドは CLI と同様にバイナリ＋サブコマンドのプレフィックス単位（複合コマンド・ラッパー・破壊的コマンドは完全一致）、ファイル編集はすべての編集、MCP ツールはサーバー＋ツール単位で Bridge が `allow_once` で答える。別セッションには引き継がない。
@@ -495,6 +493,7 @@ Bridge の対応:
 | swarm の worker 一覧とボード | `swarm` ツールの結果が ACP に載らず、worker の会話IDが取れない。いまは swarm のファイル2つを読んでいる（上の「Swarm」）。1.5.16 で承認は親に届くようになったが、一覧・ボード・モードの引き継ぎはまだない | `swarm add` の `tool_call_update` に `rawOutput` が付くか。worker の承認要求が coordinator の接続に届くか（`--attach-swarm` なしのプローブで） | `antigravity-swarm.ts` のファイル読みを ACP の値に置き換える |
 | Orchestrator の実行役と思考レベル | ACP に選ぶ項目がない。`settings.json` の `"orchestrator"` が `agy acp` に効くかは未確定 | Google ログインの `session/new` の `configOptions` に、実行役や Orchestrator の思考レベルの項目が増えていないか | 設定オブジェクトと `set_antigravity_settings` に項目を足し、アプリのモデルのシートに出す |
 | `run_workflow` の子エージェントの名前 | 承認は 1.5.16 から親に届くが（上の「agy 1.5.15 / 1.5.16 での変化」）、誰の呼び出しかは会話ID しか分からない | 親に届く `tool_call` や承認要求に、子の役割名が付くか | `forwardedWorkerName` で名前を付ける |
+| プラン利用枠（5 時間 / 週） | ACP にクォータ取得メソッドがない（`_antigravity/quota` は `-32601`）。`agy -p /usage` はコンシューマープラン非サポートのため削除済み（[antigravity-cli#1793](https://github.com/google-antigravity/antigravity-cli/issues/1793)） | ACP 拡張または `usage_update` にアカウント残量が増えているか | `diagnostics.ts` の `handleGetUsage` から `provider: "antigravity"` の `UsageInfo` を返す |
 
 確認には `scripts/antigravity-acp-probe.mjs`（APIキー）を使う。プロンプトを送らない確認（`initialize`、`session/new`、メソッドの有無）は既定プロファイルでもよい。
 

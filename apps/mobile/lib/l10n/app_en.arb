@@ -430,7 +430,7 @@
   "antigravityModelAfterStartNote": "You can switch the model after the session starts.",
   "antigravityAuthLogin": "Google sign-in",
   "antigravityAuthApiKey": "API key",
-  "antigravityUsageRefreshHint": "Tap refresh to read how much of the plan is left (5-hour and weekly).",
+  "antigravityUsagePlanNote": "Check remaining plan limits in Antigravity. Context usage is shown in each session.",
   "antigravityUsageApiKeyNote": "API key usage has no plan limits. Context usage is shown in each session.",
   "showAntigravityTabSubtitle": "Shown only when the Bridge machine has the Antigravity CLI (agy).",
   "permissionAcceptEditsDescription": "Auto-approve file edits",

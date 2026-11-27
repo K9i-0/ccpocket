@@ -448,10 +448,9 @@ the Antigravity CLI's Agent Client Protocol server (`agy acp`).
 **Limits in this preview**
 
 - No rewind, fork, message editing, sandbox toggle or pinning.
-- Plan usage (5-hour / weekly) is read with `agy -p /usage`, a report the CLI answers
-  itself without calling a model. The Bridge runs it only when a client asks for
-  usage (at most every 15 minutes, or once a minute on a manual refresh), and never
-  with an API key. There is no cost figure: Antigravity reports none.
+- Plan usage (5-hour / weekly) is not shown because `agy acp` does not expose quota
+  yet and calling `agy -p` from third-party apps is not supported on consumer plans.
+  Context usage is shown per session. There is no cost figure: Antigravity reports none.
 - Antigravity itself only offers "allow once" and "deny". "Always allow" is kept by
   the Bridge for the session: it covers the same command again, or every later file
   edit. The Bypass mode has the Bridge allow every request for you.

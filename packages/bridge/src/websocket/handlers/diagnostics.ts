@@ -3,7 +3,7 @@ import { WebSocket } from "ws";
 import type { ClientMessage } from "../../parser.js";
 import { findSessionsByClaudeIds } from "../../sessions-index.js";
 import { listWindows, takeScreenshot } from "../../screenshot.js";
-import { fetchAllUsage, type UsageInfo } from "../../usage.js";
+import { fetchAllUsage } from "../../usage.js";
 import { projectRequestMetadata, MAX_DEBUG_EVENTS } from "../shared.js";
 import type { BridgeWebSocketServer } from "../../websocket.js";
 import {
@@ -85,28 +85,15 @@ export async function handleGetDebugBundle(
 
 export async function handleGetUsage(
   server: BridgeWebSocketServer,
-  msg: Extract<ClientMessage, { type: "get_usage" }>,
+  _msg: Extract<ClientMessage, { type: "get_usage" }>,
   ws: WebSocket,
 ): Promise<void> {
-  // The Antigravity CLI takes seconds to answer, so the other agents
-  // go out first with its last reading, and a second result follows
-  // when the new one differs.
-  const lastAntigravity = server.antigravityUsageCache?.usage ?? [];
-  const antigravityRead = server.antigravityUsage(
-    msg.refreshAntigravity === true,
-  );
   fetchAllUsage({ readClaudeLive: () => server.readClaudePlanUsage() })
-    .then(async (usage) => {
-      const sendUsage = (antigravity: UsageInfo[]) =>
-        server.send(ws, {
-          type: "usage_result",
-          providers: [...usage, ...antigravity],
-        } as Record<string, unknown>);
-      sendUsage(lastAntigravity);
-      const antigravity = await antigravityRead;
-      if (JSON.stringify(antigravity) !== JSON.stringify(lastAntigravity)) {
-        sendUsage(antigravity);
-      }
+    .then((usage) => {
+      server.send(ws, {
+        type: "usage_result",
+        providers: usage,
+      } as Record<string, unknown>);
     })
     .catch((err) => {
       server.send(ws, {

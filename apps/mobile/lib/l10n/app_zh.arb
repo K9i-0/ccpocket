@@ -353,7 +353,7 @@
   "antigravityModelAfterStartNote": "会话开始后可以切换模型。",
   "antigravityAuthLogin": "Google 登录",
   "antigravityAuthApiKey": "API 密钥",
-  "antigravityUsageRefreshHint": "点按刷新即可获取套餐剩余用量（5 小时和每周）。",
+  "antigravityUsagePlanNote": "请在 Antigravity 中查看套餐剩余额度。上下文用量会显示在各会话中。",
   "antigravityUsageApiKeyNote": "使用 API 密钥时没有套餐额度。上下文用量会显示在各会话中。",
   "showAntigravityTabSubtitle": "仅当 Bridge 机器上装有 Antigravity CLI（agy）时显示",
   "permissionAcceptEditsDescription": "自动批准文件编辑",

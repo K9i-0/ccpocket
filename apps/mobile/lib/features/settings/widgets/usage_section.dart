@@ -116,9 +116,7 @@ class _UsageSectionState extends State<UsageSection> {
 
     _lastFetchAt = now;
     setState(() => _loading = true);
-    // Antigravity's quota comes from its CLI, which is only asked when a
-    // person taps refresh; otherwise the Bridge returns its last reading.
-    widget.bridgeService.requestUsage(refreshAntigravity: force);
+    widget.bridgeService.requestUsage();
     widget.bridgeService.requestAntigravityCatalog();
   }
 
@@ -323,7 +321,7 @@ class _AntigravityAccount extends StatelessWidget {
             Text(
               settings.authMode == 'api_key'
                   ? l.antigravityUsageApiKeyNote
-                  : l.antigravityUsageRefreshHint,
+                  : l.antigravityUsagePlanNote,
               key: const ValueKey('usage_antigravity_hint'),
               style: TextStyle(
                 fontSize: 11,

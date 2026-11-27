@@ -2285,11 +2285,11 @@ abstract class AppLocalizations {
   /// **'APIキー'**
   String get antigravityAuthApiKey;
 
-  /// No description provided for @antigravityUsageRefreshHint.
+  /// No description provided for @antigravityUsagePlanNote.
   ///
   /// In ja, this message translates to:
-  /// **'更新ボタンを押すと、プランの残量（5時間・週）を取得します。'**
-  String get antigravityUsageRefreshHint;
+  /// **'プランの残量は Antigravity 側で確認してください。コンテキスト使用量は各セッションに表示されます。'**
+  String get antigravityUsagePlanNote;
 
   /// No description provided for @antigravityUsageApiKeyNote.
   ///

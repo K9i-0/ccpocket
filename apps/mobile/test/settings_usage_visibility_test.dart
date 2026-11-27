@@ -46,13 +46,24 @@ class _FakeBridgeService extends BridgeService {
   bool _connected;
   final UsageResultMessage? cachedUsage;
   final String? fakeLastUrl;
+  final AntigravitySettings? fakeAntigravityCatalog;
   bool disconnectCalled = false;
 
   _FakeBridgeService({
     required bool connected,
     this.cachedUsage,
     this.fakeLastUrl,
+    this.fakeAntigravityCatalog,
   }) : _connected = connected;
+
+  @override
+  bool get supportsAntigravityCatalog => fakeAntigravityCatalog != null;
+
+  @override
+  AntigravitySettings? get antigravityCatalog => fakeAntigravityCatalog;
+
+  @override
+  void requestAntigravityCatalog() {}
 
   @override
   bool get isConnected => _connected;
@@ -1231,6 +1242,57 @@ void main() {
       await machineManagerCubit.close();
       bridge.dispose();
     });
+
+    testWidgets(
+      'shows Antigravity plan note without asking for CLI usage on refresh',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        final prefs = await SharedPreferences.getInstance();
+        final settingsCubit = _SeededSettingsCubit(
+          prefs,
+          activeMachineId: 'machine-1',
+        );
+        final manager = MachineManagerService(prefs, _FakeSecureStorage());
+        final machineManagerCubit = _createMachineManagerCubit(manager);
+        final bridge = _FakeBridgeService(
+          connected: true,
+          fakeLastUrl: 'ws://127.0.0.1:8765',
+          fakeAntigravityCatalog: const AntigravitySettings(
+            authMode: 'login',
+            tierName: 'Google AI Ultra',
+            agentVersion: '1.5.18',
+          ),
+        );
+
+        await tester.pumpWidget(
+          await _buildScreen(
+            bridge: bridge,
+            settingsCubit: settingsCubit,
+            machineManagerCubit: machineManagerCubit,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final l = AppLocalizations.of(tester.element(find.byType(Scaffold)));
+        final card = find.byKey(const ValueKey('usage_card_antigravity'));
+        await tester.scrollUntilVisible(
+          card,
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(card, findsOneWidget);
+        expect(find.text(l.antigravityUsagePlanNote), findsOneWidget);
+
+        await tester.tap(find.byIcon(Icons.refresh).first);
+        await tester.pump();
+        expect(bridge.usageRefreshes, isNotEmpty);
+        expect(bridge.usageRefreshes.any((refresh) => refresh), isFalse);
+
+        await settingsCubit.close();
+        await machineManagerCubit.close();
+        bridge.dispose();
+      },
+    );
 
     testWidgets('shows weekly-only Codex usage without a five-hour row', (
       tester,

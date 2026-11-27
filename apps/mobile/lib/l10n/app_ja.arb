@@ -442,7 +442,7 @@
   "antigravityModelAfterStartNote": "モデルはセッション開始後に切り替えられます。",
   "antigravityAuthLogin": "Google ログイン",
   "antigravityAuthApiKey": "APIキー",
-  "antigravityUsageRefreshHint": "更新ボタンを押すと、プランの残量（5時間・週）を取得します。",
+  "antigravityUsagePlanNote": "プランの残量は Antigravity 側で確認してください。コンテキスト使用量は各セッションに表示されます。",
   "antigravityUsageApiKeyNote": "APIキーでの利用にはプランの枠がありません。コンテキスト使用量は各セッションに表示されます。",
   "showAntigravityTabSubtitle": "Bridge のマシンに Antigravity CLI（agy）があるときだけ表示されます",
   "permissionAcceptEditsDescription": "ファイル編集を自動で承認します",
