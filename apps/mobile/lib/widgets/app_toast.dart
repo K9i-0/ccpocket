@@ -137,7 +137,7 @@ class _AppToastViewState extends State<_AppToastView>
     // Dark frosted glass in both themes: it stands out over chat text without
     // the hard block of an opaque inverse surface.
     final isDark = theme.brightness == Brightness.dark;
-    final fill = isDark ? const Color(0xCC3A3A3C) : const Color(0xC71C1C1E);
+    final fill = isDark ? const Color(0xB33A3A3C) : const Color(0xB31C1C1E);
     final outline = Colors.white.withValues(alpha: isDark ? 0.14 : 0.08);
     final actionColor = isDark ? scheme.primary : scheme.inversePrimary;
     final radius = BorderRadius.circular(22);
@@ -184,7 +184,7 @@ class _AppToastViewState extends State<_AppToastView>
                     child: ClipRRect(
                       borderRadius: radius,
                       child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
                         child: DecoratedBox(
                           decoration: BoxDecoration(
                             color: fill,
