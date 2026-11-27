@@ -8,6 +8,7 @@ import '../../l10n/app_localizations.dart';
 import 'sketch_document.dart';
 import 'widgets/sketch_text_dialog.dart';
 import 'widgets/sketch_toolbar.dart';
+import '../../widgets/app_toast.dart';
 
 typedef SketchResult = ({Uint8List bytes, String documentJson});
 
@@ -264,11 +265,8 @@ class _SketchScreenState extends State<SketchScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _exporting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppLocalizations.of(context).sketchExportFailed),
-        ),
-      );
+      AppToast.of(context)
+          .show(AppLocalizations.of(context).sketchExportFailed);
     }
   }
 

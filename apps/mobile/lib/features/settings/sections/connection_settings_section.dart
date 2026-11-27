@@ -19,6 +19,7 @@ import '../widgets/connected_bridge_tools_card.dart';
 import '../widgets/local_url_settings_tile.dart';
 import '../widgets/prompt_history_section.dart';
 import '../widgets/settings_tiles.dart';
+import '../../../widgets/app_toast.dart';
 
 /// Finds the machine that the app is currently pointed at.
 MachineWithStatus? activeMachineWithStatus(
@@ -129,9 +130,9 @@ class ConnectionSettingsSection extends StatelessWidget {
     await Clipboard.setData(ClipboardData(text: display));
     if (!context.mounted) return;
     final l = AppLocalizations.of(context);
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(l.copiedToClipboard)));
+    AppToast.of(context)
+      ..hide()
+      ..show(l.copiedToClipboard);
   }
 
   void _disconnectBridge(BuildContext context, BridgeService bridge) {

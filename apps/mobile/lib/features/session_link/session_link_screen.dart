@@ -10,6 +10,7 @@ import '../../router/session_stack_navigation.dart';
 import '../../services/bridge_service.dart';
 import 'state/session_link_cubit.dart';
 import 'state/session_link_state.dart';
+import '../../widgets/app_toast.dart';
 
 @RoutePage()
 class SessionLinkScreen extends StatelessWidget {
@@ -125,7 +126,7 @@ class _SessionLinkScreenBodyState extends State<_SessionLinkScreenBody> {
   /// Returns to the screen the link was opened from and reports the failure
   /// there, so the user has nothing to close.
   void _dismissAsUnavailable(BuildContext context) {
-    final messenger = ScaffoldMessenger.of(context);
+    final messenger = AppToast.of(context);
     final link = _link;
     final message = AppLocalizations.of(context).sessionUnavailableDescription;
     final router = context.router.root;
@@ -134,18 +135,14 @@ class _SessionLinkScreenBodyState extends State<_SessionLinkScreenBody> {
     } else {
       router.replaceAll([AdaptiveHomeRoute()]);
     }
-    // Shown once this route has gone: a snackbar that appears during the
-    // transition is drawn by every Scaffold involved and trips the Hero check.
+    // Shown once this route has gone, so it reads as feedback on the screen
+    // the user returned to.
     Future<void>.delayed(_dismissDuration, () {
       if (!messenger.mounted || link != _openedLinks) return;
-      messenger
-        ..removeCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            key: const ValueKey('session_link_unavailable_snackbar'),
-            content: Text(message),
-          ),
-        );
+      messenger.show(
+        message,
+        key: const ValueKey('session_link_unavailable_toast'),
+      );
     });
   }
 
@@ -212,8 +209,6 @@ class SessionLinkStatusView extends StatelessWidget {
     final l = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    // Not a Scaffold: one would draw the app's snackbars on top of the screen
-    // underneath a second time.
     return Material(
       color: overlay
           ? colors.scrim.withValues(alpha: 0.32)

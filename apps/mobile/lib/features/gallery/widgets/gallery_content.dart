@@ -6,6 +6,7 @@ import '../../../services/bridge_service.dart';
 import 'gallery_filter_chips.dart';
 import 'gallery_image_viewer.dart';
 import 'gallery_tile.dart';
+import '../../../widgets/app_toast.dart';
 
 class GalleryContent extends StatelessWidget {
   final List<GalleryImage> images;
@@ -76,11 +77,9 @@ class GalleryContent extends StatelessWidget {
     final success = await bridge.deleteGalleryImage(image.id);
     if (!context.mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(success ? 'Screenshot deleted' : 'Failed to delete'),
-        duration: const Duration(seconds: 2),
-      ),
+    AppToast.of(context).show(
+      success ? 'Screenshot deleted' : 'Failed to delete',
+      duration: const Duration(seconds: 2),
     );
   }
 

@@ -8,6 +8,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import '../features/settings/state/settings_cubit.dart';
 import '../l10n/app_localizations.dart';
 import '../services/voice_input_service.dart';
+import '../widgets/app_toast.dart';
 
 /// Result record returned by [useVoiceInput].
 typedef VoiceInputResult = ({
@@ -23,7 +24,7 @@ typedef VoiceInputResult = ({
 /// opening a chat does not trigger microphone / speech recognition permission
 /// prompts. `isAvailable` reflects platform support only, so the voice button
 /// stays visible until the user actually tries it. If initialization fails
-/// (e.g. permission denied), a SnackBar is shown and the next tap retries.
+/// (e.g. permission denied), a toast is shown and the next tap retries.
 ///
 /// The [controller] is updated in real-time with recognized speech text.
 /// Speech locale is read from [SettingsCubit].
@@ -94,15 +95,11 @@ VoiceInputResult useVoiceInput(
 }
 
 void _showUnavailableMessage(BuildContext context) {
-  final messenger = ScaffoldMessenger.maybeOf(context);
+  final messenger = AppToast.maybeOf(context);
   if (messenger == null) return;
   messenger
-    ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
-        content: Text(AppLocalizations.of(context).voiceInputUnavailable),
-      ),
-    );
+    ..hide()
+    ..show(AppLocalizations.of(context).voiceInputUnavailable);
 }
 
 @visibleForTesting

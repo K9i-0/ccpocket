@@ -10,6 +10,7 @@ import '../providers/bridge_cubits.dart';
 import '../theme/app_theme.dart';
 import 'markdown/ccpocket_markdown.dart';
 import 'workspace_pane_chrome.dart';
+import 'app_toast.dart';
 
 /// Shows a full-screen bottom sheet with the complete plan text.
 Future<void> showPlanDetailSheet(
@@ -126,9 +127,7 @@ class _PlanCopyButtonState extends State<_PlanCopyButton> {
     });
     final l = Localizations.of<AppLocalizations>(context, AppLocalizations);
     if (l != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.copied), duration: const Duration(seconds: 1)),
-      );
+      AppToast.of(context).show(l.copied, duration: const Duration(seconds: 1));
     }
   }
 

@@ -6,6 +6,7 @@ import '../../../theme/app_theme.dart';
 import '../../../models/messages.dart' show SessionDisplayMode;
 import '../state/recent_session_filters.dart';
 import '../state/session_list_state.dart';
+import '../../../widgets/app_toast.dart';
 
 /// A selectable project in the recent session filters.
 typedef RecentProjectOption = ({String key, String name});
@@ -59,13 +60,9 @@ Future<RecentDateFilter?> pickCustomRecentDateRange(
 }
 
 void showRecentBridgeUpdateHint(BuildContext context) {
-  ScaffoldMessenger.maybeOf(context)
-    ?..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
-        content: Text(AppLocalizations.of(context).recentRequiresBridgeUpdate),
-      ),
-    );
+  AppToast.maybeOf(context)
+    ?..hide()
+    ..show(AppLocalizations.of(context).recentRequiresBridgeUpdate);
 }
 
 // ---------------------------------------------------------------------------

@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../widgets/google_search_text_selection.dart';
 import '../data/local_bridge_models.dart';
+import '../../../widgets/app_toast.dart';
 
 /// Recent Bridge console output.
 class LocalBridgeLogsScreen extends StatefulWidget {
@@ -26,10 +27,10 @@ class _LocalBridgeLogsScreenState extends State<LocalBridgeLogsScreen> {
   }
 
   Future<void> _copy(List<LocalBridgeLogEntry> entries) async {
-    final messenger = ScaffoldMessenger.of(context);
+    final messenger = AppToast.of(context);
     final copied = AppLocalizations.of(context).copied;
     await Clipboard.setData(ClipboardData(text: entries.map(_line).join('\n')));
-    messenger.showSnackBar(SnackBar(content: Text(copied)));
+    messenger.show(copied);
   }
 
   @override

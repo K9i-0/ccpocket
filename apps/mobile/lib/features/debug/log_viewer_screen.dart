@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../core/logger.dart';
 import '../../l10n/app_localizations.dart';
 import '../../widgets/workspace_pane_chrome.dart';
+import '../../widgets/app_toast.dart';
 
 /// Filter options displayed in [LogViewerScreen].
 enum LogLevelFilter {
@@ -110,13 +111,13 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
     final text = widget.logger.exportText(entries: entries);
     await Clipboard.setData(ClipboardData(text: text));
     if (!mounted) return;
-    _showSnackBar('Copied ${entries.length} log entries');
+    _showToast('Copied ${entries.length} log entries');
   }
 
   Future<void> _copySingleEntry(AppLogEntry entry) async {
     await Clipboard.setData(ClipboardData(text: entry.format()));
     if (!mounted) return;
-    _showSnackBar('Copied log entry');
+    _showToast('Copied log entry');
   }
 
   Future<void> _shareLogs(List<AppLogEntry> entries) async {
@@ -133,7 +134,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
       }
     } catch (error) {
       if (!mounted) return;
-      _showSnackBar('Failed to share logs: $error');
+      _showToast('Failed to share logs: $error');
     }
   }
 
@@ -150,12 +151,9 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
     });
   }
 
-  void _showSnackBar(String message) {
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    messenger?.hideCurrentSnackBar();
-    messenger?.showSnackBar(
-      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
-    );
+  void _showToast(String message) {
+    AppToast.maybeOf(context)
+        ?.show(message, duration: const Duration(seconds: 2));
   }
 
   @override

@@ -12,6 +12,7 @@ import '../../../services/photo_library_service.dart';
 import '../file_transfer_downloader.dart';
 import '../state/file_transfer_cubit.dart';
 import '../state/file_transfer_state.dart';
+import '../../../widgets/app_toast.dart';
 
 typedef ShareFileCallback = Future<void> Function(ShareParams params);
 
@@ -108,9 +109,7 @@ class FileTransferDialog extends StatelessWidget {
           isVideo: ready.mimeType.startsWith('video/'),
         );
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(AppLocalizations.of(context).savedToPhotos)),
-          );
+          AppToast.of(context).show(AppLocalizations.of(context).savedToPhotos);
         }
       } else if (shareFile != null) {
         await shareFile!(params);

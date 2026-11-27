@@ -42,6 +42,7 @@ import 'bridge_update_banner.dart';
 import 'macos_native_app_banner.dart';
 import 'session_reconnect_banner.dart';
 import 'support_banner.dart';
+import '../../../widgets/app_toast.dart';
 
 class _ProjectSessionGroup {
   final String groupKey;
@@ -1825,12 +1826,8 @@ class _ProjectRecentSessionHeader extends StatelessWidget {
       case 'copy_path':
         await Clipboard.setData(ClipboardData(text: projectPath));
         if (!context.mounted) return;
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          SnackBar(
-            content: Text(l.copiedToClipboard),
-            duration: const Duration(seconds: 2),
-          ),
-        );
+        AppToast.maybeOf(context)
+            ?.show(l.copiedToClipboard, duration: const Duration(seconds: 2));
     }
   }
 }

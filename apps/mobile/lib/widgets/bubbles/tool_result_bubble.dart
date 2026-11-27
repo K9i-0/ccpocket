@@ -19,6 +19,7 @@ import '../../utils/tool_categories.dart';
 import '../google_search_text_selection.dart';
 import 'image_preview.dart';
 import 'inline_edit_diff.dart';
+import '../app_toast.dart';
 
 /// Three-level expansion state for tool result content.
 enum ToolResultExpansion { collapsed, preview, expanded }
@@ -223,11 +224,9 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
     final content = widget.message.content;
     if (content.isEmpty) return;
     Clipboard.setData(ClipboardData(text: content));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(AppLocalizations.of(context).copiedToClipboard),
-        duration: const Duration(seconds: 1),
-      ),
+    AppToast.of(context).show(
+      AppLocalizations.of(context).copiedToClipboard,
+      duration: const Duration(seconds: 1),
     );
   }
 

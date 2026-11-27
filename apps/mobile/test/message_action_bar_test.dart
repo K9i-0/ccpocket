@@ -75,7 +75,7 @@ void main() {
       expect(find.byIcon(Icons.share), findsOneWidget);
     });
 
-    testWidgets('copy button copies text and shows snackbar', (tester) async {
+    testWidgets('copy button copies text and shows a toast', (tester) async {
       final captured = <String?>[];
       _mockClipboard(tester, captured);
 

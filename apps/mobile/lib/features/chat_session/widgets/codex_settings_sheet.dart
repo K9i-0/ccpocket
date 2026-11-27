@@ -6,6 +6,7 @@ import '../../../models/messages.dart';
 import '../../../models/model_picker_style.dart';
 import '../../../widgets/codex_effort_slider.dart';
 import '../../../widgets/model_picker.dart';
+import '../../../widgets/app_toast.dart';
 
 class CodexSettingsSheet extends StatefulWidget {
   final List<String> models;
@@ -77,9 +78,7 @@ class _CodexSettingsSheetState extends State<CodexSettingsSheet> {
 
   void _selectSpeed(CodexSpeed speed) {
     if (!_availableSpeeds.contains(speed)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(codexSpeedUnavailableMessage(speed))),
-      );
+      AppToast.of(context).show(codexSpeedUnavailableMessage(speed));
       return;
     }
     widget.onSpeedChanged(speed);
@@ -103,11 +102,8 @@ class _CodexSettingsSheetState extends State<CodexSettingsSheet> {
         widget.onModelChanged(model, nextEffort);
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Choose a supported speed before changing model.'),
-        ),
-      );
+      AppToast.of(context)
+          .show('Choose a supported speed before changing model.');
       return;
     }
     widget.onModelChanged(model, nextEffort);

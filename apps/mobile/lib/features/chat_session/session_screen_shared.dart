@@ -24,6 +24,7 @@ import '../../widgets/rename_session_dialog.dart';
 import '../../widgets/workspace_pane_chrome.dart';
 import 'state/chat_session_state.dart';
 import '../git/state/git_status_cubit.dart';
+import '../../widgets/app_toast.dart';
 
 class SessionNoopListenable implements Listenable {
   const SessionNoopListenable();
@@ -298,8 +299,7 @@ Future<void> openSessionInTerminal(
 
   if (!launched && context.mounted) {
     final l = AppLocalizations.of(context);
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(l.terminalAppNotInstalled)));
+    AppToast.of(context).show(l.terminalAppNotInstalled);
   }
 }
 

@@ -22,6 +22,7 @@ import 'widgets/settings_category_body.dart';
 import 'widgets/settings_home.dart';
 import 'widgets/settings_tiles.dart';
 import 'widgets/settings_visibility_builder.dart';
+import '../../widgets/app_toast.dart';
 
 /// Width at which settings switches to a category list + detail layout.
 const double kSettingsTwoPaneBreakpoint = 680;
@@ -353,7 +354,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final cubit = context.read<MachineManagerCubit>();
     final bridge = context.read<BridgeService>();
     final settingsCubit = context.read<SettingsCubit>();
-    final messenger = ScaffoldMessenger.of(context);
+    final messenger = AppToast.of(context);
     final l = AppLocalizations.of(context);
 
     String? password;
@@ -368,7 +369,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (!mounted) return;
 
-    messenger.showSnackBar(SnackBar(content: Text(l.bridgeUpdateStarted)));
+    messenger.show(l.bridgeUpdateStarted);
 
     final isActiveMachine =
         settingsCubit.state.activeMachineId == machine.machine.id;
@@ -396,7 +397,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final message = success
         ? l.bridgeUpdateReconnectHint
         : cubit.state.error ?? l.failedToUpdateServer;
-    messenger.showSnackBar(SnackBar(content: Text(message)));
+    messenger.show(message);
   }
 
   Future<String?> _promptForPassword(String machineName) async {

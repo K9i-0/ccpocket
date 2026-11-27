@@ -10,6 +10,7 @@ import '../../theme/app_theme.dart';
 import '../../theme/swarm_colors.dart';
 import '../markdown/ccpocket_markdown.dart';
 import '../workspace_pane_chrome.dart';
+import '../app_toast.dart';
 
 /// Tool name the Bridge uses for a post on an Antigravity swarm's board.
 const swarmPostToolName = 'SwarmPost';
@@ -211,11 +212,9 @@ class _SwarmPostCardState extends State<SwarmPostCard> {
 
   void _copyText(String text) {
     Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(AppLocalizations.of(context).copied),
-        duration: const Duration(seconds: 1),
-      ),
+    AppToast.of(context).show(
+      AppLocalizations.of(context).copied,
+      duration: const Duration(seconds: 1),
     );
   }
 
@@ -684,12 +683,8 @@ class _SwarmPostDetailSheet extends StatelessWidget {
                   tooltip: l.copy,
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: summary.fullText));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(l.copied),
-                        duration: const Duration(seconds: 1),
-                      ),
-                    );
+                    AppToast.of(context)
+                        .show(l.copied, duration: const Duration(seconds: 1));
                   },
                 ),
               ],

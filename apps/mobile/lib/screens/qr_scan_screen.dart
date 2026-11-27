@@ -5,6 +5,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../services/connection_url_parser.dart';
 import '../utils/platform_helper.dart';
+import '../widgets/app_toast.dart';
 
 @RoutePage()
 class QrScanScreen extends StatefulWidget {
@@ -50,11 +51,9 @@ class _QrScanScreenState extends State<QrScanScreen> {
     }
 
     // Invalid QR — show error but keep scanning
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Not a valid CC Pocket connection QR code'),
-        duration: Duration(seconds: 2),
-      ),
+    AppToast.of(context).show(
+      'Not a valid CC Pocket connection QR code',
+      duration: Duration(seconds: 2),
     );
   }
 

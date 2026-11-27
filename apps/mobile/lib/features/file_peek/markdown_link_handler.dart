@@ -13,6 +13,7 @@ import 'package:markdown_kit/markdown_kit.dart';
 import '../../l10n/app_localizations.dart';
 import '../../theme/markdown_style.dart';
 import 'file_path_syntax.dart';
+import '../../widgets/app_toast.dart';
 
 enum MarkdownLinkTargetKind { external, file, unsupported }
 
@@ -174,23 +175,18 @@ void _showLinkError(
       ? l10n.markdownFileUnavailable
       : l10n.markdownLinkOpenFailed;
 
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
-        content: Text(message),
-        action: destination.isEmpty
-            ? null
-            : SnackBarAction(
-                label: l10n.copy,
-                onPressed: () {
-                  unawaited(
-                    Clipboard.setData(ClipboardData(text: destination)),
-                  );
-                },
-              ),
-      ),
-    );
+  AppToast.of(context).show(
+    message,
+    duration: const Duration(seconds: 4),
+    action: destination.isEmpty
+        ? null
+        : AppToastAction(
+            label: l10n.copy,
+            onPressed: () {
+              unawaited(Clipboard.setData(ClipboardData(text: destination)));
+            },
+          ),
+  );
 }
 
 bool _matchesKnownPath(String path, Set<String> knownPathSuffixes) {

@@ -71,6 +71,7 @@ import 'widgets/codex_rewind_dialog.dart';
 import 'widgets/tool_suggestion_card.dart';
 import '../chat_session/session_screen_shared.dart';
 import '../chat_session/session_screen_hooks.dart';
+import '../../widgets/app_toast.dart';
 
 const _fileListRefreshToolNames = {
   'Edit',
@@ -311,8 +312,7 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
     } else {
       context.router.maybePop();
     }
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(errorText)));
+    AppToast.of(context).show(errorText);
   }
 
   void _onPendingSessionCreated() {
@@ -917,8 +917,7 @@ class _CodexChatBody extends HookWidget {
           (uri.scheme == 'https' || uri.scheme == 'http') &&
           await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!launched && context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(l.toolSuggestionOpenFailed)));
+        AppToast.of(context).show(l.toolSuggestionOpenFailed);
       }
     }
 
@@ -1718,8 +1717,7 @@ Future<void> _forkCodexFromAssistant(
     message,
   );
   if (targetUuid == null) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(l.forkTargetNotFound)));
+    AppToast.of(context).show(l.forkTargetNotFound);
     return;
   }
 
@@ -1868,9 +1866,7 @@ Future<void> _copyCodexCliJoinCommand(
 ) async {
   await Clipboard.setData(ClipboardData(text: command));
   if (!context.mounted) return;
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('Codex CLI join command copied')),
-  );
+  AppToast.of(context).show('Codex CLI join command copied');
 }
 
 String? _extractPlanText(

@@ -31,6 +31,7 @@ import 'plan_card.dart';
 import 'swarm_post_card.dart';
 import 'thinking_bubble.dart';
 import 'todo_write_widget.dart';
+import '../app_toast.dart';
 
 const _imageGenerationToolName = 'ImageGeneration';
 
@@ -447,11 +448,9 @@ class _ToolUseTileState extends State<ToolUseTile> {
   void _copyContent() {
     final inputStr = const JsonEncoder.withIndent('  ').convert(widget.input);
     Clipboard.setData(ClipboardData(text: '${widget.name}\n$inputStr'));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(AppLocalizations.of(context).copied),
-        duration: const Duration(seconds: 1),
-      ),
+    AppToast.of(context).show(
+      AppLocalizations.of(context).copied,
+      duration: const Duration(seconds: 1),
     );
   }
 

@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../constants/app_constants.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../services/revenuecat_service.dart';
+import '../../widgets/app_toast.dart';
 
 @RoutePage()
 class SupporterScreen extends StatefulWidget {
@@ -371,7 +372,7 @@ class _SupportPackageGroup extends StatelessWidget {
                 : () async {
                     final result = await revenueCat.restorePurchases();
                     if (!context.mounted) return;
-                    _showResultSnackBar(context, result, isRestore: true);
+                    _showResultToast(context, result, isRestore: true);
                   },
             child: state.isRestoring
                 ? const SizedBox(
@@ -858,7 +859,7 @@ class _SupportPackageTile extends StatelessWidget {
                           package.id,
                         );
                         if (!context.mounted) return;
-                        _showResultSnackBar(context, result);
+                        _showResultToast(context, result);
                       },
                 child: isPurchasing
                     ? const SizedBox(
@@ -1091,13 +1092,13 @@ class _SupportPackageLeading extends StatelessWidget {
   }
 }
 
-void _showResultSnackBar(
+void _showResultToast(
   BuildContext context,
   SupportActionResult result, {
   bool isRestore = false,
 }) {
   final l = AppLocalizations.of(context);
-  final messenger = ScaffoldMessenger.of(context);
+  final messenger = AppToast.of(context);
   final text = switch (result.type) {
     SupportActionResultType.success when isRestore => l.supporterRestoreSuccess,
     SupportActionResultType.success => l.supporterPurchaseSuccess,
@@ -1110,7 +1111,7 @@ void _showResultSnackBar(
     ),
   };
 
-  messenger.showSnackBar(SnackBar(content: Text(text)));
+  messenger.show(text);
 }
 
 Future<void> _openSupporterDoc(BuildContext context) async {
@@ -1141,10 +1142,10 @@ Uri _privacyPolicyUri(BuildContext context) {
 
 Future<void> _openExternalSupportLink(BuildContext context, Uri uri) async {
   final l = AppLocalizations.of(context);
-  final messenger = ScaffoldMessenger.of(context);
+  final messenger = AppToast.of(context);
   final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
   if (!launched && context.mounted) {
-    messenger.showSnackBar(SnackBar(content: Text(l.supporterOpenLinkFailed)));
+    messenger.show(l.supporterOpenLinkFailed);
   }
 }
 

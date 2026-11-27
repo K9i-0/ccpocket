@@ -1100,7 +1100,7 @@ void main() {
   });
 
   group('showCheckForUpdatesDialog', () {
-    testWidgets('shows up-to-date dialog without SnackBar', (tester) async {
+    testWidgets('shows up-to-date dialog without a toast', (tester) async {
       await tester.pumpWidget(
         _wrapWithApp(
           Builder(
@@ -1122,7 +1122,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text("You're up to date"), findsOneWidget);
-      expect(find.byType(SnackBar), findsNothing);
+      expect(find.byKey(const ValueKey('app_toast')), findsNothing);
 
       await tester.tap(
         find.byKey(const ValueKey('check_for_updates_ok_button')),
@@ -1170,7 +1170,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('v1.182.0 → v1.183.0'), findsOneWidget);
-      expect(find.byType(SnackBar), findsNothing);
+      expect(find.byKey(const ValueKey('app_toast')), findsNothing);
 
       await tester.tap(
         find.byKey(const ValueKey('check_for_updates_install_button')),

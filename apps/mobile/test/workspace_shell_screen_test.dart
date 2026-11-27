@@ -667,10 +667,7 @@ void main() {
       findsOneWidget,
     );
 
-    final messenger = tester.state<ScaffoldMessengerState>(
-      find.byType(ScaffoldMessenger),
-    );
-    messenger.hideCurrentSnackBar();
+    await tester.tap(find.byKey(const ValueKey('app_toast')));
     await tester.pumpAndSettle();
     bridge.emitMessage(
       ErrorMessage(
@@ -787,10 +784,7 @@ void main() {
     await tester.pump();
     expect(find.text(pathNotAllowed), findsOneWidget);
 
-    final messenger = tester.state<ScaffoldMessengerState>(
-      find.byType(ScaffoldMessenger),
-    );
-    messenger.hideCurrentSnackBar();
+    await tester.tap(find.byKey(const ValueKey('app_toast')));
     await tester.pumpAndSettle();
 
     // An unrelated path error with no failed resume pending stays silent.
@@ -817,7 +811,7 @@ void main() {
     );
     await tester.pump();
     expect(find.text(pathNotAllowed), findsOneWidget);
-    messenger.hideCurrentSnackBar();
+    await tester.tap(find.byKey(const ValueKey('app_toast')));
     await tester.pumpAndSettle();
 
     // Other resume failures show the Bridge's own message.

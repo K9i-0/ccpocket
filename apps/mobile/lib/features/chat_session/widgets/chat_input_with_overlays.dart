@@ -48,6 +48,7 @@ import '../../../widgets/slash_command_sheet.dart'
 import '../state/chat_session_cubit.dart';
 import 'queued_input_panel.dart';
 import 'floating_composer_layout.dart';
+import '../../../widgets/app_toast.dart';
 
 enum _CompletionOverlay { slash, dollar, file }
 
@@ -713,13 +714,9 @@ class ChatInputWithOverlays extends HookWidget {
         return;
       }
       const maxImages = 5;
-      void showImageLimit() => ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            AppLocalizations.of(context).imageLimitReached(maxImages),
-          ),
-        ),
-      );
+      void showImageLimit() =>
+          AppToast.of(context)
+              .show(AppLocalizations.of(context).imageLimitReached(maxImages));
       if (imageIndex == null && attachedImages.value.length >= maxImages) {
         showImageLimit();
         return;
@@ -836,26 +833,16 @@ class ChatInputWithOverlays extends HookWidget {
               latest != null &&
               media.modifiedAt != latest;
         })) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                AppLocalizations.of(context).mediaFeedbackSourceChanged,
-              ),
-            ),
-          );
+          AppToast.of(context)
+              .show(AppLocalizations.of(context).mediaFeedbackSourceChanged);
           return;
         }
         try {
           prepared = await feedbackImages(feedbackSnapshot, images);
         } catch (_) {
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  AppLocalizations.of(context).mediaFeedbackSendError,
-                ),
-              ),
-            );
+            AppToast.of(context)
+                .show(AppLocalizations.of(context).mediaFeedbackSendError);
           }
           return;
         }
@@ -948,13 +935,8 @@ class ChatInputWithOverlays extends HookWidget {
 
       if (remaining <= 0) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                AppLocalizations.of(context).imageLimitReached(maxImages),
-              ),
-            ),
-          );
+          AppToast.of(context)
+              .show(AppLocalizations.of(context).imageLimitReached(maxImages));
         }
         return;
       }
@@ -988,15 +970,10 @@ class ChatInputWithOverlays extends HookWidget {
         saveAttachments();
 
         if (truncated) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                AppLocalizations.of(context).imageLimitTruncated(
-                  maxImages,
-                  picked.length - filesToAdd.length,
-                ),
-              ),
-            ),
+          AppToast.of(context).show(
+            AppLocalizations.of(
+              context,
+            ).imageLimitTruncated(maxImages, picked.length - filesToAdd.length),
           );
         }
       }
@@ -1005,11 +982,8 @@ class ChatInputWithOverlays extends HookWidget {
     void addNativePastedImage(Uint8List bytes, String mimeType) {
       if (!context.mounted || activeSessionId.value != sessionId) return;
       if (attachedImages.value.length >= 5) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(AppLocalizations.of(context).imageLimitReached(5)),
-          ),
-        );
+        AppToast.of(context)
+            .show(AppLocalizations.of(context).imageLimitReached(5));
         return;
       }
       addImageBytes(bytes, mimeType);
@@ -1019,13 +993,8 @@ class ChatInputWithOverlays extends HookWidget {
       const maxImages = 5;
       if (attachedImages.value.length >= maxImages) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                AppLocalizations.of(context).imageLimitReached(maxImages),
-              ),
-            ),
-          );
+          AppToast.of(context)
+              .show(AppLocalizations.of(context).imageLimitReached(maxImages));
         }
         return;
       }
@@ -1050,11 +1019,8 @@ class ChatInputWithOverlays extends HookWidget {
       final clipboard = ClipboardImageService.instance;
       if (!clipboard.isAvailable) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(AppLocalizations.of(context).clipboardNotAvailable),
-            ),
-          );
+          AppToast.of(context)
+              .show(AppLocalizations.of(context).clipboardNotAvailable);
         }
         return;
       }
@@ -1070,27 +1036,20 @@ class ChatInputWithOverlays extends HookWidget {
 
         // No image found in clipboard
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(AppLocalizations.of(context).noImageInClipboard),
-            ),
-          );
+          AppToast.of(context)
+              .show(AppLocalizations.of(context).noImageInClipboard);
         }
       } on PlatformException catch (e) {
         if (context.mounted) {
           final message = e.code == 'image_load_failed'
               ? AppLocalizations.of(context).failedToLoadImage
               : AppLocalizations.of(context).failedToReadClipboard;
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text(message)));
+          AppToast.of(context).show(message);
         }
       } catch (_) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(AppLocalizations.of(context).failedToReadClipboard),
-            ),
-          );
+          AppToast.of(context)
+              .show(AppLocalizations.of(context).failedToReadClipboard);
         }
       }
     }

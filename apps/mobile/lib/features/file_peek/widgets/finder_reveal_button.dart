@@ -5,6 +5,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../services/bridge_service.dart';
 import '../state/finder_reveal_cubit.dart';
 import '../state/finder_reveal_state.dart';
+import '../../../widgets/app_toast.dart';
 
 class FinderRevealButton extends StatelessWidget {
   final BridgeService bridge;
@@ -31,8 +32,7 @@ class FinderRevealButton extends StatelessWidget {
             'bridge_update_required' => l10n.finderRevealUpdateBridge,
             _ => l10n.finderRevealFailed,
           };
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text(message)));
+          AppToast.of(context).show(message);
         },
         builder: (context, state) => IconButton(
           key: const ValueKey('file_peek_reveal_finder_button'),

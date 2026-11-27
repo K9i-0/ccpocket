@@ -66,6 +66,7 @@ import 'widgets/rewind_message_list_sheet.dart' show UserMessageHistorySheet;
 import 'widgets/usage_summary_bar.dart';
 import '../chat_session/session_screen_shared.dart';
 import '../chat_session/session_screen_hooks.dart';
+import '../../widgets/app_toast.dart';
 
 const _fileListRefreshToolNames = {
   'Edit',
@@ -304,8 +305,7 @@ class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
     } else {
       context.router.maybePop();
     }
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(errorText)));
+    AppToast.of(context).show(errorText);
   }
 
   void _onPendingSessionCreated() {
@@ -1767,9 +1767,7 @@ Future<void> _forkClaudeFromAssistant(
   final cubit = context.read<ChatSessionCubit>();
   final targetUuid = message.messageUuid;
   if (targetUuid == null || targetUuid.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(AppLocalizations.of(context).forkTargetNotFound)),
-    );
+    AppToast.of(context).show(AppLocalizations.of(context).forkTargetNotFound);
     return;
   }
   final confirmed = await confirmForkConversation(context);

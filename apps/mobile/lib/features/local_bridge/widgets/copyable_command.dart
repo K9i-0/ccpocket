@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../../../widgets/app_toast.dart';
 
 /// A shell command in monospace with a copy button.
 class CopyableCommand extends StatelessWidget {
@@ -13,12 +14,12 @@ class CopyableCommand extends StatelessWidget {
   final String? label;
 
   Future<void> _copy(BuildContext context) async {
-    final messenger = ScaffoldMessenger.maybeOf(context);
+    final messenger = AppToast.maybeOf(context);
     final copied = AppLocalizations.of(context).copied;
     await Clipboard.setData(ClipboardData(text: command));
     messenger
-      ?..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(copied)));
+      ?..hide()
+      ..show(copied);
   }
 
   @override

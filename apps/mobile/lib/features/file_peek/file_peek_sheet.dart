@@ -30,6 +30,7 @@ import 'widgets/finder_reveal_button.dart';
 import '../../widgets/google_search_text_selection.dart';
 import '../../widgets/markdown/ccpocket_markdown.dart';
 import '../../widgets/zoomable_image_viewer.dart';
+import '../../widgets/app_toast.dart';
 
 /// Resolves a potentially partial file path against the project's file list,
 /// then shows the file peek sheet.
@@ -402,11 +403,9 @@ class FilePeekContentState extends State<FilePeekContent> {
   void _copyPath() {
     Clipboard.setData(ClipboardData(text: '@${widget.filePath}'));
     HapticFeedback.lightImpact();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(AppLocalizations.of(context).copied),
-        duration: const Duration(seconds: 1),
-      ),
+    AppToast.of(context).show(
+      AppLocalizations.of(context).copied,
+      duration: const Duration(seconds: 1),
     );
   }
 

@@ -20,6 +20,7 @@ import 'widgets/local_bridge_settings_section.dart';
 import 'widgets/local_bridge_status_card.dart';
 import 'widgets/local_bridge_tools_card.dart';
 import 'widgets/local_bridge_unavailable_view.dart';
+import '../../widgets/app_toast.dart';
 
 /// Opens [LocalBridgeScreen] on top of the current route.
 Future<void> openLocalBridgeScreen(BuildContext context) => Navigator.of(
@@ -110,9 +111,9 @@ class LocalBridgeView extends StatelessWidget {
       LocalBridgeFailure.notRunning => l.localBridgeRestartFailed,
       _ => l.localBridgeActionFailed,
     };
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    AppToast.of(context)
+      ..hide()
+      ..show(message);
     context.read<LocalBridgeCubit>().clearActionFailure();
   }
 
@@ -356,7 +357,7 @@ class LocalBridgeReadyBody extends StatelessWidget {
   Future<void> _confirmRotateKey(BuildContext context) async {
     final l = AppLocalizations.of(context);
     final cubit = context.read<LocalBridgeCubit>();
-    final messenger = ScaffoldMessenger.of(context);
+    final messenger = AppToast.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -377,9 +378,7 @@ class LocalBridgeReadyBody extends StatelessWidget {
     );
     if (confirmed != true) return;
     if (await cubit.rotateApiKey()) {
-      messenger.showSnackBar(
-        SnackBar(content: Text(l.localBridgeRotateKeyDone)),
-      );
+      messenger.show(l.localBridgeRotateKeyDone);
     }
   }
 

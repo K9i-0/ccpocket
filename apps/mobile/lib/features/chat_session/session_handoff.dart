@@ -12,6 +12,7 @@ import '../session_list/services/session_start_defaults_store.dart';
 import '../session_list/session_list_screen.dart';
 import '../session_list/workspace_shell_screen.dart';
 import '../settings/state/settings_cubit.dart';
+import '../../widgets/app_toast.dart';
 
 /// Session handoff: stop a session and continue its task in another agent.
 /// The Bridge does the work (`handoff_session`); see docs/session-handoff.md.
@@ -103,8 +104,7 @@ Future<void> handoffSessionFromScreen(
     ),
   );
   final l = AppLocalizations.of(context);
-  ScaffoldMessenger.of(context)
-      .showSnackBar(SnackBar(content: Text(l.handoffStarted(target.label))));
+  AppToast.of(context).show(l.handoffStarted(target.label));
 }
 
 /// The `start` message a new [target] session would be started with, from

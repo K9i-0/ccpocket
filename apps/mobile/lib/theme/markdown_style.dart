@@ -95,6 +95,7 @@ import '../core/logger.dart';
 import '../l10n/app_localizations.dart';
 import 'app_theme.dart';
 import 'code_text_style.dart';
+import '../widgets/app_toast.dart';
 
 final Highlight _reHighlight = _createReHighlight();
 final markdownPerformanceProbe = MarkdownPerformanceProbe();
@@ -567,15 +568,10 @@ class _CodeBlockToolbarState extends State<_CodeBlockToolbar> {
 void _copyCodeBlock(BuildContext context, String source) {
   Clipboard.setData(ClipboardData(text: source));
   HapticFeedback.lightImpact();
-  final messenger = ScaffoldMessenger.maybeOf(context);
+  final messenger = AppToast.maybeOf(context);
   if (messenger != null) {
     final l = Localizations.of<AppLocalizations>(context, AppLocalizations);
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(l?.copied ?? 'Copied'),
-        duration: const Duration(seconds: 1),
-      ),
-    );
+    messenger.show(l?.copied ?? 'Copied', duration: const Duration(seconds: 1));
   }
 }
 

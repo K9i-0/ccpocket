@@ -15,6 +15,7 @@ import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/structured_error_inference.dart';
 import '../google_search_text_selection.dart';
+import '../app_toast.dart';
 
 /// Maps errorCode to a localized title for the error bubble header.
 String? _errorTitle(String? errorCode, AppLocalizations l) {
@@ -285,12 +286,8 @@ class ErrorBubble extends StatelessWidget {
       return GestureDetector(
         onTap: () {
           Clipboard.setData(ClipboardData(text: command));
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Copied "$command"'),
-              duration: const Duration(seconds: 2),
-            ),
-          );
+          AppToast.of(context)
+              .show('Copied "$command"', duration: const Duration(seconds: 2));
         },
         child: child,
       );
@@ -471,12 +468,8 @@ class _ClaudeOAuthOptInCard extends StatelessWidget {
                 text: 'https://console.anthropic.com/settings/keys',
               ),
             );
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Copied URL'),
-                duration: Duration(seconds: 2),
-              ),
-            );
+            AppToast.of(context)
+                .show('Copied URL', duration: Duration(seconds: 2));
           },
           child: Text(
             'console.anthropic.com/settings/keys',
@@ -591,12 +584,8 @@ class _CommandChip extends StatelessWidget {
     return GestureDetector(
       onTap: () {
         Clipboard.setData(ClipboardData(text: copyValue));
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Copied "$copyValue"'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
+        AppToast.of(context)
+            .show('Copied "$copyValue"', duration: const Duration(seconds: 2));
       },
       child: Container(
         width: double.infinity,

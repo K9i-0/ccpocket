@@ -14,6 +14,7 @@ import '../../utils/platform_helper.dart';
 import '../adaptive_context_menu.dart';
 import '../markdown/ccpocket_markdown.dart';
 import 'handoff_bubble.dart';
+import '../app_toast.dart';
 
 enum _UserMessageAction { rewind, restoreFiles }
 
@@ -252,12 +253,8 @@ class _UserBubbleState extends State<UserBubble> {
     switch (action) {
       case 'copy':
         _copyText();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l.copied),
-            duration: const Duration(seconds: 1),
-          ),
-        );
+        AppToast.of(context)
+            .show(l.copied, duration: const Duration(seconds: 1));
       case 'edit':
         onEdit?.call();
       case 'rewind':

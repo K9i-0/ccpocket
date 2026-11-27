@@ -29,6 +29,7 @@ import 'new_session_sheet/project_widgets.dart';
 import 'new_session_sheet/writable_roots.dart';
 import 'new_session_sheet/options_section.dart';
 import 'new_session_sheet/sheet_chrome.dart';
+import 'app_toast.dart';
 export 'new_session_sheet/new_session_params.dart';
 
 /// Shows a modal bottom sheet for creating a new Claude Code session.
@@ -1330,9 +1331,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   void _start() {
     if (widget.multiProjectOnly && _selectedProjectId == null) return;
     if (_provider == Provider.codex && !_isCodexSpeedAvailable) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(codexSpeedUnavailableMessage(_codexSpeed))),
-      );
+      AppToast.of(context).show(codexSpeedUnavailableMessage(_codexSpeed));
       return;
     }
     // Run inline validation

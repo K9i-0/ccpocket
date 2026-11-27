@@ -7,6 +7,7 @@ import '../state/settings_cubit.dart';
 import '../state/settings_state.dart';
 import '../widgets/notification_tiles.dart';
 import '../widgets/settings_tiles.dart';
+import '../../../widgets/app_toast.dart';
 
 class NotificationSettingsSection extends StatelessWidget {
   const NotificationSettingsSection({
@@ -48,15 +49,9 @@ class NotificationSettingsSection extends StatelessWidget {
                 final isSuccess =
                     status == FcmStatusKey.enabled ||
                     status == FcmStatusKey.enabledPending;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      isSuccess
-                          ? l.notificationLanguageUpdated
-                          : l.fcmTokenFailed,
-                    ),
-                    duration: const Duration(seconds: 2),
-                  ),
+                AppToast.of(context).show(
+                  isSuccess ? l.notificationLanguageUpdated : l.fcmTokenFailed,
+                  duration: const Duration(seconds: 2),
                 );
               },
             ),

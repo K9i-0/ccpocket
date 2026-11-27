@@ -58,47 +58,46 @@ void main() {
     expect(find.text('Resuming session...'), findsOneWidget);
   });
 
-  testWidgets(
-    'an unavailable link returns to the origin screen with a snackbar',
-    (tester) async {
-      final bridge = _SessionLinkBridge();
-      addTearDown(bridge.dispose);
-      final router = _TestRouter();
-      await tester.pumpWidget(
-        RepositoryProvider<BridgeService>.value(
-          value: bridge,
-          child: MaterialApp.router(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            routerConfig: router.config(),
-          ),
+  testWidgets('an unavailable link returns to the origin screen with a toast', (
+    tester,
+  ) async {
+    final bridge = _SessionLinkBridge();
+    addTearDown(bridge.dispose);
+    final router = _TestRouter();
+    await tester.pumpWidget(
+      RepositoryProvider<BridgeService>.value(
+        value: bridge,
+        child: MaterialApp.router(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          routerConfig: router.config(),
         ),
-      );
-      await tester.pumpAndSettle();
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      unawaited(router.push(SessionLinkRoute(sessionId: 'stopped-session')));
-      await tester.pump();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
+    unawaited(router.push(SessionLinkRoute(sessionId: 'stopped-session')));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
 
-      // The origin screen stays visible underneath while the link resolves.
-      expect(find.text('Finding session...'), findsOneWidget);
-      expect(find.text('origin screen'), findsOneWidget);
+    // The origin screen stays visible underneath while the link resolves.
+    expect(find.text('Finding session...'), findsOneWidget);
+    expect(find.text('origin screen'), findsOneWidget);
 
-      bridge.resolution.complete(const SessionLinkResolveResult.unavailable());
-      await tester.pumpAndSettle();
+    bridge.resolution.complete(const SessionLinkResolveResult.unavailable());
+    await tester.pumpAndSettle();
 
-      expect(router.stack, hasLength(1));
-      expect(router.current.name, 'OriginRoute');
-      expect(find.text('origin screen'), findsOneWidget);
-      expect(find.text('Finding session...'), findsNothing);
-      expect(find.text('Session unavailable'), findsNothing);
-      expect(
-        find.byKey(const ValueKey('session_link_unavailable_snackbar')),
-        findsOneWidget,
-      );
-    },
-  );
+    expect(router.stack, hasLength(1));
+    expect(router.current.name, 'OriginRoute');
+    expect(find.text('origin screen'), findsOneWidget);
+    expect(find.text('Finding session...'), findsNothing);
+    expect(find.text('Session unavailable'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('session_link_unavailable_toast')),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('a failure is not reported once another link has been opened', (
     tester,
@@ -134,7 +133,7 @@ void main() {
 
     expect(find.text('Finding session...'), findsOneWidget);
     expect(
-      find.byKey(const ValueKey('session_link_unavailable_snackbar')),
+      find.byKey(const ValueKey('session_link_unavailable_toast')),
       findsNothing,
     );
 
@@ -143,7 +142,7 @@ void main() {
 
     expect(router.stack, hasLength(1));
     expect(
-      find.byKey(const ValueKey('session_link_unavailable_snackbar')),
+      find.byKey(const ValueKey('session_link_unavailable_toast')),
       findsOneWidget,
     );
   });

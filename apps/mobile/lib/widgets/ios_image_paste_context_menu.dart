@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 import '../l10n/app_localizations.dart';
+import 'app_toast.dart';
 
 /// Hosts the system edit menu with an image action identified as native paste.
 /// Unlike a generic Flutter custom menu callback, its native action captures
@@ -69,11 +70,8 @@ class _IOSImagePasteContextMenuState extends State<IOSImagePasteContextMenu> {
       if (mounted) setState(() => _useFallback = true);
     } on PlatformException {
       if (!mounted || ModalRoute.of(context)?.isCurrent == false) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppLocalizations.of(context).failedToReadClipboard),
-        ),
-      );
+      AppToast.of(context)
+          .show(AppLocalizations.of(context).failedToReadClipboard);
       _hideToolbar();
     }
   }

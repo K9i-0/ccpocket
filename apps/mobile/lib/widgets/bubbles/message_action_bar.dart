@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../l10n/app_localizations.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
+import '../app_toast.dart';
 
 /// Gemini-style action bar shown below assistant messages.
 class MessageActionBar extends StatefulWidget {
@@ -45,11 +46,9 @@ class _MessageActionBarState extends State<MessageActionBar> {
     _copiedResetTimer = Timer(const Duration(milliseconds: 1500), () {
       if (mounted) setState(() => _copied = false);
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(AppLocalizations.of(context).copied),
-        duration: const Duration(seconds: 1),
-      ),
+    AppToast.of(context).show(
+      AppLocalizations.of(context).copied,
+      duration: const Duration(seconds: 1),
     );
   }
 

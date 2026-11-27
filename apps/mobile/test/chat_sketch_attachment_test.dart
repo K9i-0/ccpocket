@@ -315,7 +315,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('attach_sketch')));
     await tester.pumpAndSettle();
     expect(find.byType(SketchScreen), findsNothing);
-    expect(find.byType(SnackBar), findsOneWidget);
+    expect(find.byKey(const ValueKey('app_toast')), findsOneWidget);
     expect(composer(tester).attachedImages, hasLength(5));
     expect(drafts.getSketchDocuments('session-a'), {0: _editedDocument});
   });

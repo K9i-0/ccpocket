@@ -6,6 +6,7 @@ import '../models/messages.dart';
 import '../services/bridge_service.dart';
 import '../theme/app_theme.dart';
 import 'workspace_pane_chrome.dart';
+import 'app_toast.dart';
 
 /// Shows a bottom sheet for taking screenshots of the macOS desktop or
 /// individual windows. Captured images are automatically saved to the gallery.
@@ -87,19 +88,12 @@ class _ScreenshotSheetContentState extends State<_ScreenshotSheetContent> {
       if (!mounted) return;
       setState(() => _capturing = false);
       // Capture references before pop (context may become invalid after pop)
-      final messenger = ScaffoldMessenger.of(context);
+      final messenger = AppToast.of(context);
       if (result.success) {
         Navigator.pop(context);
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Screenshot saved'),
-            duration: Duration(seconds: 2),
-          ),
-        );
+        messenger.show('Screenshot saved', duration: Duration(seconds: 2));
       } else {
-        messenger.showSnackBar(
-          SnackBar(content: Text(result.error ?? 'Screenshot failed')),
-        );
+        messenger.show(result.error ?? 'Screenshot failed');
       }
     });
   }

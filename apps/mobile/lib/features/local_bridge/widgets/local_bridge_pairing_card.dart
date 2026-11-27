@@ -5,6 +5,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../settings/widgets/settings_tiles.dart';
 import '../data/local_bridge_models.dart';
+import '../../../widgets/app_toast.dart';
 
 /// Pairing QR code for the addresses other devices can reach.
 ///
@@ -30,12 +31,12 @@ class _LocalBridgePairingCardState extends State<LocalBridgePairingCard> {
   bool _showQr = false;
 
   Future<void> _copy(String link) async {
-    final messenger = ScaffoldMessenger.maybeOf(context);
+    final messenger = AppToast.maybeOf(context);
     final copied = AppLocalizations.of(context).copied;
     await Clipboard.setData(ClipboardData(text: link));
     messenger
-      ?..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(copied)));
+      ?..hide()
+      ..show(copied);
   }
 
   @override

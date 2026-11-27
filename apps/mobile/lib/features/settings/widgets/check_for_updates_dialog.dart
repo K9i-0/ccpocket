@@ -8,7 +8,7 @@ import '../../../services/app_update_service.dart';
 import 'settings_tiles.dart';
 
 /// Shows a dialog that checks for app updates and presents the result without
-/// using a bottom SnackBar.
+/// using a toast.
 Future<void> showCheckForUpdatesDialog(
   BuildContext context, {
   Future<AppUpdateInfo?> Function()? checkForUpdates,

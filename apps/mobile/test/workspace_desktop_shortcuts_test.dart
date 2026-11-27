@@ -721,7 +721,7 @@ void main() {
           find.byKey(const ValueKey('check_for_updates_dialog')),
           findsOneWidget,
         );
-        expect(find.byType(SnackBar), findsNothing);
+        expect(find.byKey(const ValueKey('app_toast')), findsNothing);
         await tester.tap(
           find.byKey(const ValueKey('check_for_updates_ok_button')),
         );

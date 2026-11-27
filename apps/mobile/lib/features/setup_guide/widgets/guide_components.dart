@@ -9,6 +9,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
 import '../../../theme/app_theme.dart';
 import '../../../theme/provider_style.dart';
+import '../../../widgets/app_toast.dart';
 
 /// High-contrast surface and accent tokens for the setup guide in both light
 /// and dark themes. Avoids `tertiaryContainer` / `secondaryContainer` which
@@ -424,7 +425,7 @@ class _GuideCopyableBoxState extends State<GuideCopyableBox> {
   }
 
   Future<void> _handleCopy() async {
-    final messenger = ScaffoldMessenger.maybeOf(context);
+    final messenger = AppToast.maybeOf(context);
     final copiedMessage = AppLocalizations.of(context).copied;
     await Clipboard.setData(ClipboardData(text: widget.value));
     if (!mounted) return;
@@ -434,8 +435,8 @@ class _GuideCopyableBoxState extends State<GuideCopyableBox> {
       if (mounted) setState(() => _copied = false);
     });
     messenger
-      ?..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(copiedMessage)));
+      ?..hide()
+      ..show(copiedMessage);
   }
 
   Future<void> _handleShare(BuildContext buttonContext) async {

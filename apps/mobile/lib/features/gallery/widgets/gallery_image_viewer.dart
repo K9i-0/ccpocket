@@ -10,6 +10,7 @@ import '../../../widgets/cached_network_image.dart';
 import '../../../widgets/media_export_actions.dart';
 import '../../../widgets/workspace_pane_chrome.dart';
 import '../../../widgets/zoomable_image_viewer.dart';
+import '../../../widgets/app_toast.dart';
 
 const _kCacheMaxAge = Duration(days: 7);
 
@@ -95,11 +96,8 @@ class GalleryImageViewer extends HookWidget {
           currentPage.value = newList.length - 1;
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(AppLocalizations.of(context).failedToDeleteImage),
-          ),
-        );
+        AppToast.of(context)
+            .show(AppLocalizations.of(context).failedToDeleteImage);
       }
     }
 

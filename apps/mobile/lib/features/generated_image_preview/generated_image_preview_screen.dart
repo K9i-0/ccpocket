@@ -15,6 +15,7 @@ import '../../widgets/media_export_actions.dart';
 import 'generated_image_preview_item.dart';
 import 'widgets/generated_image_details_panel.dart';
 import 'widgets/generated_image_preview_page.dart';
+import '../../widgets/app_toast.dart';
 
 class GeneratedImagePreviewScreen extends StatefulWidget {
   final List<GeneratedImagePreviewItem> items;
@@ -136,8 +137,7 @@ class _GeneratedImagePreviewScreenState
   }
 
   void _showShareFailure(String message) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    AppToast.of(context).show(message);
   }
 
   KeyEventResult _handleKeyEvent(FocusNode _, KeyEvent event) {

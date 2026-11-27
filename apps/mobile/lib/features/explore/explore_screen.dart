@@ -17,6 +17,7 @@ import '../file_browser/state/file_browser_cubit.dart';
 import '../file_browser/state/file_browser_state.dart';
 import '../session_list/workspace_shell_screen.dart';
 import 'state/explore_state.dart';
+import '../../widgets/app_toast.dart';
 
 Future<ExploreScreenResult?> openExplorerScreen(
   BuildContext context, {
@@ -145,21 +146,18 @@ class _ExploreScreenState extends State<ExploreScreen> {
       final files = await openFiles();
       if (!mounted || files.isEmpty) return;
       if (files.length > maxUploadFileCount) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(l.fileUploadTooMany)));
+        AppToast.of(context).show(l.fileUploadTooMany);
         return;
       }
       final sizes = await Future.wait(files.map((file) => file.length()));
       if (!mounted) return;
       if (sizes.any((size) => size > maxUploadFileBytes)) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(l.fileUploadFileTooLarge)));
+        AppToast.of(context).show(l.fileUploadFileTooLarge);
         return;
       }
       if (sizes.fold<int>(0, (total, size) => total + size) >
           maxUploadTotalBytes) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(l.fileUploadTotalTooLarge)));
+        AppToast.of(context).show(l.fileUploadTotalTooLarge);
         return;
       }
       final uploadedPaths = await showProjectFileUploadDialog(
@@ -175,8 +173,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       context.read<BridgeService>().requestFileList(widget.projectPath);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l.fileUploadSelectionFailed)));
+      AppToast.of(context).show(l.fileUploadSelectionFailed);
     }
   }
 

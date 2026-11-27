@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/photo_library_service.dart';
+import 'app_toast.dart';
 
 /// Exports the original image, including images held only in memory.
 class MediaExportActions extends StatefulWidget {
@@ -69,9 +70,7 @@ class _MediaExportActionsState extends State<MediaExportActions> {
     }
   }
 
-  void _message(String message) =>
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(message)));
+  void _message(String message) => AppToast.of(context).show(message);
 
   @override
   Widget build(BuildContext context) {

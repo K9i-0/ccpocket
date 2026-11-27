@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../services/ios_clipboard_image_availability.dart';
+import '../../../widgets/app_toast.dart';
 
 class IOSImagePasteSheet extends StatelessWidget {
   const IOSImagePasteSheet({
@@ -93,11 +94,8 @@ class _IOSImagePasteButtonState extends State<IOSImagePasteButton> {
   }
 
   void _showError() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(AppLocalizations.of(context).failedToReadClipboard),
-      ),
-    );
+    AppToast.of(context)
+        .show(AppLocalizations.of(context).failedToReadClipboard);
   }
 
   @override

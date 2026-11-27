@@ -53,6 +53,7 @@ export 'services/session_resume_coordinator.dart'
     show CodexRecentResumeSettings, factualCodexResumeSettings;
 
 import 'services/session_resume_coordinator.dart';
+import '../../widgets/app_toast.dart';
 
 // ---- Testable helpers (top-level) ----
 
@@ -656,8 +657,7 @@ class _SessionListScreenState extends State<SessionListScreen>
             'path_not_allowed' => l.resumePathNotAllowed(msg.path ?? ''),
             _ => msg.message,
           };
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text(text)));
+          AppToast.of(context).show(text);
         }
         return;
       }
@@ -673,8 +673,7 @@ class _SessionListScreenState extends State<SessionListScreen>
             : (msg.error?.isNotEmpty == true
                   ? l.archiveFailedWithError(msg.error!)
                   : l.archiveFailed);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(text)));
+        AppToast.of(context).show(text);
       }
     });
     _deepLinkNotifier =
@@ -1337,11 +1336,8 @@ class _SessionListScreenState extends State<SessionListScreen>
       ),
     );
     if (isOffline) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppLocalizations.of(context).sessionQueuedForReconnect),
-        ),
-      );
+      AppToast.of(context)
+          .show(AppLocalizations.of(context).sessionQueuedForReconnect);
       return;
     }
     if (_hasPendingStart(bridge, result)) {
@@ -1758,8 +1754,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     if (action == 'copy_resume_command') {
       await Clipboard.setData(ClipboardData(text: buildResumeCommand(session)));
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l.resumeCommandCopied)));
+      AppToast.of(context).show(l.resumeCommandCopied);
       return;
     }
 
@@ -1799,9 +1794,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     setState(() {});
     final bridge = context.read<BridgeService>();
     bridge.requestRecentSessions(projectPath: bridge.currentProjectFilter);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(AppLocalizations.of(context).responseTimedOut)),
-    );
+    AppToast.of(context).show(AppLocalizations.of(context).responseTimedOut);
   }
 
   void _navigateToChat(
@@ -1887,19 +1880,13 @@ class _SessionListScreenState extends State<SessionListScreen>
       if (_pendingResumeRequestId == resumeRequestId) {
         _clearPendingResumeState();
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppLocalizations.of(context).resumeAlreadyQueued),
-        ),
-      );
+      AppToast.of(context)
+          .show(AppLocalizations.of(context).resumeAlreadyQueued);
       return;
     }
     if (!bridge.isConnected) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppLocalizations.of(context).resumeQueuedForReconnect),
-        ),
-      );
+      AppToast.of(context)
+          .show(AppLocalizations.of(context).resumeQueuedForReconnect);
     }
   }
 
@@ -1910,11 +1897,8 @@ class _SessionListScreenState extends State<SessionListScreen>
   ) {
     final bridge = context.read<BridgeService>();
     if (_isResumePending(bridge, session)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppLocalizations.of(context).resumeAlreadyQueued),
-        ),
-      );
+      AppToast.of(context)
+          .show(AppLocalizations.of(context).resumeAlreadyQueued);
       return;
     }
     final resumeProjectPath = session.resumeCwd ?? session.projectPath;
@@ -1939,13 +1923,8 @@ class _SessionListScreenState extends State<SessionListScreen>
         resumeRequestId: resumeRequestId,
       );
       if (!bridge.isConnected) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              AppLocalizations.of(context).resumeQueuedForReconnect,
-            ),
-          ),
-        );
+        AppToast.of(context)
+            .show(AppLocalizations.of(context).resumeQueuedForReconnect);
       }
       return;
     }
@@ -2020,11 +1999,8 @@ class _SessionListScreenState extends State<SessionListScreen>
       resumeRequestId: resumeRequestId,
     );
     if (!bridge.isConnected) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppLocalizations.of(context).resumeQueuedForReconnect),
-        ),
-      );
+      AppToast.of(context)
+          .show(AppLocalizations.of(context).resumeQueuedForReconnect);
     }
 
     // Persist per-session Claude settings for future resumes.
@@ -2792,8 +2768,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.toString())));
+        AppToast.of(context).show(e.toString());
       }
       return false;
     }
@@ -2910,13 +2885,10 @@ class _SessionListScreenState extends State<SessionListScreen>
     final success = await cubit.updateBridge(m.machine.id, password: password);
 
     if (success && mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l.bridgeServerUpdated)));
+      AppToast.of(context).show(l.bridgeServerUpdated);
     } else if (mounted) {
       final error = cubit.state.error;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error ?? l.failedToUpdateServer)));
+      AppToast.of(context).show(error ?? l.failedToUpdateServer);
     }
   }
 
@@ -2937,13 +2909,10 @@ class _SessionListScreenState extends State<SessionListScreen>
     final success = await cubit.startBridge(m.machine.id, password: password);
 
     if (success && mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l.bridgeServerStarted)));
+      AppToast.of(context).show(l.bridgeServerStarted);
     } else if (mounted) {
       final error = cubit.state.error;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error ?? l.failedToStartServer)));
+      AppToast.of(context).show(error ?? l.failedToStartServer);
     }
   }
 
@@ -2964,12 +2933,10 @@ class _SessionListScreenState extends State<SessionListScreen>
     final success = await cubit.stopBridge(m.machine.id, password: password);
 
     if (success && mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l.bridgeServerStopped)));
+      AppToast.of(context).show(l.bridgeServerStopped);
     } else if (mounted) {
       final error = cubit.state.error;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error ?? l.failedToStopServer)));
+      AppToast.of(context).show(error ?? l.failedToStopServer);
     }
   }
 
