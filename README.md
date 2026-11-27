@@ -7,7 +7,7 @@ step, and review the result. Pick up the same work on your tablet or Mac.
 
 [Explore CC Pocket](https://k9i-0.github.io/ccpocket/install/) · Free to use · Open source
 
-[日本語版 README](README.ja.md) | [简体中文版 README](README.zh-CN.md) | [한국어 README](README.ko.md)
+[日本語版 README](README.ja.md) | [简体中文版 README](README.zh-CN.md) | [한국어 README](README.ko.md) | [Türkçe README](README.tr.md)
 
 <p align="center">
   <img src="docs/images/screenshots.png" alt="CC Pocket screenshots" width="800">

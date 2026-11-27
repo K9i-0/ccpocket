@@ -7,7 +7,7 @@ Codex、Claude、Antigravityを、スマホのチャット感覚で。指示を�
 
 [CC Pocketを見る](https://k9i-0.github.io/ccpocket/install/?lang=ja) · 無料で利用 · オープンソース
 
-[English README](README.md) | [简体中文版 README](README.zh-CN.md) | [한국어 README](README.ko.md)
+[English README](README.md) | [简体中文版 README](README.zh-CN.md) | [한국어 README](README.ko.md) | [Türkçe README](README.tr.md)
 
 <p align="center">
   <img src="docs/images/screenshots-ja.png" alt="CC Pocket screenshots" width="800">
