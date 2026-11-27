@@ -282,6 +282,29 @@ class BridgeUpdateStatusTile extends StatelessWidget {
                       color: cs.onSurfaceVariant,
                     ),
                   ),
+                  if (note != null) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      key: const ValueKey('bridge_update_sheet_note'),
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          size: 18,
+                          color: cs.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            note,
+                            style: textTheme.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   for (final (index, step) in steps.indexed) ...[
                     if (index > 0) const SizedBox(height: 12),
@@ -307,29 +330,6 @@ class BridgeUpdateStatusTile extends StatelessWidget {
                           fontFamily: 'monospace',
                         ),
                       ),
-                    ),
-                  ],
-                  if (note != null) ...[
-                    const SizedBox(height: 16),
-                    Row(
-                      key: const ValueKey('bridge_update_sheet_note'),
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.info_outline,
-                          size: 18,
-                          color: cs.onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            note,
-                            style: textTheme.bodySmall?.copyWith(
-                              color: cs.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                      ],
                     ),
                   ],
                 ],

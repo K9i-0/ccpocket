@@ -253,10 +253,7 @@ class ConnectionSettingsSection extends StatelessWidget {
                   onUpdate: machineWithStatus == null
                       ? null
                       : () => onUpdateBridge(machineWithStatus),
-                  onOpenLocalBridge:
-                      visibility.isMacOS && isLoopbackBridgeUrl(bridge.lastUrl)
-                      ? openLocalBridge
-                      : null,
+                  onOpenLocalBridge: isLocalLoopback ? openLocalBridge : null,
                 ),
               ),
           ],

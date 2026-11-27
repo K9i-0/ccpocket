@@ -267,7 +267,11 @@ class _ConnectedStatus extends StatelessWidget {
                   Expanded(
                     child: Text(
                       updateStatus.updateFromDesktopApp
-                          ? l.bridgeUpdateFromDesktopApp
+                          ? (visibility.isMacOS &&
+                                    machine?.sshEnabled != true &&
+                                    isLoopbackBridgeUrl(bridge.lastUrl)
+                                ? l.bridgeUpdateRestartHere
+                                : l.bridgeUpdateFromDesktopApp)
                           : updateStatus.canShowSetupHelp
                           ? l.bridgeUpdateRequiresSetup
                           : l.bridgeUpdateAvailable,
