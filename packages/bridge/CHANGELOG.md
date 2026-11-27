@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.123.0] - 2026-11-27
+
+### Added
+
+- `/version` reports `managedBy`: `desktop-app` when the CC Pocket desktop app's launcher started the Bridge, otherwise `other`. Clients use it to explain how that Bridge is updated (restart it from the desktop app) instead of offering the SSH update, which only drives the `setup` service.
+
 ## [1.122.1] - 2026-11-27
 
 ### Fixed
