@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.123.1] - 2026-11-28
+
+### Fixed
+
+- Antigravity: an image generation is now marked as finished when its subagent reports back. Previously it was closed only when the agent named the image in its reply, so an agent that read the report and carried on left every image generation listed as running for the rest of the turn.
+
 ## [1.123.0] - 2026-11-27
 
 ### Added
