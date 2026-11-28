@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.191.0] - 2026-11-28
+
+### Changed
+
+- Notices: short messages such as "Copied" and error notices now appear as a small frosted pill under the app bar instead of a snackbar at the bottom, so they no longer cover the chat input, the approval bar or bottom sheets. They stay visible above sheets and dialogs, and a tap or an upward swipe dismisses them.
+
+### Fixed
+
+- Chat: tapping a file link in an answer that is still streaming now opens the file preview. It used to report that the file could not be previewed until the answer finished.
+- Bridge updates: after a Bridge is updated by restarting it, "Update available" now clears as soon as the app reconnects instead of staying until the next status check.
+- Bridge updates: in the desktop app that hosts the Bridge, an older Bridge that does not report how it was started is now pointed to "Bridge on this Mac" instead of the SSH setup message.
+
 ## [1.190.1] - 2026-11-27
 
 ### Changed
