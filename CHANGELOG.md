@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.191.1] - 2026-11-28
+
+### Fixed
+
+- Bridge on this Mac: restarting the Bridge within a few minutes of a new Bridge release no longer leaves it failing to start and then running in safe mode with the saved settings ignored (which, for example, turned Claude subscription login off until the next restart). The app now refreshes npm's package data and retries, and when the Bridge cannot be downloaded it says so instead of treating it as a crash.
+
 ## [1.191.0] - 2026-11-28
 
 ### Changed
