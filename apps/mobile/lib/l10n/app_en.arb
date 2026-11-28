@@ -1760,7 +1760,7 @@
   "localBridgeNodeTooOld": "Node.js {version} is too old. The Bridge starts by itself once Node.js is 22.19 or newer.",
   "localBridgePortInUse": "Port {port} is in use by another program.",
   "localBridgeStartFailed": "The Bridge did not start",
-  "localBridgeInstallFailed": "The Bridge could not be downloaded with npm. The app keeps retrying; check the network connection and the Bridge log.",
+  "localBridgeInstallFailed": "The Bridge could not be downloaded with npm. The app keeps retrying; check the network connection. Details are in ~/.ccpocket/logs/bridge.log.",
   "localBridgeSafeMode": "The saved settings kept the Bridge from starting, so it is running on defaults. Review the settings and restart.",
   "guideLocalBridgeTitle": "Run the Bridge\non this Mac",
   "guideLocalBridgeDescription": "The Bridge is a small server that connects your phone to the agents on this Mac. On macOS the app starts and manages it for you.",

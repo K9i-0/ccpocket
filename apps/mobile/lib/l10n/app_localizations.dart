@@ -8390,7 +8390,7 @@ abstract class AppLocalizations {
   /// No description provided for @localBridgeInstallFailed.
   ///
   /// In ja, this message translates to:
-  /// **'npm で Bridge をダウンロードできませんでした。自動で再試行します。ネットワーク接続と Bridge のログを確認してください。'**
+  /// **'npm で Bridge をダウンロードできませんでした。自動で再試行します。ネットワーク接続を確認してください。詳細は ~/.ccpocket/logs/bridge.log にあります。'**
   String get localBridgeInstallFailed;
 
   /// No description provided for @localBridgeSafeMode.

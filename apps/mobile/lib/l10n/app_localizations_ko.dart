@@ -4542,7 +4542,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get localBridgeInstallFailed =>
-      'npm으로 Bridge를 다운로드하지 못했습니다. 자동으로 다시 시도합니다. 네트워크 연결과 Bridge 로그를 확인하세요.';
+      'npm으로 Bridge를 다운로드하지 못했습니다. 자동으로 다시 시도합니다. 네트워크 연결을 확인하세요. 자세한 내용은 ~/.ccpocket/logs/bridge.log에 있습니다.';
 
   @override
   String get localBridgeSafeMode =>

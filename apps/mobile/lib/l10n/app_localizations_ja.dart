@@ -4505,7 +4505,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get localBridgeInstallFailed =>
-      'npm で Bridge をダウンロードできませんでした。自動で再試行します。ネットワーク接続と Bridge のログを確認してください。';
+      'npm で Bridge をダウンロードできませんでした。自動で再試行します。ネットワーク接続を確認してください。詳細は ~/.ccpocket/logs/bridge.log にあります。';
 
   @override
   String get localBridgeSafeMode =>

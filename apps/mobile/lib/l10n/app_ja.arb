@@ -1894,7 +1894,7 @@
   "localBridgePortInUse": "ポート {port} は別のプログラムが使用中です。",
   "@localBridgePortInUse": { "placeholders": { "port": { "type": "int" } } },
   "localBridgeStartFailed": "Bridgeの起動を確認できませんでした",
-  "localBridgeInstallFailed": "npm で Bridge をダウンロードできませんでした。自動で再試行します。ネットワーク接続と Bridge のログを確認してください。",
+  "localBridgeInstallFailed": "npm で Bridge をダウンロードできませんでした。自動で再試行します。ネットワーク接続を確認してください。詳細は ~/.ccpocket/logs/bridge.log にあります。",
   "localBridgeSafeMode": "保存された設定では起動できなかったため、既定の設定で動いています。設定を見直して再起動してください。",
   "guideLocalBridgeTitle": "このMacで\nBridgeを動かす",
   "guideLocalBridgeDescription": "Bridgeは、スマホとこのMacのエージェントをつなぐ小さなサーバーです。macOS版ではアプリから起動・管理できます。",

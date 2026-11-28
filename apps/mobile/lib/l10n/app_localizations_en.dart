@@ -4685,7 +4685,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get localBridgeInstallFailed =>
-      'The Bridge could not be downloaded with npm. The app keeps retrying; check the network connection and the Bridge log.';
+      'The Bridge could not be downloaded with npm. The app keeps retrying; check the network connection. Details are in ~/.ccpocket/logs/bridge.log.';
 
   @override
   String get localBridgeSafeMode =>

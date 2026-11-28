@@ -4451,7 +4451,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get localBridgeInstallFailed =>
-      '无法通过 npm 下载 Bridge。将自动重试，请检查网络连接和 Bridge 日志。';
+      '无法通过 npm 下载 Bridge。将自动重试，请检查网络连接。详情见 ~/.ccpocket/logs/bridge.log。';
 
   @override
   String get localBridgeSafeMode => '保存的设置导致无法启动，目前以默认设置运行。请检查设置后重新启动。';
