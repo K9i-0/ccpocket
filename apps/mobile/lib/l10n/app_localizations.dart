@@ -8387,6 +8387,12 @@ abstract class AppLocalizations {
   /// **'Bridgeの起動を確認できませんでした'**
   String get localBridgeStartFailed;
 
+  /// No description provided for @localBridgeInstallFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'npm で Bridge をダウンロードできませんでした。自動で再試行します。ネットワーク接続と Bridge のログを確認してください。'**
+  String get localBridgeInstallFailed;
+
   /// No description provided for @localBridgeSafeMode.
   ///
   /// In ja, this message translates to:

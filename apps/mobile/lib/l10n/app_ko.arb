@@ -1673,6 +1673,7 @@
   "localBridgeNodeTooOld": "Node.js {version}은(는) 너무 오래되었습니다. 22.19 이상으로 업데이트하면 자동으로 시작됩니다.",
   "localBridgePortInUse": "포트 {port}은(는) 다른 프로그램이 사용 중입니다.",
   "localBridgeStartFailed": "Bridge 시작을 확인하지 못했습니다",
+  "localBridgeInstallFailed": "npm으로 Bridge를 다운로드하지 못했습니다. 자동으로 다시 시도합니다. 네트워크 연결과 Bridge 로그를 확인하세요.",
   "localBridgeSafeMode": "저장된 설정으로 시작할 수 없어 기본 설정으로 실행 중입니다. 설정을 확인한 뒤 재시작하세요.",
   "guideLocalBridgeTitle": "이 Mac에서\nBridge 실행",
   "guideLocalBridgeDescription": "Bridge는 휴대폰과 이 Mac의 에이전트를 연결하는 작은 서버입니다. macOS에서는 앱에서 시작하고 관리할 수 있습니다.",

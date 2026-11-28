@@ -64,7 +64,15 @@ class LauncherResult {
 }
 
 /// Why the launcher could not start the Bridge.
-enum LauncherProblem { nodeMissing, nodeTooOld, portInUse, execFailed }
+enum LauncherProblem {
+  nodeMissing,
+  nodeTooOld,
+  portInUse,
+
+  /// npm could not download or install the Bridge.
+  installFailed,
+  execFailed,
+}
 
 /// What the launcher last reported in `~/.ccpocket/launcher-status.json`.
 class LauncherStatus {
@@ -98,6 +106,7 @@ class LauncherStatus {
     'node_missing' => LauncherProblem.nodeMissing,
     'node_too_old' => LauncherProblem.nodeTooOld,
     'port_in_use' => LauncherProblem.portInUse,
+    'install_failed' => LauncherProblem.installFailed,
     'exec_failed' => LauncherProblem.execFailed,
     _ => null,
   };

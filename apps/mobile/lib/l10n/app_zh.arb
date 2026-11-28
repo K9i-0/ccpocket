@@ -1814,6 +1814,7 @@
   "localBridgeNodeTooOld": "Node.js {version} 版本过旧。更新到 22.19 或更高版本后会自动启动。",
   "localBridgePortInUse": "端口 {port} 正被其他程序占用。",
   "localBridgeStartFailed": "未能确认 Bridge 已启动",
+  "localBridgeInstallFailed": "无法通过 npm 下载 Bridge。将自动重试，请检查网络连接和 Bridge 日志。",
   "localBridgeSafeMode": "保存的设置导致无法启动，目前以默认设置运行。请检查设置后重新启动。",
   "guideLocalBridgeTitle": "在这台 Mac 上\n运行 Bridge",
   "guideLocalBridgeDescription": "Bridge 是连接手机与这台 Mac 上代理的小型服务器。在 macOS 上可以由应用启动和管理。",

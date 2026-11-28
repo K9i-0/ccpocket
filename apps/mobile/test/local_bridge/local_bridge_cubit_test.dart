@@ -232,6 +232,21 @@ void main() {
       await cubit.close();
     });
 
+    test('reports a failed npm install as a launcher problem', () async {
+      final bridge = FakeLocalBridge()..running = false;
+      final launcher = FakeLauncher(bridge)
+        ..problemOnStart = LauncherStatus(
+          state: 'install_failed',
+          updatedAt: DateTime(2026),
+        );
+      final cubit = cubitFor(bridge, launcher: launcher);
+      await cubit.load();
+      expect(await cubit.start(), isFalse);
+      expect(cubit.state.launcherProblem, LauncherProblem.installFailed);
+      expect(cubit.state.startFailed, isFalse);
+      await cubit.close();
+    });
+
     test('asks for approval when the login item is turned off', () async {
       final bridge = FakeLocalBridge()..running = false;
       final launcher = FakeLauncher(bridge)..approvalRequired = true;

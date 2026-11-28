@@ -4541,6 +4541,10 @@ class AppLocalizationsKo extends AppLocalizations {
   String get localBridgeStartFailed => 'Bridge 시작을 확인하지 못했습니다';
 
   @override
+  String get localBridgeInstallFailed =>
+      'npm으로 Bridge를 다운로드하지 못했습니다. 자동으로 다시 시도합니다. 네트워크 연결과 Bridge 로그를 확인하세요.';
+
+  @override
   String get localBridgeSafeMode =>
       '저장된 설정으로 시작할 수 없어 기본 설정으로 실행 중입니다. 설정을 확인한 뒤 재시작하세요.';
 

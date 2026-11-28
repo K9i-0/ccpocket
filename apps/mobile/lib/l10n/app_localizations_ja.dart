@@ -4504,6 +4504,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get localBridgeStartFailed => 'Bridgeの起動を確認できませんでした';
 
   @override
+  String get localBridgeInstallFailed =>
+      'npm で Bridge をダウンロードできませんでした。自動で再試行します。ネットワーク接続と Bridge のログを確認してください。';
+
+  @override
   String get localBridgeSafeMode =>
       '保存された設定では起動できなかったため、既定の設定で動いています。設定を見直して再起動してください。';
 

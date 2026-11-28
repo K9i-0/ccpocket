@@ -197,6 +197,7 @@ class LocalBridgeStartPanel extends StatelessWidget {
               problemNodeVersion ?? '',
             ),
             LauncherProblem.portInUse => l.localBridgePortInUse(port),
+            LauncherProblem.installFailed => l.localBridgeInstallFailed,
             LauncherProblem.execFailed => l.localBridgeStartFailed,
             null => startFailed ? l.localBridgeStartFailed : null,
           };

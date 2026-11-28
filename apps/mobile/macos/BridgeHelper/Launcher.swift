@@ -7,7 +7,10 @@
 // See docs/design/local-bridge-management.md.
 import Foundation
 
-let bridgeCommand = "exec npx --yes @ccpocket/bridge@1"
+let bridgePackage = "@ccpocket/bridge@1"
+let bridgeCommand = "exec npx --yes \(bridgePackage)"
+/// A first install downloads the Bridge and its dependencies.
+let installTimeout: TimeInterval = 300
 let minimumNode = (major: 22, minor: 19)
 /// Starts this close together mean the Bridge exits right after starting.
 let quickStartWindow: TimeInterval = 45
@@ -100,6 +103,23 @@ func isSupported(_ version: String) -> Bool {
     || (parts[0] == minimumNode.major && parts[1] >= minimumNode.minor)
 }
 
+/// Have npx install the newest Bridge without starting it, so that a failed
+/// install is told apart from a Bridge that exits right after starting.
+func installBridge(preferOnline: Bool) -> Bool {
+  let process = Process()
+  process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+  let flags = preferOnline ? "--yes --prefer-online" : "--yes"
+  process.arguments = ["-lic", "npx \(flags) \(bridgePackage) --version"]
+  process.standardInput = FileHandle.nullDevice
+  // Output goes to the log, where npm explains a failure.
+  do { try process.run() } catch { return false }
+  let timeout = DispatchWorkItem { process.terminate() }
+  DispatchQueue.global().asyncAfter(deadline: .now() + installTimeout, execute: timeout)
+  process.waitUntilExit()
+  timeout.cancel()
+  return process.terminationStatus == 0
+}
+
 /// Record this start and tell whether the Bridge keeps exiting right away.
 func recordStartAndDetectCrashLoop() -> Bool {
   let now = Date().timeIntervalSince1970
@@ -147,9 +167,16 @@ guard isSupported(version) else {
   waitAndExit("node_too_old", ["nodeVersion": version])
 }
 
+redirectOutput()
+// Right after a release npm can resolve the new version from the registry and
+// then miss it in its cached package data: the second try refreshes that.
+guard installBridge(preferOnline: false) || installBridge(preferOnline: true) else {
+  // Not a Bridge crash: it must not count towards safe mode.
+  waitAndExit("install_failed", ["nodeVersion": version])
+}
+
 let safeMode = recordStartAndDetectCrashLoop()
 writeStatus("started", ["nodeVersion": version, "safeMode": safeMode, "port": port])
-redirectOutput()
 
 setenv("CCPOCKET_BRIDGE_SUPERVISED", "1", 1)
 if safeMode {

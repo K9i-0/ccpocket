@@ -70,6 +70,14 @@ phase of the Runner target, re-signed by `macos-release.yml`).
   - checks `node -v` through the login shell (`node_missing`,
     `node_too_old`); the agent retries about every 30 seconds, so installing
     Node is enough to continue;
+  - installs the Bridge first, without starting it
+    (`npx --yes @ccpocket/bridge@1 --version`, then once more with
+    `--prefer-online`), and reports `install_failed` when both fail, retrying
+    like the Node checks. A failed install is not a Bridge crash, so it does
+    not count towards safe mode. The second try is for the minutes after a
+    release: npm resolves `@1` to the new version from fresh registry data but
+    installs from its cached full package data, which does not list that
+    version yet (`ETARGET`); `--prefer-online` revalidates the cache;
   - after 4 starts within 45 seconds sets `CCPOCKET_BRIDGE_SAFE_MODE=1`: the
     Bridge ignores the saved settings and reports `safeMode`, so settings that
     prevent startup (unbindable host or port) can be fixed from the app;
