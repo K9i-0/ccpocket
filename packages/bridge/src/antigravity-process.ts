@@ -35,6 +35,13 @@ import {
   swarmFilesSignature,
   swarmPostTarget,
 } from "./antigravity-swarm.js";
+import {
+  antigravitySubagentDir,
+  listSubagentFileIds,
+  readSubagentDescriptor,
+  readSubagentReport,
+  type SubagentDescriptor,
+} from "./antigravity-subagents.js";
 
 /**
  * Antigravity (`agy acp`) provider process.
@@ -69,6 +76,8 @@ const FOLLOW_UP_WAIT_MS = 5 * 60_000;
 const WAKE_WAIT_MS = 30_000;
 /** How often a swarm's roster and board are looked at. */
 const SWARM_POLL_MS = 2_000;
+/** How often the reports of image-generator subagents are looked for. */
+const SUBAGENT_POLL_MS = 2_000;
 /** Keep a worker marked busy briefly after live ACP updates in case members.json lags. */
 const SWARM_LIVE_GRACE_MS = 10_000;
 /** Attempts to open a swarm worker's conversation before giving up on it. */
@@ -544,7 +553,14 @@ interface ToolCallState {
   /** Shown another way (a board post), so no tool card. */
   hidden?: boolean;
   /** Built-in `image-generator` subagent call; resolves once the image path arrives. */
-  imageGeneration?: { prompt: string; startedAt: number };
+  imageGeneration?: {
+    prompt: string;
+    startedAt: number;
+    /** The `Role` the call gave the subagent; `agy` files it under this. */
+    role: string;
+    /** The subagent's conversation, once its file has been matched to the call. */
+    conversationId?: string;
+  };
 }
 
 interface ElicitationField {
@@ -1535,6 +1551,12 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
   /** What the roster calls this session's own conversation. */
   private swarmSelfName = "coordinator";
 
+  private subagentDir: string | undefined;
+  private subagentTimer: ReturnType<typeof setInterval> | null = null;
+  /** Subagent and message files already dealt with, by id. */
+  private readonly seenSubagents = new Set<string>();
+  private readonly seenSubagentReports = new Set<string>();
+
   constructor(options?: {
     config?: AntigravityConfig;
     createTransport?: (config: AntigravityConfig) => AcpTransport;
@@ -1881,6 +1903,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     this.clearSelfTurn();
     this.clearFollowUpTimer();
     this.stopSwarmWatch();
+    this.stopSubagentWatch();
     const transport = this.transport;
     this.transport = null;
     transport?.stop();
@@ -3352,11 +3375,18 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
         background: false,
         ...(rawInput.IsDaemon === true ? { daemon: true } : {}),
         ...(imageGen
-          ? { imageGeneration: { prompt: imagePrompt, startedAt: Date.now() } }
+          ? {
+              imageGeneration: {
+                prompt: imagePrompt,
+                startedAt: Date.now(),
+                role: stringOr(rawInput.Role),
+              },
+            }
           : {}),
         ...(hidden ? { hidden } : {}),
       };
       this.toolCalls.set(toolUseId, call);
+      if (imageGen && !this.replaying) this.watchSubagents();
       if (!hidden) {
         this.emitMessage({
           type: "assistant",
@@ -3763,9 +3793,13 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
    */
   private resolvableImageGenerationCalls(): Array<[string, ToolCallState]> {
     const all = this.allPendingImageGenerationCalls();
-    return this.replaying
-      ? all
-      : all.filter(([, call]) => call.background || call.detached);
+    if (this.replaying) return all;
+    // A call whose subagent is known closes with that subagent's report. What
+    // the agent says may be about another call's image, or guesswork.
+    return all.filter(
+      ([, call]) =>
+        (call.background || call.detached) && !call.imageGeneration?.conversationId,
+    );
   }
 
   /** Whether an image can be the output of the pending calls, not their input. */
@@ -3907,6 +3941,127 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
       ...(this.replaying ? { skipGallery: true } : {}),
     });
     if (wasBackground) this.emitBackgroundTasks();
+  }
+
+  // ---- subagent reports ---------------------------------------------------
+
+  /**
+   * Starts looking for what image-generator subagents send back. The agent
+   * often reads a report and carries on without naming the file, so its own
+   * words cannot be the only thing that closes a call.
+   */
+  private watchSubagents(): void {
+    if (this.subagentTimer || this.stopped || !this._sessionId) return;
+    const dir = antigravitySubagentDir(this.appDataDir, this._sessionId);
+    if (!dir) return;
+    this.subagentDir = dir;
+    // Whatever is there now belongs to calls that are already over.
+    for (const id of listSubagentFileIds(dir, "subagents")) this.seenSubagents.add(id);
+    for (const id of listSubagentFileIds(dir, "messages")) {
+      this.seenSubagentReports.add(id);
+    }
+    this.subagentTimer = setInterval(() => this.syncSubagents(), SUBAGENT_POLL_MS);
+    this.subagentTimer.unref?.();
+  }
+
+  private stopSubagentWatch(): void {
+    if (this.subagentTimer) clearInterval(this.subagentTimer);
+    this.subagentTimer = null;
+  }
+
+  private syncSubagents(): void {
+    const dir = this.subagentDir;
+    if (!dir || this.stopped) return;
+    if (this.allPendingImageGenerationCalls().length === 0) {
+      this.stopSubagentWatch();
+      return;
+    }
+    // Subagents first: a report can only be placed once its sender is known.
+    const subagentIds = listSubagentFileIds(dir, "subagents");
+    const started: SubagentDescriptor[] = [];
+    for (const id of subagentIds) {
+      if (this.seenSubagents.has(id)) continue;
+      // Unreadable while it is written: left unseen, so it is read again.
+      const descriptor = readSubagentDescriptor(dir, id);
+      if (!descriptor) continue;
+      if (descriptor.typeName.trim().toLowerCase() === "image-generator") {
+        started.push(descriptor);
+      } else {
+        this.seenSubagents.add(id);
+      }
+    }
+    // ACP does not say which conversation a call became. The file carries the
+    // call's `Role`; calls with the same one are taken in the order they
+    // started. Whatever no role places is left for the next look.
+    started.sort((a, b) => a.writtenAt - b.writtenAt);
+    for (const descriptor of started) {
+      const call = this.allPendingImageGenerationCalls().find(
+        ([, call]) =>
+          !call.imageGeneration?.conversationId &&
+          call.imageGeneration?.role === descriptor.role,
+      )?.[1];
+      if (!call?.imageGeneration) continue;
+      call.imageGeneration.conversationId = descriptor.conversationId;
+      this.seenSubagents.add(descriptor.id);
+    }
+    const waiting = new Set(subagentIds.filter((id) => !this.seenSubagents.has(id)));
+    const reports = listSubagentFileIds(dir, "messages")
+      .filter((id) => !this.seenSubagentReports.has(id))
+      .map((id) => readSubagentReport(dir, id))
+      .filter((report) => report !== undefined)
+      .sort((a, b) => a.time.localeCompare(b.time));
+    for (const report of reports) {
+      // Its sender has no call yet: kept for when it has.
+      if (waiting.has(report.sender)) continue;
+      this.seenSubagentReports.add(report.id);
+      const pending = this.allPendingImageGenerationCalls().find(
+        ([, call]) => call.imageGeneration?.conversationId === report.sender,
+      );
+      if (pending) this.settleImageGenerationFromReport(pending[0], report.content);
+    }
+    if (this.allPendingImageGenerationCalls().length === 0) this.stopSubagentWatch();
+  }
+
+  /** Closes a call with the image its subagent reported, or as failed with none. */
+  private settleImageGenerationFromReport(toolUseId: string, report: string): void {
+    const call = this.toolCalls.get(toolUseId);
+    if (!call?.imageGeneration || call.finished || call.rejected) return;
+    // A report also names where the image was asked to go and what it was
+    // made from. What the subagent made is in the session's own folder, and
+    // it leads with the result: files named further down are attempts it
+    // gave up on.
+    const paths = extractGeneratedImagePaths(
+      report,
+      this.cwd,
+      (candidate) =>
+        this.isOwnArtifactPath(candidate) &&
+        this.isAllowedGeneratedImagePath(candidate) &&
+        this.isImageFile(candidate),
+    ).slice(0, 1);
+    call.finished = true;
+    const wasListed = call.background || !!call.detached;
+    call.background = false;
+    call.detached = false;
+    this.emitMessage({
+      type: "tool_result",
+      toolUseId,
+      toolName: "ImageGeneration",
+      content: formatAntigravityImageGenerationResult(
+        paths.length > 0 ? "completed" : "failed",
+        call.imageGeneration.prompt,
+        paths,
+      ),
+    });
+    if (paths.length > 0) this.turnSettledImages = true;
+    if (wasListed) this.emitBackgroundTasks();
+  }
+
+  /** Whether a path is directly inside this session's `brain/<sessionId>/`. */
+  private isOwnArtifactPath(filePath: string): boolean {
+    if (!this._sessionId) return false;
+    return (
+      resolve(filePath, "..") === resolve(this.appDataDir, "brain", this._sessionId)
+    );
   }
 
   private flushAssistant(): boolean {
@@ -4082,6 +4237,7 @@ export class AntigravityProcess extends EventEmitter<AntigravityProcessEvents> {
     }
     this.transport = null;
     this.stopSwarmWatch();
+    this.stopSubagentWatch();
     this.pendingPermissions.clear();
     this.pendingElicitations.clear();
     this.pendingPlan = null;

@@ -1,4 +1,13 @@
-import { readFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   AcpTransport,
@@ -120,12 +129,14 @@ function createProcess(
   transport: AcpTransport,
   config = LOGIN,
   isImageFile?: (path: string) => boolean,
+  appDataDir?: string,
 ) {
   const messages: ServerMessage[] = [];
   const proc = new AntigravityProcess({
     config,
     createTransport: () => transport,
     ...(isImageFile ? { isImageFile } : {}),
+    ...(appDataDir ? { appDataDir } : {}),
   });
   proc.on("message", (message) => messages.push(message));
   return { proc, messages };
@@ -714,6 +725,7 @@ async function startSession(
   extra: Record<string, Json> = {},
   options = {},
   isImageFile?: (path: string) => boolean,
+  appDataDir?: string,
 ) {
   const transport = new ScriptedTransport({
     initialize: {
@@ -726,7 +738,7 @@ async function startSession(
     "session/set_mode": { result: {} },
     ...extra,
   });
-  const created = createProcess(transport, LOGIN, isImageFile);
+  const created = createProcess(transport, LOGIN, isImageFile, appDataDir);
   created.proc.start("/workspace", options);
   await until(() => created.proc.status === "idle", "session ready");
   const update = (body: Json) =>
@@ -2456,5 +2468,264 @@ describe("AntigravityProcess image-generator subagent", () => {
     // A second flush / next prompt does not re-emit the already flushed content.
     proc.sendInput("second");
     expect(ofType(messages, "assistant")).toHaveLength(1);
+  });
+});
+
+describe("AntigravityProcess image-generator subagent reports", () => {
+  const imageGenCall = (toolCallId: string, Role: string, Prompt: string): Json => ({
+    toolCallId,
+    name: "invoke_subagent",
+    kind: "other",
+    title: "Run invoke_subagent",
+    rawInput: { TypeName: "image-generator", Role, Prompt },
+  });
+
+  /** A profile directory laid out the way `agy` keeps session `s1`. */
+  function profile() {
+    const root = mkdtempSync(join(tmpdir(), "agy-subagents-"));
+    const appDataDir = join(root, ".gemini", "antigravity-cli");
+    const brain = join(appDataDir, "brain", "s1");
+    const system = join(brain, ".system_generated");
+    mkdirSync(join(system, "subagents"), { recursive: true });
+    mkdirSync(join(system, "messages"), { recursive: true });
+    let seq = 0;
+    return {
+      appDataDir,
+      cleanup: () => rmSync(root, { recursive: true, force: true }),
+      image(name: string): string {
+        const path = join(brain, name);
+        writeFileSync(path, "jpg");
+        return path;
+      },
+      subagent(
+        conversationId: string,
+        role: string,
+        typeName = "image-generator",
+        writtenAt?: number,
+      ) {
+        const path = join(system, "subagents", `${conversationId}.json`);
+        writeFileSync(
+          path,
+          JSON.stringify({
+            conversationId,
+            subagentDescriptor: { typeName, role },
+            state: "SUBAGENT_STATE_ALIVE",
+          }),
+        );
+        if (writtenAt !== undefined) utimesSync(path, writtenAt, writtenAt);
+      },
+      /** A subagent file caught half written. */
+      partialSubagent(conversationId: string) {
+        writeFileSync(join(system, "subagents", `${conversationId}.json`), '{"conversa');
+      },
+      report(sender: string, content: string) {
+        seq++;
+        writeFileSync(
+          join(system, "messages", `message-000${seq}.json`),
+          JSON.stringify({
+            id: `message-000${seq}`,
+            recipient: "s1",
+            sender,
+            timestamp: `2026-11-28T03:40:0${seq}Z`,
+            content,
+          }),
+        );
+        // An index `agy` keeps beside the messages.
+        writeFileSync(join(system, "messages", "read.json"), "{}");
+      },
+    };
+  }
+
+  const tasksOf = (messages: ServerMessage[]) =>
+    ofType(messages, "background_tasks")
+      .at(-1)
+      ?.tasks.map((task) => task.taskId);
+
+  it("closes each call when its subagent reports, though the agent never names a file", async () => {
+    const files = profile();
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    try {
+      const { proc, messages, update } = await startSession(
+        {},
+        {},
+        undefined,
+        files.appDataDir,
+      );
+      proc.sendInput("2枚作って");
+      update({ sessionUpdate: "usage_update", used: 100, size: 1000 });
+      for (const [id, role] of [["img1", "C01 Generator"], ["img2", "C02 Generator"]]) {
+        update({ sessionUpdate: "tool_call", status: "in_progress", ...imageGenCall(id, role, id) });
+        update({ sessionUpdate: "tool_call_update", status: "completed", ...imageGenCall(id, role, id) });
+      }
+      update({ sessionUpdate: "usage_update", used: 200, size: 1000 });
+      expect(tasksOf(messages)).toEqual(["img1", "img2"]);
+
+      // The files do not come in the order of the calls.
+      files.subagent("conversation-c02", "C02 Generator");
+      files.subagent("conversation-c01", "C01 Generator");
+      const second = files.image("scene_c02.jpg");
+      files.report(
+        "conversation-c02",
+        `Final image: \`${second}\`\nCould not do: save it to \`/workspace/scene_c02.png\`.\nEarlier attempt: \`${files.image("scene_c02_attempt1.jpg")}\``,
+      );
+      vi.advanceTimersByTime(2000);
+
+      expect(ofType(messages, "tool_result")).toEqual([
+        {
+          type: "tool_result",
+          toolUseId: "img2",
+          toolName: "ImageGeneration",
+          content: `status: completed\nrevisedPrompt: img2\nsavedPath: ${second}`,
+        },
+      ]);
+      expect(tasksOf(messages)).toEqual(["img1"]);
+
+      // The agent reads the report and carries on without a word about it.
+      update({ sessionUpdate: "tool_call", status: "in_progress", toolCallId: "r1", kind: "read", title: "Read" });
+      update({ sessionUpdate: "tool_call_update", status: "completed", toolCallId: "r1" });
+      update({ sessionUpdate: "usage_update", used: 300, size: 1000 });
+      expect(tasksOf(messages)).toEqual(["img1"]);
+
+      const first = files.image("scene_c01.jpg");
+      files.report("conversation-c01", `${first}\nAll requested elements were generated.`);
+      vi.advanceTimersByTime(2000);
+
+      expect(ofType(messages, "tool_result").find((m) => m.toolUseId === "img1")).toMatchObject({
+        toolName: "ImageGeneration",
+        content: `status: completed\nrevisedPrompt: img1\nsavedPath: ${first}`,
+      });
+      expect(tasksOf(messages)).toEqual([]);
+      proc.stop();
+    } finally {
+      vi.useRealTimers();
+      files.cleanup();
+    }
+  });
+
+  it("closes a call as failed when its subagent reports no image", async () => {
+    const files = profile();
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    try {
+      // Left by an earlier call of this session: not this call's subagent.
+      files.subagent("conversation-old", "Image Generator");
+      files.report("conversation-old", files.image("old.jpg"));
+      const { proc, messages, update } = await startSession(
+        {},
+        {},
+        undefined,
+        files.appDataDir,
+      );
+      proc.sendInput("作って");
+      update({ sessionUpdate: "tool_call", status: "in_progress", ...imageGenCall("img1", "Image Generator", "Apple") });
+      update({ sessionUpdate: "tool_call_update", status: "completed", ...imageGenCall("img1", "Image Generator", "Apple") });
+      update({ sessionUpdate: "usage_update", used: 200, size: 1000 });
+      vi.advanceTimersByTime(2000);
+      expect(ofType(messages, "tool_result")).toHaveLength(0);
+
+      // A subagent of another kind says nothing about the image.
+      files.subagent("conversation-research", "Image Generator", "research");
+      files.report("conversation-research", files.image("chart.jpg"));
+      vi.advanceTimersByTime(2000);
+      expect(ofType(messages, "tool_result")).toHaveLength(0);
+
+      files.subagent("conversation-new", "Image Generator");
+      files.report("conversation-new", "The image model refused the request.");
+      vi.advanceTimersByTime(2000);
+
+      expect(ofType(messages, "tool_result")).toEqual([
+        {
+          type: "tool_result",
+          toolUseId: "img1",
+          toolName: "ImageGeneration",
+          content: "status: failed\nrevisedPrompt: Apple",
+        },
+      ]);
+      expect(tasksOf(messages)).toEqual([]);
+      proc.stop();
+    } finally {
+      vi.useRealTimers();
+      files.cleanup();
+    }
+  });
+
+  it("gives calls with the same role to subagents in the order they started, and keeps the agent's words out of it", async () => {
+    const files = profile();
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    try {
+      const { proc, messages, update } = await startSession(
+        {},
+        {},
+        undefined,
+        files.appDataDir,
+      );
+      proc.sendInput("2枚作って");
+      update({ sessionUpdate: "usage_update", used: 100, size: 1000 });
+      for (const id of ["img1", "img2"]) {
+        update({ sessionUpdate: "tool_call", status: "in_progress", ...imageGenCall(id, "Image Generator", id) });
+        update({ sessionUpdate: "tool_call_update", status: "completed", ...imageGenCall(id, "Image Generator", id) });
+      }
+      update({ sessionUpdate: "usage_update", used: 200, size: 1000 });
+
+      // By name the second call's subagent sorts first; by time it is second.
+      files.subagent("conversation-aaa", "Image Generator", "image-generator", 2000);
+      files.subagent("conversation-zzz", "Image Generator", "image-generator", 1000);
+      const second = files.image("second.jpg");
+      files.report("conversation-aaa", second);
+      vi.advanceTimersByTime(2000);
+      expect(ofType(messages, "tool_result").map((m) => m.toolUseId)).toEqual(["img2"]);
+
+      // The agent mentions the image it has: that is not the other call's.
+      update({
+        sessionUpdate: "agent_message_chunk",
+        content: { type: "text", text: `2枚目ができました: ${second}` },
+      });
+      update({ sessionUpdate: "tool_call", status: "in_progress", toolCallId: "r1", kind: "read", title: "Read" });
+      expect(ofType(messages, "tool_result").map((m) => m.toolUseId)).toEqual(["img2"]);
+
+      const first = files.image("first.jpg");
+      files.report("conversation-zzz", first);
+      vi.advanceTimersByTime(2000);
+      expect(ofType(messages, "tool_result").find((m) => m.toolUseId === "img1")).toMatchObject({
+        content: `status: completed\nrevisedPrompt: img1\nsavedPath: ${first}`,
+      });
+      expect(tasksOf(messages)).toEqual([]);
+      proc.stop();
+    } finally {
+      vi.useRealTimers();
+      files.cleanup();
+    }
+  });
+
+  it("keeps a report until its subagent's file can be read", async () => {
+    const files = profile();
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    try {
+      const { proc, messages, update } = await startSession(
+        {},
+        {},
+        undefined,
+        files.appDataDir,
+      );
+      proc.sendInput("作って");
+      update({ sessionUpdate: "tool_call", status: "in_progress", ...imageGenCall("img1", "Image Generator", "Apple") });
+      update({ sessionUpdate: "tool_call_update", status: "completed", ...imageGenCall("img1", "Image Generator", "Apple") });
+      update({ sessionUpdate: "usage_update", used: 200, size: 1000 });
+
+      const apple = files.image("apple.jpg");
+      files.partialSubagent("conversation-new");
+      files.report("conversation-new", apple);
+      vi.advanceTimersByTime(2000);
+      expect(ofType(messages, "tool_result")).toHaveLength(0);
+
+      files.subagent("conversation-new", "Image Generator");
+      vi.advanceTimersByTime(2000);
+      expect(ofType(messages, "tool_result")).toMatchObject([
+        { toolUseId: "img1", content: `status: completed\nrevisedPrompt: Apple\nsavedPath: ${apple}` },
+      ]);
+      proc.stop();
+    } finally {
+      vi.useRealTimers();
+      files.cleanup();
+    }
   });
 });

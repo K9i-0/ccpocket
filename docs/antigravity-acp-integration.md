@@ -349,7 +349,7 @@ Bridge の対応:
 - **待っているものを見せる**: プロンプトのターン中に `usage_update` が届いたら、その時点で開いている呼び出し（承認待ちを除く）をバックグラウンドの作業として `background_tasks` に載せる（`taskType` は従来どおり）。以前は「ターンが終わるまで載せない」だったので、開いたままのターンでは何を待っているのか分からなかった。
 - **本文を分ける**: 裏の呼び出しが閉じたら、それまでの本文を先に確定する。待つ前の返事と、終わったあとの返事が 1 つの吹き出しにつながらない。
 - **完了通知**: `IsDaemon` のコマンドは、完了通知を保留する理由にしない（5 分の待ちもしない）。バックグラウンドの一覧には残す。`IsDaemon` のないコマンドがターン終了後も開いている場合（1.5.14 以前）は、従来どおり 5 分まで保留する。
-- **画像生成（不具合の修正）**: `image-generator` の結果は「起動したターンのあとの発言」からだけ拾っていたため、1.5.15 以降はカードが「生成中」のまま閉じなかった（画像は本文の添付としてだけ出ていた）。モデルが先へ進んだあとの発言なら同じターンの中でも拾う。入力の参照画像を取り違えないよう、ターン内で拾うのは起動より後に書かれたファイルだけにする。
+- **画像生成（不具合の修正）**: `image-generator` の結果は「起動したターンのあとの発言」からだけ拾っていたため、1.5.15 以降はカードが「生成中」のまま閉じなかった（画像は本文の添付としてだけ出ていた）。モデルが先へ進んだあとの発言なら同じターンの中でも拾う。入力の参照画像を取り違えないよう、ターン内で拾うのは起動より後に書かれたファイルだけにする。本体がパスを言わない場合の扱いは下の「サブエージェントの報告」。
 - 自発的なターンの扱い（5 秒 / 30 秒の判定）は、デーモンのコマンドが終わったときと 1.5.14 以前のために残している。
 
 ### 子エージェントの承認が親に届く（1.5.16）
@@ -380,6 +380,49 @@ Bridge の対応:
 - ツール呼び出しは `tool_calls[].name` と `tool_calls[].args`（`arguments` や `input` ではない）。値がそのまま入っている会話と、すべての値が JSON 文字列になっている会話（`"\"ls -la\""`、`"[{...}]"`）の両方がある。
 - `USER_INPUT` の `content` は `<USER_REQUEST>…</USER_REQUEST>` に続けて `<ADDITIONAL_METADATA>` などが付く。
 - 以前の読み取りは、ツールの入力が空になり、ユーザー発言がタグつきのまま出ていた。いまは `<USER_REQUEST>` の中身だけを出し、ツールはライブと同じ名前と入力（`Bash`、`Read`、`FileChange`、`TodoWrite`、`ExitPlanMode`、MCP の `mcp__…`）にする。ツールの結果（`GENERIC` の行）は出していない。
+
+## サブエージェントの報告（2026-11-28、APIキー、agy 1.5.18）
+
+`image-generator` のカードとバックグラウンドの件数が、生成が終わっても消えない不具合があった。実例では 18 体を並列に起動し、全員が 5 分以内に画像を返したのに、2 時間後も「実行中 18」のままだった。起動数の 18 は正しく、閉じ損ねていただけ。
+
+### 原因
+
+- 呼び出しを閉じる合図が「本体の発言に画像パスが出ること」だけだった。
+- サブエージェントの報告（`send_message`）は本体のモデルにだけ届く。本体が報告を読んで黙って次へ進む（`read_file` で確かめる、コピーする）と、発言にパスが一度も出ない。
+- 1.5.15 以降はターンが開いたままなので、ターン終了時の片付けも走らない。走っても、画像ができているのに「失敗」で閉じていた。
+
+### ACP で見えるもの・見えないもの
+
+- `invoke_subagent` の `tool_call` / `tool_call_update` には `rawInput`（`TypeName` / `Role` / `Prompt`）しかなく、起動直後に出力なしで `completed` になる。サブエージェントの会話IDは載らない。
+- サブエージェントの報告が届いたことは ACP に流れない（`session/update` は本体の次の発言まで何も来ない）。
+- `agy` 自身の記録は次のファイルにある。
+
+```
+~/.gemini/<プロファイル>/brain/<親の会話ID>/.system_generated/
+  subagents/<サブエージェントの会話ID>.json   conversationId / subagentDescriptor { typeName, role } / state
+  messages/<メッセージID>.json                 sender（会話ID） / recipient / timestamp / content
+  messages/read.json                           既読の索引（読まない）
+```
+
+- `state` は報告を終えたあとも `SUBAGENT_STATE_ALIVE` のままで、完了の判定には使えない。
+- 生成した画像は `brain/<親の会話ID>/` の直下に置かれ、報告の本文は先頭でそのパスを挙げる。本文には、保存を頼まれた先のパスや、やり直す前の画像のパスも出る。
+
+### 判断: `subagents/*.json` と `messages/*.json` を読む（2026-11-28、所有者の決定）
+
+Swarm と同じく、ACP に手段がない間だけ `agy` のファイルを読み取り専用で読む。読むのは上の 2 種類だけで、`image-generator` の呼び出しが開いている間に限る（[antigravity-subagents.ts](../packages/bridge/src/antigravity-subagents.ts)）。Swarm の 2 ファイルと違い、形式を約束する文書はない。読めなくなった場合は、従来どおり本体の発言だけで閉じる動きに戻る。
+
+- **対応づけ**: 監視を始めた時点で既にあるファイルは過去のものとして無視する。新しく現れた `subagents/*.json`（`typeName` が `image-generator`）を、同じ `Role` で未対応の呼び出しに結びつける。同じ `Role` の呼び出しが複数あるときは、ファイルの更新時刻の順と呼び出しの順を合わせる。`Role` が合う呼び出しがないファイルと、書き込み途中で読めなかったファイルは、次の確認でもう一度見る。
+- **閉じ方**: そのサブエージェントが `sender` のメッセージが現れたら、本文から `brain/<会話ID>/` 直下に実在する画像パスを拾い、先頭 1 件で `ImageGeneration` の `tool_result`（`completed`）を出す。1 件もなければ `failed` で閉じる。送り主のファイルがまだ対応づいていないメッセージは、対応づくまで取っておく。
+- **本体の発言では閉じない**: 対応づいた呼び出しは、報告だけで閉じる。本体が先にできた画像に触れたとき、その画像でまだ生成中の別の呼び出しを閉じてしまうのを防ぐ。「パスのない返事で自発的なターンが終わったら、最も古い呼び出しを失敗にする」という推測も、対応づいた呼び出しには行わない。
+- **従来の合図も残す**: 対応づいていない呼び出し（ファイルが読めない場合）は、これまでどおり本体の発言で閉じる。
+- **残る制約**: ターンが終わってから 5 分たっても報告が来ない呼び出しは、従来どおり `failed` で閉じる。
+
+### 確認したこと
+
+- プローブで `invoke_subagent` を 1 回実行し、ACP の通知に会話IDも報告も載らないこと、上のファイルができることを確認した。
+- 実例のセッション（18 体）のファイルを読み、18 体すべての報告と画像が対応づくことを確認した。
+- テスト用 Bridge に WebSocket でつなぎ、2 体を並列に起動して「パスを言わずに done とだけ返す」よう指示した。2 件とも、本体の返事より前に、それぞれの画像で閉じた。
+- 独立レビューで見つかった取り違え（本体の発言と報告が同じ画像で別々の呼び出しを閉じる、報告を対応づけの前に読み捨てる）を直し、テストを足した。
 
 ## 未検証
 
@@ -413,7 +456,7 @@ Bridge の対応:
   - 質問は `AskUserQuestion` の承認リクエストにして、回答を elicitation の `content` に変換する。
   - plan モードのターンが計画の文書を書いて終わったら、本文用の `ExitPlanMode`（`assistant` の `tool_use`）と `ExitPlanMode` の承認リクエストを出して `PlanCard` を表示する。承認で plan に入る前のモードへ戻し、上記の固定文を送る。拒否に文が付いていればそれを送り、plan モードのまま続ける。
   - 読み取り・検索・取得のツールは `Read`（`StartLine`/`EndLine` を `offset`/`limit` に変換） / `Grep` / `WebSearch` / `WebFetch` として出す。ワークスペース配下は相対パス、`brain/` 配下の文書はファイル名だけで表示する。
-  - `invoke_subagent`（`TypeName: "image-generator"`）は Codex と同じ `ImageGeneration` として出し、起動直後の `completed` では閉じずにバックグラウンドタスク（`antigravity_agent` / `image-generator`）として完了通知を保留する。後続のアシスタント応答（agy 1.5.15 以降は同じターンの中の、モデルが先へ進んだあとの発言。起動より後に書かれたファイルに限る）で当該セッションの `brain/<セッションID>/` またはワークスペース配下に実在する画像ファイルパスが届いた時点で `tool_result`（`status` / `revisedPrompt` / `savedPath`）を出してカード表示・ギャラリー登録につなげる（`session/load` 再開時はギャラリーへの重複保存を行わず、同じ応答内の Markdown 埋め込み画像も重複添付しない）。
+  - `invoke_subagent`（`TypeName: "image-generator"`）は Codex と同じ `ImageGeneration` として出し、起動直後の `completed` では閉じずにバックグラウンドタスク（`antigravity_agent` / `image-generator`）として完了通知を保留する。後続のアシスタント応答（agy 1.5.15 以降は同じターンの中の、モデルが先へ進んだあとの発言。起動より後に書かれたファイルに限る）で当該セッションの `brain/<セッションID>/` またはワークスペース配下に実在する画像ファイルパスが届いた時点で `tool_result`（`status` / `revisedPrompt` / `savedPath`）を出してカード表示・ギャラリー登録につなげる（`session/load` 再開時はギャラリーへの重複保存を行わず、同じ応答内の Markdown 埋め込み画像も重複添付しない）。本体がパスを言わなくても、サブエージェントの報告のファイルで閉じる（「サブエージェントの報告」）。
   - コンテキスト使用量（`usage_update`）は設定オブジェクトの `contextUsage` に入れる。実行中はターンの終わりにまとめて送り、アイドル中（`session/load` 完了直後など）は即時に送る。
   - コンテキスト圧縮は、`/compact` 送信時に `status: "compacting"` を出してターン完了時に `context_compaction`（`trigger: "manual"`）を生成するほか、通常ターン中の `usage_update` の大幅減少から自動圧縮（`trigger: "auto"`）も検知する。記録した圧縮境界は `session/load` 再生時にも同じターン位置で再送する。
   - 過去履歴閲覧（`get_session_transcript` / 「以前のやり取りを見る」）は、稼働中・再開済みセッションでは未トリムの `SessionInfo.antigravityTranscript` から返し、未ロードの過去セッションでは `~/.gemini/<プロファイル>/brain/<セッションID>/.system_generated/logs/transcript_full.jsonl`（なければ `transcript.jsonl`）から読み取る。
@@ -492,6 +535,7 @@ Bridge の対応:
 | APIキーでの `auto` モード | APIキー認証では `auto` が一覧に出ない（OS のターミナルサンドボックスが必要） | APIキーのプロファイルで `session/new` の `modes` を見る | 対応不要（一覧に出れば自動で選べる） |
 | swarm の worker 一覧とボード | `swarm` ツールの結果が ACP に載らず、worker の会話IDが取れない。いまは swarm のファイル2つを読んでいる（上の「Swarm」）。1.5.16 で承認は親に届くようになったが、一覧・ボード・モードの引き継ぎはまだない | `swarm add` の `tool_call_update` に `rawOutput` が付くか。worker の承認要求が coordinator の接続に届くか（`--attach-swarm` なしのプローブで） | `antigravity-swarm.ts` のファイル読みを ACP の値に置き換える |
 | Orchestrator の実行役と思考レベル | ACP に選ぶ項目がない。`settings.json` の `"orchestrator"` が `agy acp` に効くかは未確定 | Google ログインの `session/new` の `configOptions` に、実行役や Orchestrator の思考レベルの項目が増えていないか | 設定オブジェクトと `set_antigravity_settings` に項目を足し、アプリのモデルのシートに出す |
+| サブエージェントの完了と報告 | `invoke_subagent` は起動直後に出力なしで閉じ、会話IDも報告も ACP に載らない。いまは `subagents/*.json` と `messages/*.json` を読んでいる（上の「サブエージェントの報告」） | `invoke_subagent` の `tool_call_update` に会話IDや `rawOutput` が付くか。報告の到着が `session/update` で届くか | `antigravity-subagents.ts` のファイル読みを ACP の値に置き換える |
 | `run_workflow` の子エージェントの名前 | 承認は 1.5.16 から親に届くが（上の「agy 1.5.15 / 1.5.16 での変化」）、誰の呼び出しかは会話ID しか分からない | 親に届く `tool_call` や承認要求に、子の役割名が付くか | `forwardedWorkerName` で名前を付ける |
 | プラン利用枠（5 時間 / 週） | ACP にクォータ取得メソッドがない（`_antigravity/quota` は `-32601`）。`agy -p /usage` はコンシューマープラン非サポートのため削除済み（[antigravity-cli#1793](https://github.com/google-antigravity/antigravity-cli/issues/1793)） | ACP 拡張または `usage_update` にアカウント残量が増えているか | `diagnostics.ts` の `handleGetUsage` から `provider: "antigravity"` の `UsageInfo` を返す |
 
